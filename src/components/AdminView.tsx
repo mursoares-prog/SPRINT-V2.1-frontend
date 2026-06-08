@@ -1,6 +1,10 @@
-import { X, Search, ShieldCheck, History, Table2, Pencil, Trash2, Plus } from 'lucide-react'
-import { useState, useMemo, useEffect } from 'react'
-import { isApiConfigured, listChangelog } from '../utils/api'
+import { X, Search, ShieldCheck, History, Table2, Pencil, Trash2, Plus, Check, Loader2, AlertTriangle } from 'lucide-react'
+import { useState, useMemo, useEffect, useCallback, useRef } from 'react'
+import {
+  isApiConfigured, listChangelog, getMergedPackageLines, getBaseFields,
+  editBaseLine, resetBaseLine, type PackageLines,
+} from '../utils/api'
+import { isEditor, authHeader } from '../utils/auth'
 import { PACKAGES } from '../data/packages'
 import PACKAGE_LINES from '../data/packageLines.json'
 import PACKAGE_LINE_DETAILS from '../data/packageLineDetails.json'
@@ -31,6 +35,7 @@ const fullPkgName = (pkgId: string): string => {
 
 interface AdminRow {
   pkgId: string
+  lineIndex: number
   pkgName: string
   descricao: string
   duracao: number | null
@@ -42,7 +47,9 @@ interface AdminRow {
   etapa: string
 }
 
-function buildRows(): AdminRow[] {
+// serverBase (quando presente) tem o texto MESCLADO (bundled + overrides);
+// usamos esse texto na coluna Descrição para refletir as edições.
+function buildRows(serverBase?: PackageLines | null): AdminRow[] {
   const rows: AdminRow[] = []
   const ids = Object.keys(PKG_LINES).sort((a, b) => {
     const na = parseInt(a.replace(/\D/g, ''), 10)
@@ -55,10 +62,12 @@ function buildRows(): AdminRow[] {
     const details = PKG_DETAILS[pkgId] ?? []
     lines.forEach((line, i) => {
       const d = details[i]
+      const serverText = serverBase?.[pkgId]?.[i]?.text
       rows.push({
         pkgId,
+        lineIndex: i,
         pkgName,
-        descricao: line.text ?? '',
+        descricao: serverText ?? line.text ?? '',
         duracao: line.duration ?? null,
         recomendacoes: d?.rec ?? '',
         padroes: d?.pad ?? '',
@@ -110,19 +119,29 @@ type Tab = 'vars' | 'log'
 export function AdminView({ onClose }: { onClose: () => void }) {
   const [tab, setTab] = useState<Tab>('vars')
   const [query, setQuery] = useState('')
-  const rows = useMemo(buildRows, [])
-
-  // Log de alterações: prioriza o servidor (histórico + entradas novas); cai no
-  // bundle (changeLog.json) quando não há backend ou a chamada falha.
+  // Base mesclada (bundled + overrides) e log: priorizam o servidor; caem no
+  // bundle (packageLines/changeLog.json) quando não há backend ou a chamada falha.
+  const [serverBase, setServerBase] = useState<PackageLines | null>(null)
   const [serverLog, setServerLog] = useState<LogEntry[] | null>(null)
-  useEffect(() => {
+  const [fields, setFields] = useState<string[]>([])
+  const [editing, setEditing] = useState<{ pkgId: string; lineIndex: number; text: string; original: string } | null>(null)
+  const canEdit = isEditor() && isApiConfigured()
+
+  const reload = useCallback(async () => {
     if (!isApiConfigured()) return
-    let active = true
-    listChangelog()
-      .then(entries => { if (active) setServerLog(entries as LogEntry[]) })
-      .catch(() => { /* offline/erro → mantém bundle */ })
-    return () => { active = false }
+    try {
+      const [base, logs] = await Promise.all([getMergedPackageLines(), listChangelog()])
+      setServerBase(base)
+      setServerLog(logs as LogEntry[])
+    } catch { /* offline/erro → mantém bundle */ }
   }, [])
+
+  useEffect(() => {
+    void reload()
+    if (isEditor() && isApiConfigured()) getBaseFields().then(setFields).catch(() => {})
+  }, [reload])
+
+  const rows = useMemo(() => buildRows(serverBase), [serverBase])
   const log = serverLog ?? LOG
 
   const filtered = useMemo(() => {
@@ -225,6 +244,7 @@ export function AdminView({ onClose }: { onClose: () => void }) {
                   <Th className="w-32">Atividade (OW)</Th>
                   <Th className="w-36">Operação (OW)</Th>
                   <Th className="w-36">Etapa (OW)</Th>
+                  {canEdit && <Th className="w-12 text-center">Editar</Th>}
                 </tr>
               </thead>
               <tbody>
@@ -248,6 +268,16 @@ export function AdminView({ onClose }: { onClose: () => void }) {
                       <Td className="text-slate-700 dark:text-slate-300">{r.atividade}</Td>
                       <Td className="text-slate-700 dark:text-slate-300">{r.operacao}</Td>
                       <Td className="text-slate-700 dark:text-slate-300">{r.etapa}</Td>
+                      {canEdit && (
+                        <Td className="text-center">
+                          <button
+                            onClick={() => setEditing({ pkgId: r.pkgId, lineIndex: r.lineIndex, text: r.descricao, original: r.descricao })}
+                            title="Editar texto da linha"
+                            className="p-1 rounded text-slate-400 hover:text-[#d97706] hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
+                            <Pencil size={13} />
+                          </button>
+                        </Td>
+                      )}
                     </tr>
                   )
                 })}
@@ -261,8 +291,113 @@ export function AdminView({ onClose }: { onClose: () => void }) {
         {/* Footer */}
         <div className="px-5 py-3 border-t border-slate-100 dark:border-slate-800 text-xs text-slate-600 shrink-0">
           {tab === 'log'
-            ? `${filteredLog.length} de ${LOG.length} alteração(ões)`
+            ? `${filteredLog.length} de ${log.length} alteração(ões)`
             : `${filtered.length} de ${rows.length} linhas`}
+        </div>
+      </div>
+
+      {editing && (
+        <LineEditor editing={editing} setEditing={setEditing} fields={fields} reload={reload} />
+      )}
+    </div>
+  )
+}
+
+function LineEditor({ editing, setEditing, fields, reload }: {
+  editing: { pkgId: string; lineIndex: number; text: string; original: string }
+  setEditing: (v: { pkgId: string; lineIndex: number; text: string; original: string } | null) => void
+  fields: string[]
+  reload: () => Promise<void>
+}) {
+  const [busy, setBusy] = useState<'save' | 'reset' | null>(null)
+  const [error, setError] = useState('')
+  const ref = useRef<HTMLTextAreaElement>(null)
+  const dirty = editing.text !== editing.original
+
+  const insertToken = (field: string) => {
+    const token = `{{${field}=XXX}}`
+    const el = ref.current
+    const start = el?.selectionStart ?? editing.text.length
+    const end = el?.selectionEnd ?? editing.text.length
+    const next = editing.text.slice(0, start) + token + editing.text.slice(end)
+    setEditing({ ...editing, text: next })
+    setTimeout(() => { el?.focus(); el?.setSelectionRange(start + token.length, start + token.length) }, 0)
+  }
+
+  const save = async () => {
+    setBusy('save'); setError('')
+    try {
+      await editBaseLine(editing.pkgId, editing.lineIndex, editing.text, authHeader())
+      await reload()
+      setEditing(null)
+    } catch (e) { setError((e as Error).message); setBusy(null) }
+  }
+
+  const reset = async () => {
+    setBusy('reset'); setError('')
+    try {
+      await resetBaseLine(editing.pkgId, editing.lineIndex, authHeader())
+      await reload()
+      setEditing(null)
+    } catch (e) { setError((e as Error).message); setBusy(null) }
+  }
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4" onClick={() => !busy && setEditing(null)}>
+      <div onClick={e => e.stopPropagation()}
+        className="bg-slate-100 dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-700 w-full max-w-2xl flex flex-col max-h-[85vh]">
+        <div className="flex items-center gap-2 px-5 py-3.5 border-b border-slate-200 dark:border-slate-700">
+          <Pencil size={15} className="text-[#d97706]" />
+          <h3 className="text-sm font-bold text-slate-800 dark:text-slate-100 flex-1">
+            Editar linha — <span className="text-blue-700 dark:text-blue-400">{editing.pkgId}</span> · linha {editing.lineIndex + 1}
+          </h3>
+          <button onClick={() => !busy && setEditing(null)} className="p-1 rounded text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"><X size={16} /></button>
+        </div>
+
+        <div className="p-5 overflow-y-auto scrollbar-custom space-y-3">
+          <textarea
+            ref={ref}
+            value={editing.text}
+            onChange={e => setEditing({ ...editing, text: e.target.value })}
+            rows={5}
+            className="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-slate-800 dark:text-slate-100 font-mono leading-relaxed focus:outline-none focus:ring-1 focus:ring-sky-400"
+          />
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1.5">
+              Inserir placeholder <span className="font-normal normal-case text-slate-400">(no cursor · {fields.length} campos)</span>
+            </p>
+            <div className="flex flex-wrap gap-1 max-h-28 overflow-y-auto scrollbar-custom">
+              {fields.map(f => (
+                <button key={f} onClick={() => insertToken(f)}
+                  className="px-1.5 py-0.5 rounded text-[10px] font-mono border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-[#d97706] hover:text-[#d97706] transition-colors">
+                  {f}
+                </button>
+              ))}
+            </div>
+          </div>
+          {error && (
+            <div className="flex items-start gap-2 text-xs text-red-600 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800 rounded-lg px-3 py-2">
+              <AlertTriangle size={14} className="shrink-0 mt-0.5" /><span>{error}</span>
+            </div>
+          )}
+        </div>
+
+        <div className="flex items-center gap-2 px-5 py-3.5 border-t border-slate-200 dark:border-slate-700">
+          <button onClick={reset} disabled={!!busy}
+            title="Reverter ao texto original"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:border-rose-300 hover:text-rose-600 transition-colors disabled:opacity-50">
+            {busy === 'reset' ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />} Reverter
+          </button>
+          <div className="ml-auto flex items-center gap-2">
+            <button onClick={() => setEditing(null)} disabled={!!busy}
+              className="px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors disabled:opacity-50">
+              Cancelar
+            </button>
+            <button onClick={save} disabled={!!busy || !dirty}
+              className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-semibold text-white bg-[#0c2340] hover:bg-[#0e3a60] transition-colors disabled:opacity-40">
+              {busy === 'save' ? <Loader2 size={13} className="animate-spin" /> : <Check size={13} />} Salvar
+            </button>
+          </div>
         </div>
       </div>
     </div>

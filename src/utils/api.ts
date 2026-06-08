@@ -86,3 +86,32 @@ export function addChangelog(entry: ChangeLogInput, authHeaders: Record<string, 
     body: JSON.stringify(entry),
   })
 }
+
+// ── Edição da base das linhas dos pacotes (overrides) ────────────────────────
+export type PackageLines = Record<string, Array<Record<string, unknown> & { text: string }>>
+
+/** Base mesclada (bundled + overrides do servidor). */
+export function getMergedPackageLines(): Promise<PackageLines> {
+  return req<PackageLines>('/api/base/package-lines')
+}
+
+/** Campos válidos para tokens {{campo=glifo}} (para o seletor do editor). */
+export function getBaseFields(): Promise<string[]> {
+  return req<string[]>('/api/base/fields')
+}
+
+/** Salva o override do texto de uma linha (editor). */
+export function editBaseLine(pkgId: string, lineIndex: number, text: string, authHeaders: Record<string, string>) {
+  return req<{ pkgId: string; lineIndex: number; text: string }>(
+    `/api/base/package-lines/${encodeURIComponent(pkgId)}/${lineIndex}`,
+    { method: 'PUT', headers: authHeaders, body: JSON.stringify({ text }) },
+  )
+}
+
+/** Reverte a linha ao texto original (remove o override). */
+export function resetBaseLine(pkgId: string, lineIndex: number, authHeaders: Record<string, string>) {
+  return req<{ pkgId: string; lineIndex: number; text: string; reverted: boolean }>(
+    `/api/base/package-lines/${encodeURIComponent(pkgId)}/${lineIndex}`,
+    { method: 'DELETE', headers: authHeaders },
+  )
+}
