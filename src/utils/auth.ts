@@ -1,12 +1,12 @@
-// Sessão/autenticação com papéis (editor/visualizador).
+// Sessão/autenticação com papéis (admin/projetista).
 // Quando há backend (VITE_API_URL), faz login na API; sem backend (ou servidor
-// fora do ar), cai no login legado offline com papel "viewer".
+// fora do ar), cai no login legado offline com papel "projetista".
 import { isApiConfigured } from './api'
 
 const API_URL = (import.meta.env.VITE_API_URL ?? '').replace(/\/+$/, '')
 const KEY = 'sprint_session'
 
-export type Role = 'editor' | 'viewer'
+export type Role = 'admin' | 'projetista'
 export interface Session { token: string; role: Role; username: string }
 
 // Credencial legada (mantém o acesso offline existente quando não há backend).
@@ -32,7 +32,7 @@ export async function login(username: string, password: string): Promise<Session
     }
   }
   if (username.trim() === LEGACY.user && password === LEGACY.pass) {
-    return persist({ token: '', role: 'viewer', username: username.trim() })
+    return persist({ token: '', role: 'projetista', username: username.trim() })
   }
   throw new Error('Usuário ou senha incorretos.')
 }
@@ -58,8 +58,8 @@ export function getRole(): Role | null {
   return getSession()?.role ?? null
 }
 
-export function isEditor(): boolean {
-  return getRole() === 'editor'
+export function isAdmin(): boolean {
+  return getRole() === 'admin'
 }
 
 /** Cabeçalho Authorization para chamadas protegidas (vazio se sem token). */

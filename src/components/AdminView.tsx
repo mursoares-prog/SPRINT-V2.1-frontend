@@ -4,7 +4,7 @@ import {
   isApiConfigured, listChangelog, getMergedPackageLines, getBaseFields,
   editBaseLine, resetBaseLine, type PackageLines,
 } from '../utils/api'
-import { isEditor, authHeader } from '../utils/auth'
+import { isAdmin, authHeader } from '../utils/auth'
 import { PACKAGES } from '../data/packages'
 import PACKAGE_LINES from '../data/packageLines.json'
 import PACKAGE_LINE_DETAILS from '../data/packageLineDetails.json'
@@ -125,7 +125,7 @@ export function AdminView({ onClose }: { onClose: () => void }) {
   const [serverLog, setServerLog] = useState<LogEntry[] | null>(null)
   const [fields, setFields] = useState<string[]>([])
   const [editing, setEditing] = useState<{ pkgId: string; lineIndex: number; text: string; original: string } | null>(null)
-  const canEdit = isEditor() && isApiConfigured()
+  const canEdit = isAdmin() && isApiConfigured()
 
   const reload = useCallback(async () => {
     if (!isApiConfigured()) return
@@ -138,7 +138,7 @@ export function AdminView({ onClose }: { onClose: () => void }) {
 
   useEffect(() => {
     void reload()
-    if (isEditor() && isApiConfigured()) getBaseFields().then(setFields).catch(() => {})
+    if (isAdmin() && isApiConfigured()) getBaseFields().then(setFields).catch(() => {})
   }, [reload])
 
   const rows = useMemo(() => buildRows(serverBase), [serverBase])
@@ -236,7 +236,7 @@ export function AdminView({ onClose }: { onClose: () => void }) {
             {canEdit && (
               <div className="m-3 flex items-center gap-2 rounded-lg border border-amber-200 dark:border-amber-900/50 bg-amber-50/70 dark:bg-amber-900/15 px-3 py-2 text-[11px] text-amber-800 dark:text-amber-300">
                 <Pencil size={13} className="shrink-0" />
-                <span>Modo editor: clique no <strong>texto da Descrição</strong> (ou no lápis à direita) para editar o texto e os placeholders da linha.</span>
+                <span>Modo admin: clique no <strong>texto da Descrição</strong> (ou no lápis à direita) para editar o texto e os placeholders da linha.</span>
               </div>
             )}
             {filtered.length > 0 ? (

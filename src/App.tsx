@@ -312,8 +312,8 @@ function Home({ onOpenAdmin, onLogout }: { onOpenAdmin?: () => void; onLogout?: 
           </div>
           {session && (
             <p className="text-[11px] text-slate-400 dark:text-slate-500">
-              {session.username} · <span className={session.role === 'editor' ? 'text-[#d97706] font-semibold' : ''}>{session.role === 'editor' ? 'editor' : 'visualizador'}</span>
-              {session.role === 'editor' && ' — edite as linhas em Admin › Variáveis dos pacotes'}
+              {session.username} · <span className={session.role === 'admin' ? 'text-[#d97706] font-semibold' : ''}>{session.role === 'admin' ? 'admin' : 'projetista'}</span>
+              {session.role === 'admin' && ' — edite as linhas em Admin › Variáveis dos pacotes'}
             </p>
           )}
         </div>

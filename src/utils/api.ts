@@ -78,7 +78,7 @@ export function listChangelog(): Promise<ChangeLogEntry[]> {
   return req<ChangeLogEntry[]>('/api/changelog')
 }
 
-/** Acrescenta uma entrada (append-only). `authHeaders` deve trazer o Bearer de um editor. */
+/** Acrescenta uma entrada (append-only). `authHeaders` deve trazer o Bearer de um admin. */
 export function addChangelog(entry: ChangeLogInput, authHeaders: Record<string, string>): Promise<ChangeLogEntry> {
   return req<ChangeLogEntry>('/api/changelog', {
     method: 'POST',
