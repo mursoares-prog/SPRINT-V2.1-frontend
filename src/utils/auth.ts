@@ -1,0 +1,69 @@
+// Sessão/autenticação com papéis (editor/visualizador).
+// Quando há backend (VITE_API_URL), faz login na API; sem backend (ou servidor
+// fora do ar), cai no login legado offline com papel "viewer".
+import { isApiConfigured } from './api'
+
+const API_URL = (import.meta.env.VITE_API_URL ?? '').replace(/\/+$/, '')
+const KEY = 'sprint_session'
+
+export type Role = 'editor' | 'viewer'
+export interface Session { token: string; role: Role; username: string }
+
+// Credencial legada (mantém o acesso offline existente quando não há backend).
+const LEGACY = { user: 'teste', pass: 'teste123' }
+
+export async function login(username: string, password: string): Promise<Session> {
+  if (isApiConfigured()) {
+    try {
+      const res = await fetch(`${API_URL}/api/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password }),
+      })
+      if (res.ok) {
+        const body = await res.json()
+        return persist({ token: body.token, role: body.role, username: body.username })
+      }
+      if (res.status === 401) throw new Error('Usuário ou senha incorretos.')
+      throw new Error(`Erro ${res.status}`)
+    } catch (e) {
+      // Credencial inválida → propaga; erro de rede (servidor fora) → tenta o fallback legado.
+      if (e instanceof Error && e.message.includes('incorretos')) throw e
+    }
+  }
+  if (username.trim() === LEGACY.user && password === LEGACY.pass) {
+    return persist({ token: '', role: 'viewer', username: username.trim() })
+  }
+  throw new Error('Usuário ou senha incorretos.')
+}
+
+function persist(s: Session): Session {
+  sessionStorage.setItem(KEY, JSON.stringify(s))
+  return s
+}
+
+export function getSession(): Session | null {
+  try {
+    return JSON.parse(sessionStorage.getItem(KEY) ?? 'null') as Session | null
+  } catch {
+    return null
+  }
+}
+
+export function clearSession(): void {
+  sessionStorage.removeItem(KEY)
+}
+
+export function getRole(): Role | null {
+  return getSession()?.role ?? null
+}
+
+export function isEditor(): boolean {
+  return getRole() === 'editor'
+}
+
+/** Cabeçalho Authorization para chamadas protegidas (vazio se sem token). */
+export function authHeader(): Record<string, string> {
+  const s = getSession()
+  return s?.token ? { Authorization: `Bearer ${s.token}` } : {}
+}

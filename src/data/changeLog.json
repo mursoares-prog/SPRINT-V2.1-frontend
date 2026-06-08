@@ -1,0 +1,2291 @@
+﻿[
+    {
+        "id":  1,
+        "data":  "2026-06-02",
+        "pacote":  "ABAN 031A",
+        "linha":  3,
+        "tipo":  "edição",
+        "resumo":  "Alterado o primeiro XXX para 300 psi (padrão para teste de baixa pressão).",
+        "antes":  "Testar contra a gaveta do BOP de arame via UC \u003e W-SFT \u003e S-SFT com {{_bopBaixa=XXX}} / {{pressaoBopArameHigh=XXXX}} psi por 5 / 10min. Drenar pressão pela planta de WT, abrir gaveta do BOP e testar contra lubrificador de arame com 300 / {{pressaoBopArameHigh=XXXX}} psi por 5 / 10 min.",
+        "depois":  "Testar contra a gaveta do BOP de arame via UC \u003e W-SFT \u003e S-SFT com 300 / {{pressaoBopArameHigh=XXXX}} psi por 5 / 10min. Drenar pressão pela planta de WT, abrir gaveta do BOP e testar contra lubrificador de arame com 300 / {{pressaoBopArameHigh=XXXX}} psi por 5 / 10 min."
+    },
+    {
+        "id":  2,
+        "data":  "2026-06-02",
+        "pacote":  "ABAN 031B",
+        "linha":  3,
+        "tipo":  "edição",
+        "resumo":  "Alterados os XXX de baixa pressão para 300 psi (padrão para teste de baixa pressão), igual ao 031A.",
+        "antes":  "Testar contra a gaveta do BOP de arame via UC \u003e W-SFT \u003e S-SFT com {{_bopBaixa=XXX}} / {{pressaoBopArameHigh=XXXX}} psi por 5 / 10min. Drenar pressão pela planta de WT, Abrir gaveta do BOP e testar contra lubrificador de arame com {{_bopBaixa=XXX}} / {{pressaoBopArameHigh=XXX}} psi por 5 / 10 min.",
+        "depois":  "Testar contra a gaveta do BOP de arame via UC \u003e W-SFT \u003e S-SFT com 300 / {{pressaoBopArameHigh=XXXX}} psi por 5 / 10min. Drenar pressão pela planta de WT, Abrir gaveta do BOP e testar contra lubrificador de arame com 300 / {{pressaoBopArameHigh=XXX}} psi por 5 / 10 min."
+    },
+    {
+        "id":  3,
+        "data":  "2026-06-02",
+        "pacote":  "ABAN 032",
+        "linha":  3,
+        "tipo":  "edição",
+        "resumo":  "Alterados os XXX de baixa pressão para 300 psi (padrão para teste de baixa pressão), igual ao 031A.",
+        "antes":  "Testar contra a gaveta do BOP de arame via UC \u003e W1-THead \u003e S1-THead com {{_bopBaixa=XXX}} / {{pressaoBopArameHigh=XXXX}} psi por 5 / 10min. Drenar pressão pela planta de WT, abrir gaveta do BOP e testar contra lubrificador de arame com {{_bopBaixa=XXX}} / {{pressaoBopArameHigh=XXX}} psi por 5 / 10 min.",
+        "depois":  "Testar contra a gaveta do BOP de arame via UC \u003e W1-THead \u003e S1-THead com 300 / {{pressaoBopArameHigh=XXXX}} psi por 5 / 10min. Drenar pressão pela planta de WT, abrir gaveta do BOP e testar contra lubrificador de arame com 300 / {{pressaoBopArameHigh=XXX}} psi por 5 / 10 min."
+    },
+    {
+        "id":  4,
+        "data":  "2026-06-02",
+        "pacote":  "ABAN 033",
+        "linha":  3,
+        "tipo":  "edição",
+        "resumo":  "Alterados os XXX de baixa pressão para 300 psi (padrão para teste de baixa pressão), igual ao 031A.",
+        "antes":  "Testar contra a gaveta do BOP de arame via UC \u003e W2-THead \u003e S2-THead com {{_bopBaixa=XXX}} / {{pressaoBopArameHigh=XXXX}} psi por 5 / 10min. Drenar pressão pela planta de WT, abrir gaveta do BOP e testar contra lubrificador de arame com {{_bopBaixa=XXX}} / {{pressaoBopArameHigh=XXXX}} psi por 5 / 10 min.",
+        "depois":  "Testar contra a gaveta do BOP de arame via UC \u003e W2-THead \u003e S2-THead com 300 / {{pressaoBopArameHigh=XXXX}} psi por 5 / 10min. Drenar pressão pela planta de WT, abrir gaveta do BOP e testar contra lubrificador de arame com 300 / {{pressaoBopArameHigh=XXXX}} psi por 5 / 10 min."
+    },
+    {
+        "id":  5,
+        "data":  "2026-06-02",
+        "pacote":  "ABAN 014",
+        "linha":  1,
+        "tipo":  "remoção",
+        "resumo":  "Removida a 1ª linha do pacote.",
+        "antes":  "(Contingência) Montar junta com de DPR com SFT + EBE + links articulados. Efetuar teste funcional SFT."
+    },
+    {
+        "id":  6,
+        "data":  "2026-06-02",
+        "pacote":  "ABAN 014",
+        "linha":  2,
+        "tipo":  "remoção",
+        "resumo":  "Removida a 2ª linha do pacote.",
+        "antes":  "Montar e testar linhas de superfície + manifold . Testar com {{pressaoRiserDpr=xxx}} psi de agmar/10min contra bloco da SFT."
+    },
+    {
+        "id":  7,
+        "data":  "2026-06-02",
+        "pacote":  "ABAN 015",
+        "linha":  1,
+        "tipo":  "remoção",
+        "resumo":  "Removida a 1ª linha do pacote.",
+        "antes":  "(Contingência) Montar junta com de riser DB com Terminal Head + EBE + links articulados. Efetuar teste funcional do terminal Head."
+    },
+    {
+        "id":  8,
+        "data":  "2026-06-02",
+        "pacote":  "ABAN 015",
+        "linha":  2,
+        "tipo":  "remoção",
+        "resumo":  "Removida a 2ª linha do pacote.",
+        "antes":  "Montar e testar linhas de superfície + manifold. Testar com {{pressaoRiserDpr=xxx}} psi de agmar/10min contra bloco do terminal head."
+    },
+    {
+        "id":  9,
+        "data":  "2026-06-02",
+        "pacote":  "ABAN 242",
+        "tipo":  "edição",
+        "resumo":  "Alterado nome do pacote para incluir o prefixo de tecnologia completo.",
+        "antes":  "Perfilagem - Desmobilização (sonda LWO)",
+        "depois":  "Perfilagem/Cabo elétrico - Desmobilização (sonda LWO)"
+    },
+    {
+        "id":  10,
+        "data":  "2026-06-02",
+        "pacote":  "ABAN 243",
+        "tipo":  "edição",
+        "resumo":  "Alterado nome do pacote para incluir o prefixo de tecnologia completo.",
+        "antes":  "Perfilagem - Desmobilização (sonda generalista)",
+        "depois":  "Perfilagem/Cabo elétrico - Desmobilização (sonda generalista)"
+    },
+    {
+        "id":  11,
+        "data":  "2026-06-02",
+        "pacote":  "NOVO 016",
+        "linha":  1,
+        "tipo":  "edição",
+        "resumo":  "Alterado \u0027Coflex\u0027 para \u0027Coflexips\u0027 na primeira linha do pacote.",
+        "antes":  "Conectar Terminal Head + Coflex.",
+        "depois":  "Conectar Terminal Head + Coflexips."
+    },
+    {
+        "id":  12,
+        "data":  "2026-06-02",
+        "pacote":  "NOVO 016",
+        "linha":  4,
+        "tipo":  "adição",
+        "resumo":  "Adicionada nova 4ª linha ao pacote com operação de montagem de anel tensionador.",
+        "depois":  "Montar anel tensionador e distribuir cargas."
+    },
+    {
+        "id":  13,
+        "data":  "2026-06-03",
+        "pacote":  "ABAN 079",
+        "linha":  7,
+        "tipo":  "ontologia",
+        "resumo":  "owFase corrigida: AP. 2 → AP. 1A (pacote usado exclusivamente em Fase 1A).",
+        "antes":  "AP. 2",
+        "depois":  "AP. 1A"
+    },
+    {
+        "id":  14,
+        "data":  "2026-06-03",
+        "pacote":  "ABAN 079",
+        "linha":  8,
+        "tipo":  "ontologia",
+        "resumo":  "owFase corrigida: AP. 2 → AP. 1A (pacote usado exclusivamente em Fase 1A).",
+        "antes":  "AP. 2",
+        "depois":  "AP. 1A"
+    },
+    {
+        "id":  15,
+        "data":  "2026-06-03",
+        "pacote":  "ABAN 079",
+        "linha":  9,
+        "tipo":  "ontologia",
+        "resumo":  "owFase corrigida: AP. 2 → AP. 1A (pacote usado exclusivamente em Fase 1A).",
+        "antes":  "AP. 2",
+        "depois":  "AP. 1A"
+    },
+    {
+        "id":  16,
+        "data":  "2026-06-03",
+        "pacote":  "ABAN 079",
+        "linha":  10,
+        "tipo":  "ontologia",
+        "resumo":  "owFase corrigida: AP. 2 → AP. 1A (pacote usado exclusivamente em Fase 1A).",
+        "antes":  "AP. 2",
+        "depois":  "AP. 1A"
+    },
+    {
+        "id":  17,
+        "data":  "2026-06-03",
+        "pacote":  "ABAN 080",
+        "linha":  1,
+        "tipo":  "ontologia",
+        "resumo":  "owFase corrigida: AP. 2 → AP. 1A (pacote usado exclusivamente em Fase 1A).",
+        "antes":  "AP. 2",
+        "depois":  "AP. 1A"
+    },
+    {
+        "id":  18,
+        "data":  "2026-06-03",
+        "pacote":  "ABAN 080",
+        "linha":  2,
+        "tipo":  "ontologia",
+        "resumo":  "owFase corrigida: AP. 2 → AP. 1A (pacote usado exclusivamente em Fase 1A).",
+        "antes":  "AP. 2",
+        "depois":  "AP. 1A"
+    },
+    {
+        "id":  19,
+        "data":  "2026-06-03",
+        "pacote":  "ABAN 080",
+        "linha":  3,
+        "tipo":  "ontologia",
+        "resumo":  "owFase corrigida: AP. 2 → AP. 1A (pacote usado exclusivamente em Fase 1A).",
+        "antes":  "AP. 2",
+        "depois":  "AP. 1A"
+    },
+    {
+        "id":  20,
+        "data":  "2026-06-03",
+        "pacote":  "ABAN 080",
+        "linha":  4,
+        "tipo":  "ontologia",
+        "resumo":  "owFase corrigida: AP. 2 → AP. 1A (pacote usado exclusivamente em Fase 1A).",
+        "antes":  "AP. 2",
+        "depois":  "AP. 1A"
+    },
+    {
+        "id":  21,
+        "data":  "2026-06-03",
+        "pacote":  "ABAN 081",
+        "linha":  1,
+        "tipo":  "ontologia",
+        "resumo":  "owFase corrigida: AP. 2 → AP. 1A (pacote usado exclusivamente em Fase 1A).",
+        "antes":  "AP. 2",
+        "depois":  "AP. 1A"
+    },
+    {
+        "id":  22,
+        "data":  "2026-06-03",
+        "pacote":  "ABAN 081",
+        "linha":  2,
+        "tipo":  "ontologia",
+        "resumo":  "owFase corrigida: AP. 2 → AP. 1A (pacote usado exclusivamente em Fase 1A).",
+        "antes":  "AP. 2",
+        "depois":  "AP. 1A"
+    },
+    {
+        "id":  23,
+        "data":  "2026-06-03",
+        "pacote":  "ABAN 081",
+        "linha":  3,
+        "tipo":  "ontologia",
+        "resumo":  "owFase corrigida: AP. 2 → AP. 1A (pacote usado exclusivamente em Fase 1A).",
+        "antes":  "AP. 2",
+        "depois":  "AP. 1A"
+    },
+    {
+        "id":  24,
+        "data":  "2026-06-03",
+        "pacote":  "ABAN 081",
+        "linha":  4,
+        "tipo":  "ontologia",
+        "resumo":  "owFase corrigida: AP. 2 → AP. 1A (pacote usado exclusivamente em Fase 1A).",
+        "antes":  "AP. 2",
+        "depois":  "AP. 1A"
+    },
+    {
+        "id":  25,
+        "data":  "2026-06-03",
+        "pacote":  "ABAN 081",
+        "linha":  5,
+        "tipo":  "ontologia",
+        "resumo":  "owFase corrigida: AP. 2 → AP. 1A (pacote usado exclusivamente em Fase 1A).",
+        "antes":  "AP. 2",
+        "depois":  "AP. 1A"
+    },
+    {
+        "id":  26,
+        "data":  "2026-06-03",
+        "pacote":  "ABAN 081",
+        "linha":  13,
+        "tipo":  "ontologia",
+        "resumo":  "owFase corrigida: AP. 2 → AP. 1A (pacote usado exclusivamente em Fase 1A).",
+        "antes":  "AP. 2",
+        "depois":  "AP. 1A"
+    },
+    {
+        "id":  27,
+        "data":  "2026-06-03",
+        "pacote":  "ABAN 081",
+        "linha":  14,
+        "tipo":  "ontologia",
+        "resumo":  "owFase corrigida: AP. 2 → AP. 1A (pacote usado exclusivamente em Fase 1A).",
+        "antes":  "AP. 2",
+        "depois":  "AP. 1A"
+    },
+    {
+        "id":  28,
+        "data":  "2026-06-03",
+        "pacote":  "ABAN 081",
+        "linha":  15,
+        "tipo":  "ontologia",
+        "resumo":  "owFase corrigida: AP. 2 → AP. 1A (pacote usado exclusivamente em Fase 1A).",
+        "antes":  "AP. 2",
+        "depois":  "AP. 1A"
+    },
+    {
+        "id":  29,
+        "data":  "2026-06-03",
+        "pacote":  "ABAN 081",
+        "linha":  16,
+        "tipo":  "ontologia",
+        "resumo":  "owFase corrigida: AP. 2 → AP. 1A (pacote usado exclusivamente em Fase 1A).",
+        "antes":  "AP. 2",
+        "depois":  "AP. 1A"
+    },
+    {
+        "id":  30,
+        "data":  "2026-06-03",
+        "pacote":  "ABAN 081",
+        "linha":  17,
+        "tipo":  "ontologia",
+        "resumo":  "owFase corrigida: AP. 2 → AP. 1A (pacote usado exclusivamente em Fase 1A).",
+        "antes":  "AP. 2",
+        "depois":  "AP. 1A"
+    },
+    {
+        "id":  31,
+        "data":  "2026-06-03",
+        "pacote":  "ABAN 081",
+        "linha":  18,
+        "tipo":  "ontologia",
+        "resumo":  "owFase corrigida: AP. 2 → AP. 1A (pacote usado exclusivamente em Fase 1A).",
+        "antes":  "AP. 2",
+        "depois":  "AP. 1A"
+    },
+    {
+        "id":  32,
+        "data":  "2026-06-03",
+        "pacote":  "ABAN 081",
+        "linha":  19,
+        "tipo":  "ontologia",
+        "resumo":  "owFase corrigida: AP. 2 → AP. 1A (pacote usado exclusivamente em Fase 1A).",
+        "antes":  "AP. 2",
+        "depois":  "AP. 1A"
+    },
+    {
+        "id":  33,
+        "data":  "2026-06-03",
+        "pacote":  "ABAN 082",
+        "linha":  1,
+        "tipo":  "ontologia",
+        "resumo":  "owFase corrigida: AP. 2 → AP. 1A (pacote usado exclusivamente em Fase 1A).",
+        "antes":  "AP. 2",
+        "depois":  "AP. 1A"
+    },
+    {
+        "id":  34,
+        "data":  "2026-06-03",
+        "pacote":  "ABAN 082",
+        "linha":  2,
+        "tipo":  "ontologia",
+        "resumo":  "owFase corrigida: AP. 2 → AP. 1A (pacote usado exclusivamente em Fase 1A).",
+        "antes":  "AP. 2",
+        "depois":  "AP. 1A"
+    },
+    {
+        "id":  35,
+        "data":  "2026-06-03",
+        "pacote":  "ABAN 082",
+        "linha":  3,
+        "tipo":  "ontologia",
+        "resumo":  "owFase corrigida: AP. 2 → AP. 1A (pacote usado exclusivamente em Fase 1A).",
+        "antes":  "AP. 2",
+        "depois":  "AP. 1A"
+    },
+    {
+        "id":  36,
+        "data":  "2026-06-03",
+        "pacote":  "ABAN 082",
+        "linha":  4,
+        "tipo":  "ontologia",
+        "resumo":  "owFase corrigida: AP. 2 → AP. 1A (pacote usado exclusivamente em Fase 1A).",
+        "antes":  "AP. 2",
+        "depois":  "AP. 1A"
+    },
+    {
+        "id":  37,
+        "data":  "2026-06-03",
+        "pacote":  "ABAN 082",
+        "linha":  5,
+        "tipo":  "ontologia",
+        "resumo":  "owFase corrigida: AP. 2 → AP. 1A (pacote usado exclusivamente em Fase 1A).",
+        "antes":  "AP. 2",
+        "depois":  "AP. 1A"
+    },
+    {
+        "id":  38,
+        "data":  "2026-06-03",
+        "pacote":  "ABAN 082",
+        "linha":  18,
+        "tipo":  "ontologia",
+        "resumo":  "owFase corrigida: AP. 2 → AP. 1A (pacote usado exclusivamente em Fase 1A).",
+        "antes":  "AP. 2",
+        "depois":  "AP. 1A"
+    },
+    {
+        "id":  39,
+        "data":  "2026-06-03",
+        "pacote":  "ABAN 082",
+        "linha":  19,
+        "tipo":  "ontologia",
+        "resumo":  "owFase corrigida: AP. 2 → AP. 1A (pacote usado exclusivamente em Fase 1A).",
+        "antes":  "AP. 2",
+        "depois":  "AP. 1A"
+    },
+    {
+        "id":  40,
+        "data":  "2026-06-03",
+        "pacote":  "ABAN 082",
+        "linha":  20,
+        "tipo":  "ontologia",
+        "resumo":  "owFase corrigida: AP. 2 → AP. 1A (pacote usado exclusivamente em Fase 1A).",
+        "antes":  "AP. 2",
+        "depois":  "AP. 1A"
+    },
+    {
+        "id":  41,
+        "data":  "2026-06-03",
+        "pacote":  "ABAN 082",
+        "linha":  21,
+        "tipo":  "ontologia",
+        "resumo":  "owFase corrigida: AP. 2 → AP. 1A (pacote usado exclusivamente em Fase 1A).",
+        "antes":  "AP. 2",
+        "depois":  "AP. 1A"
+    },
+    {
+        "id":  42,
+        "data":  "2026-06-03",
+        "pacote":  "ABAN 082",
+        "linha":  22,
+        "tipo":  "ontologia",
+        "resumo":  "owFase corrigida: AP. 2 → AP. 1A (pacote usado exclusivamente em Fase 1A).",
+        "antes":  "AP. 2",
+        "depois":  "AP. 1A"
+    },
+    {
+        "id":  43,
+        "data":  "2026-06-03",
+        "pacote":  "ABAN 082",
+        "linha":  23,
+        "tipo":  "ontologia",
+        "resumo":  "owFase corrigida: AP. 2 → AP. 1A (pacote usado exclusivamente em Fase 1A).",
+        "antes":  "AP. 2",
+        "depois":  "AP. 1A"
+    },
+    {
+        "id":  44,
+        "data":  "2026-06-03",
+        "pacote":  "ABAN 082",
+        "linha":  24,
+        "tipo":  "ontologia",
+        "resumo":  "owFase corrigida: AP. 2 → AP. 1A (pacote usado exclusivamente em Fase 1A).",
+        "antes":  "AP. 2",
+        "depois":  "AP. 1A"
+    },
+    {
+        "id":  45,
+        "data":  "2026-06-03",
+        "pacote":  "ABAN 083",
+        "linha":  1,
+        "tipo":  "ontologia",
+        "resumo":  "owFase corrigida: AP. 2 → AP. 1A (pacote usado exclusivamente em Fase 1A).",
+        "antes":  "AP. 2",
+        "depois":  "AP. 1A"
+    },
+    {
+        "id":  46,
+        "data":  "2026-06-03",
+        "pacote":  "ABAN 083",
+        "linha":  2,
+        "tipo":  "ontologia",
+        "resumo":  "owFase corrigida: AP. 2 → AP. 1A (pacote usado exclusivamente em Fase 1A).",
+        "antes":  "AP. 2",
+        "depois":  "AP. 1A"
+    },
+    {
+        "id":  47,
+        "data":  "2026-06-03",
+        "pacote":  "ABAN 083",
+        "linha":  3,
+        "tipo":  "ontologia",
+        "resumo":  "owFase corrigida: AP. 2 → AP. 1A (pacote usado exclusivamente em Fase 1A).",
+        "antes":  "AP. 2",
+        "depois":  "AP. 1A"
+    },
+    {
+        "id":  48,
+        "data":  "2026-06-03",
+        "pacote":  "ABAN 083",
+        "linha":  4,
+        "tipo":  "ontologia",
+        "resumo":  "owFase corrigida: AP. 2 → AP. 1A (pacote usado exclusivamente em Fase 1A).",
+        "antes":  "AP. 2",
+        "depois":  "AP. 1A"
+    },
+    {
+        "id":  49,
+        "data":  "2026-06-03",
+        "pacote":  "ABAN 083",
+        "linha":  12,
+        "tipo":  "ontologia",
+        "resumo":  "owFase corrigida: AP. 2 → AP. 1A (pacote usado exclusivamente em Fase 1A).",
+        "antes":  "AP. 2",
+        "depois":  "AP. 1A"
+    },
+    {
+        "id":  50,
+        "data":  "2026-06-03",
+        "pacote":  "ABAN 083",
+        "linha":  13,
+        "tipo":  "ontologia",
+        "resumo":  "owFase corrigida: AP. 2 → AP. 1A (pacote usado exclusivamente em Fase 1A).",
+        "antes":  "AP. 2",
+        "depois":  "AP. 1A"
+    },
+    {
+        "id":  51,
+        "data":  "2026-06-03",
+        "pacote":  "ABAN 083",
+        "linha":  14,
+        "tipo":  "ontologia",
+        "resumo":  "owFase corrigida: AP. 2 → AP. 1A (pacote usado exclusivamente em Fase 1A).",
+        "antes":  "AP. 2",
+        "depois":  "AP. 1A"
+    },
+    {
+        "id":  52,
+        "data":  "2026-06-03",
+        "pacote":  "ABAN 083",
+        "linha":  15,
+        "tipo":  "ontologia",
+        "resumo":  "owFase corrigida: AP. 2 → AP. 1A (pacote usado exclusivamente em Fase 1A).",
+        "antes":  "AP. 2",
+        "depois":  "AP. 1A"
+    },
+    {
+        "id":  53,
+        "data":  "2026-06-03",
+        "pacote":  "ABAN 083",
+        "linha":  16,
+        "tipo":  "ontologia",
+        "resumo":  "owFase corrigida: AP. 2 → AP. 1A (pacote usado exclusivamente em Fase 1A).",
+        "antes":  "AP. 2",
+        "depois":  "AP. 1A"
+    },
+    {
+        "id":  54,
+        "data":  "2026-06-03",
+        "pacote":  "ABAN 083",
+        "linha":  17,
+        "tipo":  "ontologia",
+        "resumo":  "owFase corrigida: AP. 2 → AP. 1A (pacote usado exclusivamente em Fase 1A).",
+        "antes":  "AP. 2",
+        "depois":  "AP. 1A"
+    },
+    {
+        "id":  55,
+        "data":  "2026-06-03",
+        "pacote":  "ABAN 083",
+        "linha":  18,
+        "tipo":  "ontologia",
+        "resumo":  "owFase corrigida: AP. 2 → AP. 1A (pacote usado exclusivamente em Fase 1A).",
+        "antes":  "AP. 2",
+        "depois":  "AP. 1A"
+    },
+    {
+        "id":  56,
+        "data":  "2026-06-03",
+        "pacote":  "ABAN 084",
+        "linha":  1,
+        "tipo":  "ontologia",
+        "resumo":  "owFase corrigida: AP. 2 → AP. 1A (pacote usado exclusivamente em Fase 1A).",
+        "antes":  "AP. 2",
+        "depois":  "AP. 1A"
+    },
+    {
+        "id":  57,
+        "data":  "2026-06-03",
+        "pacote":  "ABAN 084",
+        "linha":  2,
+        "tipo":  "ontologia",
+        "resumo":  "owFase corrigida: AP. 2 → AP. 1A (pacote usado exclusivamente em Fase 1A).",
+        "antes":  "AP. 2",
+        "depois":  "AP. 1A"
+    },
+    {
+        "id":  58,
+        "data":  "2026-06-03",
+        "pacote":  "ABAN 084",
+        "linha":  3,
+        "tipo":  "ontologia",
+        "resumo":  "owFase corrigida: AP. 2 → AP. 1A (pacote usado exclusivamente em Fase 1A).",
+        "antes":  "AP. 2",
+        "depois":  "AP. 1A"
+    },
+    {
+        "id":  59,
+        "data":  "2026-06-03",
+        "pacote":  "ABAN 084",
+        "linha":  17,
+        "tipo":  "ontologia",
+        "resumo":  "owFase corrigida: AP. 2 → AP. 1A (pacote usado exclusivamente em Fase 1A).",
+        "antes":  "AP. 2",
+        "depois":  "AP. 1A"
+    },
+    {
+        "id":  60,
+        "data":  "2026-06-03",
+        "pacote":  "ABAN 084",
+        "linha":  18,
+        "tipo":  "ontologia",
+        "resumo":  "owFase corrigida: AP. 2 → AP. 1A (pacote usado exclusivamente em Fase 1A).",
+        "antes":  "AP. 2",
+        "depois":  "AP. 1A"
+    },
+    {
+        "id":  61,
+        "data":  "2026-06-03",
+        "pacote":  "ABAN 084",
+        "linha":  19,
+        "tipo":  "ontologia",
+        "resumo":  "owFase corrigida: AP. 2 → AP. 1A (pacote usado exclusivamente em Fase 1A).",
+        "antes":  "AP. 2",
+        "depois":  "AP. 1A"
+    },
+    {
+        "id":  62,
+        "data":  "2026-06-03",
+        "pacote":  "ABAN 084",
+        "linha":  20,
+        "tipo":  "ontologia",
+        "resumo":  "owFase corrigida: AP. 2 → AP. 1A (pacote usado exclusivamente em Fase 1A).",
+        "antes":  "AP. 2",
+        "depois":  "AP. 1A"
+    },
+    {
+        "id":  63,
+        "data":  "2026-06-03",
+        "pacote":  "ABAN 084",
+        "linha":  21,
+        "tipo":  "ontologia",
+        "resumo":  "owFase corrigida: AP. 2 → AP. 1A (pacote usado exclusivamente em Fase 1A).",
+        "antes":  "AP. 2",
+        "depois":  "AP. 1A"
+    },
+    {
+        "id":  64,
+        "data":  "2026-06-03",
+        "pacote":  "ABAN 084",
+        "linha":  22,
+        "tipo":  "ontologia",
+        "resumo":  "owFase corrigida: AP. 2 → AP. 1A (pacote usado exclusivamente em Fase 1A).",
+        "antes":  "AP. 2",
+        "depois":  "AP. 1A"
+    },
+    {
+        "id":  65,
+        "data":  "2026-06-03",
+        "pacote":  "ABAN 155",
+        "linha":  1,
+        "tipo":  "ontologia",
+        "resumo":  "owFase corrigida: AP. 2 → AP. 1A (pacote usado exclusivamente em Fase 1A).",
+        "antes":  "AP. 2",
+        "depois":  "AP. 1A"
+    },
+    {
+        "id":  66,
+        "data":  "2026-06-03",
+        "pacote":  "ABAN 155",
+        "linha":  2,
+        "tipo":  "ontologia",
+        "resumo":  "owFase corrigida: AP. 2 → AP. 1A (pacote usado exclusivamente em Fase 1A).",
+        "antes":  "AP. 2",
+        "depois":  "AP. 1A"
+    },
+    {
+        "id":  67,
+        "data":  "2026-06-03",
+        "pacote":  "ABAN 155",
+        "linha":  3,
+        "tipo":  "ontologia",
+        "resumo":  "owFase corrigida: AP. 2 → AP. 1A (pacote usado exclusivamente em Fase 1A).",
+        "antes":  "AP. 2",
+        "depois":  "AP. 1A"
+    },
+    {
+        "id":  68,
+        "data":  "2026-06-03",
+        "pacote":  "ABAN 155",
+        "linha":  4,
+        "tipo":  "ontologia",
+        "resumo":  "owFase corrigida: AP. 2 → AP. 1A (pacote usado exclusivamente em Fase 1A).",
+        "antes":  "AP. 2",
+        "depois":  "AP. 1A"
+    },
+    {
+        "id":  69,
+        "data":  "2026-06-03",
+        "pacote":  "ABAN 155",
+        "linha":  5,
+        "tipo":  "ontologia",
+        "resumo":  "owFase corrigida: AP. 2 → AP. 1A (pacote usado exclusivamente em Fase 1A).",
+        "antes":  "AP. 2",
+        "depois":  "AP. 1A"
+    },
+    {
+        "id":  70,
+        "data":  "2026-06-03",
+        "pacote":  "ABAN 155",
+        "linha":  6,
+        "tipo":  "ontologia",
+        "resumo":  "owFase corrigida: AP. 2 → AP. 1A (pacote usado exclusivamente em Fase 1A).",
+        "antes":  "AP. 2",
+        "depois":  "AP. 1A"
+    },
+    {
+        "id":  71,
+        "data":  "2026-06-03",
+        "pacote":  "ABAN 155",
+        "linha":  7,
+        "tipo":  "ontologia",
+        "resumo":  "owFase corrigida: AP. 2 → AP. 1A (pacote usado exclusivamente em Fase 1A).",
+        "antes":  "AP. 2",
+        "depois":  "AP. 1A"
+    },
+    {
+        "id":  72,
+        "data":  "2026-06-03",
+        "pacote":  "ABAN 156",
+        "linha":  1,
+        "tipo":  "ontologia",
+        "resumo":  "owFase corrigida: AP. 2 → AP. 1A (pacote usado exclusivamente em Fase 1A).",
+        "antes":  "AP. 2",
+        "depois":  "AP. 1A"
+    },
+    {
+        "id":  73,
+        "data":  "2026-06-03",
+        "pacote":  "ABAN 156",
+        "linha":  2,
+        "tipo":  "ontologia",
+        "resumo":  "owFase corrigida: AP. 2 → AP. 1A (pacote usado exclusivamente em Fase 1A).",
+        "antes":  "AP. 2",
+        "depois":  "AP. 1A"
+    },
+    {
+        "id":  74,
+        "data":  "2026-06-03",
+        "pacote":  "ABAN 156",
+        "linha":  3,
+        "tipo":  "ontologia",
+        "resumo":  "owFase corrigida: AP. 2 → AP. 1A (pacote usado exclusivamente em Fase 1A).",
+        "antes":  "AP. 2",
+        "depois":  "AP. 1A"
+    },
+    {
+        "id":  75,
+        "data":  "2026-06-03",
+        "pacote":  "ABAN 156",
+        "linha":  4,
+        "tipo":  "ontologia",
+        "resumo":  "owFase corrigida: AP. 2 → AP. 1A (pacote usado exclusivamente em Fase 1A).",
+        "antes":  "AP. 2",
+        "depois":  "AP. 1A"
+    },
+    {
+        "id":  76,
+        "data":  "2026-06-03",
+        "pacote":  "ABAN 156",
+        "linha":  5,
+        "tipo":  "ontologia",
+        "resumo":  "owFase corrigida: AP. 2 → AP. 1A (pacote usado exclusivamente em Fase 1A).",
+        "antes":  "AP. 2",
+        "depois":  "AP. 1A"
+    },
+    {
+        "id":  77,
+        "data":  "2026-06-03",
+        "pacote":  "ABAN 156",
+        "linha":  6,
+        "tipo":  "ontologia",
+        "resumo":  "owFase corrigida: AP. 2 → AP. 1A (pacote usado exclusivamente em Fase 1A).",
+        "antes":  "AP. 2",
+        "depois":  "AP. 1A"
+    },
+    {
+        "id":  78,
+        "data":  "2026-06-03",
+        "pacote":  "ABAN 156",
+        "linha":  7,
+        "tipo":  "ontologia",
+        "resumo":  "owFase corrigida: AP. 2 → AP. 1A (pacote usado exclusivamente em Fase 1A).",
+        "antes":  "AP. 2",
+        "depois":  "AP. 1A"
+    },
+    {
+        "id":  79,
+        "data":  "2026-06-03",
+        "pacote":  "ABAN 157",
+        "linha":  1,
+        "tipo":  "ontologia",
+        "resumo":  "owFase corrigida: AP. 2 → AP. 1A (pacote usado exclusivamente em Fase 1A).",
+        "antes":  "AP. 2",
+        "depois":  "AP. 1A"
+    },
+    {
+        "id":  80,
+        "data":  "2026-06-03",
+        "pacote":  "ABAN 157",
+        "linha":  2,
+        "tipo":  "ontologia",
+        "resumo":  "owFase corrigida: AP. 2 → AP. 1A (pacote usado exclusivamente em Fase 1A).",
+        "antes":  "AP. 2",
+        "depois":  "AP. 1A"
+    },
+    {
+        "id":  81,
+        "data":  "2026-06-03",
+        "pacote":  "ABAN 157",
+        "linha":  3,
+        "tipo":  "ontologia",
+        "resumo":  "owFase corrigida: AP. 2 → AP. 1A (pacote usado exclusivamente em Fase 1A).",
+        "antes":  "AP. 2",
+        "depois":  "AP. 1A"
+    },
+    {
+        "id":  82,
+        "data":  "2026-06-03",
+        "pacote":  "ABAN 157",
+        "linha":  4,
+        "tipo":  "ontologia",
+        "resumo":  "owFase corrigida: AP. 2 → AP. 1A (pacote usado exclusivamente em Fase 1A).",
+        "antes":  "AP. 2",
+        "depois":  "AP. 1A"
+    },
+    {
+        "id":  83,
+        "data":  "2026-06-03",
+        "pacote":  "ABAN 157",
+        "linha":  5,
+        "tipo":  "ontologia",
+        "resumo":  "owFase corrigida: AP. 2 → AP. 1A (pacote usado exclusivamente em Fase 1A).",
+        "antes":  "AP. 2",
+        "depois":  "AP. 1A"
+    },
+    {
+        "id":  84,
+        "data":  "2026-06-03",
+        "pacote":  "ABAN 159",
+        "linha":  1,
+        "tipo":  "ontologia",
+        "resumo":  "owFase corrigida: AP. 2 → AP. 1A (pacote usado exclusivamente em Fase 1A).",
+        "antes":  "AP. 2",
+        "depois":  "AP. 1A"
+    },
+    {
+        "id":  85,
+        "data":  "2026-06-03",
+        "pacote":  "ABAN 159",
+        "linha":  2,
+        "tipo":  "ontologia",
+        "resumo":  "owFase corrigida: AP. 2 → AP. 1A (pacote usado exclusivamente em Fase 1A).",
+        "antes":  "AP. 2",
+        "depois":  "AP. 1A"
+    },
+    {
+        "id":  86,
+        "data":  "2026-06-03",
+        "pacote":  "ABAN 159",
+        "linha":  3,
+        "tipo":  "ontologia",
+        "resumo":  "owFase corrigida: AP. 2 → AP. 1A (pacote usado exclusivamente em Fase 1A).",
+        "antes":  "AP. 2",
+        "depois":  "AP. 1A"
+    },
+    {
+        "id":  87,
+        "data":  "2026-06-03",
+        "pacote":  "ABAN 159",
+        "linha":  4,
+        "tipo":  "ontologia",
+        "resumo":  "owFase corrigida: AP. 2 → AP. 1A (pacote usado exclusivamente em Fase 1A).",
+        "antes":  "AP. 2",
+        "depois":  "AP. 1A"
+    },
+    {
+        "id":  88,
+        "data":  "2026-06-03",
+        "pacote":  "ABAN 159",
+        "linha":  5,
+        "tipo":  "ontologia",
+        "resumo":  "owFase corrigida: AP. 2 → AP. 1A (pacote usado exclusivamente em Fase 1A).",
+        "antes":  "AP. 2",
+        "depois":  "AP. 1A"
+    },
+    {
+        "id":  89,
+        "data":  "2026-06-03",
+        "pacote":  "ABAN 159",
+        "linha":  6,
+        "tipo":  "ontologia",
+        "resumo":  "owFase corrigida: AP. 2 → AP. 1A (pacote usado exclusivamente em Fase 1A).",
+        "antes":  "AP. 2",
+        "depois":  "AP. 1A"
+    },
+    {
+        "id":  90,
+        "data":  "2026-06-03",
+        "pacote":  "ABAN 159",
+        "linha":  7,
+        "tipo":  "ontologia",
+        "resumo":  "owFase corrigida: AP. 2 → AP. 1A (pacote usado exclusivamente em Fase 1A).",
+        "antes":  "AP. 2",
+        "depois":  "AP. 1A"
+    },
+    {
+        "id":  91,
+        "data":  "2026-06-03",
+        "pacote":  "ABAN 159",
+        "linha":  8,
+        "tipo":  "ontologia",
+        "resumo":  "owFase corrigida: AP. 2 → AP. 1A (pacote usado exclusivamente em Fase 1A).",
+        "antes":  "AP. 2",
+        "depois":  "AP. 1A"
+    },
+    {
+        "id":  92,
+        "data":  "2026-06-03",
+        "pacote":  "ABAN 162",
+        "linha":  1,
+        "tipo":  "ontologia",
+        "resumo":  "owFase corrigida: AP. 2 → AP. 1A (pacote usado exclusivamente em Fase 1A).",
+        "antes":  "AP. 2",
+        "depois":  "AP. 1A"
+    },
+    {
+        "id":  93,
+        "data":  "2026-06-03",
+        "pacote":  "ABAN 162",
+        "linha":  2,
+        "tipo":  "ontologia",
+        "resumo":  "owFase corrigida: AP. 2 → AP. 1A (pacote usado exclusivamente em Fase 1A).",
+        "antes":  "AP. 2",
+        "depois":  "AP. 1A"
+    },
+    {
+        "id":  94,
+        "data":  "2026-06-03",
+        "pacote":  "ABAN 162",
+        "linha":  3,
+        "tipo":  "ontologia",
+        "resumo":  "owFase corrigida: AP. 2 → AP. 1A (pacote usado exclusivamente em Fase 1A).",
+        "antes":  "AP. 2",
+        "depois":  "AP. 1A"
+    },
+    {
+        "id":  95,
+        "data":  "2026-06-03",
+        "pacote":  "ABAN 162",
+        "linha":  4,
+        "tipo":  "ontologia",
+        "resumo":  "owFase corrigida: AP. 2 → AP. 1A (pacote usado exclusivamente em Fase 1A).",
+        "antes":  "AP. 2",
+        "depois":  "AP. 1A"
+    },
+    {
+        "id":  96,
+        "data":  "2026-06-03",
+        "pacote":  "ABAN 162",
+        "linha":  5,
+        "tipo":  "ontologia",
+        "resumo":  "owFase corrigida: AP. 2 → AP. 1A (pacote usado exclusivamente em Fase 1A).",
+        "antes":  "AP. 2",
+        "depois":  "AP. 1A"
+    },
+    {
+        "id":  97,
+        "data":  "2026-06-03",
+        "pacote":  "ABAN 223",
+        "linha":  1,
+        "tipo":  "ontologia",
+        "resumo":  "owFase corrigida: AP. 2 → AP. 1A (pacote usado exclusivamente em Fase 1A).",
+        "antes":  "AP. 2",
+        "depois":  "AP. 1A"
+    },
+    {
+        "id":  98,
+        "data":  "2026-06-03",
+        "pacote":  "ABAN 223",
+        "linha":  2,
+        "tipo":  "ontologia",
+        "resumo":  "owFase corrigida: AP. 2 → AP. 1A (pacote usado exclusivamente em Fase 1A).",
+        "antes":  "AP. 2",
+        "depois":  "AP. 1A"
+    },
+    {
+        "id":  99,
+        "data":  "2026-06-03",
+        "pacote":  "ABAN 224",
+        "linha":  1,
+        "tipo":  "ontologia",
+        "resumo":  "owFase corrigida: AP. 2 → AP. 1A (pacote usado exclusivamente em Fase 1A).",
+        "antes":  "AP. 2",
+        "depois":  "AP. 1A"
+    },
+    {
+        "id":  100,
+        "data":  "2026-06-03",
+        "pacote":  "ABAN 224",
+        "linha":  2,
+        "tipo":  "ontologia",
+        "resumo":  "owFase corrigida: AP. 2 → AP. 1A (pacote usado exclusivamente em Fase 1A).",
+        "antes":  "AP. 2",
+        "depois":  "AP. 1A"
+    },
+    {
+        "id":  101,
+        "data":  "2026-06-03",
+        "pacote":  "ABAN 055",
+        "linha":  1,
+        "tipo":  "ontologia",
+        "resumo":  "Ontologia corrigida (owFase, owAtividade, owOperacao, owEtapa): owFase WOR → AP. 1A; atividade/operação/etapa atualizadas para AP.1A.",
+        "antes":  "{\"owFase\":\"WOR\",\"owAtividade\":\"Instalação/Retirada da COP/COI\",\"owOperacao\":\"Retirada de camisão de válvula de segurança DHSV\",\"owEtapa\":\"Etapa Única\"}",
+        "depois":  "{\"owFase\":\"AP. 1A\",\"owAtividade\":\"Acesso Inicial, Amortecimento e Limpeza do Poço\",\"owOperacao\":\"Instalação/Recuperação de camisão - cabo/arame\",\"owEtapa\":\"Montando equipamentos de cabo/arame\"}"
+    },
+    {
+        "id":  102,
+        "data":  "2026-06-03",
+        "pacote":  "ABAN 055",
+        "linha":  2,
+        "tipo":  "ontologia",
+        "resumo":  "Ontologia corrigida (owFase, owAtividade, owOperacao, owEtapa): owFase WOR → AP. 1A; atividade/operação/etapa atualizadas para AP.1A.",
+        "antes":  "{\"owFase\":\"WOR\",\"owAtividade\":\"Instalação/Retirada da COP/COI\",\"owOperacao\":\"Retirada de camisão de válvula de segurança DHSV\",\"owEtapa\":\"Etapa Única\"}",
+        "depois":  "{\"owFase\":\"AP. 1A\",\"owAtividade\":\"Acesso Inicial, Amortecimento e Limpeza do Poço\",\"owOperacao\":\"Instalação/Recuperação de camisão - cabo/arame\",\"owEtapa\":\"Retirando camisão - cabo/arame\"}"
+    },
+    {
+        "id":  103,
+        "data":  "2026-06-03",
+        "pacote":  "NOVO 013",
+        "linha":  1,
+        "tipo":  "inclusão",
+        "resumo":  "Linha copiada de ABAN 011 (linha 1) com ontologia adaptada para AP. 0 / Retirada de TCAP.",
+        "antes":  null,
+        "depois":  "Efetuar preparação e pré-testes nos equipamentos do Conjunto de WO."
+    },
+    {
+        "id":  104,
+        "data":  "2026-06-03",
+        "pacote":  "NOVO 013",
+        "linha":  2,
+        "tipo":  "inclusão",
+        "resumo":  "Linha copiada de ABAN 011 (linha 2) com ontologia adaptada para AP. 0 / Retirada de TCAP.",
+        "antes":  null,
+        "depois":  "Conectar Stress Joint na FIBOP/FDR e testar cavidade com {{pressaoCavFibop=XXXX}} psi."
+    },
+    {
+        "id":  105,
+        "data":  "2026-06-03",
+        "pacote":  "NOVO 013",
+        "linha":  3,
+        "tipo":  "inclusão",
+        "resumo":  "Linha copiada de ABAN 011 (linha 3) com ontologia adaptada para AP. 0 / Retirada de TCAP.",
+        "antes":  null,
+        "depois":  "Conectar HCR na Stress Joint."
+    },
+    {
+        "id":  106,
+        "data":  "2026-06-03",
+        "pacote":  "NOVO 013",
+        "linha":  4,
+        "tipo":  "inclusão",
+        "resumo":  "Linha copiada de ABAN 011 (linha 4) com ontologia adaptada para AP. 0 / Retirada de TCAP.",
+        "antes":  null,
+        "depois":  "Efetuar plumbagem, testes funcionais e de estanqueidade do conjunto de WO."
+    },
+    {
+        "id":  107,
+        "data":  "2026-06-03",
+        "pacote":  "NOVO 013",
+        "linha":  5,
+        "tipo":  "inclusão",
+        "resumo":  "Linha copiada de ABAN 011 (linha 5) com ontologia adaptada para AP. 0 / Retirada de TCAP.",
+        "antes":  null,
+        "depois":  "Efetuar teste EDS da FIBOP/FDR na presença do fiscal e Tool Pusher."
+    },
+    {
+        "id":  108,
+        "data":  "2026-06-03",
+        "pacote":  "NOVO 013",
+        "linha":  6,
+        "tipo":  "inclusão",
+        "resumo":  "Linha copiada de ABAN 011 (linha 6) com ontologia adaptada para AP. 0 / Retirada de TCAP.",
+        "antes":  null,
+        "depois":  "Testar estanqueidade do HCR com AGMAR com {{pressaoHcr=XXXX}} psi por 10 min contra VB2 FIBOP/FDR."
+    },
+    {
+        "id":  109,
+        "data":  "2026-06-03",
+        "pacote":  "NOVO 013",
+        "linha":  7,
+        "tipo":  "inclusão",
+        "resumo":  "Linha copiada de ABAN 011 (linha 7) com ontologia adaptada para AP. 0 / Retirada de TCAP.",
+        "antes":  null,
+        "depois":  "Testar estanqueidade dos Bores 4\" e 2\" e do HCR com {{pressaoHcr=XXXX}} psi/10 min contra base de teste."
+    },
+    {
+        "id":  110,
+        "data":  "2026-06-03",
+        "pacote":  "NOVO 013",
+        "linha":  8,
+        "tipo":  "inclusão",
+        "resumo":  "Linha copiada de ABAN 011 (linha 8) com ontologia adaptada para AP. 0 / Retirada de TCAP.",
+        "antes":  null,
+        "depois":  "Destravar TRT/FIANM da base de teste. Erguer o Conjunto de WO. Retirar base de teste do moon pool."
+    },
+    {
+        "id":  111,
+        "data":  "2026-06-03",
+        "pacote":  "NOVO 013",
+        "linha":  9,
+        "tipo":  "inclusão",
+        "resumo":  "Linha copiada de ABAN 011 (linha 9) com ontologia adaptada para AP. 0 / Retirada de TCAP.",
+        "antes":  null,
+        "depois":  "Mover mesa de inspeção para o moon pool. Substituir elementos de vedação da TRT/FIANM e finalizar preparativos para descida do conjunto."
+    },
+    {
+        "id":  112,
+        "data":  "2026-06-03",
+        "pacote":  "NOVO 013",
+        "linha":  10,
+        "tipo":  "inclusão",
+        "resumo":  "Linha copiada de ABAN 011 (linha 10) com ontologia adaptada para AP. 0 / Retirada de TCAP.",
+        "antes":  null,
+        "depois":  "Instalar polias do HCR / umbilical."
+    },
+    {
+        "id":  113,
+        "data":  "2026-06-03",
+        "pacote":  "NOVO 013",
+        "linha":  11,
+        "tipo":  "inclusão",
+        "resumo":  "Linha copiada de ABAN 011 (linha 11) com ontologia adaptada para AP. 0 / Retirada de TCAP.",
+        "antes":  null,
+        "depois":  "Liberar acesso para passagem do Conjunto de WO. Mergulhar conjunto."
+    },
+    {
+        "id":  114,
+        "data":  "2026-06-03",
+        "pacote":  "NOVO 013",
+        "linha":  12,
+        "tipo":  "inclusão",
+        "resumo":  "Linha copiada de ABAN 011 (linha 12) com ontologia adaptada para AP. 0 / Retirada de TCAP.",
+        "antes":  null,
+        "depois":  "Mobilizar equipamentos de manobra para descida do Conjunto de WO com DPR 6 5/8\"."
+    },
+    {
+        "id":  115,
+        "data":  "2026-06-03",
+        "pacote":  "NOVO 013",
+        "linha":  13,
+        "tipo":  "inclusão",
+        "resumo":  "Linha copiada de ABAN 011 (linha 13) com ontologia adaptada para AP. 0 / Retirada de TCAP.",
+        "antes":  null,
+        "depois":  "Descer conjunto de WO com DPR, gabaritando DPR."
+    },
+    {
+        "id":  116,
+        "data":  "2026-06-03",
+        "pacote":  "NOVO 013",
+        "linha":  14,
+        "tipo":  "inclusão",
+        "resumo":  "Linha copiada de ABAN 011 (linha 14) com ontologia adaptada para AP. 0 / Retirada de TCAP.",
+        "antes":  null,
+        "depois":  "Efetuar dummy run e balanceio da coluna de DPR."
+    },
+    {
+        "id":  117,
+        "data":  "2026-06-03",
+        "pacote":  "NOVO 014",
+        "linha":  1,
+        "tipo":  "inclusão",
+        "resumo":  "Linha copiada de ABAN 012 (linha 1) com ontologia adaptada para AP. 0 / Retirada de TCAP.",
+        "antes":  null,
+        "depois":  "Efetuar preparação e pré-testes nos equipamentos do Conjunto de WO."
+    },
+    {
+        "id":  118,
+        "data":  "2026-06-03",
+        "pacote":  "NOVO 014",
+        "linha":  2,
+        "tipo":  "inclusão",
+        "resumo":  "Linha copiada de ABAN 012 (linha 2) com ontologia adaptada para AP. 0 / Retirada de TCAP.",
+        "antes":  null,
+        "depois":  "Conectar Stress Joint na FIBOP/FDR e testar cavidade com {{pressaoCavFibop=XXXX}} psi."
+    },
+    {
+        "id":  119,
+        "data":  "2026-06-03",
+        "pacote":  "NOVO 014",
+        "linha":  3,
+        "tipo":  "inclusão",
+        "resumo":  "Linha copiada de ABAN 012 (linha 3) com ontologia adaptada para AP. 0 / Retirada de TCAP.",
+        "antes":  null,
+        "depois":  "Efetuar plumbagem, testes funcionais e de estanqueidade do Conjunto de WO."
+    },
+    {
+        "id":  120,
+        "data":  "2026-06-03",
+        "pacote":  "NOVO 014",
+        "linha":  4,
+        "tipo":  "inclusão",
+        "resumo":  "Linha copiada de ABAN 012 (linha 4) com ontologia adaptada para AP. 0 / Retirada de TCAP.",
+        "antes":  null,
+        "depois":  "Efetuar teste EDS da FIBOP/FDR na presença do fiscal e Tool Pusher."
+    },
+    {
+        "id":  121,
+        "data":  "2026-06-03",
+        "pacote":  "NOVO 014",
+        "linha":  5,
+        "tipo":  "inclusão",
+        "resumo":  "Linha copiada de ABAN 012 (linha 5) com ontologia adaptada para AP. 0 / Retirada de TCAP.",
+        "antes":  null,
+        "depois":  "Testar estanqueidade dos Bores 4\" e 2\" com {{pressaoRiserBores=XXXX}} psi/10 min contra base de teste."
+    },
+    {
+        "id":  122,
+        "data":  "2026-06-03",
+        "pacote":  "NOVO 014",
+        "linha":  6,
+        "tipo":  "inclusão",
+        "resumo":  "Linha copiada de ABAN 012 (linha 6) com ontologia adaptada para AP. 0 / Retirada de TCAP.",
+        "antes":  null,
+        "depois":  "Destravar TRT/FIANM da base de teste. Erguer o Conjunto de WO. Retirar base de teste do moon pool."
+    },
+    {
+        "id":  123,
+        "data":  "2026-06-03",
+        "pacote":  "NOVO 014",
+        "linha":  7,
+        "tipo":  "inclusão",
+        "resumo":  "Linha copiada de ABAN 012 (linha 7) com ontologia adaptada para AP. 0 / Retirada de TCAP.",
+        "antes":  null,
+        "depois":  "Mover mesa de inpeção para o moon pool. Substituir elementos de vedação da TRT/FIANM e finalizar preparativos para descida do conjunto."
+    },
+    {
+        "id":  124,
+        "data":  "2026-06-03",
+        "pacote":  "NOVO 014",
+        "linha":  8,
+        "tipo":  "inclusão",
+        "resumo":  "Linha copiada de ABAN 012 (linha 8) com ontologia adaptada para AP. 0 / Retirada de TCAP.",
+        "antes":  null,
+        "depois":  "Instalar polias do umbilical"
+    },
+    {
+        "id":  125,
+        "data":  "2026-06-03",
+        "pacote":  "NOVO 014",
+        "linha":  9,
+        "tipo":  "inclusão",
+        "resumo":  "Linha copiada de ABAN 012 (linha 9) com ontologia adaptada para AP. 0 / Retirada de TCAP.",
+        "antes":  null,
+        "depois":  "Liberar acesso para passagem do Conjunto de WO. Mergulhar conjunto."
+    },
+    {
+        "id":  126,
+        "data":  "2026-06-03",
+        "pacote":  "NOVO 014",
+        "linha":  10,
+        "tipo":  "inclusão",
+        "resumo":  "Linha copiada de ABAN 012 (linha 10) com ontologia adaptada para AP. 0 / Retirada de TCAP.",
+        "antes":  null,
+        "depois":  "Mobilizar equipamentos de manobra para descida do Conjunto de WO  com riser DB."
+    },
+    {
+        "id":  127,
+        "data":  "2026-06-03",
+        "pacote":  "NOVO 014",
+        "linha":  11,
+        "tipo":  "inclusão",
+        "resumo":  "Linha copiada de ABAN 012 (linha 11) com ontologia adaptada para AP. 0 / Retirada de TCAP.",
+        "antes":  null,
+        "depois":  "Descer Conjunto de WO com riser DB, gabaritando bores de 4\" e 2\".  Testar cavidade de cada conexão com {{pressaoRiserCavConexao=XXX}} psi / 1 min. Testar bores 4\" e 2\" com {{pressaoRiserBores=XXX}} psi no início, meio e fim da descida (contra VGs da FIBOP/FDR/TRT/FIANM), para avaliar a estanqueidade"
+    },
+    {
+        "id":  128,
+        "data":  "2026-06-03",
+        "pacote":  "NOVO 014",
+        "linha":  12,
+        "tipo":  "inclusão",
+        "resumo":  "Linha copiada de ABAN 012 (linha 12) com ontologia adaptada para AP. 0 / Retirada de TCAP.",
+        "antes":  null,
+        "depois":  "Efetuar dummy run e balanceio da coluna de riser."
+    },
+    {
+        "id":  129,
+        "data":  "2026-06-03",
+        "pacote":  "NOVO 013",
+        "linha":  null,
+        "tipo":  "metadado",
+        "resumo":  "Nome e categoria atualizados.",
+        "antes":  "{\"name\":\"Desalagamento com nitrogênio para TCAP (HCR)\",\"category\":\"Conexão ANM\"}",
+        "depois":  "{\"name\":\"Preparação do Conjunto de WO e descida com DPR/HCR (TCAP)\",\"category\":\"Fase 0\"}"
+    },
+    {
+        "id":  130,
+        "data":  "2026-06-03",
+        "pacote":  "NOVO 014",
+        "linha":  null,
+        "tipo":  "metadado",
+        "resumo":  "Nome e categoria atualizados.",
+        "antes":  "{\"name\":\"Desalagamento com nitrogênio para TCAP (linhas de controle de riser)\",\"category\":\"Conexão ANM\"}",
+        "depois":  "{\"name\":\"Preparação do Conjunto de WO e descida com Riser Dual Bore (TCAP)\",\"category\":\"Fase 0\"}"
+    },
+    {
+        "id":  131,
+        "data":  "2026-06-04",
+        "pacote":  "ABAN 011",
+        "linha":  null,
+        "tipo":  "reestruturação",
+        "resumo":  "Linhas de preparação do CWO (11 linhas) extraídas para NOVO 017. Pacote passou a conter apenas a descida (3 linhas: Mobilizar, Descer DPR, Dummy run). Nome atualizado para 'Descida do Conjunto de WO com DPR/HCR'.",
+        "antes":  "14 linhas — prep (owEtapa: Preparando para a descida de TRT+CWO) + descida",
+        "depois":  "3 linhas — descida apenas (owEtapa: Descendo TRT+CWO / Dummy Run/Balanceio)"
+    },
+    {
+        "id":  132,
+        "data":  "2026-06-04",
+        "pacote":  "ABAN 012",
+        "linha":  null,
+        "tipo":  "reestruturação",
+        "resumo":  "Linhas de preparação do CWO (9 linhas) extraídas para NOVO 019. Pacote passou a conter apenas a descida (3 linhas: Mobilizar, Descer riser DB, Dummy run). Nome atualizado para 'Descida do Conjunto de WO com Riser Dual Bore'.",
+        "antes":  "12 linhas — prep (owEtapa: Preparando para a descida de TRT+CWO) + descida",
+        "depois":  "3 linhas — descida apenas (owEtapa: Descendo TRT+CWO / Dummy Run/Balanceio)"
+    },
+    {
+        "id":  133,
+        "data":  "2026-06-04",
+        "pacote":  "NOVO 013",
+        "linha":  null,
+        "tipo":  "reestruturação",
+        "resumo":  "Linhas de preparação do CWO (11 linhas) removidas — cobertas por NOVO 017 em Fase 0. Pacote passou a conter apenas a descida e desalagamento (4 linhas). Nome atualizado para 'Descida do Conjunto de WO com DPR/HCR para retirada da TCap'.",
+        "antes":  "15 linhas — prep + descida + desalagamento N2",
+        "depois":  "4 linhas — descida + desalagamento N2 (owFase: AP. 0)"
+    },
+    {
+        "id":  134,
+        "data":  "2026-06-04",
+        "pacote":  "NOVO 014",
+        "linha":  null,
+        "tipo":  "reestruturação",
+        "resumo":  "Linhas de preparação do CWO (9 linhas) removidas — cobertas por NOVO 019 em Fase 0. Pacote passou a conter apenas a descida e desalagamento (5 linhas). Nome atualizado para 'Descida do Conjunto de WO com Riser Dual Bore para retirada da TCap'.",
+        "antes":  "14 linhas — prep + descida + desalagamento N2",
+        "depois":  "5 linhas — descida + desalagamento N2 (owFase: AP. 0)"
+    },
+    {
+        "id":  135,
+        "data":  "2026-06-04",
+        "pacote":  "NOVO 017",
+        "linha":  null,
+        "tipo":  "criação",
+        "resumo":  "Novo pacote criado com as 11 linhas de preparação do CWO extraídas de ABAN 011 (DP/DPR-HCR). Fase 0. Categoria: Fase 0.",
+        "depois":  "11 linhas — preparação do CWO com DPR/HCR (owFase: AP. 0)"
+    },
+    {
+        "id":  136,
+        "data":  "2026-06-04",
+        "pacote":  "NOVO 018",
+        "linha":  null,
+        "tipo":  "criação",
+        "resumo":  "Novo pacote criado com as mesmas linhas de NOVO 017 (re-preparação após TCAP subir à superfície, DP/DPR-HCR). Fase 1A. Categoria: Descida WO.",
+        "depois":  "11 linhas — re-preparação do CWO com DPR/HCR (owFase: AP. 1A)"
+    },
+    {
+        "id":  137,
+        "data":  "2026-06-04",
+        "pacote":  "NOVO 019",
+        "linha":  null,
+        "tipo":  "criação",
+        "resumo":  "Novo pacote criado com as 9 linhas de preparação do CWO extraídas de ABAN 012 (ANC/Riser Dual Bore). Fase 0. Categoria: Fase 0.",
+        "depois":  "9 linhas — preparação do CWO com Riser Dual Bore (owFase: AP. 0)"
+    },
+    {
+        "id":  138,
+        "data":  "2026-06-04",
+        "pacote":  "NOVO 020",
+        "linha":  null,
+        "tipo":  "criação",
+        "resumo":  "Novo pacote criado com as mesmas linhas de NOVO 019 (re-preparação após TCAP subir à superfície, ANC/Riser Dual Bore). Fase 1A. Categoria: Descida WO.",
+        "depois":  "9 linhas — re-preparação do CWO com Riser Dual Bore (owFase: AP. 1A)"
+    },
+    {
+        "id":  139,
+        "data":  "2026-06-04",
+        "pacote":  "NOVO 017",
+        "linha":  null,
+        "tipo":  "metadado",
+        "resumo":  "Sufixo '(RTCAP+reentrada ANM)' adicionado ao nome.",
+        "antes":  "Preparação do Conjunto de WO com DPR/HCR",
+        "depois":  "Preparação do Conjunto de WO com DPR/HCR (RTCAP+reentrada ANM)"
+    },
+    {
+        "id":  140,
+        "data":  "2026-06-04",
+        "pacote":  "NOVO 018",
+        "linha":  null,
+        "tipo":  "metadado",
+        "resumo":  "Nome alterado: 'Re-preparação' → 'Preparação'; sufixo '(Reentrada ANM)' adicionado.",
+        "antes":  "Re-preparação do Conjunto de WO com DPR/HCR",
+        "depois":  "Preparação do Conjunto de WO com DPR/HCR (Reentrada ANM)"
+    },
+    {
+        "id":  141,
+        "data":  "2026-06-04",
+        "pacote":  "NOVO 019",
+        "linha":  null,
+        "tipo":  "metadado",
+        "resumo":  "Sufixo '(RTCAP+reentrada ANM)' adicionado ao nome.",
+        "antes":  "Preparação do Conjunto de WO com Riser Dual Bore",
+        "depois":  "Preparação do Conjunto de WO com Riser Dual Bore (RTCAP+reentrada ANM)"
+    },
+    {
+        "id":  142,
+        "data":  "2026-06-04",
+        "pacote":  "NOVO 020",
+        "linha":  null,
+        "tipo":  "metadado",
+        "resumo":  "Nome alterado: 'Re-preparação' → 'Preparação'; sufixo '(Reentrada ANM)' adicionado.",
+        "antes":  "Re-preparação do Conjunto de WO com Riser Dual Bore",
+        "depois":  "Preparação do Conjunto de WO com Riser Dual Bore (Reentrada ANM)"
+    },
+    {
+        "id":  143,
+        "data":  "2026-06-04",
+        "pacote":  "NOVO 017",
+        "linha":  null,
+        "tipo":  "metadado",
+        "resumo":  "Sufixo corrigido.",
+        "antes":  "Preparação do Conjunto de WO com DPR/HCR (RTCAP+reentrada ANM)",
+        "depois":  "Preparação do Conjunto de WO com DPR/HCR (fundeio/retirada de TCAP + reentrada na ANM)"
+    },
+    {
+        "id":  144,
+        "data":  "2026-06-04",
+        "pacote":  "NOVO 018",
+        "linha":  null,
+        "tipo":  "metadado",
+        "resumo":  "Sufixo corrigido.",
+        "antes":  "Preparação do Conjunto de WO com DPR/HCR (Reentrada ANM)",
+        "depois":  "Preparação do Conjunto de WO com DPR/HCR (Reentrada na ANM)"
+    },
+    {
+        "id":  145,
+        "data":  "2026-06-04",
+        "pacote":  "NOVO 019",
+        "linha":  null,
+        "tipo":  "metadado",
+        "resumo":  "Sufixo corrigido.",
+        "antes":  "Preparação do Conjunto de WO com Riser Dual Bore (RTCAP+reentrada ANM)",
+        "depois":  "Preparação do Conjunto de WO com Riser Dual Bore (fundeio/retirada de TCAP + reentrada na ANM)"
+    },
+    {
+        "id":  146,
+        "data":  "2026-06-04",
+        "pacote":  "NOVO 020",
+        "linha":  null,
+        "tipo":  "metadado",
+        "resumo":  "Sufixo corrigido.",
+        "antes":  "Preparação do Conjunto de WO com Riser Dual Bore (Reentrada ANM)",
+        "depois":  "Preparação do Conjunto de WO com Riser Dual Bore (Reentrada na ANM)"
+    },
+    {
+        "id":  147,
+        "data":  "2026-06-04",
+        "pacote":  "NOVO 017",
+        "linha":  null,
+        "tipo":  "metadado",
+        "resumo":  "Sufixo simplificado.",
+        "antes":  "Preparação do Conjunto de WO com DPR/HCR (fundeio/retirada de TCAP + reentrada na ANM)",
+        "depois":  "Preparação do Conjunto de WO com DPR/HCR (retirada/fundeio de TCAP)"
+    },
+    {
+        "id":  148,
+        "data":  "2026-06-04",
+        "pacote":  "NOVO 019",
+        "linha":  null,
+        "tipo":  "metadado",
+        "resumo":  "Sufixo simplificado.",
+        "antes":  "Preparação do Conjunto de WO com Riser Dual Bore (fundeio/retirada de TCAP + reentrada na ANM)",
+        "depois":  "Preparação do Conjunto de WO com Riser Dual Bore (retirada/fundeio de TCAP)"
+    },
+    {
+        "id":  151,
+        "data":  "2026-06-04",
+        "pacote":  "NOVO 017",
+        "linha":  null,
+        "tipo":  "metadado",
+        "resumo":  "Grafia corrigida: 'TCAP' → 'TCap'.",
+        "antes":  "Preparação do Conjunto de WO com DPR/HCR para retirada/fundeio da TCAP",
+        "depois":  "Preparação do Conjunto de WO com DPR/HCR para retirada/fundeio da TCap"
+    },
+    {
+        "id":  152,
+        "data":  "2026-06-04",
+        "pacote":  "NOVO 019",
+        "linha":  null,
+        "tipo":  "metadado",
+        "resumo":  "Grafia corrigida: 'TCAP' → 'TCap'.",
+        "antes":  "Preparação do Conjunto de WO com Riser Dual Bore para retirada/fundeio da TCAP",
+        "depois":  "Preparação do Conjunto de WO com Riser Dual Bore para retirada/fundeio da TCap"
+    },
+    {
+        "id":  153,
+        "data":  "2026-06-04",
+        "pacote":  "NOVO 018",
+        "linha":  null,
+        "tipo":  "metadado",
+        "resumo":  "Nome invertido com NOVO 019.",
+        "antes":  "Preparação do Conjunto de WO com DPR/HCR (Reentrada na ANM)",
+        "depois":  "Preparação do Conjunto de WO com Riser Dual Bore para retirada/fundeio da TCap"
+    },
+    {
+        "id":  154,
+        "data":  "2026-06-04",
+        "pacote":  "NOVO 019",
+        "linha":  null,
+        "tipo":  "metadado",
+        "resumo":  "Nome invertido com NOVO 018.",
+        "antes":  "Preparação do Conjunto de WO com Riser Dual Bore para retirada/fundeio da TCap",
+        "depois":  "Preparação do Conjunto de WO com DPR/HCR (Reentrada na ANM)"
+    },
+    {
+        "id":  149,
+        "data":  "2026-06-04",
+        "pacote":  "NOVO 017",
+        "linha":  null,
+        "tipo":  "metadado",
+        "resumo":  "Sufixo reformulado.",
+        "antes":  "Preparação do Conjunto de WO com DPR/HCR (retirada/fundeio de TCAP)",
+        "depois":  "Preparação do Conjunto de WO com DPR/HCR para retirada/fundeio da TCAP"
+    },
+    {
+        "id":  150,
+        "data":  "2026-06-04",
+        "pacote":  "NOVO 019",
+        "linha":  null,
+        "tipo":  "metadado",
+        "resumo":  "Sufixo reformulado.",
+        "antes":  "Preparação do Conjunto de WO com Riser Dual Bore (retirada/fundeio de TCAP)",
+        "depois":  "Preparação do Conjunto de WO com Riser Dual Bore para retirada/fundeio da TCAP"
+    },
+    {
+        "id":  155,
+        "data":  "2026-06-04",
+        "pacote":  "NOVO 018",
+        "linha":  null,
+        "tipo":  "metadado",
+        "resumo":  "applicableRig corrigido de DP para ANC (Riser Dual Bore é tecnologia ANC); categoria corrigida de 'Descida WO' para 'Fase 0' (pacote de prep com TCap, posicionado na Fase 0).",
+        "antes":  "applicableRig: DP | categoria: Descida WO",
+        "depois":  "applicableRig: ANC | categoria: Fase 0"
+    },
+    {
+        "id":  156,
+        "data":  "2026-06-04",
+        "pacote":  "NOVO 019",
+        "linha":  null,
+        "tipo":  "metadado",
+        "resumo":  "applicableRig corrigido de ANC para DP (DPR/HCR é tecnologia DP); categoria corrigida de 'Fase 0' para 'Descida WO' (pacote de prep sem TCap, posicionado na Fase 1A).",
+        "antes":  "applicableRig: ANC | categoria: Fase 0",
+        "depois":  "applicableRig: DP | categoria: Descida WO"
+    },
+    {
+        "id":  157,
+        "data":  "2026-06-04",
+        "pacote":  "NOVO 018",
+        "linha":  null,
+        "tipo":  "reestruturação",
+        "resumo":  "Conteúdo (linhas) trocado com NOVO 019. NOVO 018 passa a conter as linhas de prep com Riser Dual Bore para retirada/fundeio da TCap (ANC, Fase 0). Troca necessária pois em sessão anterior apenas os nomes foram invertidos, sem inverter o conteúdo.",
+        "antes":  "11 linhas — prep DPR/HCR (owFase: AP. 1A)",
+        "depois":  "9 linhas — prep Riser Dual Bore para retirada/fundeio da TCap (owFase: AP. 0)"
+    },
+    {
+        "id":  158,
+        "data":  "2026-06-04",
+        "pacote":  "NOVO 019",
+        "linha":  null,
+        "tipo":  "reestruturação",
+        "resumo":  "Conteúdo (linhas) trocado com NOVO 018. NOVO 019 passa a conter as linhas de prep com DPR/HCR para reentrada na ANM sem TCap (DP, Fase 1A). Troca necessária pois em sessão anterior apenas os nomes foram invertidos, sem inverter o conteúdo.",
+        "antes":  "9 linhas — prep Riser Dual Bore para retirada/fundeio da TCap (owFase: AP. 0)",
+        "depois":  "11 linhas — prep DPR/HCR para reentrada na ANM (owFase: AP. 1A)"
+    },
+    {
+        "id":  159,
+        "data":  "2026-06-04",
+        "pacote":  "NOVO 013",
+        "linha":  null,
+        "tipo":  "metadado",
+        "resumo":  "Nome atualizado para incluir fundeio além de retirada.",
+        "antes":  "Descida do Conjunto de WO com DPR/HCR para retirada da TCap",
+        "depois":  "Descida do Conjunto de WO com DPR/HCR para retirada/fundeio da TCap"
+    },
+    {
+        "id":  160,
+        "data":  "2026-06-04",
+        "pacote":  "NOVO 014",
+        "linha":  null,
+        "tipo":  "metadado",
+        "resumo":  "Nome atualizado para incluir fundeio além de retirada.",
+        "antes":  "Descida do Conjunto de WO com Riser Dual Bore para retirada da TCap",
+        "depois":  "Descida do Conjunto de WO com Riser Dual Bore para retirada/fundeio da TCap"
+    },
+    {
+        "id":  161,
+        "data":  "2026-06-04",
+        "pacote":  "ABAN 110",
+        "linha":  null,
+        "tipo":  "metadado",
+        "resumo":  "Correção de ontologia OW: owFase AP.2 → AP.1A (pacote aparece em Fase 1A no cronograma, antes do BOP); owOperacao 'Cimentação Interior do Revestimento/PA' (inválida em AP.1A) → 'Instalação de eCSB - cabo/arame'; owEtapa linha 4 'Preparativo cimentação' (inválida em AP.1A) → 'Descendo cabo/arame'.",
+        "antes":  "owFase: AP. 2 | owOperacao: Cimentação Interior do Revestimento/PA | L4 owEtapa: Preparativo cimentação",
+        "depois":  "owFase: AP. 1A | owOperacao: Instalação de eCSB - cabo/arame | L4 owEtapa: Descendo cabo/arame"
+    },
+    {
+        "id":  162,
+        "data":  "2026-06-04",
+        "pacote":  "ABAN 127",
+        "linha":  null,
+        "tipo":  "metadado",
+        "resumo":  "Correção de ontologia OW: owFase AP.2 → AP.1A (instalação de plug FT ocorre em Fase 1A, antes do BOP). owOperacao e owEtapa permanecem válidos em AP.1A.",
+        "antes":  "owFase: AP. 2",
+        "depois":  "owFase: AP. 1A"
+    },
+    {
+        "id":  163,
+        "data":  "2026-06-04",
+        "pacote":  "ABAN 128",
+        "linha":  null,
+        "tipo":  "metadado",
+        "resumo":  "Correção de ontologia OW: owFase AP.2 → AP.1A (instalação de plug FT ocorre em Fase 1A, antes do BOP). owOperacao e owEtapa permanecem válidos em AP.1A.",
+        "antes":  "owFase: AP. 2",
+        "depois":  "owFase: AP. 1A"
+    },
+    {
+        "id":  164,
+        "data":  "2026-06-04",
+        "pacote":  "ABAN 129",
+        "linha":  null,
+        "tipo":  "metadado",
+        "resumo":  "Correção de ontologia OW: owFase AP.2 → AP.1A (instalação de plug FT no TH ocorre em Fase 1A, antes do BOP). owOperacao e owEtapa permanecem válidos em AP.1A.",
+        "antes":  "owFase: AP. 2",
+        "depois":  "owFase: AP. 1A"
+    },
+    {
+        "id":  165,
+        "data":  "2026-06-04",
+        "pacote":  "ABAN 130",
+        "linha":  null,
+        "tipo":  "metadado",
+        "resumo":  "Correção de ontologia OW: owFase AP.2 → AP.1A (instalação de STV FT ocorre em Fase 1A, antes do BOP). owOperacao e owEtapa permanecem válidos em AP.1A.",
+        "antes":  "owFase: AP. 2",
+        "depois":  "owFase: AP. 1A"
+    },
+    {
+        "id":  166,
+        "data":  "2026-06-04",
+        "pacote":  "ABAN 131",
+        "linha":  null,
+        "tipo":  "metadado",
+        "resumo":  "Correção de ontologia OW: owFase AP.2 → AP.1A (instalação de STV FT ocorre em Fase 1A, antes do BOP). owOperacao e owEtapa permanecem válidos em AP.1A.",
+        "antes":  "owFase: AP. 2",
+        "depois":  "owFase: AP. 1A"
+    },
+    {
+        "id":  167,
+        "data":  "2026-06-04",
+        "pacote":  "ABAN 132",
+        "linha":  null,
+        "tipo":  "metadado",
+        "resumo":  "Correção de ontologia OW: owFase AP.2 → AP.1A (instalação de BRV FT ocorre em Fase 1A, antes do BOP). owOperacao e owEtapa permanecem válidos em AP.1A.",
+        "antes":  "owFase: AP. 2",
+        "depois":  "owFase: AP. 1A"
+    },
+    {
+        "id":  168,
+        "data":  "2026-06-04",
+        "pacote":  "ABAN 133",
+        "linha":  null,
+        "tipo":  "metadado",
+        "resumo":  "Correção de ontologia OW: owFase AP.2 → AP.1A (instalação de BRV FT ocorre em Fase 1A, antes do BOP). owOperacao e owEtapa permanecem válidos em AP.1A.",
+        "antes":  "owFase: AP. 2",
+        "depois":  "owFase: AP. 1A"
+    },
+    {
+        "id":  169,
+        "data":  "2026-06-04",
+        "pacote":  "ABAN 158",
+        "linha":  null,
+        "tipo":  "metadado",
+        "resumo":  "Correção de ontologia OW: owFase AP.2 → AP.1A (cimentação anular com CR/FT ocorre em Fase 1A, antes do BOP). owOperacao e owEtapa permanecem válidos em AP.1A.",
+        "antes":  "owFase: AP. 2",
+        "depois":  "owFase: AP. 1A"
+    },
+    {
+        "id":  170,
+        "data":  "2026-06-04",
+        "pacote":  "ABAN 163",
+        "linha":  null,
+        "tipo":  "metadado",
+        "resumo":  "Correção de ontologia OW: owFase AP.2 → AP.1A (recuperação de BPR com FT ocorre em Fase 1A, antes do BOP). owOperacao e owEtapa permanecem válidos em AP.1A.",
+        "antes":  "owFase: AP. 2",
+        "depois":  "owFase: AP. 1A"
+    },
+    {
+        "id":  171,
+        "data":  "2026-06-04",
+        "pacote":  "ABAN 164",
+        "linha":  null,
+        "tipo":  "metadado",
+        "resumo":  "Correção de ontologia OW: owFase AP.2 → AP.1A (operação com Packer Multiset FT ocorre em Fase 1A, antes do BOP). owOperacao e owEtapa permanecem válidos em AP.1A.",
+        "antes":  "owFase: AP. 2",
+        "depois":  "owFase: AP. 1A"
+    },
+    {
+        "id":  172,
+        "data":  "2026-06-04",
+        "pacote":  "ABAN 106",
+        "linha":  null,
+        "tipo":  "metadado",
+        "resumo":  "Correção encadeada de ontologia OW: owFase AP.1A → AP.2 (avaliação de cimentação em modo BOP ocorre em Fase 2, após instalação do BOP). owAtividade/owOperacao/owEtapa permanecem válidos em AP.2 (Instalação e/ou verificação de eCSB > Verificação de cimentação em anular).",
+        "antes":  "owFase: AP. 1A",
+        "depois":  "owFase: AP. 2"
+    },
+    {
+        "id":  173,
+        "data":  "2026-06-04",
+        "pacote":  "ABAN 238",
+        "linha":  null,
+        "tipo":  "metadado",
+        "resumo":  "Correção encadeada de ontologia OW: linhas operacionais saíram de WOR (tag inválido) para AP.1A. owAtividade → Instalação e/ou verificação de eCSB; owOperacao → Instalação de eCSB - cabo/arame; owEtapa remapeada por linha (etapa de bismuto inexistente na ontologia → usada Instalando tampão mecânico - cabo/arame). Linha 0 (já AP.1A) recebeu owEtapa Reunião SMS / Pré-tarefa.",
+        "antes":  "owFase: WOR (11 linhas)",
+        "depois":  "owFase: AP. 1A"
+    },
+    {
+        "id":  174,
+        "data":  "2026-06-04",
+        "pacote":  "ABAN 238",
+        "linha":  8,
+        "tipo":  "metadado",
+        "resumo":  "Ajuste de owEtapa: Aguardando pega → Instalando tampão mecânico - cabo/arame (tampão de bismuto não tem etapa de pega/cura; uniformizado com as demais linhas de instalação do tampão).",
+        "antes":  "owEtapa: Aguardando pega",
+        "depois":  "owEtapa: Instalando tampão mecânico - cabo/arame"
+    },
+    {
+        "id":  175,
+        "data":  "2026-06-04",
+        "pacote":  "ABAN 001-007, 208 (DMM)",
+        "linha":  null,
+        "tipo":  "metadado",
+        "resumo":  "owFase dos pacotes de mobilização (DMM) passou a ser derivada da fase do cronograma em runtime (AppContext.makeFineTuningItems/pkgFtItem via deriveOwFase + FASE_TO_OW), em vez de fixa no JSON. Regra: com TCap pelo WO → Fase 0/AP.0; sem TCap → Fase 1A/AP.1A; FS2 → Fase 2/AP.2 (reclassificação de fase já feita pelo engine). Atividade DMM/DMA e operações de mobilização existem em todas as fases com as mesmas etapas, então owAtividade/owOperacao/owEtapa são preservados. Evita duplicar pacotes só para variar a ontologia.",
+        "antes":  "owFase estática (AP.0; AP.1A em ABAN 004; AP.2 em ABAN 005)",
+        "depois":  "owFase = fase do cronograma"
+    },
+    {
+        "id":  176,
+        "data":  "2026-06-05",
+        "pacote":  "Diversos (54 linhas)",
+        "linha":  null,
+        "tipo":  "metadado",
+        "resumo":  "Assistente de preenchimento: criados 6 campos novos na seção Em Implementação (subseção Diâmetros & Volumes) e tokenizados os placeholders correspondentes — colunaTrabalhoDpDiam (Ø COT DP, 34 linhas ABAN 182-202), volBombeioDescidaFt (13 linhas ABAN 124-135), crDiam (3: 155/156/158), packerFtDiam (2: 159/164), bismutoEur e bismutoOverpull (ABAN 238). Render de estado vazio mantido byte-idêntico (glifo = placeholder original). Obs: ABAN 222 NÃO ganhou campo de volume (o placeholder ali é pressão de bombeio → mapeia em limitePressaoBombeio, pendente Fase B).",
+        "antes":  "placeholders crus (XXX/xxx) sem campo",
+        "depois":  "tokens {{campo=glifo}} ligados a ProjectData"
+    },
+    {
+        "id":  177,
+        "data":  "2026-06-05",
+        "pacote":  "Diversos (Fase B)",
+        "linha":  null,
+        "tipo":  "metadado",
+        "resumo":  "Tokenização Fase B (54 placeholders, 64 trocas). Balde 1 — ligados a campos BHA existentes (canhao, bpDiam, taeDiamNom/taeProf, diamLocalizador, diamJdc, modeloSlidingSleeve, prof, condicBroca/Raspador, bppAncoragemKlbf), adicionando canhao/bpDiam/taeDiamNom/condicBroca/condicRaspador a PLAN_KEYS. Balde 2 — limitePressaoBombeio (222) e novo fcbaCorteDens (186/189/190/235/236). Balde 3 — 18 campos novos em Em Implementação (adaptadorMc, pressaoCabecaLimite, gabaritoNippleDiam, tampaoTipo, cimentAnularAcimaTampao, canhaoModelo, plugFtDiam/Aplicador, ferramentaBoDuplaDiam, overpullKlbf, copCoiTubo, revestimentoDiam, tampaoAbandono Dens/Topo/Compr, ecsbFluidoDens, condicIntervalo Topo/Base). Render de estado vazio byte-idêntico. Pendentes (ambíguos, NÃO tokenizados): ABAN 097[1],097[4],134[0] (GS/camisão), 147[0],147[4] (ferramenta FT genérica), 185[3] (FCBA xx\"), 237[4] (Ø tubo da luva).",
+        "antes":  "placeholders crus sem campo",
+        "depois":  "tokens ligados a ProjectData/BhaPlanFields"
+    },
+    {
+        "id":  178,
+        "data":  "2026-06-05",
+        "pacote":  "097,134,147,185,237,233",
+        "linha":  null,
+        "tipo":  "metadado",
+        "resumo":  "Resolução dos placeholders pendentes da varredura. ABAN 097[1]/134[0]: ferramenta de pescaria do camisão → campo aplicadorCamisao (Instalação/Pescaria - Aplicador), que foi movido no ProjectDataPanel para o bloco geral isCamis (passa a renderizar em wireline/electric/ct). CORREÇÃO ABAN 097[4]: placeholder era diâmetro (a xxx\") e virou profundidade (a {{prof=xxx}} m). ABAN 147[0]/[4]: novo campo ferramentaBhaFt. CORREÇÃO ABAN 185[3]: erro de origem FCBA xx\" → FCBA {{fcbaCorteDens=xx}} ppg (densidade, não diâmetro). ABAN 237[4]: novo campo taeTuboDiam (Ø nominal do tubo de instalação do TAE; deve ser compatível com taeDiamNom). ABAN 233[0,1,3,4]: broca/raspador (placeholders de 1 caractere X\"/Y\" que o scan inicial de 2+ chars perdera) → condicBroca/condicRaspador.",
+        "antes":  "7 placeholders ambíguos + 4 de 1-char não tokenizados; 2 com erro de unidade",
+        "depois":  "tokenizados/corrigidos; 2 campos novos (ferramentaBhaFt, taeTuboDiam)"
+    },
+    {
+        "id":  179,
+        "data":  "2026-06-05",
+        "pacote":  "013,036,047,235",
+        "linha":  null,
+        "tipo":  "metadado",
+        "resumo":  "Placeholders de 1 caractere (perdidos pelo scan inicial de 2+ chars). CORREÇÃO ABAN 013[9]: faltava \"DP\" → \"COT X\"\" virou \"COT DP {{colunaTrabalhoDpDiam=X}}\"\" (ABAN 013 incluído no impacto/gate de colunaTrabalhoDpDiam). ABAN 036[1]: os dois nipples → nipple275 (TSR) e nipplesOutros (Cauda prod.) da seção Nipples. ABAN 047[1]: novos campos profRegistroPressao (prof do RP) e numEstacoesRp (qtd de estações, placeholder z). ABAN 235[0]: novos campos corteBrocaDiam (broca tric.), corteDcSecoes e corteHwdpSecoes (componentes DC/HWDP do BHA de corte). Nota: ABAN 042[0] \"Z-6\" é nome de modelo de aplicador, NÃO placeholder. Varredura de placeholders concluída.",
+        "antes":  "placeholders de 1 char sem campo; 013[9] sem DP",
+        "depois":  "tokenizados; 5 campos novos; 013 corrigido"
+    },
+    {
+        "id":  180,
+        "data":  "2026-06-05",
+        "pacote":  "ABAN 034",
+        "linha":  1,
+        "tipo":  "edição",
+        "resumo":  "Complementada a linha com a profundidade do plug no/do TMF (token {{prof=XXX}}, derivado do nipple do TMF na seção Nipples).",
+        "antes":  "Descer pescador JDC {{diamJdc=X}}\" para recuperação da haste do plug no TMF.",
+        "depois":  "Descer pescador JDC {{diamJdc=X}}\" para recuperação da haste do plug no TMF a {{prof=XXX}} m."
+    },
+    {
+        "id":  181,
+        "data":  "2026-06-05",
+        "pacote":  "ABAN 034",
+        "linha":  5,
+        "tipo":  "edição",
+        "resumo":  "Complementada a linha com a profundidade do plug no/do TMF (token {{prof=XXX}}, derivado do nipple do TMF na seção Nipples).",
+        "antes":  "Descer trem de arame com pescador {{modelo=XXX}} e recuperar plug do TMF, conforme procedimento SMAB.",
+        "depois":  "Descer trem de arame com pescador {{modelo=XXX}} e recuperar plug do TMF a {{prof=XXX}} m, conforme procedimento SMAB."
+    },
+    {
+        "id":  182,
+        "data":  "2026-06-05",
+        "pacote":  "ABAN 035",
+        "linha":  5,
+        "tipo":  "edição",
+        "resumo":  "Complementada a linha com a profundidade do plug no/do TMF (token {{prof=XXX}}, derivado do nipple do TMF na seção Nipples).",
+        "antes":  "Descer trem de arame com pescador {{modelo=XXX}} e recuperar plug do TMF, conforme procedimento SMAB.",
+        "depois":  "Descer trem de arame com pescador {{modelo=XXX}} e recuperar plug do TMF a {{prof=XXX}} m, conforme procedimento SMAB."
+    },
+    {
+        "id":  183,
+        "data":  "2026-06-05",
+        "pacote":  "ABAN 088",
+        "linha":  8,
+        "tipo":  "edição",
+        "resumo":  "Complementada a linha com a profundidade do plug no/do TMF (token {{prof=XXX}}, derivado do nipple do TMF na seção Nipples).",
+        "antes":  "Mobilizar BHA de perfilagem com stroker e pescador PRS 4\"/JDC 4\" + destravador B 4 ,5\"/ GS 4\" + Destravador M / GS 4\" + Probe para retirada do corpo do plug no TMF (bore de produção).",
+        "depois":  "Mobilizar BHA de perfilagem com stroker e pescador PRS 4\"/JDC 4\" + destravador B 4 ,5\"/ GS 4\" + Destravador M / GS 4\" + Probe para retirada do corpo do plug no TMF (bore de produção) a {{prof=XXX}} m."
+    },
+    {
+        "id":  184,
+        "data":  "2026-06-05",
+        "pacote":  "ABAN 122",
+        "linha":  1,
+        "tipo":  "edição",
+        "resumo":  "Complementada a linha com a profundidade do plug no/do TMF (token {{prof=XXX}}, derivado do nipple do TMF na seção Nipples).",
+        "antes":  "Mobilizar e montar BHA com JDC 2\" para retirada da haste do plug no TMF (bore de anular).",
+        "depois":  "Mobilizar e montar BHA com JDC 2\" para retirada da haste do plug no TMF (bore de anular) a {{prof=XXX}} m."
+    },
+    {
+        "id":  185,
+        "data":  "2026-06-05",
+        "pacote":  "ABAN 122",
+        "linha":  7,
+        "tipo":  "edição",
+        "resumo":  "Complementada a linha com a profundidade do plug no/do TMF (token {{prof=XXX}}, derivado do nipple do TMF na seção Nipples).",
+        "antes":  "Mobilizar e montar BHA com JDC 2\" + destravador B 2 3/8\" para retirada do corpo do plug no TMF (bore de anular).",
+        "depois":  "Mobilizar e montar BHA com JDC 2\" + destravador B 2 3/8\" para retirada do corpo do plug no TMF (bore de anular) a {{prof=XXX}} m."
+    },
+    {
+        "id":  186,
+        "data":  "2026-06-05",
+        "pacote":  "ABAN 122",
+        "linha":  10,
+        "tipo":  "edição",
+        "resumo":  "Complementada a linha com a profundidade do plug no/do TMF (token {{prof=XXX}}, derivado do nipple do TMF na seção Nipples).",
+        "antes":  "Assentar ferramenta no plug do TMF e testar com overpull (se possível). Efetuar procedimento de desassentamento do plug.",
+        "depois":  "Assentar ferramenta no plug do TMF a {{prof=XXX}} m e testar com overpull (se possível). Efetuar procedimento de desassentamento do plug."
+    },
+    {
+        "id":  187,
+        "data":  "2026-06-05",
+        "pacote":  "ABAN 123",
+        "linha":  1,
+        "tipo":  "edição",
+        "resumo":  "Complementada a linha com a profundidade do plug no/do TMF (token {{prof=XXX}}, derivado do nipple do TMF na seção Nipples).",
+        "antes":  "Mobilizar e montar BHA  com JDC 3\"/4\"para retirada da haste do plug no TMF (bore de produção).",
+        "depois":  "Mobilizar e montar BHA  com JDC 3\"/4\"para retirada da haste do plug no TMF (bore de produção) a {{prof=XXX}} m."
+    },
+    {
+        "id":  188,
+        "data":  "2026-06-05",
+        "pacote":  "ABAN 123",
+        "linha":  7,
+        "tipo":  "edição",
+        "resumo":  "Complementada a linha com a profundidade do plug no/do TMF (token {{prof=XXX}}, derivado do nipple do TMF na seção Nipples).",
+        "antes":  "Mobilizar e montar BHA  com pescador PRS 4\"/JDC 4\" + destravador B 4 ,5\"/ GS 4\" + Destravador M / GS 4\" + Probe para retirada do corpo do plug no TMF (bore de produção).",
+        "depois":  "Mobilizar e montar BHA  com pescador PRS 4\"/JDC 4\" + destravador B 4 ,5\"/ GS 4\" + Destravador M / GS 4\" + Probe para retirada do corpo do plug no TMF (bore de produção) a {{prof=XXX}} m."
+    },
+    {
+        "id":  189,
+        "data":  "2026-06-05",
+        "pacote":  "ABAN 123",
+        "linha":  10,
+        "tipo":  "edição",
+        "resumo":  "Complementada a linha com a profundidade do plug no/do TMF (token {{prof=XXX}}, derivado do nipple do TMF na seção Nipples).",
+        "antes":  "Assentar ferramenta no plug do TMF e testar com overpull (se possível). Efetuar procedimento de desassentamento do plug.",
+        "depois":  "Assentar ferramenta no plug do TMF a {{prof=XXX}} m e testar com overpull (se possível). Efetuar procedimento de desassentamento do plug."
+    },
+    {
+        "id":  190,
+        "data":  "2026-06-05",
+        "pacote":  "ABAN 089",
+        "linha":  11,
+        "tipo":  "edição",
+        "resumo":  "Substituído \"até 10 m acima do TH\" por \"até o plug do TMF a {{prof=XXX}} m\" na linha de recuperação do corpo do plug (profundidade derivada do nipple do TMF anular).",
+        "antes":  "Descer  BHA de recuperação do corpo do plug com stroker até 10 m acima do TH.",
+        "depois":  "Descer  BHA de recuperação do corpo do plug com stroker até o plug do TMF a {{prof=XXX}} m."
+    },
+    {
+        "id":  191,
+        "data":  "2026-06-05",
+        "pacote":  "NOVO 001",
+        "linha":  null,
+        "tipo":  "criação",
+        "resumo":  "Criado o pacote NOVO 001 (Arame - Instalação de plug no TMF, bore de produção), antes sem linhas. 4 linhas, com a profundidade do plug (a {{prof=XXX}} m) derivada do nipple do TMF prod. Metadados OW modelados no ABAN 040 (instalação de eCSB via arame) — revisar.",
+        "antes":  "(pacote sem linhas)",
+        "depois":  "[1] Montar trem de arame com aplicador {{modelo=XXX}} + corpo do plug do TMF (bore de produção). Acoplar ao lubrificador e testar com 300 / {{pressaoBopArameHigh=XXXX}} psi via QTS. | [2] Descer trem de arame e assentar o corpo do plug no TMF a {{prof=XXX}} m (bore de produção). Retirar trem de arame. | [3] Descer trem de arame com aplicador {{modelo=XXX}} e instalar a haste do plug no TMF a {{prof=XXX}} m. Efetuar teste de ancoragem (overpull). Retirar trem de arame. | [4] Testar contra o plug no TMF (bore de produção) com {{pressaoTmfProd=xxxx}} psi de N2 (superfície) e monitorar ANM com ROV (Hold Point EQSB)."
+    },
+    {
+        "id":  192,
+        "data":  "2026-06-05",
+        "pacote":  "NOVO 002",
+        "linha":  null,
+        "tipo":  "criação",
+        "resumo":  "Criado o pacote NOVO 002 (Arame - Instalação de plug no TMF, bore anular), antes sem linhas. 4 linhas, com a profundidade do plug (a {{prof=XXX}} m) derivada do nipple do TMF anular. Metadados OW modelados no ABAN 040 (instalação de eCSB via arame) — revisar.",
+        "antes":  "(pacote sem linhas)",
+        "depois":  "[1] Montar trem de arame com aplicador {{modelo=XXX}} + corpo do plug do TMF (bore de anular). Acoplar ao lubrificador e testar com 300 / {{pressaoBopArameHigh=XXXX}} psi via QTS. | [2] Descer trem de arame e assentar o corpo do plug no TMF a {{prof=XXX}} m (bore de anular). Retirar trem de arame. | [3] Descer trem de arame com aplicador {{modelo=XXX}} e instalar a haste do plug no TMF a {{prof=XXX}} m. Efetuar teste de ancoragem (overpull). Retirar trem de arame. | [4] Testar contra o plug no TMF (bore de anular) via HCR (ou bore 2\", se for o caso) com {{pressaoTmfAnulAnm=xxx}} psi de N2 (superfície) e monitorar ANM com ROV (Hold Point EQSB)."
+    },
+    {
+        "id":  193,
+        "data":  "2026-06-05",
+        "pacote":  "ABAN 089",
+        "linha":  5,
+        "tipo":  "edição",
+        "resumo":  "Substituído \"até 10 m acima do TH\" por \"até o plug do TMF a {{prof=XXX}} m\" na linha de contingência (recuperação da haste do plug), igual à linha principal.",
+        "antes":  "(Contingência) Descer  BHA de recuperação da haste do plug com stroker até 10 m acima do TH.",
+        "depois":  "(Contingência) Descer  BHA de recuperação da haste do plug com stroker até o plug do TMF a {{prof=XXX}} m."
+    },
+    {
+        "id":  194,
+        "data":  "2026-06-05",
+        "pacote":  "ABAN 093",
+        "linha":  5,
+        "tipo":  "edição",
+        "resumo":  "Removido o trecho duplicado (a clausula \"até 10 m acima do nipple 2,81\\\"\" aparecia repetida na mesma linha).",
+        "antes":  "(Contingência) Descer  BHA de recuperação da haste do plug com stroker até 10 m acima do nipple 2,81\".até 10 m acima do nipple 2,81\".",
+        "depois":  "(Contingência) Descer  BHA de recuperação da haste do plug com stroker até 10 m acima do nipple 2,81\"."
+    },
+    {
+        "id":  195,
+        "data":  "2026-06-05",
+        "pacote":  "ABAN 138",
+        "linha":  2,
+        "tipo":  "edição",
+        "resumo":  "Corrigido artigo duplicado: \"acima da do plug\" → \"acima do plug\".",
+        "antes":  "Descer FT até {{prof=XXX}} m – 30 m acima da do plug 2,75\".",
+        "depois":  "Descer FT até {{prof=XXX}} m – 30 m acima do plug 2,75\"."
+    },
+    {
+        "id":  196,
+        "data":  "2026-06-05",
+        "pacote":  "ABAN 138",
+        "linha":  8,
+        "tipo":  "edição",
+        "resumo":  "Corrigido artigo duplicado: \"acima da do plug\" → \"acima do plug\".",
+        "antes":  "Descer FT até {{prof=XXX}} m – 30 m acima da do plug 2,75\".",
+        "depois":  "Descer FT até {{prof=XXX}} m – 30 m acima do plug 2,75\"."
+    },
+    {
+        "id":  197,
+        "data":  "2026-06-05",
+        "pacote":  "ABAN 139",
+        "linha":  2,
+        "tipo":  "edição",
+        "resumo":  "Corrigido artigo duplicado: \"acima da do plug\" → \"acima do plug\".",
+        "antes":  "Descer FT até {{prof=XXX}} m – 30 m acima da do plug 2,81\".",
+        "depois":  "Descer FT até {{prof=XXX}} m – 30 m acima do plug 2,81\"."
+    },
+    {
+        "id":  198,
+        "data":  "2026-06-05",
+        "pacote":  "ABAN 139",
+        "linha":  8,
+        "tipo":  "edição",
+        "resumo":  "Corrigido artigo duplicado: \"acima da do plug\" → \"acima do plug\".",
+        "antes":  "Descer FT até {{prof=XXX}} m – 30 m acima da do plug 2,81\".",
+        "depois":  "Descer FT até {{prof=XXX}} m – 30 m acima do plug 2,81\"."
+    },
+    {
+        "id":  199,
+        "data":  "2026-06-06",
+        "pacote":  "ABAN 088",
+        "linha":  5,
+        "tipo":  "edição",
+        "resumo":  "Anexada a profundidade derivada do nipple/TH (a {{prof=XXX}} m) à linha de posicionamento do Stroker — padrão do ABAN 097.",
+        "antes":  "(Contingência) Descer  BHA de recuperação da haste do plug com stroker até 10 m do plug.",
+        "depois":  "(Contingência) Descer  BHA de recuperação da haste do plug com stroker até 10 m do plug a {{prof=XXX}} m."
+    },
+    {
+        "id":  200,
+        "data":  "2026-06-06",
+        "pacote":  "ABAN 088",
+        "linha":  11,
+        "tipo":  "edição",
+        "resumo":  "Ajustado \"TH\"→\"TMF\" (o pacote é plug no TMF) e anexada a profundidade derivada (a {{prof=XXX}} m).",
+        "antes":  "Descer  BHA de recuperação do corpo do plug com stroker até 10 m acima do TH.",
+        "depois":  "Descer  BHA de recuperação do corpo do plug com stroker até 10 m acima do TMF a {{prof=XXX}} m."
+    },
+    {
+        "id":  201,
+        "data":  "2026-06-06",
+        "pacote":  "ABAN 092",
+        "linha":  5,
+        "tipo":  "edição",
+        "resumo":  "Anexada a profundidade derivada do nipple/TH (a {{prof=XXX}} m) à linha de posicionamento do Stroker — padrão do ABAN 097.",
+        "antes":  "(Contingência) Descer  BHA de recuperação da haste do plug com stroker até 10 m acima do nipple R.",
+        "depois":  "(Contingência) Descer  BHA de recuperação da haste do plug com stroker até 10 m acima do nipple R a {{prof=XXX}} m."
+    },
+    {
+        "id":  202,
+        "data":  "2026-06-06",
+        "pacote":  "ABAN 092",
+        "linha":  11,
+        "tipo":  "edição",
+        "resumo":  "Anexada a profundidade derivada do nipple/TH (a {{prof=XXX}} m) à linha de posicionamento do Stroker — padrão do ABAN 097.",
+        "antes":  "Descer  BHA de recuperação do plug com stroker até 10 m acima do nipple R.",
+        "depois":  "Descer  BHA de recuperação do plug com stroker até 10 m acima do nipple R a {{prof=XXX}} m."
+    },
+    {
+        "id":  203,
+        "data":  "2026-06-06",
+        "pacote":  "ABAN 093",
+        "linha":  5,
+        "tipo":  "edição",
+        "resumo":  "Anexada a profundidade derivada do nipple/TH (a {{prof=XXX}} m) à linha de posicionamento do Stroker — padrão do ABAN 097.",
+        "antes":  "(Contingência) Descer  BHA de recuperação da haste do plug com stroker até 10 m acima do nipple 2,81\".",
+        "depois":  "(Contingência) Descer  BHA de recuperação da haste do plug com stroker até 10 m acima do nipple 2,81\" a {{prof=XXX}} m."
+    },
+    {
+        "id":  204,
+        "data":  "2026-06-06",
+        "pacote":  "ABAN 093",
+        "linha":  11,
+        "tipo":  "edição",
+        "resumo":  "Anexada a profundidade derivada do nipple/TH (a {{prof=XXX}} m) à linha de posicionamento do Stroker — padrão do ABAN 097.",
+        "antes":  "Descer  BHA de recuperação do plug com stroker até 10 m acima do nipple 2,81\".",
+        "depois":  "Descer  BHA de recuperação do plug com stroker até 10 m acima do nipple 2,81\" a {{prof=XXX}} m."
+    },
+    {
+        "id":  205,
+        "data":  "2026-06-06",
+        "pacote":  "ABAN 094",
+        "linha":  5,
+        "tipo":  "edição",
+        "resumo":  "Anexada a profundidade derivada do nipple/TH (a {{prof=XXX}} m) à linha de posicionamento do Stroker — padrão do ABAN 097.",
+        "antes":  "(Contingência) Descer  BHA de recuperação da haste do plug com stroker até 10 m acima do TH.",
+        "depois":  "(Contingência) Descer  BHA de recuperação da haste do plug com stroker até 10 m acima do TH a {{prof=XXX}} m."
+    },
+    {
+        "id":  206,
+        "data":  "2026-06-06",
+        "pacote":  "ABAN 094",
+        "linha":  11,
+        "tipo":  "edição",
+        "resumo":  "Anexada a profundidade derivada do nipple/TH (a {{prof=XXX}} m) à linha de posicionamento do Stroker — padrão do ABAN 097.",
+        "antes":  "Descer  BHA de recuperação do corpo do plug com stroker até 10 m acima do TH.",
+        "depois":  "Descer  BHA de recuperação do corpo do plug com stroker até 10 m acima do TH a {{prof=XXX}} m."
+    },
+    {
+        "id":  207,
+        "data":  "2026-06-06",
+        "pacote":  "ABAN 095",
+        "linha":  5,
+        "tipo":  "edição",
+        "resumo":  "Anexada a profundidade derivada do nipple/TH (a {{prof=XXX}} m) à linha de posicionamento do Stroker — padrão do ABAN 097.",
+        "antes":  "Descer  BHA de recuperação do BRV com stroker até 10 m acima do nipple 2,81\".",
+        "depois":  "Descer  BHA de recuperação do BRV com stroker até 10 m acima do nipple 2,81\" a {{prof=XXX}} m."
+    },
+    {
+        "id":  208,
+        "data":  "2026-06-06",
+        "pacote":  "ABAN 096",
+        "linha":  5,
+        "tipo":  "edição",
+        "resumo":  "Anexada a profundidade derivada do nipple/TH (a {{prof=XXX}} m) à linha de posicionamento do Stroker — padrão do ABAN 097.",
+        "antes":  "Descer  BHA de recuperação do BRV com stroker até 10 m acima do nipple R 2,75\".",
+        "depois":  "Descer  BHA de recuperação do BRV com stroker até 10 m acima do nipple R 2,75\" a {{prof=XXX}} m."
+    },
+    {
+        "id":  209,
+        "data":  "2026-06-06",
+        "pacote":  "NOVO 001,NOVO 002",
+        "linha":  null,
+        "tipo":  "criação",
+        "resumo":  "Criado o detalhamento por linha (Detalhes/Ref. Técnicas) de NOVO 001/002 (4 linhas cada), modelado no ABAN 040/041 (instalação de plug via arame). Obs.: genLineDetails.mjs ignora ids NOVO e sobrescreve o arquivo — estas entradas precisam ser preservadas em futura regeneração.",
+        "antes":  "(sem detalhamento)",
+        "depois":  "NOVO 001/002: L1 pad=PE-2POC-01069/00539; L2 AST+procedimento cia; L3 teste de ancoragem; L4 rec=pressão/diferencial do plug."
+    },
+    {
+        "id":  210,
+        "data":  "2026-06-06",
+        "pacote":  "NOVO 002",
+        "linha":  null,
+        "tipo":  "edição",
+        "resumo":  "Bore anular instalado em etapa única (corpo + haste juntos), sem teste de ancoragem: mescladas as linhas de assentar corpo + instalar haste numa só; trem 1 1/2\" e aplicador C-1 2 3/8\" fixos (sem token {{modelo}}). Pacote passou de 4 → 3 linhas; detalhamento por linha realinhado.",
+        "antes":  "Montar trem de arame com aplicador {{modelo=XXX}} + corpo do plug do TMF (bore de anular). Acoplar ao lubrificador e testar com 300 / {{pressaoBopArameHigh=XXXX}} psi via QTS. || Descer trem de arame e assentar o corpo do plug no TMF a {{prof=XXX}} m (bore de anular). Retirar trem de arame. || Descer trem de arame com aplicador {{modelo=XXX}} e instalar a haste do plug no TMF a {{prof=XXX}} m. Efetuar teste de ancoragem (overpull). Retirar trem de arame. || Testar contra o plug no TMF (bore de anular) via HCR (ou bore 2\", se for o caso) com {{pressaoTmfAnulAnm=xxx}} psi de N2 (superfície) e monitorar ANM com ROV (Hold Point EQSB).",
+        "depois":  "Montar trem de arame 1 1/2\" com aplicador C-1 2 3/8\" + plug do TMF (bore de anular). Acoplar ao lubrificador e testar com 300 / {{pressaoBopArameHigh=XXXX}} psi via QTS. || Descer trem de arame e assentar o plug (corpo + haste) no TMF a {{prof=XXX}} m (bore de anular). Retirar trem de arame. || Testar contra o plug no TMF (bore de anular) via HCR (ou bore 2\", se for o caso) com {{pressaoTmfAnulAnm=xxx}} psi de N2 (superfície) e monitorar ANM com ROV (Hold Point EQSB)."
+    },
+    {
+        "id":  211,
+        "data":  "2026-06-06",
+        "pacote":  "NOVO 002",
+        "linha":  3,
+        "tipo":  "edição",
+        "resumo":  "Removido \"(Hold Point EQSB)\" da linha de teste do plug.",
+        "antes":  "Testar contra o plug no TMF (bore de anular) via HCR (ou bore 2\", se for o caso) com {{pressaoTmfAnulAnm=xxx}} psi de N2 (superfície) e monitorar ANM com ROV (Hold Point EQSB).",
+        "depois":  "Testar contra o plug no TMF (bore de anular) via HCR (ou bore 2\", se for o caso) com {{pressaoTmfAnulAnm=xxx}} psi de N2 (superfície) e monitorar ANM com ROV."
+    },
+    {
+        "id":  212,
+        "data":  "2026-06-06",
+        "pacote":  "ABAN 012",
+        "linha":  null,
+        "tipo":  "edição",
+        "resumo":  "Reconciliado (xlsx dessincronizado: 12 linhas na planilha × 3 no packageLines). Detalhamento realinhado às 3 linhas atuais, consolidando as recomendações reais do xlsx (preparação do conj. WO, flex joint, gavetas FIBOP/TRT; descida por seção / anel tensionador). Pacote fixado como manual no genLineDetails.mjs (MANUAL_PINNED).",
+        "antes":  "[null,{\"rec\":\"Avaliar possibilidade de descida por seção; Avaliar necessidade de instalar um clamp a cada junta de riser ou a cada seção.\\nAvaliar necessidade de montagem do anel tensionador (adicionar 4h).\",\"pad\":\"PE-2POC-01056 - UTILIZAÇÃO DE ANEL TENSIONADOR ROTATIVO NAS OPERAÇÕES DE INSTALAÇÃO, WORKOVER E RETIRADA DE EQUIPAMENTOS SUBMARINOS.\\nPE-2POC-00097 - PONTOS IMPORTANTES E BOAS PRÁTICAS EM INTERVENÇÕES DE WORKOVER\"},null]",
+        "depois":  "3 entradas alinhadas"
+    },
+    {
+        "id":  213,
+        "data":  "2026-06-06",
+        "pacote":  "ABAN 015",
+        "linha":  null,
+        "tipo":  "edição",
+        "resumo":  "Reconciliado (xlsx dessincronizado: 4 linhas na planilha × 2 no packageLines). Detalhamento realinhado às 2 linhas (flushing: bombeio N2/UC + mover sonda; teste: XO FDR fechada / N2 / peso no gancho). Pacote fixado como manual no genLineDetails.mjs (MANUAL_PINNED).",
+        "antes":  "[{\"rec\":\"Manter XO da FDR fechada.\\nPreparar a unidade de nitrogênio 30 min antes para bombear N2 pela coluna (desalagar bores para reentrada).\\nRegistrar peso no gancho: xxx klbf\",\"pad\":\"\"},{\"rec\":\"Em paralelo: Mover sonda para 30 m da ANM com auxílio do ROV.\",\"pad\":\"\"}]",
+        "depois":  "2 entradas alinhadas"
+    },
+    {
+        "id":  214,
+        "data":  "2026-06-06",
+        "pacote":  "NOVO 016",
+        "linha":  4,
+        "tipo":  "edição",
+        "resumo":  "Detalhamento realinhado de 3 → 4 entradas (faltava a 4ª linha \"Montar anel tensionador e distribuir cargas\"); adicionada ref. PE-2POC-01056.",
+        "antes":  "3 entradas",
+        "depois":  "4 entradas alinhadas"
+    },
+    {
+        "id":  215,
+        "data":  "2026-06-06",
+        "pacote":  "ABAN 140",
+        "linha":  2,
+        "tipo":  "edição",
+        "resumo":  "Reescrita a linha de descida do FT: \"...até {{prof}} m – 30 m acima do plug...\" → \"Descer FT até a haste do plug do TH a {{prof=XXX}} m.\" (mesma forma nos dois pacotes).",
+        "antes":  "Descer FT até {{prof=XXX}} m – 30 m acima do plug do TH.",
+        "depois":  "Descer FT até a haste do plug do TH a {{prof=XXX}} m."
+    },
+    {
+        "id":  216,
+        "data":  "2026-06-06",
+        "pacote":  "ABAN 140",
+        "linha":  8,
+        "tipo":  "edição",
+        "resumo":  "Reescrita a linha de descida do FT: \"...até {{prof}} m – 30 m acima do plug...\" → \"Descer FT até a haste do plug do TH a {{prof=XXX}} m.\" (mesma forma nos dois pacotes).",
+        "antes":  "Descer FT até {{prof=xxxx}} m – 30 m acima do plug do TH.",
+        "depois":  "Descer FT até a haste do plug do TH a {{prof=XXX}} m."
+    },
+    {
+        "id":  217,
+        "data":  "2026-06-06",
+        "pacote":  "ABAN 138",
+        "linha":  2,
+        "tipo":  "edição",
+        "resumo":  "Reescrita a linha de descida do FT: \"...até {{prof}} m – 30 m acima do plug...\" → \"Descer FT até a haste do plug a {{prof=XXX}} m.\" (mesma forma nos dois pacotes).",
+        "antes":  "Descer FT até {{prof=XXX}} m – 30 m acima do plug 2,75\".",
+        "depois":  "Descer FT até a haste do plug a {{prof=XXX}} m."
+    },
+    {
+        "id":  218,
+        "data":  "2026-06-06",
+        "pacote":  "ABAN 138",
+        "linha":  8,
+        "tipo":  "edição",
+        "resumo":  "Reescrita a linha de descida do FT: \"...até {{prof}} m – 30 m acima do plug...\" → \"Descer FT até a haste do plug a {{prof=XXX}} m.\" (mesma forma nos dois pacotes).",
+        "antes":  "Descer FT até {{prof=XXX}} m – 30 m acima do plug 2,75\".",
+        "depois":  "Descer FT até a haste do plug a {{prof=XXX}} m."
+    },
+    {
+        "id":  219,
+        "data":  "2026-06-06",
+        "pacote":  "ABAN 140",
+        "linha":  8,
+        "tipo":  "edição",
+        "resumo":  "Linha de recuperação do corpo: \"até a haste do plug\" → \"até o corpo do plug\" (a [8] precede o agarramento do corpo).",
+        "antes":  "Descer FT até a haste do plug do TH a {{prof=XXX}} m.",
+        "depois":  "Descer FT até o corpo do plug do TH a {{prof=XXX}} m."
+    },
+    {
+        "id":  220,
+        "data":  "2026-06-06",
+        "pacote":  "ABAN 138",
+        "linha":  8,
+        "tipo":  "edição",
+        "resumo":  "Linha de recuperação do corpo: \"até a haste do plug\" → \"até o corpo do plug\" (a [8] precede o agarramento do corpo).",
+        "antes":  "Descer FT até a haste do plug a {{prof=XXX}} m.",
+        "depois":  "Descer FT até o corpo do plug a {{prof=XXX}} m."
+    },
+    {
+        "id":  221,
+        "data":  "2026-06-06",
+        "pacote":  "ABAN 126",
+        "linha":  3,
+        "tipo":  "edição",
+        "resumo":  "Adicionado token {{prof=XXX}} (profundidade da DHSV, derivada do nipple DHSV na seção Nipples) à linha de descida/assentamento do camisão via FT.",
+        "antes":  "Descer BHA de Flexitubo com camisão até profundidade da DHSV e efetuar o assentamento.",
+        "depois":  "Descer BHA de Flexitubo com camisão até a DHSV a {{prof=XXX}} m e efetuar o assentamento."
+    },
+    {
+        "id":  222,
+        "data":  "2026-06-06",
+        "pacote":  "ABAN 134",
+        "linha":  2,
+        "tipo":  "edição",
+        "resumo":  "Adicionado token {{prof=XXX}} (profundidade da DHSV, derivada do nipple DHSV na seção Nipples) à linha de descida/assentamento do camisão via FT.",
+        "antes":  "Descer BHA com flexitubo até DHSV e efetuar procedimento de agarramento e recuperação do camisão.",
+        "depois":  "Descer BHA com flexitubo até a DHSV a {{prof=XXX}} m e efetuar procedimento de agarramento e recuperação do camisão."
+    },
+    {
+        "id":  223,
+        "data":  "2026-06-06",
+        "pacote":  "ABAN 037",
+        "linha":  4,
+        "tipo":  "edição",
+        "resumo":  "Incluído o tipo do camisão (permanente/drop-off — campo do Arame, token {{camTipo}}) na Obs. da linha de instalação, após o ID. Resposta padrão \"permanente\".",
+        "antes":  "Instalar camisão na DHSV @ {{prof=xxx}} m. Obs.: ID do camisão {{camDiamInt=X}}”. Efetuar teste de ancoragem com 500 lbf de overpull.",
+        "depois":  "Instalar camisão na DHSV @ {{prof=xxx}} m. Obs.: ID do camisão {{camDiamInt=X}}”, tipo {{camTipo=permanente}}. Efetuar teste de ancoragem com 500 lbf de overpull."
+    },
+    {
+        "id":  224,
+        "data":  "2026-06-06",
+        "pacote":  "ABAN 037",
+        "linha":  4,
+        "tipo":  "edição",
+        "resumo":  "Incluído o Ø nominal do camisão (token {{camDiamNom}}, derivado do nipple DHSV) na Obs. junto ao ID — torna o campo \"Ø nominal\" e seu localizador funcionais.",
+        "antes":  "Instalar camisão na DHSV @ {{prof=xxx}} m. Obs.: ID do camisão {{camDiamInt=X}}”, tipo {{camTipo=permanente}}. Efetuar teste de ancoragem com 500 lbf de overpull.",
+        "depois":  "Instalar camisão na DHSV @ {{prof=xxx}} m. Obs.: ID do camisão {{camDiamInt=X}}” (Ø nominal {{camDiamNom=X}}”), tipo {{camTipo=permanente}}. Efetuar teste de ancoragem com 500 lbf de overpull."
+    },
+    {
+        "id":  225,
+        "data":  "2026-06-06",
+        "pacote":  "ABAN 036",
+        "linha":  2,
+        "tipo":  "edição",
+        "resumo":  "Incluída a profundidade final (token {{profFinal}}, = prof. do nipple de menor diâmetro entre TSR e Cauda prod.) ao final da linha de gabaritagem.",
+        "antes":  "Gabaritar COP, correlacionando profundidade de nipples {{nipple275=x\"}} e {{nipplesOutros=x\"}}.",
+        "depois":  "Gabaritar COP, correlacionando profundidade de nipples {{nipple275=x\"}} e {{nipplesOutros=x\"}}, até {{profFinal=xxx}} m."
+    },
+    {
+        "id":  226,
+        "data":  "2026-06-06",
+        "pacote":  "NOVO 021",
+        "linha":  null,
+        "tipo":  "criação",
+        "resumo":  "Criado o pacote NOVO 021 (Arame - Gabaritagem com camisão acoplado). 5 linhas: L1 = ABAN 037 L1 (montar trem) + biselado 5 mm x 45º; L2 = ABAN 037 L2 (gabaritar até DHSV e retirar trem); L3-L5 = ABAN 036 L1-L3, com o camisão drop off acoplado incluído no trem da L3 (montar trem c/ camisão, gabaritar coluna correlacionando nipples, retirar trem). Selecionável na etapa 2 (Gabaritar coluna? → Arame → sub-pergunta 'Com camisão acoplado?', flag gaugeCamisaoAcoplado). P50/P90 estimados (0,50/0,55) — ajustar.",
+        "antes":  "(pacote inexistente)",
+        "depois":  "[1] Montar trem padrão 1 7/8\" + localizador de nipple tipo collet {{diamLocalizador}}” + estampador {{diamEstampador}}” (biselado 5 mm x 45º). Acoplar trem no lubrificador e testar com 300 / {{pressaoBopArameHigh}} psi via QTS (se necessário). | [2] Gabaritar COP até DHSV @ {{prof}} m, correlacionando com profundidade do TH. Retirar trem até a superfície. | [3] Montar trem padrão 1 7/8\" + camisão drop off acoplado + localizador de nipple tipo collet {{diamLocalizador}}” + estampador {{diamEstampador}}” (biselado 5 mm x 45º). Acoplar trem no lubrificador e testar com 300 / {{pressaoBopArameHigh}} psi via QTS (se necessário). | [4] Gabaritar COP, correlacionando profundidade de nipples {{nipple275}} e {{nipplesOutros}}, até {{profFinal}} m. | [5] Retirar trem de arame até a superfície."
+    },
+    {
+        "id":  227,
+        "data":  "2026-06-07",
+        "pacote":  "NOVO 021",
+        "linha":  null,
+        "tipo":  "criação",
+        "resumo":  "Criado o detalhamento por linha de NOVO 021: a L3 (montar trem c/ camisão drop off acoplado) herda o Padrão da linha de montagem de camisão do ABAN 037 (PE-2POC-00552 ROV; PE-2SUB-00201 transponders). Demais linhas sem Recomendações/Padrões — as linhas-fonte (037 L1/L2 e 036 L1-L3) não têm detalhamento curado no dataset. Obs.: genLineDetails.mjs ignora ids NOVO e preserva esta entrada na regeneração (desde que o nº de linhas case).",
+        "antes":  "(sem detalhamento)",
+        "depois":  "L3: pad = PE-2POC-00552 / PE-2SUB-00201 (herdado de ABAN 037 L3); L1/L2/L4/L5 sem detalhamento."
+    },
+    {
+        "id":  228,
+        "data":  "2026-06-07",
+        "pacote":  "NOVO 021",
+        "linha":  1,
+        "tipo":  "ontologia",
+        "resumo":  "Ontologia da L1 igualada à da L3 (o pacote é fundamentalmente uma gabaritagem): owOperacao 'Instalação/Recuperação de camisão - cabo/arame' → 'Gabaritagem/Estampagem - cabo/arame'. owEtapa, owFase e owAtividade já coincidiam.",
+        "antes":  "Instalação/Recuperação de camisão - cabo/arame",
+        "depois":  "Gabaritagem/Estampagem - cabo/arame"
+    },
+    {
+        "id":  229,
+        "data":  "2026-06-07",
+        "pacote":  "NOVO 021",
+        "linha":  2,
+        "tipo":  "ontologia",
+        "resumo":  "Ontologia da L2 igualada à da L4: owOperacao 'Instalação/Recuperação de camisão - cabo/arame' → 'Gabaritagem/Estampagem - cabo/arame'; owEtapa 'Instalando camisão - cabo/arame' → 'Gabaritando - cabo/arame'.",
+        "antes":  "owOperacao: Instalação/Recuperação de camisão - cabo/arame | owEtapa: Instalando camisão - cabo/arame",
+        "depois":  "owOperacao: Gabaritagem/Estampagem - cabo/arame | owEtapa: Gabaritando - cabo/arame"
+    },
+    {
+        "id":  230,
+        "data":  "2026-06-07",
+        "pacote":  "ABAN 237",
+        "linha":  9,
+        "tipo":  "inclusão",
+        "resumo":  "Nova linha de teste de estanqueidade do TAE adicionada ao final do pacote (índice 8): pressurização COP/COI com token {{pressaoEstTae}}.",
+        "antes":  "(linha não existia)",
+        "depois":  "Pressurizar COP/COI e confirmar estanqueidade do TAE com {{pressaoEstTae=XXX}} psi. | owEtapa: Verificando eCSB com pressão | genOperacao: Teste de estanqueidade de coluna | duration: 2 | compensando: true"
+    }
+]
