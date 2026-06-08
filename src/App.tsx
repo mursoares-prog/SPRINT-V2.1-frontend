@@ -9,10 +9,10 @@ import { AdminView } from './components/AdminView'
 import { InputSummaryPanel } from './components/InputSummaryPanel'
 import { generateSchedule } from './engines/sequenceEngine'
 import type { ScopeId, WizardInputs, IsolationConfig } from './types'
-import { ArrowRight, FileText, Settings2, SlidersHorizontal, LayoutDashboard, ListChecks, FolderOpen, AlertTriangle, ShieldCheck, Server } from 'lucide-react'
+import { ArrowRight, FileText, Settings2, SlidersHorizontal, LayoutDashboard, ListChecks, FolderOpen, AlertTriangle, ShieldCheck, Server, LogOut } from 'lucide-react'
 import { loadProjectFromFile } from './utils/projectFile'
 import { isApiConfigured, getMergedPackageLines } from './utils/api'
-import { getSession } from './utils/auth'
+import { getSession, clearSession } from './utils/auth'
 import { setPackageLines } from './data/packageLinesStore'
 import { ServerProjectsModal } from './components/ServerProjectsModal'
 
@@ -173,7 +173,8 @@ function getDefaultInputs(
 }
 
 // ── Home ──────────────────────────────────────────────────────────────────────
-function Home({ onOpenAdmin }: { onOpenAdmin?: () => void }) {
+function Home({ onOpenAdmin, onLogout }: { onOpenAdmin?: () => void; onLogout?: () => void }) {
+  const session = getSession()
   const { dispatch } = useApp()
   const [selecting, setSelecting] = useState(false)
   const [rigType,     setRigType]     = useState<'ANC' | 'DP' | ''>('')
@@ -294,11 +295,28 @@ function Home({ onOpenAdmin }: { onOpenAdmin?: () => void }) {
           ))}
         </div>
 
-        <button
-          onClick={() => onOpenAdmin?.()}
-          className="flex items-center gap-1.5 text-xs font-medium text-slate-500 dark:text-slate-500 hover:text-[#d97706] dark:hover:text-[#d97706] transition-colors">
-          <ShieldCheck size={14} /> Admin
-        </button>
+        <div className="flex flex-col items-center gap-2">
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => onOpenAdmin?.()}
+              className="flex items-center gap-1.5 text-xs font-medium text-slate-500 dark:text-slate-500 hover:text-[#d97706] dark:hover:text-[#d97706] transition-colors">
+              <ShieldCheck size={14} /> Admin
+            </button>
+            {onLogout && (
+              <button
+                onClick={onLogout}
+                className="flex items-center gap-1.5 text-xs font-medium text-slate-500 dark:text-slate-500 hover:text-red-500 dark:hover:text-red-400 transition-colors">
+                <LogOut size={14} /> Sair
+              </button>
+            )}
+          </div>
+          {session && (
+            <p className="text-[11px] text-slate-400 dark:text-slate-500">
+              {session.username} · <span className={session.role === 'editor' ? 'text-[#d97706] font-semibold' : ''}>{session.role === 'editor' ? 'editor' : 'visualizador'}</span>
+              {session.role === 'editor' && ' — edite as linhas em Admin › Variáveis dos pacotes'}
+            </p>
+          )}
+        </div>
 
       </div>
     )
@@ -439,7 +457,7 @@ function MobileNavBtn({ icon, label, active, onClick }: {
   )
 }
 
-function Main() {
+function Main({ onLogout }: { onLogout: () => void }) {
   const { state, dispatch } = useApp()
   const [mobilePanel, setMobilePanel] = useState<'none' | 'inputs' | 'summary'>('none')
   const [isDark, setIsDark] = useState(() => localStorage.getItem('sprint_theme') !== 'light')
@@ -496,7 +514,7 @@ function Main() {
 
         <main className={`flex-1 overflow-hidden flex flex-col bg-[#e4e9e3] dark:bg-slate-950${state.view !== 'fine_tuning' ? ' p-4 md:p-8' : ''}`}>
           {(state.view === 'home' || state.view === 'wizard') && (
-            <div className="flex-1 overflow-y-auto scrollbar-custom"><Home onOpenAdmin={() => setShowAdmin(true)} /></div>
+            <div className="flex-1 overflow-y-auto scrollbar-custom"><Home onOpenAdmin={() => setShowAdmin(true)} onLogout={onLogout} /></div>
           )}
           {state.view === 'schedule' && <ScheduleView />}
           {state.view === 'fine_tuning' && <FineTuningView />}
@@ -575,7 +593,7 @@ export default function App() {
 
   return (
     <AppProvider>
-      <Main />
+      <Main onLogout={() => { clearSession(); setSession(null) }} />
     </AppProvider>
   )
 }

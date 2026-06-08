@@ -231,7 +231,15 @@ export function AdminView({ onClose }: { onClose: () => void }) {
         <div className="flex-1 overflow-auto scrollbar-custom">
         {tab === 'log' ? (
           <LogPanel entries={filteredLog} />
-        ) : filtered.length > 0 ? (
+        ) : (
+          <>
+            {canEdit && (
+              <div className="m-3 flex items-center gap-2 rounded-lg border border-amber-200 dark:border-amber-900/50 bg-amber-50/70 dark:bg-amber-900/15 px-3 py-2 text-[11px] text-amber-800 dark:text-amber-300">
+                <Pencil size={13} className="shrink-0" />
+                <span>Modo editor: clique no <strong>texto da Descrição</strong> (ou no lápis à direita) para editar o texto e os placeholders da linha.</span>
+              </div>
+            )}
+            {filtered.length > 0 ? (
             <table className="w-full border-collapse text-[11px]">
               <thead className="sticky top-0 z-10">
                 <tr className="bg-slate-200 dark:bg-slate-800 text-left">
@@ -260,7 +268,19 @@ export function AdminView({ onClose }: { onClose: () => void }) {
                           </span>
                         )}
                       </Td>
-                      <Td className="text-slate-700 dark:text-slate-200 leading-snug">{r.descricao}</Td>
+                      <Td className="text-slate-700 dark:text-slate-200 leading-snug">
+                        {canEdit ? (
+                          <button
+                            onClick={() => setEditing({ pkgId: r.pkgId, lineIndex: r.lineIndex, text: r.descricao, original: r.descricao })}
+                            title="Clique para editar o texto e os placeholders"
+                            className="group text-left flex items-start gap-1 hover:text-[#d97706] transition-colors">
+                            <span className="whitespace-pre-line">{r.descricao}</span>
+                            <Pencil size={11} className="shrink-0 mt-0.5 opacity-0 group-hover:opacity-100 transition-opacity" />
+                          </button>
+                        ) : (
+                          <span className="whitespace-pre-line">{r.descricao}</span>
+                        )}
+                      </Td>
                       <Td className="text-right font-mono text-slate-700 dark:text-slate-300 whitespace-nowrap">{fmtDur(r.duracao)}</Td>
                       <Td className="text-slate-700 dark:text-slate-300 leading-snug whitespace-pre-line">{r.recomendacoes}</Td>
                       <Td className="text-slate-600 dark:text-slate-400 leading-snug whitespace-pre-line">{r.padroes}</Td>
@@ -283,9 +303,11 @@ export function AdminView({ onClose }: { onClose: () => void }) {
                 })}
               </tbody>
             </table>
-          ) : (
-            <p className="text-sm text-slate-600 text-center py-8">Nenhuma linha encontrada.</p>
-          )}
+            ) : (
+              <p className="text-sm text-slate-600 text-center py-8">Nenhuma linha encontrada.</p>
+            )}
+          </>
+        )}
         </div>
 
         {/* Footer */}
