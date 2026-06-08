@@ -27,4 +27,9 @@ const plRaw = readFileSync(resolve(here, '../src/data/packageLines.json'), 'utf-
 const packageLines = JSON.parse(plRaw)
 write('package_lines.json', packageLines)
 
-console.log(`Dump OK: ${Object.keys(SEQUENCES).length} escopos, ${Object.keys(PACKAGES).length} pacotes, ${Object.keys(PACKAGE_DURATIONS).length} durações, ${Object.keys(packageLines).length} pacotes-linhas → ${outDir}`)
+// changeLog.json (histórico; tem BOM) → copia para o backend seedar sem depender do front.
+const clRaw = readFileSync(resolve(here, '../src/data/changeLog.json'), 'utf-8').replace(/^﻿/, '')
+const changeLog = JSON.parse(clRaw)
+write('change_log.json', changeLog)
+
+console.log(`Dump OK: ${Object.keys(SEQUENCES).length} escopos, ${Object.keys(PACKAGES).length} pacotes, ${Object.keys(PACKAGE_DURATIONS).length} durações, ${Object.keys(packageLines).length} pacotes-linhas, ${changeLog.length} entradas de log → ${outDir}`)
