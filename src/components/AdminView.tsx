@@ -1,5 +1,6 @@
 import { X, Search, ShieldCheck, History, Table2, Pencil, Trash2, Plus } from 'lucide-react'
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
+import { isApiConfigured, listChangelog } from '../utils/api'
 import { PACKAGES } from '../data/packages'
 import PACKAGE_LINES from '../data/packageLines.json'
 import PACKAGE_LINE_DETAILS from '../data/packageLineDetails.json'
@@ -111,6 +112,19 @@ export function AdminView({ onClose }: { onClose: () => void }) {
   const [query, setQuery] = useState('')
   const rows = useMemo(buildRows, [])
 
+  // Log de alterações: prioriza o servidor (histórico + entradas novas); cai no
+  // bundle (changeLog.json) quando não há backend ou a chamada falha.
+  const [serverLog, setServerLog] = useState<LogEntry[] | null>(null)
+  useEffect(() => {
+    if (!isApiConfigured()) return
+    let active = true
+    listChangelog()
+      .then(entries => { if (active) setServerLog(entries as LogEntry[]) })
+      .catch(() => { /* offline/erro → mantém bundle */ })
+    return () => { active = false }
+  }, [])
+  const log = serverLog ?? LOG
+
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase()
     if (!q) return rows
@@ -128,7 +142,7 @@ export function AdminView({ onClose }: { onClose: () => void }) {
   }, [rows, query])
 
   const filteredLog = useMemo(() => {
-    const sorted = [...LOG].sort((a, b) => b.id - a.id) // mais recentes primeiro
+    const sorted = [...log].sort((a, b) => b.id - a.id) // mais recentes primeiro
     const q = query.trim().toLowerCase()
     if (!q) return sorted
     return sorted.filter(e =>
@@ -139,7 +153,7 @@ export function AdminView({ onClose }: { onClose: () => void }) {
       (e.depois ?? '').toLowerCase().includes(q) ||
       e.data.includes(q),
     )
-  }, [query])
+  }, [query, log])
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
@@ -168,7 +182,7 @@ export function AdminView({ onClose }: { onClose: () => void }) {
           <TabButton active={tab === 'log'} onClick={() => setTab('log')} Icon={History}>
             Log de alterações
             <span className="ml-1.5 px-1.5 py-px rounded-full bg-slate-200 dark:bg-slate-700 text-[10px] font-semibold text-slate-600 dark:text-slate-300">
-              {LOG.length}
+              {log.length}
             </span>
           </TabButton>
         </div>

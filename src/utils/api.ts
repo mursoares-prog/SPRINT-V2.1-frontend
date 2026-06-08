@@ -22,9 +22,10 @@ export function isApiConfigured(): boolean {
 }
 
 async function req<T>(path: string, init?: RequestInit): Promise<T> {
+  const { headers, ...rest } = init ?? {}
   const res = await fetch(`${API_URL}${path}`, {
-    headers: { 'Content-Type': 'application/json' },
-    ...init,
+    headers: { 'Content-Type': 'application/json', ...(headers as Record<string, string> | undefined) },
+    ...rest,
   })
   if (!res.ok) {
     let detail = `Erro ${res.status}`
@@ -56,4 +57,32 @@ export function saveServerProject(project: ProjectFile, id?: string): Promise<St
   return id
     ? req<StoredProject>(`/api/projects/${id}`, { method: 'PUT', body })
     : req<StoredProject>('/api/projects', { method: 'POST', body })
+}
+
+// ── Log de alterações (changeLog server-side) ────────────────────────────────
+export interface ChangeLogEntry {
+  id: number
+  data: string
+  pacote: string
+  linha: number | null
+  tipo: string
+  resumo: string
+  antes?: string | null
+  depois?: string | null
+  author?: string | null
+}
+
+export type ChangeLogInput = Omit<ChangeLogEntry, 'id' | 'data' | 'author'>
+
+export function listChangelog(): Promise<ChangeLogEntry[]> {
+  return req<ChangeLogEntry[]>('/api/changelog')
+}
+
+/** Acrescenta uma entrada (append-only). `authHeaders` deve trazer o Bearer de um editor. */
+export function addChangelog(entry: ChangeLogInput, authHeaders: Record<string, string>): Promise<ChangeLogEntry> {
+  return req<ChangeLogEntry>('/api/changelog', {
+    method: 'POST',
+    headers: authHeaders,
+    body: JSON.stringify(entry),
+  })
 }
