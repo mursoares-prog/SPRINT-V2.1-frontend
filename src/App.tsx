@@ -11,8 +11,9 @@ import { generateSchedule } from './engines/sequenceEngine'
 import type { ScopeId, WizardInputs, IsolationConfig } from './types'
 import { ArrowRight, FileText, Settings2, SlidersHorizontal, LayoutDashboard, ListChecks, FolderOpen, AlertTriangle, ShieldCheck, Server } from 'lucide-react'
 import { loadProjectFromFile } from './utils/projectFile'
-import { isApiConfigured } from './utils/api'
+import { isApiConfigured, getMergedPackageLines } from './utils/api'
 import { getSession } from './utils/auth'
+import { setPackageLines } from './data/packageLinesStore'
 import { ServerProjectsModal } from './components/ServerProjectsModal'
 
 function SemisubIcon({ size = 24, className = '' }: { size?: number; className?: string }) {
@@ -560,6 +561,13 @@ function Main() {
 
 export default function App() {
   const [session, setSession] = useState(() => getSession())
+
+  // Boot: carrega a base mesclada (bundled + overrides) do servidor uma vez, para
+  // as edições da base refletirem nos cronogramas. Falha/offline → mantém o bundle.
+  useEffect(() => {
+    if (!session || !isApiConfigured()) return
+    getMergedPackageLines().then(setPackageLines).catch(() => { /* mantém bundle */ })
+  }, [session])
 
   if (!session) {
     return <LoginScreen onLogin={s => setSession(s)} />

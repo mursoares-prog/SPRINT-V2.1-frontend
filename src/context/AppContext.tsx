@@ -10,7 +10,7 @@ import {
 } from '../engines/placeholders'
 import { bhaDerivedDepth } from '../engines/nippleDepth'
 export { SLWLFT_HIGH_PKG_IDS } from '../engines/placeholders'
-import PACKAGE_LINES from '../data/packageLines.json'
+import { getPackageLines } from '../data/packageLinesStore'
 import PACKAGE_LINE_DETAILS from '../data/packageLineDetails.json'
 import { reviewItems, FASE_TO_OW } from '../utils/ontologyReview'
 
@@ -28,7 +28,8 @@ type RawLine = {
   genOperacao: string | null
   genOperacaoDual: string | null
 }
-const PKG_LINES = PACKAGE_LINES as unknown as Record<string, RawLine[]>
+// Lê a base ATIVA (mesclada do servidor se carregada no boot; senão o bundle).
+const pkgLines = (id: string): RawLine[] => getPackageLines<RawLine>()[id] ?? []
 
 // Detalhamento por linha (etapa 3): Recomendações → "Detalhes" (details),
 // Padrões → "Referências Técnicas" (procedures). Alinhado POSICIONALMENTE com
@@ -102,7 +103,7 @@ function syncDataTemplates(
   data: ProjectData,
 ): import('../types').FineTuningItem[] {
   return items.map(item => {
-    const rawLines = PKG_LINES[item.packageId] ?? []
+    const rawLines = pkgLines(item.packageId)
     if (!rawLines.length) return item
     const isNavPkg = NAV_ALL_PACKAGE_IDS.has(item.packageId)
     let changed = false
@@ -248,7 +249,7 @@ function makeFineTuningItems(schedule: ScheduleItem[], projectData: ProjectData)
     : undefined
 
   return schedule.map(item => {
-    const raw = PKG_LINES[item.packageId] ?? []
+    const raw = pkgLines(item.packageId)
     const isNavPkg = NAV_ALL_PACKAGE_IDS.has(item.packageId)
     const lines: FineTuningLine[] = raw.map((r, i) => {
       const isNavLine = isNavPkg && (NAV_ETAPAS.has(r.owEtapa ?? '') || NAV_PREP_ETAPAS.has(r.owEtapa ?? ''))
@@ -319,7 +320,7 @@ function pkgFtItem(packageId: string, phase: Phase, percentile: number, data: Pr
   const navDays = (!isNaN(dist) && !isNaN(speed) && dist > 0 && speed > 0) ? dist / speed / 24 : undefined
   const isNavPkg = NAV_ALL_PACKAGE_IDS.has(packageId)
 
-  const raw = PKG_LINES[packageId] ?? []
+  const raw = pkgLines(packageId)
   const lines: FineTuningLine[] = raw.map((r, i) => {
     const isNavLine = isNavPkg && (NAV_ETAPAS.has(r.owEtapa ?? '') || NAV_PREP_ETAPAS.has(r.owEtapa ?? ''))
     const navTmpl = (isNavPkg && (isNavLine || hasTokens(r.text))) ? r.text : undefined
