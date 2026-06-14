@@ -63,7 +63,8 @@ export function ServerProjectsModal({ onClose }: { onClose: () => void }) {
   }
 
   const fmtDate = (iso: string) => {
-    const d = new Date(iso)
+    const utc = /Z|[+-]\d{2}:\d{2}$/.test(iso) ? iso : iso + 'Z'
+    const d = new Date(utc)
     return isNaN(d.getTime()) ? iso : d.toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })
   }
 

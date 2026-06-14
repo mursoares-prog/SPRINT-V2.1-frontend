@@ -2,18 +2,21 @@ import { useState, useEffect } from 'react'
 import { AppProvider, useApp } from './context/AppContext'
 import { LoginScreen } from './components/LoginScreen'
 import { Sidebar } from './components/Sidebar'
-import { PackageListPanel } from './components/PackageListPanel'
 import { ScheduleView } from './components/ScheduleView'
 import { FineTuningView } from './components/FineTuningView'
 import { AdminView } from './components/AdminView'
+import { PackagesCatalogModal } from './components/PackagesCatalogModal'
+import { FlowchartModal } from './components/FlowchartModal'
 import { InputSummaryPanel } from './components/InputSummaryPanel'
 import { generateSchedule } from './engines/sequenceEngine'
 import type { ScopeId, WizardInputs, IsolationConfig } from './types'
-import { ArrowRight, FileText, Settings2, SlidersHorizontal, LayoutDashboard, ListChecks, FolderOpen, AlertTriangle, ShieldCheck, Server, LogOut } from 'lucide-react'
+import { ArrowRight, FileText, Settings2, SlidersHorizontal, LayoutDashboard, ListChecks, FolderOpen, AlertTriangle, Server } from 'lucide-react'
 import { loadProjectFromFile } from './utils/projectFile'
-import { isApiConfigured, getMergedPackageLines } from './utils/api'
+import { isApiConfigured, getMergedPackageLines, getBaseOverrides, getBasePackageOverrides, getCustomPackages } from './utils/api'
 import { getSession, clearSession } from './utils/auth'
 import { setPackageLines } from './data/packageLinesStore'
+import { applyDetailOverrides, applyPackageOverrides } from './data/lineDetailsStore'
+import { setExtraPackages, metaToPackage } from './data/packages'
 import { ServerProjectsModal } from './components/ServerProjectsModal'
 
 function SemisubIcon({ size = 24, className = '' }: { size?: number; className?: string }) {
@@ -173,10 +176,12 @@ function getDefaultInputs(
 }
 
 // ── Home ──────────────────────────────────────────────────────────────────────
-function Home({ onOpenAdmin, onLogout }: { onOpenAdmin?: () => void; onLogout?: () => void }) {
+function Home() {
   const session = getSession()
   const { dispatch } = useApp()
   const [selecting, setSelecting] = useState(false)
+  const [askingWell, setAskingWell] = useState(false)
+  const [wellName,    setWellName]    = useState('')
   const [rigType,     setRigType]     = useState<'ANC' | 'DP' | ''>('')
   const [opType,      setOpType]      = useState<'Generalista' | 'LWO'>('Generalista')
   const [phaseFilter, setPhaseFilter] = useState<'fase_unica' | 'fase_1' | 'fase_2' | ''>('')
@@ -185,7 +190,13 @@ function Home({ onOpenAdmin, onLogout }: { onOpenAdmin?: () => void; onLogout?: 
   const [showServer,  setShowServer]  = useState(false)
 
   const reset = () => {
-    setRigType(''); setOpType('Generalista'); setPhaseFilter(''); setScopeId('')
+    setRigType(''); setOpType('Generalista'); setPhaseFilter(''); setScopeId(''); setWellName('')
+  }
+
+  const handleStartNew = () => {
+    if (!wellName.trim()) return
+    setAskingWell(false)
+    setSelecting(true)
   }
 
   const handleRigChange = (v: 'ANC' | 'DP') => {
@@ -204,7 +215,8 @@ function Home({ onOpenAdmin, onLogout }: { onOpenAdmin?: () => void; onLogout?: 
     if (!rigType || !scopeId) return
     const defaults = getDefaultInputs(rigType, opType, scopeId)
     dispatch({ type: 'RESET' })
-    dispatch({ type: 'SET_WELL_NAME', wellName: 'CRONOGRAMA' })
+    dispatch({ type: 'SET_WELL_NAME', wellName: wellName.trim() })
+    dispatch({ type: 'PROJECT_UPDATE_DATA', patch: { poco: wellName.trim() } })
     dispatch({ type: 'UPDATE_INPUTS', inputs: defaults })
     try {
       const schedule = generateSchedule(defaults as WizardInputs)
@@ -257,7 +269,7 @@ function Home({ onOpenAdmin, onLogout }: { onOpenAdmin?: () => void; onLogout?: 
 
         <div className="flex gap-3">
           <button
-            onClick={() => setSelecting(true)}
+            onClick={() => setAskingWell(true)}
             className="flex items-center gap-2 px-7 py-3 bg-[#0c2340] text-white rounded-xl font-semibold tracking-wide hover:bg-[#0e3a60] transition-colors shadow-lg">
             Novo Projeto <ArrowRight size={16} />
           </button>
@@ -295,28 +307,41 @@ function Home({ onOpenAdmin, onLogout }: { onOpenAdmin?: () => void; onLogout?: 
           ))}
         </div>
 
-        <div className="flex flex-col items-center gap-2">
-          <div className="flex items-center gap-4">
-            <button
-              onClick={() => onOpenAdmin?.()}
-              className="flex items-center gap-1.5 text-xs font-medium text-slate-500 dark:text-slate-500 hover:text-[#d97706] dark:hover:text-[#d97706] transition-colors">
-              <ShieldCheck size={14} /> Admin
-            </button>
-            {onLogout && (
-              <button
-                onClick={onLogout}
-                className="flex items-center gap-1.5 text-xs font-medium text-slate-500 dark:text-slate-500 hover:text-red-500 dark:hover:text-red-400 transition-colors">
-                <LogOut size={14} /> Sair
-              </button>
-            )}
+        {session && (
+          <p className="text-[11px] text-slate-400 dark:text-slate-500">
+            {session.username} · <span className={session.role === 'admin' ? 'text-[#d97706] font-semibold' : ''}>{session.role === 'admin' ? 'admin' : 'projetista'}</span>
+          </p>
+        )}
+
+        {/* Modal: nome do poço */}
+        {askingWell && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+            onClick={() => { setAskingWell(false); setWellName('') }}>
+            <div onClick={e => e.stopPropagation()}
+              className="bg-slate-100 dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-700 p-6 max-w-sm w-full mx-4 flex flex-col gap-4">
+              <input
+                autoFocus
+                value={wellName}
+                onChange={e => setWellName(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') handleStartNew() }}
+                placeholder="Nome do poço"
+                className="w-full px-3 py-2 rounded-lg text-sm bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:border-[#0c2340] dark:focus:border-sky-700" />
+              <div className="flex justify-end gap-2">
+                <button
+                  onClick={() => { setAskingWell(false); setWellName('') }}
+                  className="px-4 py-1.5 rounded-lg text-sm font-semibold border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
+                  Cancelar
+                </button>
+                <button
+                  onClick={handleStartNew}
+                  disabled={!wellName.trim()}
+                  className="flex items-center gap-2 px-4 py-1.5 rounded-lg text-sm font-semibold bg-[#0c2340] text-white hover:bg-[#0e3a60] disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
+                  Continuar <ArrowRight size={15} />
+                </button>
+              </div>
+            </div>
           </div>
-          {session && (
-            <p className="text-[11px] text-slate-400 dark:text-slate-500">
-              {session.username} · <span className={session.role === 'admin' ? 'text-[#d97706] font-semibold' : ''}>{session.role === 'admin' ? 'admin' : 'projetista'}</span>
-              {session.role === 'admin' && ' — edite as linhas em Admin › Variáveis dos pacotes'}
-            </p>
-          )}
-        </div>
+        )}
 
       </div>
     )
@@ -461,8 +486,9 @@ function Main({ onLogout }: { onLogout: () => void }) {
   const { state, dispatch } = useApp()
   const [mobilePanel, setMobilePanel] = useState<'none' | 'inputs' | 'summary'>('none')
   const [isDark, setIsDark] = useState(() => localStorage.getItem('sprint_theme') !== 'light')
-  const [showPackages, setShowPackages] = useState(false)
   const [showAdmin, setShowAdmin] = useState(false)
+  const [showPackages, setShowPackages] = useState(false)
+  const [showFlowchart, setShowFlowchart] = useState(false)
   const [navWarnTarget, setNavWarnTarget] = useState<'home' | 'wizard' | 'schedule' | 'fine_tuning' | null>(null)
   const closePanel = () => setMobilePanel('none')
   const toggleDark = () => setIsDark(d => !d)
@@ -502,9 +528,18 @@ function Main({ onLogout }: { onLogout: () => void }) {
 
       {/* Content row */}
       <div className="flex flex-1 min-h-0 overflow-hidden">
-        <Sidebar isDark={isDark} onToggleDark={toggleDark} onOpenConfig={() => setShowPackages(true)} onBeforeStepNav={handleBeforeStepNav} />
-        {showPackages && <PackageListPanel onClose={() => setShowPackages(false)} />}
+        <Sidebar
+          isDark={isDark}
+          onToggleDark={toggleDark}
+          onOpenConfig={() => setShowAdmin(true)}
+          onOpenPackages={() => setShowPackages(true)}
+          onOpenFlowchart={() => setShowFlowchart(true)}
+          onBeforeStepNav={handleBeforeStepNav}
+          onLogout={onLogout}
+        />
         {showAdmin && <AdminView onClose={() => setShowAdmin(false)} />}
+        {showPackages && <PackagesCatalogModal onClose={() => setShowPackages(false)} />}
+        {showFlowchart && <FlowchartModal onClose={() => setShowFlowchart(false)} />}
 
         {state.view === 'schedule' && (
           <div className="hidden md:flex">
@@ -514,7 +549,7 @@ function Main({ onLogout }: { onLogout: () => void }) {
 
         <main className={`flex-1 overflow-hidden flex flex-col bg-[#e4e9e3] dark:bg-slate-950${state.view !== 'fine_tuning' ? ' p-4 md:p-8' : ''}`}>
           {(state.view === 'home' || state.view === 'wizard') && (
-            <div className="flex-1 overflow-y-auto scrollbar-custom"><Home onOpenAdmin={() => setShowAdmin(true)} onLogout={onLogout} /></div>
+            <div className="flex-1 overflow-y-auto scrollbar-custom"><Home /></div>
           )}
           {state.view === 'schedule' && <ScheduleView />}
           {state.view === 'fine_tuning' && <FineTuningView />}
@@ -581,10 +616,19 @@ export default function App() {
   const [session, setSession] = useState(() => getSession())
 
   // Boot: carrega a base mesclada (bundled + overrides) do servidor uma vez, para
-  // as edições da base refletirem nos cronogramas. Falha/offline → mantém o bundle.
+  // as edições da base refletirem nos cronogramas NOVOS. Falha/offline → mantém o
+  // bundle. Texto/duração/ontologia vêm mesclados em package-lines; rec/pad são
+  // mesclados sobre o bundle de detalhes a partir dos overrides.
   useEffect(() => {
     if (!session || !isApiConfigured()) return
     getMergedPackageLines().then(setPackageLines).catch(() => { /* mantém bundle */ })
+    // rec/pad: legados por linha primeiro, depois override por pacote (precedência).
+    getBaseOverrides().then(applyDetailOverrides).catch(() => {})
+    getBasePackageOverrides().then(applyPackageOverrides).catch(() => {})
+    // Pacotes customizados → registro dinâmico (inserção manual na etapa 3).
+    getCustomPackages().then(ms => setExtraPackages(
+      Object.fromEntries(ms.map(m => [m.pkgId, metaToPackage(m)])),
+    )).catch(() => {})
   }, [session])
 
   if (!session) {

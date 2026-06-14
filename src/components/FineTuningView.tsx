@@ -9,7 +9,7 @@ import { useApp, lineIdsForLocate, NAV_PACKAGE_IDS, type LocateTarget } from '..
 import type { FineTuningItem, FineTuningLine, WizardInputs, Phase } from '../types'
 import { ProjectDataPanel } from './ProjectDataPanel'
 import { GanttChart } from './ScheduleView'
-import { PACKAGES } from '../data/packages'
+import { PACKAGES, getAllPackages } from '../data/packages'
 import { EDS_TYPES } from '../data/edsTypes'
 import { SCOPE_LABEL } from '../App'
 import { buildProjectFacts } from '../utils/projectFacts'
@@ -844,7 +844,8 @@ function PackagePickerModal({ afterUid, onClose }: { afterUid: string | null; on
     return () => window.removeEventListener('keydown', onKey)
   }, [onClose])
 
-  const allPackages = useMemo(() => Object.values(PACKAGES), [])
+  // Inclui pacotes customizados (criados no Admin) para inserção manual.
+  const allPackages = useMemo(() => Object.values(getAllPackages()), [])
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase()
@@ -2461,11 +2462,7 @@ export function FineTuningView() {
                 return (
                   <h2 style={{ fontFamily: "'Barlow Condensed', sans-serif" }}
                     className="text-xl font-bold text-[#0c2340] dark:text-white uppercase tracking-wide leading-none flex items-baseline gap-2 flex-wrap">
-                    <span>Cronograma</span>
-                    {sep}
-                    <span className="text-lg font-semibold text-slate-600 dark:text-slate-300 normal-case tracking-normal">
-                      {state.wellName || 'X-XX-RJS'}
-                    </span>
+                    <span className="normal-case tracking-normal">{state.wellName || 'X-XX-RJS'}</span>
                     {rigType && <>{sep}<span className="text-base font-semibold text-slate-600 dark:text-slate-500 normal-case tracking-normal">{rigType}</span></>}
                     {operationType && <>{sep}<span className="text-base font-semibold text-slate-600 dark:text-slate-500 normal-case tracking-normal">{operationType}</span></>}
                     {faseNominal && <>{sep}<span className="text-base font-semibold text-slate-600 dark:text-slate-500 normal-case tracking-normal">{faseNominal}</span></>}

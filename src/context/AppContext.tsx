@@ -11,7 +11,7 @@ import {
 import { bhaDerivedDepth } from '../engines/nippleDepth'
 export { SLWLFT_HIGH_PKG_IDS } from '../engines/placeholders'
 import { getPackageLines } from '../data/packageLinesStore'
-import PACKAGE_LINE_DETAILS from '../data/packageLineDetails.json'
+import { getLineDetails, type LineDetail } from '../data/lineDetailsStore'
 import { reviewItems, FASE_TO_OW } from '../utils/ontologyReview'
 
 type RawLine = {
@@ -35,11 +35,11 @@ const pkgLines = (id: string): RawLine[] => getPackageLines<RawLine>()[id] ?? []
 // Padrões → "Referências Técnicas" (procedures). Alinhado POSICIONALMENTE com
 // PKG_LINES (índice N ↔ linha N). Gerado por scripts/genLineDetails.mjs.
 // Tratado como base: re-aplicado a cada (re)construção das linhas, igual aos
-// demais campos de packageLines.json.
-type LineDetail = { rec: string; pad: string } | null
-const PKG_DETAILS = PACKAGE_LINE_DETAILS as unknown as Record<string, LineDetail[]>
+// demais campos de packageLines.json. Lê do lineDetailsStore (bundle + overrides
+// rec/pad mesclados no boot), não do JSON direto — assim edições do Admin
+// propagam a cronogramas NOVOS sem afetar projetos salvos.
 const lineDetailAt = (pkgId: string, i: number): { procedures?: string; details?: string } => {
-  const d = PKG_DETAILS[pkgId]?.[i]
+  const d = getLineDetails<LineDetail>()[pkgId]?.[i]
   if (!d) return {}
   return { procedures: d.pad || undefined, details: d.rec || undefined }
 }

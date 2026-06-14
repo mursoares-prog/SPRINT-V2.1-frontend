@@ -100,18 +100,116 @@ export function getBaseFields(): Promise<string[]> {
   return req<string[]>('/api/base/fields')
 }
 
-/** Salva o override do texto de uma linha (editor). */
-export function editBaseLine(pkgId: string, lineIndex: number, text: string, authHeaders: Record<string, string>) {
-  return req<{ pkgId: string; lineIndex: number; text: string }>(
+/** Override completo de uma linha da base (todos os campos editáveis). */
+export interface LineOverride {
+  pkgId: string
+  lineIndex: number
+  text: string | null
+  duration: number | null
+  rec: string | null
+  pad: string | null
+  owFase: string | null
+  owAtividade: string | null
+  owOperacao: string | null
+  owEtapa: string | null
+  author?: string | null
+  updatedAt?: string | null
+}
+
+/** Patch parcial enviado ao editar uma linha (campos omitidos ficam inalterados). */
+export type LineEditPatch = Partial<Pick<LineOverride,
+  'text' | 'duration' | 'rec' | 'pad' | 'owFase' | 'owAtividade' | 'owOperacao' | 'owEtapa'>>
+
+/** Salva um override parcial de uma linha (texto, duração, rec/pad, ontologia). */
+export function editBaseLine(pkgId: string, lineIndex: number, patch: LineEditPatch, authHeaders: Record<string, string>) {
+  return req<LineOverride & { unchanged?: boolean }>(
     `/api/base/package-lines/${encodeURIComponent(pkgId)}/${lineIndex}`,
-    { method: 'PUT', headers: authHeaders, body: JSON.stringify({ text }) },
+    { method: 'PUT', headers: authHeaders, body: JSON.stringify(patch) },
   )
+}
+
+/** Todos os overrides da base (para mesclar rec/pad no front e refletir no Admin). */
+export function getBaseOverrides(): Promise<LineOverride[]> {
+  return req<LineOverride[]>('/api/base/overrides')
 }
 
 /** Reverte a linha ao texto original (remove o override). */
 export function resetBaseLine(pkgId: string, lineIndex: number, authHeaders: Record<string, string>) {
   return req<{ pkgId: string; lineIndex: number; text: string; reverted: boolean }>(
     `/api/base/package-lines/${encodeURIComponent(pkgId)}/${lineIndex}`,
+    { method: 'DELETE', headers: authHeaders },
+  )
+}
+
+// ── Edição estrutural por pacote + pacotes customizados ────────────────────────
+
+/** Linha completa da base (12 campos de package_lines + rec/pad de detalhes). */
+export interface BaseLine {
+  text: string
+  duration: number | null
+  bop: string | null
+  compensando: boolean | null
+  isContingency: boolean | null
+  isParallel: boolean | null
+  owFase: string | null
+  owAtividade: string | null
+  owOperacao: string | null
+  owEtapa: string | null
+  genOperacao: string | null
+  genOperacaoDual: string | null
+  rec: string | null
+  pad: string | null
+}
+
+export interface PackageOverride { pkgId: string; lines: BaseLine[]; author?: string | null; updatedAt?: string | null }
+export interface CustomPackageMeta { pkgId: string; name: string; category: string; technology: string }
+
+/** Arrays completos de linhas por pacote editado (para preencher stores no boot). */
+export function getBasePackageOverrides(): Promise<PackageOverride[]> {
+  return req<PackageOverride[]>('/api/base/package-overrides')
+}
+
+/** Metas dos pacotes customizados (criados/duplicados no Admin). */
+export function getCustomPackages(): Promise<CustomPackageMeta[]> {
+  return req<CustomPackageMeta[]>('/api/base/packages')
+}
+
+/** Grava o array COMPLETO de linhas de um pacote (estrutural: add/del/reorder). */
+export function savePackageLines(pkgId: string, lines: BaseLine[], authHeaders: Record<string, string>) {
+  return req<{ pkgId: string; lines: BaseLine[] }>(
+    `/api/base/packages/${encodeURIComponent(pkgId)}/lines`,
+    { method: 'PUT', headers: authHeaders, body: JSON.stringify({ lines }) },
+  )
+}
+
+/** Reverte as linhas de um pacote do bundle ao original. */
+export function resetPackageLines(pkgId: string, authHeaders: Record<string, string>) {
+  return req<{ pkgId: string; reverted: boolean }>(
+    `/api/base/packages/${encodeURIComponent(pkgId)}/lines`,
+    { method: 'DELETE', headers: authHeaders },
+  )
+}
+
+/** Cria um pacote customizado (em branco ou duplicando linhas). */
+export function createPackage(meta: { name: string; category: string; technology: string }, lines: BaseLine[], authHeaders: Record<string, string>) {
+  return req<CustomPackageMeta & { lines: BaseLine[] }>(
+    '/api/base/packages',
+    { method: 'POST', headers: authHeaders, body: JSON.stringify({ ...meta, lines }) },
+  )
+}
+
+/** Edita nome/categoria/tecnologia de um pacote customizado. */
+export function updatePackageMeta(pkgId: string, patch: Partial<{ name: string; category: string; technology: string }>, authHeaders: Record<string, string>) {
+  return req<CustomPackageMeta>(
+    `/api/base/packages/${encodeURIComponent(pkgId)}`,
+    { method: 'PATCH', headers: authHeaders, body: JSON.stringify(patch) },
+  )
+}
+
+/** Apaga um pacote customizado (meta + linhas). */
+export function deletePackage(pkgId: string, authHeaders: Record<string, string>) {
+  return req<{ pkgId: string; deleted: boolean }>(
+    `/api/base/packages/${encodeURIComponent(pkgId)}`,
     { method: 'DELETE', headers: authHeaders },
   )
 }

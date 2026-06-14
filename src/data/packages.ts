@@ -463,8 +463,33 @@ export const PACKAGE_DURATIONS: Record<string, { P50: number; P90: number }> = {
   'NOVO 020': { P50: 3.48, P90: 3.81 },  // prep Riser DB s/ TCap (ANC) — igual ao NOVO 018 (ajustar)
 }
 
+// Pacotes CUSTOMIZADOS (criados/duplicados no Admin), carregados do servidor no
+// boot via setExtraPackages. Não participam da geração automática — só ficam
+// disponíveis para edição na base e inserção manual na etapa 3.
+let EXTRA_PACKAGES: Record<string, Package> = {}
+
+/** Substitui o conjunto de pacotes customizados ativos (boot/Admin reload). */
+export function setExtraPackages(map: Record<string, Package>): void {
+  EXTRA_PACKAGES = map && typeof map === 'object' ? map : {}
+}
+
+/** Todos os pacotes ativos = bundle estático ∪ customizados do servidor. */
+export function getAllPackages(): Record<string, Package> {
+  return { ...PACKAGES, ...EXTRA_PACKAGES }
+}
+
+/** Converte a meta de um pacote customizado (servidor) em Package.
+ *  applicableRig/Op recebem defaults amplos (customizados não entram na geração). */
+export function metaToPackage(m: { pkgId: string; name: string; category: string; technology: string }): Package {
+  return {
+    id: m.pkgId, name: m.name, category: m.category,
+    technology: (m.technology || 'none') as Package['technology'],
+    applicableRig: ['ANC', 'DP'], applicableOp: ['Generalista', 'LWO'],
+  }
+}
+
 export function getPackage(id: string): Package | undefined {
-  return PACKAGES[id]
+  return PACKAGES[id] ?? EXTRA_PACKAGES[id]
 }
 
 export const FLUID_VARIANT: Record<string, { label: string; alts: string[]; heading?: string }> = {

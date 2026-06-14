@@ -1,5 +1,17 @@
-import { Check, Moon, Sun, Settings } from 'lucide-react'
+import { Check, Moon, Sun, Settings, LogOut, Network } from 'lucide-react'
 import { useApp } from '../context/AppContext'
+
+function LegoIcon({ size = 24, className = '' }: { size?: number; className?: string }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none"
+      stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"
+      className={className}>
+      <rect x="2" y="11" width="20" height="10" rx="1.5" />
+      <rect x="5" y="6.5" width="5" height="5" rx="1.2" />
+      <rect x="14" y="6.5" width="5" height="5" rx="1.2" />
+    </svg>
+  )
+}
 
 function SemisubIcon({ size = 24, className = '' }: { size?: number; className?: string }) {
   return (
@@ -30,9 +42,11 @@ function viewToStep(view: string): number {
   return 1
 }
 
-export function Sidebar({ isDark, onToggleDark, onOpenConfig, onBeforeStepNav }: {
+export function Sidebar({ isDark, onToggleDark, onOpenConfig, onOpenPackages, onOpenFlowchart, onBeforeStepNav, onLogout }: {
   isDark: boolean; onToggleDark: () => void; onOpenConfig?: () => void
+  onOpenPackages?: () => void; onOpenFlowchart?: () => void
   onBeforeStepNav?: (targetView: string) => boolean
+  onLogout?: () => void
 }) {
   const { state, dispatch } = useApp()
   const activeStep = viewToStep(state.view)
@@ -105,6 +119,24 @@ export function Sidebar({ isDark, onToggleDark, onOpenConfig, onBeforeStepNav }:
       {/* Bottom controls */}
       <div className="mt-auto flex flex-col items-center gap-1">
         <button
+          onClick={() => onOpenPackages?.()}
+          title="Lista de pacotes"
+          className="w-10 h-10 rounded-xl flex items-center justify-center transition-colors"
+          style={{ color: '#64748b' }}
+          onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = '#94a3b8' }}
+          onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = '#64748b' }}>
+          <LegoIcon size={19} />
+        </button>
+        <button
+          onClick={() => onOpenFlowchart?.()}
+          title="Fluxograma"
+          className="w-10 h-10 rounded-xl flex items-center justify-center transition-colors"
+          style={{ color: '#64748b' }}
+          onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = '#94a3b8' }}
+          onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = '#64748b' }}>
+          <Network size={19} />
+        </button>
+        <button
           onClick={() => onOpenConfig?.()}
           title="Configurações"
           className="w-10 h-10 rounded-xl flex items-center justify-center transition-colors"
@@ -122,6 +154,17 @@ export function Sidebar({ isDark, onToggleDark, onOpenConfig, onBeforeStepNav }:
           onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = '#64748b' }}>
           {isDark ? <Sun size={19} /> : <Moon size={19} />}
         </button>
+        {onLogout && (
+          <button
+            onClick={onLogout}
+            title="Sair"
+            className="w-10 h-10 rounded-xl flex items-center justify-center transition-colors"
+            style={{ color: '#64748b' }}
+            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = '#f87171' }}
+            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = '#64748b' }}>
+            <LogOut size={19} />
+          </button>
+        )}
       </div>
     </aside>
   )

@@ -339,7 +339,7 @@ export interface ProjectData {
   pressaoN2Trt: string           // ABAN 024,025 — N2 interface TRT×ANM
   pressaoTmfProd: string         // ABAN 026 — TMF bore produção N2
   pressaoTmfAnulAnm: string      // ABAN 027,028,029 — blocos ANM
-  pressaoBullheadDhsv: string    // ABAN 030 — travamento DHSV
+  pressaoBullheadDhsv: string    // ABAN 030 — teste funcional de DHSV
   pressaoBopArameHigh: string    // ABAN 031A/B,032,033 (wireline), 085,086,087 (electric), 119,120 (CT) — teste alta equipamentos pressão
   pressaoBopPerfuracao: string   // ABAN 228,229,NOVO 011,012 — teste pressão BOP perfuração descido Fase 2
   pressaoVgx: string             // ABAN 184 — teste anel VGX do BOP contra CSB (auto: MAPECAB)
