@@ -2287,5 +2287,35 @@
         "resumo":  "Nova linha de teste de estanqueidade do TAE adicionada ao final do pacote (índice 8): pressurização COP/COI com token {{pressaoEstTae}}.",
         "antes":  "(linha não existia)",
         "depois":  "Pressurizar COP/COI e confirmar estanqueidade do TAE com {{pressaoEstTae=XXX}} psi. | owEtapa: Verificando eCSB com pressão | genOperacao: Teste de estanqueidade de coluna | duration: 2 | compensando: true"
+    },
+    {
+        "id":  231,
+        "data":  "2026-06-17",
+        "pacote":  "ABAN 247",
+        "linha":  2,
+        "tipo":  "edição",
+        "resumo":  "Reordenado conforme a planilha SEEDS 2026-06-15: a linha de teste de estanqueidade de superfície/manifold contra o terminal head estava deslocada para dentro do bloco de eCSB cabo/arame (após \"Abrir válvulas do CWO\"). Movida de volta para logo após \"Montar anel tensionador\", antes do marcador separador. Conteúdo das linhas inalterado — só a ordem.",
+        "antes":  "L2: (marcador vazio) | L3: Abrir válvulas do CWO e ANM e descer trem... | L4: [HOLD POINT SANM] Montar e testar linhas de superfície + manifold... contra bloco do terminal head.",
+        "depois":  "L2: [HOLD POINT SANM] Montar e testar linhas de superfície + manifold... contra bloco do terminal head. | L3: (marcador vazio) | L4: Abrir válvulas do CWO e ANM e descer trem..."
+    },
+    {
+        "id":  232,
+        "data":  "2026-06-17",
+        "pacote":  "ABAN 244",
+        "linha":  0,
+        "tipo":  "edição",
+        "resumo":  "Corrigido typo de origem (presente também na planilha SEEDS): sufixo espúrio \".apa\" no fim do texto. Mesmo erro persiste no ABAN 011 L0 (não corrigido nesta edição).",
+        "antes":  "Liberar acesso para passagem do Conjunto de WO. Mergulhar conjunto.apa",
+        "depois":  "Liberar acesso para passagem do Conjunto de WO. Mergulhar conjunto."
+    },
+    {
+        "id":  233,
+        "data":  "2026-06-17",
+        "pacote":  "ABAN 011",
+        "linha":  0,
+        "tipo":  "edição",
+        "resumo":  "Corrigido o mesmo typo de origem do ABAN 244 (presente também na planilha SEEDS): sufixo espúrio \".apa\" no fim do texto.",
+        "antes":  "Liberar acesso para passagem do Conjunto de WO. Mergulhar conjunto.apa",
+        "depois":  "Liberar acesso para passagem do Conjunto de WO. Mergulhar conjunto."
     }
 ]

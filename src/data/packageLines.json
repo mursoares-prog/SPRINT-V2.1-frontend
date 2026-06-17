@@ -763,7 +763,7 @@
     ],
     "ABAN 011": [
         {
-            "text": "Liberar acesso para passagem do Conjunto de WO. Mergulhar conjunto.apa",
+            "text": "Liberar acesso para passagem do Conjunto de WO. Mergulhar conjunto.",
             "duration": 2,
             "bop": null,
             "compensando": null,
@@ -21417,7 +21417,7 @@
     ],
     "ABAN 244": [
         {
-            "text": "Liberar acesso para passagem do Conjunto de WO. Mergulhar conjunto.apa",
+            "text": "Liberar acesso para passagem do Conjunto de WO. Mergulhar conjunto.",
             "duration": 2,
             "bop": null,
             "compensando": null,
@@ -21591,6 +21591,20 @@
             "genOperacaoDual": null
         },
         {
+            "text": "[HOLD POINT SANM] Montar e testar linhas de superfície + manifold. Testar com {{pressaoProva=xxx}} psi de AGMAR/10 min contra bloco do terminal head.",
+            "duration": 4,
+            "bop": null,
+            "compensando": null,
+            "isContingency": null,
+            "isParallel": null,
+            "owFase": "AP. 1A",
+            "owAtividade": "Acesso Inicial, Amortecimento e  Limpeza do Poço",
+            "owOperacao": "Instalação de TRT na ANM com manobra",
+            "owEtapa": "Preparando para conectar TRT na ANM",
+            "genOperacao": "Teste de estanqueidade de coluna",
+            "genOperacaoDual": null
+        },
+        {
             "text": null,
             "duration": null,
             "bop": null,
@@ -21616,20 +21630,6 @@
             "owOperacao": "Instalação de eCSB - cabo/arame",
             "owEtapa": "Descendo cabo/arame",
             "genOperacao": null,
-            "genOperacaoDual": null
-        },
-        {
-            "text": "[HOLD POINT SANM] Montar e testar linhas de superfície + manifold. Testar com {{pressaoProva=xxx}} psi de AGMAR/10 min contra bloco do terminal head.",
-            "duration": 4,
-            "bop": null,
-            "compensando": null,
-            "isContingency": null,
-            "isParallel": null,
-            "owFase": "AP. 1A",
-            "owAtividade": "Acesso Inicial, Amortecimento e  Limpeza do Poço",
-            "owOperacao": "Instalação de TRT na ANM com manobra",
-            "owEtapa": "Preparando para conectar TRT na ANM",
-            "genOperacao": "Teste de estanqueidade de coluna",
             "genOperacaoDual": null
         },
         {
