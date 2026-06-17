@@ -20,7 +20,7 @@ function PackageRow({ pkg }: { pkg: Package }) {
 export function PackageListPanel({ onClose }: { onClose: () => void }) {
   const [query, setQuery] = useState('')
 
-  const { abanList, novoList } = useMemo(() => {
+  const { abanList } = useMemo(() => {
     const q = query.trim().toLowerCase()
     const all = Object.values(PACKAGES)
     const matches = (p: Package) =>
@@ -38,7 +38,6 @@ export function PackageListPanel({ onClose }: { onClose: () => void }) {
 
     return {
       abanList: sorted(all.filter(p => p.id.startsWith('ABAN'))),
-      novoList: sorted(all.filter(p => p.id.startsWith('NOVO'))),
     }
   }, [query])
 
@@ -96,30 +95,14 @@ export function PackageListPanel({ onClose }: { onClose: () => void }) {
             </section>
           )}
 
-          {novoList.length > 0 && (
-            <section>
-              <h3 className="text-xs font-bold uppercase tracking-widest text-slate-600 dark:text-slate-500 mb-2">
-                Pacotes NOVO
-                <span className="ml-2 font-normal normal-case tracking-normal text-slate-500 dark:text-slate-600">
-                  ({novoList.length})
-                </span>
-              </h3>
-              <table className="w-full">
-                <tbody>
-                  {novoList.map(p => <PackageRow key={p.id} pkg={p} />)}
-                </tbody>
-              </table>
-            </section>
-          )}
-
-          {abanList.length === 0 && novoList.length === 0 && (
+          {abanList.length === 0 && (
             <p className="text-sm text-slate-600 text-center py-8">Nenhum pacote encontrado.</p>
           )}
         </div>
 
         {/* Footer */}
         <div className="px-5 py-3 border-t border-slate-100 dark:border-slate-800 text-xs text-slate-600 shrink-0">
-          {abanList.length + novoList.length} pacotes encontrados
+          {abanList.length} pacotes encontrados
         </div>
       </div>
     </div>
