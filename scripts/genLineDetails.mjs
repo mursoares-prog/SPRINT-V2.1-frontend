@@ -27,7 +27,8 @@ function normalizePkgId(label) {
   return `ABAN ${m[1].padStart(3, '0')}${m[2] ? m[2].toUpperCase() : ''}`
 }
 
-const pkgLines = JSON.parse(readFileSync(PKG_LINES_PATH, 'utf8'))
+const stripBom = s => s.replace(/^﻿/, '')
+const pkgLines = JSON.parse(stripBom(readFileSync(PKG_LINES_PATH, 'utf8')))
 const shared = parseSharedStrings(readZipEntry(xlsxPath, 'xl/sharedStrings.xml'))
 const rows = parseSheet(readZipEntry(xlsxPath, 'xl/worksheets/sheet1.xml'), shared)
 
@@ -107,7 +108,7 @@ for (const pkgId of Object.keys(reconciled)) {
 // linhas ainda casar com packageLines.json (protege contra entradas desalinhadas).
 const preserved = []
 try {
-  const existing = JSON.parse(readFileSync(OUT_PATH, 'utf8'))
+  const existing = JSON.parse(stripBom(readFileSync(OUT_PATH, 'utf8')))
   for (const k of Object.keys(existing)) {
     if (grouped[k] || !pkgLines[k]) continue   // veio do xlsx, ou pacote inexistente
     if (existing[k].length !== pkgLines[k].length) {
