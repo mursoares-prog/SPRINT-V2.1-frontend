@@ -3779,7 +3779,7 @@
     ],
     "ABAN 062": [
         {
-            "text": "Amortecer COP com MEG + FCBA {{amortFcbaDensidade=X,X}} ppg por bullheading via B4\" > COP > Formação (2x o volume da COP), à máxima vazão possível, limitando a pressão de cabeça a XXXX psi.",
+            "text": "Amortecer COP com MEG + FCBA {{amortFcbaDensidade=X,X}} ppg por bullheading via B4\" > COP > Formação (2x o volume da COP), à máxima vazão possível, limitando a pressão de cabeça a {{pressaoCabecaLimite=XXXX}} psi.",
             "duration": 9,
             "bop": null,
             "compensando": true,
@@ -3865,7 +3865,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Injetar FCBA {{amortFcbaDensidade=XX}} ppg via  B4\" > XO > Anular > COP > Formação (2x o vol. do anular), à máxima vazão possível. Ao final do bombeio, ventilar anular via B4\", monitorar poço (Pcab, TPT e PDG) e confirmar amortecimento. Posicionar fluido inibido (XX% MEG + XX% FCBA) no DPR e HCR / B4\" e B2\".",
+            "text": "Injetar FCBA {{amortFcbaDensidade=XX}} ppg via  B4\" > XO > Anular > COP > Formação (2x o vol. do anular), à máxima vazão possível. Ao final do bombeio, ventilar anular via B4\", monitorar poço (Pcab, TPT e PDG) e confirmar amortecimento. Posicionar fluido inibido ({{outrosMegConc=XX}}% MEG + {{outrosMegConc=XX}}% FCBA) no DPR e HCR / B4\" e B2\".",
             "duration": 5,
             "bop": null,
             "compensando": true,
