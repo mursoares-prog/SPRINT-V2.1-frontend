@@ -5287,7 +5287,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "(Contingência) Montar BHA de Flexitubo com Broca {{broca=XXX}}\" + Motor de Fundo XX e posicionar no interior dos equipamentos de pressão. Testar com 300 / {{pressaoBopArameHigh=XXX}} psi.",
+            "text": "(Contingência) Montar BHA de Flexitubo com Broca {{broca=XXX}}\" + Motor de Fundo {{motorFundo=XX}} e posicionar no interior dos equipamentos de pressão. Testar com 300 / {{pressaoBopArameHigh=XXX}} psi.",
             "duration": 0,
             "bop": null,
             "compensando": true,
@@ -8435,7 +8435,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Mobilizar e montar o BHA  de perfilagem com canhão Tubing Puncher xxx\". Medir CCL a extremidade a profundidade das cargas, introduzir na coluna e conectar lubrificadores, testando via QTS.",
+            "text": "Mobilizar e montar o BHA  de perfilagem com canhão Tubing Puncher {{canhao=xxx}}\". Medir CCL a extremidade a profundidade das cargas, introduzir na coluna e conectar lubrificadores, testando via QTS.",
             "duration": 2,
             "bop": null,
             "compensando": true,
@@ -8491,7 +8491,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Efetuar canhoneio da coluna a  XXX m.",
+            "text": "Efetuar canhoneio da coluna a  {{prof=XXX}} m.",
             "duration": 0.5,
             "bop": null,
             "compensando": true,
@@ -8605,7 +8605,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Efetuar canhoneio da coluna a  XXX m.",
+            "text": "Efetuar canhoneio da coluna a  {{prof=XXX}} m.",
             "duration": 0.5,
             "bop": null,
             "compensando": true,
@@ -11637,7 +11637,7 @@
     ],
     "ABAN 134": [
         {
-            "text": "Montar o BHA de Flexitubo com pescador GS XX \"  para recuperação do camisão da DHSV. Inserir BHA no BOP-FT, acoplar injetor e testar estanqueidade com FCBA inibido/diesel/MEG com 300 psi / {{pressaoProva=XXX}} psi / 5 min.",
+            "text": "Montar o BHA de Flexitubo com pescador {{aplicadorCamisao=GS XX \"}}  para recuperação do camisão da DHSV. Inserir BHA no BOP-FT, acoplar injetor e testar estanqueidade com FCBA inibido/diesel/MEG com 300 psi / {{pressaoProva=XXX}} psi / 5 min.",
             "duration": 3,
             "bop": null,
             "compensando": true,
@@ -11781,7 +11781,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Efetuar procedimento de agarramento da STV 2,75\" a XXX m.",
+            "text": "Efetuar procedimento de agarramento da STV 2,75\" a {{prof=XXX}} m.",
             "duration": 1.5,
             "bop": null,
             "compensando": true,
@@ -11867,7 +11867,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Efetuar procedimento de agarramento da STV 2,81\" a XXX m.",
+            "text": "Efetuar procedimento de agarramento da STV 2,81\" a {{prof=XXX}} m.",
             "duration": 1.5,
             "bop": null,
             "compensando": true,
@@ -13541,7 +13541,7 @@
     ],
     "ABAN 155": [
         {
-            "text": "Mobilizar e montar BHA de FT com running tool + CR (Cement Retainer) xxx\".  Inserir BHA no BOP-FT, acoplar injetor e testar estanqueidade com FCBA inibido/diesel/MEG com 300 psi / {{pressaoProva=XXX}} psi / 5 min.",
+            "text": "Mobilizar e montar BHA de FT com running tool + CR (Cement Retainer) {{crDiam=xxx}}\".  Inserir BHA no BOP-FT, acoplar injetor e testar estanqueidade com FCBA inibido/diesel/MEG com 300 psi / {{pressaoProva=XXX}} psi / 5 min.",
             "duration": 6,
             "bop": null,
             "compensando": true,
@@ -13569,7 +13569,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Efetuar procedimento de assentamento do inflável a XXX m.",
+            "text": "Efetuar procedimento de assentamento do inflável a {{prof=XXX}} m.",
             "duration": 1.5,
             "bop": null,
             "compensando": true,
@@ -13641,7 +13641,7 @@
     ],
     "ABAN 156": [
         {
-            "text": "Mobilizar e montar BHA de FT com running tool + CR (Cement Retainer) xxx\". Inserir BHA no BOP-FT, acoplar injetor e testar estanqueidade com FCBA inibido/diesel/MEG com 300 psi / {{pressaoProva=XXX}} psi / 5 min.",
+            "text": "Mobilizar e montar BHA de FT com running tool + CR (Cement Retainer) {{crDiam=xxx}}\". Inserir BHA no BOP-FT, acoplar injetor e testar estanqueidade com FCBA inibido/diesel/MEG com 300 psi / {{pressaoProva=XXX}} psi / 5 min.",
             "duration": 4,
             "bop": null,
             "compensando": true,
@@ -13669,7 +13669,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Efetuar procedimento de assentamento do inflável a XXX m.",
+            "text": "Efetuar procedimento de assentamento do inflável a {{prof=XXX}} m.",
             "duration": 1,
             "bop": null,
             "compensando": true,
@@ -13769,7 +13769,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Efetuar cimentação Though Tubing no interior da coluna (topo previsto a XXX m).",
+            "text": "Efetuar cimentação Though Tubing no interior da coluna (topo previsto a {{cimentTopoInteriorColuna=XXX}} m).",
             "duration": 3.5,
             "bop": null,
             "compensando": true,
@@ -13813,7 +13813,7 @@
     ],
     "ABAN 158": [
         {
-            "text": "Mobilizar e montar BHA de FT com running tool + CR (Cement Retainer) xxx\".  Inserir BHA no BOP-FT, acoplar injetor e testar estanqueidade com FCBA inibido/diesel/MEG com 300 psi / {{pressaoProva=XXX}} psi / 5 min.",
+            "text": "Mobilizar e montar BHA de FT com running tool + CR (Cement Retainer) {{crDiam=xxx}}\".  Inserir BHA no BOP-FT, acoplar injetor e testar estanqueidade com FCBA inibido/diesel/MEG com 300 psi / {{pressaoProva=XXX}} psi / 5 min.",
             "duration": 4,
             "bop": null,
             "compensando": true,
@@ -13913,7 +13913,7 @@
     ],
     "ABAN 159": [
         {
-            "text": "Mobilizar e montar BHA de FT com running tool + Packer inflável xxx\".  Inserir BHA no BOP-FT, acoplar injetor e testar estanqueidade com FCBA inibido/diesel/MEG com 300 psi / {{pressaoProva=XXX}} psi / 5 min.",
+            "text": "Mobilizar e montar BHA de FT com running tool + Packer inflável {{packerFtDiam=xxx}}\".  Inserir BHA no BOP-FT, acoplar injetor e testar estanqueidade com FCBA inibido/diesel/MEG com 300 psi / {{pressaoProva=XXX}} psi / 5 min.",
             "duration": 7,
             "bop": null,
             "compensando": true,
@@ -13941,7 +13941,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Efetuar procedimento de assentamento do Packer inflável a XXX m.",
+            "text": "Efetuar procedimento de assentamento do Packer inflável a {{prof=XXX}} m.",
             "duration": 1.5,
             "bop": null,
             "compensando": true,
@@ -14199,7 +14199,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Efetuar procedimento de assentamento do inflável a XXX m.",
+            "text": "Efetuar procedimento de assentamento do inflável a {{prof=XXX}} m.",
             "duration": 1.5,
             "bop": null,
             "compensando": true,
@@ -14329,7 +14329,7 @@
     ],
     "ABAN 164": [
         {
-            "text": "Mobilizar e montar BHA de FT com running tool + Packer Multi-set xxx\". Inserir BHA no BOP-FT, acoplar injetor e testar estanqueidade com FCBA inibido/diesel/MEG com 300 psi / {{pressaoProva=XXX}} psi / 5 min.",
+            "text": "Mobilizar e montar BHA de FT com running tool + Packer Multi-set {{packerFtDiam=xxx}}\". Inserir BHA no BOP-FT, acoplar injetor e testar estanqueidade com FCBA inibido/diesel/MEG com 300 psi / {{pressaoProva=XXX}} psi / 5 min.",
             "duration": 6,
             "bop": null,
             "compensando": true,
@@ -14357,7 +14357,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Efetuar procedimento de assentamento do Packer Multi-set a XXX m..",
+            "text": "Efetuar procedimento de assentamento do Packer Multi-set a {{prof=XXX}} m..",
             "duration": 2,
             "bop": null,
             "compensando": true,
@@ -21369,7 +21369,7 @@
     ],
     "ABAN 241": [
         {
-            "text": "[HOLD POINT - ECS/BOP] - Com a FETH travada ou apoiada no TH, conforme SOP, realizar testes do BOP com 300 psi / 5 min e XXXX psi / 10 min.",
+            "text": "[HOLD POINT - ECS/BOP] - Com a FETH travada ou apoiada no TH, conforme SOP, realizar testes do BOP com 300 psi / 5 min e {{pressaoBopPerfuracao=XXXX}} psi / 10 min.",
             "duration": 7,
             "bop": null,
             "compensando": true,
@@ -21735,7 +21735,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Descer trem de arame e assentar corpo do plug no nipple do TMF a XXX m. Efetuar teste de ancoragem do plug com 500 lbf  de overpull. Liberar aplicador e retirar trem de arame.",
+            "text": "Descer trem de arame e assentar corpo do plug no nipple do TMF a {{prof=XXX}} m. Efetuar teste de ancoragem do plug com 500 lbf  de overpull. Liberar aplicador e retirar trem de arame.",
             "duration": 4,
             "bop": null,
             "compensando": true,
@@ -21749,7 +21749,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Montar trem padrão de arame com aplicador JDC 3\" + haste de equalização, acoplar ao lubrificador e testar via QTS. Descer trem de arame e instalar haste de equalização no plug FDB 3,81” a xxx m.  Retirar trem de arame.",
+            "text": "Montar trem padrão de arame com aplicador JDC 3\" + haste de equalização, acoplar ao lubrificador e testar via QTS. Descer trem de arame e instalar haste de equalização no plug FDB 3,81” a {{prof=xxx}} m.  Retirar trem de arame.",
             "duration": 4,
             "bop": null,
             "compensando": true,
@@ -21793,7 +21793,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Descer trem de arame e assentar corpo do plug no nipple do TMF a XXX m. Efetuar teste de ancoragem do plug com 500 lbf  de overpull. Liberar aplicador e retirar trem de arame até a superfície.",
+            "text": "Descer trem de arame e assentar corpo do plug no nipple do TMF a {{prof=XXX}} m. Efetuar teste de ancoragem do plug com 500 lbf  de overpull. Liberar aplicador e retirar trem de arame até a superfície.",
             "duration": 4,
             "bop": null,
             "compensando": true,
