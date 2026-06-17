@@ -309,6 +309,7 @@ export interface ProjectData {
   // Cimentação
   cimentTopoAnularA: string
   cimentTopoInteriorColuna: string
+  cimentTopoRevcim: string          // TOC verificado no REVCIM (m) — ABAN 247,248
   cimentProfPerfuracao: string      // TT: profundidade da perfuração da coluna
   cimentProfBaseCimentacao: string  // TT: profundidade da base da cimentação
   cimentCrProfundidade: string      // TT com CR: profundidade de assentamento
@@ -374,6 +375,8 @@ export interface ProjectData {
   volBombeioDescidaFt: string    // volume de bombeio na descida com FT (bbl a cada 500 m) — ABAN 124-135
   crDiam: string                 // Ø do CR / Cement Retainer (FT) — ABAN 155,156,158
   packerFtDiam: string           // Ø do Packer FT (inflável/multiset) — ABAN 159,164
+  marteleteModelo: string        // modelo da ponteira do martelete FT — ABAN 143
+  marteletePonteiraDiam: string  // Ø da ponteira do martelete FT (") — ABAN 143
   bismutoEur: string             // Tampão de bismuto — EUR (extensão útil real, m) — ABAN 238
   bismutoOverpull: string        // Tampão de bismuto — overpull de liberação (lbf) — ABAN 238
   // Em implementação — Fase B (placeholders sem campo dedicado)

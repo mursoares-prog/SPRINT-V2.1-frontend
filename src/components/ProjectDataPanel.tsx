@@ -435,7 +435,8 @@ const SECTION_FIELDS: Record<string, (keyof ProjectData)[]> = {
                // Hold Point REVCIM: governa prefixo {{_hpRevcim=}} nas linhas de avaliação de cimentação
                'revcimHp'],
   bha_ct:         ['bhaPlans','volBombeioDescidaFt',
-               'packerFtDiam','plugFtDiam','plugFtAplicador','ferramentaBoDuplaDiam','ferramentaBhaFt'],
+               'packerFtDiam','plugFtDiam','plugFtAplicador','ferramentaBoDuplaDiam','ferramentaBhaFt',
+               'marteleteModelo','marteletePonteiraDiam'],
   bha_workstring: ['bhaPlans',
                'colunaTrabalhoDpDiam','adaptadorMc','overpullKlbf','revestimentoDiam',
                'condicIntervaloTopo','condicIntervaloBase','corteBrocaDiam','corteDcSecoes','corteHwdpSecoes'],
@@ -444,7 +445,7 @@ const SECTION_FIELDS: Record<string, (keyof ProjectData)[]> = {
                'cimentProfBaseCimentacao','cimentCrProfundidade','cimentPlugs','cimentPwc',
                'cimentAlinhamento','cimentPlugVol','cimentPlugDens','cimentFcbaDens',
                'crDiam','cimentAnularAcimaTampao','tampaoAbandonoDens','tampaoAbandonoTopo','tampaoAbandonoCompr','ecsbFluidoDens',
-               'bhaPlans'],
+               'cimentTopoRevcim','bhaPlans'],
   equipamentos_submarinos: ['outrosTrtWeightTcap','outrosTrtWeightAnm','outrosN2FlowScfm',
                // Movidos da seção Pressões (testes de interface / ANM)
                'pressaoCavFibop','pressaoHcr','pressaoBoreTest','pressaoRiserBores','pressaoRiserCavConexao','pressaoTmfAnulAnm','outrosDrainB2Psi','pressaoN2Trt',
@@ -549,6 +550,8 @@ const FIELD_IMPACT: Partial<Record<keyof ProjectData, FieldImpact>> = {
   volBombeioDescidaFt:  { packageIds: ['ABAN 124','ABAN 125','ABAN 127','ABAN 128','ABAN 129','ABAN 130','ABAN 131','ABAN 132','ABAN 133','ABAN 135'] },
   crDiam:               { packageIds: ['ABAN 155','ABAN 156','ABAN 158'] },
   packerFtDiam:         { packageIds: ['ABAN 159','ABAN 164'] },
+  marteleteModelo:      { packageIds: ['ABAN 143'] },
+  marteletePonteiraDiam:{ packageIds: ['ABAN 143'] },
   bismutoEur:           { packageIds: ['ABAN 238'] },
   bismutoOverpull:      { packageIds: ['ABAN 238'] },
   fcbaCorteDens:           { packageIds: ['ABAN 186','ABAN 189','ABAN 190','ABAN 235','ABAN 236'] },
@@ -557,6 +560,7 @@ const FIELD_IMPACT: Partial<Record<keyof ProjectData, FieldImpact>> = {
   gabaritoNippleDiam:      { packageIds: ['ABAN 079'] },
   tampaoTipo:              { packageIds: ['ABAN 079'] },
   cimentAnularAcimaTampao: { packageIds: ['ABAN 082','ABAN 084'] },
+  cimentTopoRevcim:        { packageIds: ['ABAN 247','ABAN 248'] },
   canhaoModelo:            { packageIds: ['ABAN 102'] },
   plugFtDiam:              { packageIds: ['ABAN 129'] },
   plugFtAplicador:         { packageIds: ['ABAN 129'] },
@@ -782,7 +786,7 @@ export function ProjectDataPanel({ onLocate, onClearLocate, locatedTarget, oneBy
     }
     // Cimentação: topos/pwc/profs afetam todas as linhas de cimentação; cimentPlugs por uid
     if (sectionId === 'cimentacao') {
-      const topPwcProfChanged = ['cimentTopoAnularA','cimentTopoInteriorColuna','cimentPwc','cimentProfPerfuracao','cimentProfBaseCimentacao','cimentCrProfundidade',
+      const topPwcProfChanged = ['cimentTopoAnularA','cimentTopoInteriorColuna','cimentTopoRevcim','cimentPwc','cimentProfPerfuracao','cimentProfBaseCimentacao','cimentCrProfundidade',
         'cimentAlinhamento','cimentPlugVol','cimentPlugDens','cimentFcbaDens']
         .some(k => changedFields.includes(k as keyof ProjectData))
       if (topPwcProfChanged) {
@@ -1484,6 +1488,8 @@ export function ProjectDataPanel({ onLocate, onClearLocate, locatedTarget, oneBy
               {tech === 'ct' && hasPkgFn('ABAN 159','ABAN 164') && <Field label="Ø Packer FT (inflável/multiset)" value={d.packerFtDiam} onChange={v => setBhasTech({ packerFtDiam: v })} unit='"' locate={{ kind: 'data', field: 'packerFtDiam' }} />}
               {tech === 'ct' && hasPkgFn('ABAN 129') && <Field label="Ø plug FT (TH)" value={d.plugFtDiam} onChange={v => setBhasTech({ plugFtDiam: v })} unit='"' locate={{ kind: 'data', field: 'plugFtDiam' }} />}
               {tech === 'ct' && hasPkgFn('ABAN 129') && <Field label="Aplicador do plug FT" value={d.plugFtAplicador} onChange={v => setBhasTech({ plugFtAplicador: v })} locate={{ kind: 'data', field: 'plugFtAplicador' }} />}
+              {tech === 'ct' && hasPkgFn('ABAN 143') && <Field label="Modelo da ponteira (martelete FT)" value={d.marteleteModelo} onChange={v => setBhasTech({ marteleteModelo: v })} locate={{ kind: 'data', field: 'marteleteModelo' }} />}
+              {tech === 'ct' && hasPkgFn('ABAN 143') && <Field label="Ø da ponteira (martelete FT)" value={d.marteletePonteiraDiam} onChange={v => setBhasTech({ marteletePonteiraDiam: v })} unit='"' locate={{ kind: 'data', field: 'marteletePonteiraDiam' }} />}
               {tech === 'ct' && hasPkgFn('ABAN 144','ABAN 145') && <Field label="Ø ferramenta BO dupla (FT)" value={d.ferramentaBoDuplaDiam} onChange={v => setBhasTech({ ferramentaBoDuplaDiam: v })} unit='"' locate={{ kind: 'data', field: 'ferramentaBoDuplaDiam' }} />}
               {tech === 'ct' && hasPkgFn('ABAN 147') && <Field label="Ferramentas do BHA (FT)" value={d.ferramentaBhaFt} onChange={v => setBhasTech({ ferramentaBhaFt: v })} locate={{ kind: 'data', field: 'ferramentaBhaFt' }} />}
               {tech === 'workstring' && hasPkgFn('ABAN 013') && <Field label="Adaptador MC (interface COT)" value={d.adaptadorMc} onChange={v => setBhasTech({ adaptadorMc: v })} locate={{ kind: 'data', field: 'adaptadorMc' }} />}
@@ -1693,6 +1699,7 @@ export function ProjectDataPanel({ onLocate, onClearLocate, locatedTarget, oneBy
               })}
               {hasPkgFn('ABAN 155','ABAN 156','ABAN 158') && <Field label="Ø CR (Cement Retainer)" value={d.crDiam} onChange={v => setCimentacao({ crDiam: v })} unit='"' locate={{ kind: 'data', field: 'crDiam' }} />}
               {hasPkgFn('ABAN 082','ABAN 084') && <Field label="Topo cimento anular acima do tampão" value={d.cimentAnularAcimaTampao} onChange={v => setCimentacao({ cimentAnularAcimaTampao: v })} unit="m" locate={{ kind: 'data', field: 'cimentAnularAcimaTampao' }} />}
+              {hasPkgFn('ABAN 247','ABAN 248') && <Field label="Topo do cimento (REVCIM)" value={d.cimentTopoRevcim} onChange={v => setCimentacao({ cimentTopoRevcim: v })} unit="m" locate={{ kind: 'data', field: 'cimentTopoRevcim' }} />}
               {hasPkgFn('ABAN 199','ABAN 200') && <Field label="Tampão abandono — densidade pasta" value={d.tampaoAbandonoDens} onChange={v => setCimentacao({ tampaoAbandonoDens: v })} unit="ppg" locate={{ kind: 'data', field: 'tampaoAbandonoDens' }} />}
               {hasPkgFn('ABAN 199','ABAN 200') && <Field label="Tampão abandono — topo previsto" value={d.tampaoAbandonoTopo} onChange={v => setCimentacao({ tampaoAbandonoTopo: v })} unit="m" locate={{ kind: 'data', field: 'tampaoAbandonoTopo' }} />}
               {hasPkgFn('ABAN 199','ABAN 200') && <Field label="Tampão abandono — comprimento" value={d.tampaoAbandonoCompr} onChange={v => setCimentacao({ tampaoAbandonoCompr: v })} unit="m" locate={{ kind: 'data', field: 'tampaoAbandonoCompr' }} />}

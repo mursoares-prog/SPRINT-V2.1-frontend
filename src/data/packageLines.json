@@ -12607,7 +12607,7 @@
     ],
     "ABAN 143": [
         {
-            "text": "Mobilizar BHA com centralizador + martelete 2 3/8\" + ponteira XX XX\" e efetuar teste funcional.",
+            "text": "Mobilizar BHA com centralizador + martelete 2 3/8\" + ponteira {{marteleteModelo=XX}} {{marteletePonteiraDiam=XX}}\" e efetuar teste funcional.",
             "duration": 3,
             "bop": null,
             "compensando": true,
@@ -21633,7 +21633,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "[HOLD POINT - REVCIM] Checar topo do cimento previsto a xxx m, liberando no mínimo 200 lbf de peso.",
+            "text": "[HOLD POINT - REVCIM] Checar topo do cimento previsto a {{cimentTopoRevcim=xxx}} m, liberando no mínimo 200 lbf de peso.",
             "duration": 1,
             "bop": null,
             "compensando": true,
@@ -21691,7 +21691,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "[HOLD POINT - REVCIM] Checar topo do cimento previsto a xxx m, liberando no mínimo 200 lbf de peso.",
+            "text": "[HOLD POINT - REVCIM] Checar topo do cimento previsto a {{cimentTopoRevcim=xxx}} m, liberando no mínimo 200 lbf de peso.",
             "duration": 1,
             "bop": null,
             "compensando": true,
