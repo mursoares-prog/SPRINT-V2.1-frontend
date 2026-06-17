@@ -10,10 +10,10 @@ import { FlowchartModal } from './components/FlowchartModal'
 import { InputSummaryPanel } from './components/InputSummaryPanel'
 import { generateSchedule } from './engines/sequenceEngine'
 import type { ScopeId, WizardInputs, IsolationConfig } from './types'
-import { ArrowRight, FileText, Settings2, SlidersHorizontal, LayoutDashboard, ListChecks, FolderOpen, AlertTriangle, Server } from 'lucide-react'
+import { ArrowRight, FileText, Settings2, FolderOpen, AlertTriangle, Server } from 'lucide-react'
 import { loadProjectFromFile } from './utils/projectFile'
 import { isApiConfigured, getMergedPackageLines, getBaseOverrides, getBasePackageOverrides, getCustomPackages } from './utils/api'
-import { getSession, clearSession } from './utils/auth'
+import { getSession, clearSession, isAdmin } from './utils/auth'
 import { setPackageLines } from './data/packageLinesStore'
 import { applyDetailOverrides, applyPackageOverrides } from './data/lineDetailsStore'
 import { setExtraPackages, metaToPackage } from './data/packages'
@@ -469,28 +469,14 @@ function SelChip({ active, onClick, children }: { active: boolean; onClick: () =
 }
 
 // ── Main layout ───────────────────────────────────────────────────────────────
-function MobileNavBtn({ icon, label, active, onClick }: {
-  icon: React.ReactNode; label: string; active: boolean; onClick: () => void
-}) {
-  return (
-    <button onClick={onClick}
-      className="flex-1 flex flex-col items-center justify-center py-2 gap-0.5 transition-colors"
-      style={{ color: active ? '#d97706' : '#64748b' }}>
-      {icon}
-      <span className="text-[10px] font-semibold tracking-wide">{label}</span>
-    </button>
-  )
-}
 
 function Main({ onLogout }: { onLogout: () => void }) {
   const { state, dispatch } = useApp()
-  const [mobilePanel, setMobilePanel] = useState<'none' | 'inputs' | 'summary'>('none')
   const [isDark, setIsDark] = useState(() => localStorage.getItem('sprint_theme') !== 'light')
   const [showAdmin, setShowAdmin] = useState(false)
   const [showPackages, setShowPackages] = useState(false)
   const [showFlowchart, setShowFlowchart] = useState(false)
   const [navWarnTarget, setNavWarnTarget] = useState<'home' | 'wizard' | 'schedule' | 'fine_tuning' | null>(null)
-  const closePanel = () => setMobilePanel('none')
   const toggleDark = () => setIsDark(d => !d)
 
   const handleBeforeStepNav = (targetView: string): boolean => {
@@ -509,23 +495,6 @@ function Main({ onLogout }: { onLogout: () => void }) {
   return (
     <div className="flex flex-col h-[100dvh] overflow-hidden bg-[#e4e9e3] dark:bg-slate-950">
 
-      {/* Mobile top bar */}
-      <header className="md:hidden flex items-center gap-3 px-4 py-2.5 bg-[#0c2340] dark:bg-slate-900 shrink-0">
-        <div className="w-7 h-7 rounded-lg bg-[#d97706] flex items-center justify-center">
-          <SemisubIcon size={13} className="text-white" />
-        </div>
-        <span style={{ fontFamily: "'Barlow Condensed', sans-serif" }}
-          className="text-xl font-bold tracking-[0.15em] text-white uppercase flex-1">
-          SPRINT ABAN
-        </span>
-        {state.view === 'schedule' && (
-          <button onClick={() => { dispatch({ type: 'RESET' }); closePanel() }}
-            className="text-xs text-slate-500 hover:text-white transition-colors px-2 py-1 rounded border border-white/20">
-            Novo
-          </button>
-        )}
-      </header>
-
       {/* Content row */}
       <div className="flex flex-1 min-h-0 overflow-hidden">
         <Sidebar
@@ -537,12 +506,12 @@ function Main({ onLogout }: { onLogout: () => void }) {
           onBeforeStepNav={handleBeforeStepNav}
           onLogout={onLogout}
         />
-        {showAdmin && <AdminView onClose={() => setShowAdmin(false)} />}
+        {showAdmin && isAdmin() && <AdminView onClose={() => setShowAdmin(false)} />}
         {showPackages && <PackagesCatalogModal onClose={() => setShowPackages(false)} />}
-        {showFlowchart && <FlowchartModal onClose={() => setShowFlowchart(false)} />}
+        {showFlowchart && isAdmin() && <FlowchartModal onClose={() => setShowFlowchart(false)} />}
 
         {state.view === 'schedule' && (
-          <div className="hidden md:flex">
+          <div className="flex">
             <InputSummaryPanel />
           </div>
         )}
@@ -556,28 +525,6 @@ function Main({ onLogout }: { onLogout: () => void }) {
         </main>
 
       </div>
-
-      {/* Mobile bottom nav */}
-      <nav className="md:hidden flex items-stretch bg-[#0c2340] border-t border-white/10 shrink-0">
-        <MobileNavBtn icon={<LayoutDashboard size={20} />} label="Início"
-          active={state.view === 'home'}
-          onClick={() => { dispatch({ type: 'SET_VIEW', view: 'home' }); closePanel() }} />
-        <MobileNavBtn icon={<ListChecks size={20} />} label="Cronograma"
-          active={state.view === 'schedule' && mobilePanel === 'none'}
-          onClick={() => { if (state.view === 'schedule') closePanel() }} />
-        {state.view === 'schedule' && (
-          <MobileNavBtn icon={<SlidersHorizontal size={20} />} label="Inputs"
-            active={mobilePanel === 'inputs'}
-            onClick={() => setMobilePanel(p => p === 'inputs' ? 'none' : 'inputs')} />
-        )}
-      </nav>
-
-      {/* Mobile panel drawers */}
-      {state.view === 'schedule' && mobilePanel !== 'none' && (
-        <div className="md:hidden fixed inset-0 z-50 flex flex-col">
-          {mobilePanel === 'inputs' && <InputSummaryPanel onClose={closePanel} />}
-        </div>
-      )}
 
       {/* Navigation warning modal */}
       {navWarnTarget && (
