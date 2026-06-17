@@ -1741,6 +1741,9 @@ export function ProjectDataPanel({ onLocate, onClearLocate, locatedTarget, oneBy
           // REVCIM: ativo quando toggle ligado + pacote presente
           const showRevcimEval = d.revcimHp && hasPkgFn('ABAN 081','ABAN 082','ABAN 083','ABAN 084','ABAN 105','ABAN 106','ABAN 107','ABAN 149')
           const showRevcimTop  = d.revcimHp && hasPkgFn('ABAN 081','ABAN 082','ABAN 083','ABAN 084','ABAN 231','ABAN 232','ABAN 234')
+          // Estanqueidade pós-instalação — pressão de prova genérica ({{pressaoProva}}, usada em ~50 pacotes de BHA;
+          // também é o fallback dos pressaoEst*). Editável aqui, exibida quando há BHA arame/elétrico/FT no cronograma.
+          const showProva = state.fineTuningItems.some(i => ['wireline','electric','ct'].includes(i.technology))
           // Apenas itens marcados como Hold Point (configurado na seção de tecnologia)
           const hpEstItems = [
             { show: showEstStvR   && d.pressaoEstStvRHp,    label: 'Estanqueidade — STV nipple R 2,75"',   value: d.pressaoEstStvR,    field: 'pressaoEstStvR'   as const },
@@ -1775,6 +1778,12 @@ export function ProjectDataPanel({ onLocate, onClearLocate, locatedTarget, oneBy
                   {hpEstItems.map(it => (
                     <Field key={it.field} label={it.label} value={it.value} onChange={() => {}} readOnly unit="psi" locate={{ kind: 'data', field: it.field }} />
                   ))}
+                </div>
+              )}
+              {showProva && (
+                <div className="pb-2 mb-2 border-b border-slate-100 dark:border-slate-800">
+                  <div className="text-[10px] font-semibold text-slate-600 dark:text-slate-500 uppercase tracking-widest mb-1">Estanqueidade pós-instalação</div>
+                  <Field label="Pressão de prova (genérica)" value={d.pressaoProva} onChange={v => setHoldpoints({ pressaoProva: v })} unit="psi" locate={{ kind: 'data', field: 'pressaoProva' }} />
                 </div>
               )}
               <div className="space-y-1">
