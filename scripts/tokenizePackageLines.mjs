@@ -170,7 +170,7 @@ function tokenizeNav(text) {
 }
 
 // ── processa ──────────────────────────────────────────────────────────────────
-const data = JSON.parse(fs.readFileSync(SRC,'utf8'))
+const data = JSON.parse(fs.readFileSync(SRC,'utf8').replace(/^﻿/, ''))
 let tokenizedLines = 0, tokenCount = 0
 for (const pkgId of Object.keys(data)) {
   const pkgName = pkgNames[pkgId] ?? ''

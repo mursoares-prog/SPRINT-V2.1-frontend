@@ -145,7 +145,7 @@
             "genOperacaoDual": "Navegação"
         },
         {
-            "text": "Navegar para locação do poço XXX (XXX NM).",
+            "text": "Navegar para locação do poço {{poco=?}} ({{distanciaEntrePocos=?}} NM).",
             "duration": 15.5,
             "bop": null,
             "compensando": null,
@@ -203,7 +203,7 @@
             "genOperacaoDual": "Navegação com BOP ou TRT suspensos"
         },
         {
-            "text": "Manobrar o conjunto até cerca de 150 m acima da LDA do poço xxx.",
+            "text": "Manobrar o conjunto até cerca de 150 m acima da LDA do poço {{pocoOrigem=?}}.",
             "duration": 3,
             "bop": null,
             "compensando": null,
@@ -217,7 +217,7 @@
             "genOperacaoDual": "Navegação com BOP ou TRT suspensos"
         },
         {
-            "text": "Navegar para a locação XXX (xx NM) com stack-up de ferramentas de ANM no fundo entre poços.",
+            "text": "Navegar para a locação {{poco=?}} ({{distanciaEntrePocos=?}} NM) com stack-up de ferramentas de ANM no fundo entre poços.",
             "duration": 20.5,
             "bop": null,
             "compensando": null,
@@ -247,7 +247,7 @@
     ],
     "ABAN 005": [
         {
-            "text": "Manobrar BOP até xxx acima da LDA da locação do XXXX.",
+            "text": "Manobrar BOP até {{pocoOrigem=?}} acima da LDA da locação do {{poco=?}}.",
             "duration": 3.5,
             "bop": null,
             "compensando": null,
@@ -261,7 +261,7 @@
             "genOperacaoDual": "Navegação com BOP ou TRT suspensos"
         },
         {
-            "text": "Navegar com BOP no fundo entre poços : do poço XXX para o poço XXX (Distância entre locações: XXX NM).",
+            "text": "Navegar com BOP no fundo entre poços : do poço {{pocoOrigem=?}} para o poço {{poco=?}} (Distância entre locações: {{distanciaEntrePocos=?}} NM).",
             "duration": 16,
             "bop": null,
             "compensando": null,
@@ -893,7 +893,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Conectar adaptador MC-XXX x (interface da COT) à TRT. Conectar HCR à TRT e testar com XXX psi, contra base de teste.",
+            "text": "Conectar adaptador MC-{{adaptadorMc=XXX}} x (interface da COT) à TRT. Conectar HCR à TRT e testar com {{pressaoBoreTest=XXX}} psi, contra base de teste.",
             "duration": 5,
             "bop": null,
             "compensando": null,
@@ -935,7 +935,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Testar estanqueidade do Bores 2\" e  4\" com XXX psi/10 min contra base de teste.",
+            "text": "Testar estanqueidade do Bores 2\" e  4\" com {{pressaoBoreTest=XXX}} psi/10 min contra base de teste.",
             "duration": 1,
             "bop": null,
             "compensando": null,
@@ -1063,7 +1063,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "[HOLD POINT - SANM] Testar coluna de DPR contra VG5/VG4 da FDR/TRT com AGMAR a xxx psi / 10 min.",
+            "text": "[HOLD POINT - SANM] Testar coluna de DPR contra VG5/VG4 da FDR/TRT com AGMAR a {{pressaoRiserDpr=xxx}} psi / 10 min.",
             "duration": 0.5,
             "bop": null,
             "compensando": null,
@@ -1093,7 +1093,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "[HOLD POINT - SANM] Testar coluna de riser DB contra VB5 / VB2 da FDR/TRT com AGMAR a xxx psi / 10 min.",
+            "text": "[HOLD POINT - SANM] Testar coluna de riser DB contra VB5 / VB2 da FDR/TRT com AGMAR a {{pressaoRiserDpr=xxx}} psi / 10 min.",
             "duration": 0.5,
             "bop": null,
             "compensando": null,
@@ -1109,7 +1109,7 @@
     ],
     "ABAN 016": [
         {
-            "text": "Montar e testar linha de N2 com xxx psi de N2.",
+            "text": "Montar e testar linha de N2 com {{pressaoRiserDpr=xxx}} psi de N2.",
             "duration": 1,
             "bop": null,
             "compensando": null,
@@ -1139,7 +1139,7 @@
     ],
     "ABAN 017": [
         {
-            "text": "Montar e testar linha de superfície de N2 com xxx psi / 10 min.",
+            "text": "Montar e testar linha de superfície de N2 com {{pressaoRiserDpr=xxx}} psi / 10 min.",
             "duration": 1,
             "bop": null,
             "compensando": null,
@@ -1183,7 +1183,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Assentar TRT na TCAP, observar o correto assentamento da ferramenta com ROV. Retrair soft landing e liberar xxx klbf de peso sobre a TCAP.",
+            "text": "Assentar TRT na TCAP, observar o correto assentamento da ferramenta com ROV. Retrair soft landing e liberar {{outrosTrtWeightTcap=xxx}} klbf de peso sobre a TCAP.",
             "duration": 1.5,
             "bop": null,
             "compensando": null,
@@ -1571,7 +1571,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Assentar TRT na ANM, retrair soft landing e liberar XX klbf de peso (conforme orientação do fabricante).",
+            "text": "Assentar TRT na ANM, retrair soft landing e liberar {{outrosTrtWeightAnm=XX}} klbf de peso (conforme orientação do fabricante).",
             "duration": 2,
             "bop": null,
             "compensando": null,
@@ -1615,7 +1615,7 @@
     ],
     "ABAN 024": [
         {
-            "text": "[HOLD POINT - SANM] Testar interface TRT x ANM com xxx psi de N2 (superfície) e monitorar ANM com ROV por 10 min. Monitorar TPT da ANM, se disponível.",
+            "text": "[HOLD POINT - SANM] Testar interface TRT x ANM com {{pressaoN2Trt=xxx}} psi de N2 (superfície) e monitorar ANM com ROV por 10 min. Monitorar TPT da ANM, se disponível.",
             "duration": 4.08,
             "bop": null,
             "compensando": true,
@@ -1631,7 +1631,7 @@
     ],
     "ABAN 025": [
         {
-            "text": "[HOLD POINT - SANM] Testar interface TRT x ANM com xxx psi de N2 (superfície) via HCR / B2\" (XO da FIBOP fechada) e monitorar ANM com ROV por 10 min. Monitorar TP da ANM, se dispónível.Monitorar TP da ANM, se dispónível.",
+            "text": "[HOLD POINT - SANM] Testar interface TRT x ANM com {{pressaoN2Trt=xxx}} psi de N2 (superfície) via HCR / B2\" (XO da FIBOP fechada) e monitorar ANM com ROV por 10 min. Monitorar TP da ANM, se dispónível.Monitorar TP da ANM, se dispónível.",
             "duration": 4.08,
             "bop": null,
             "compensando": true,
@@ -1647,7 +1647,7 @@
     ],
     "ABAN 026": [
         {
-            "text": "Testar contra Plug no TMF do bore de produção com xxxx psi de N2 (superfície) e monitorar ANM com ROV por 10 min (Hold Point EQSB). Teste inicial com pressão reduzida, para evitar o acunhamento / dificuldade ´para retirada.",
+            "text": "Testar contra Plug no TMF do bore de produção com {{pressaoTmfProd=xxxx}} psi de N2 (superfície) e monitorar ANM com ROV por 10 min (Hold Point EQSB). Teste inicial com pressão reduzida, para evitar o acunhamento / dificuldade ´para retirada.",
             "duration": 2.88,
             "bop": null,
             "compensando": true,
@@ -1663,7 +1663,7 @@
     ],
     "ABAN 027": [
         {
-            "text": "Testar contra Plug no TMF do bore de anular via HCR (ou bore 2\", se for o caso) com xxx psi de N2 (superfície) e monitorar ANM com ROV.",
+            "text": "Testar contra Plug no TMF do bore de anular via HCR (ou bore 2\", se for o caso) com {{pressaoTmfAnulAnm=xxx}} psi de N2 (superfície) e monitorar ANM com ROV.",
             "duration": 2.88,
             "bop": null,
             "compensando": true,
@@ -1679,7 +1679,7 @@
     ],
     "ABAN 028": [
         {
-            "text": "Pressurizar bloco de produção com xxx psi via DPR M1 / W1 e XO da ANM. Monitorar pressão no DPR e HCR (e sensores da ANM se disponíveis) por 10 min.",
+            "text": "Pressurizar bloco de produção com {{pressaoTmfAnulAnm=xxx}} psi via DPR M1 / W1 e XO da ANM. Monitorar pressão no DPR e HCR (e sensores da ANM se disponíveis) por 10 min.",
             "duration": 5.76,
             "bop": null,
             "compensando": true,
@@ -1709,7 +1709,7 @@
     ],
     "ABAN 029": [
         {
-            "text": "Pressurizar bloco do anular com xxx psi via HCR contra XO, M2 e W2 da ANM e monitorar pressão pelo HCR e DPR (e sensores da ANM se disponíveis) por 10 min.",
+            "text": "Pressurizar bloco do anular com {{pressaoTmfAnulAnm=xxx}} psi via HCR contra XO, M2 e W2 da ANM e monitorar pressão pelo HCR e DPR (e sensores da ANM se disponíveis) por 10 min.",
             "duration": 5.28,
             "bop": null,
             "compensando": true,
@@ -1739,7 +1739,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Efetuar bullheading do fluido na COP com XX bbl de diesel pela unidade de cimentação até XXX m abaixo da DHSV.",
+            "text": "Efetuar bullheading do fluido na COP com {{bullheadVolume=XX}} bbl de diesel pela unidade de cimentação até {{prof=XXX}} m abaixo da DHSV.",
             "duration": 0.5,
             "bop": null,
             "compensando": true,
@@ -1753,7 +1753,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Durante bombeio de diesel (baixa vazão), após identificar equalização da pressão acima / abaixo da DHSV, pressurizar LC1 da DHSV com XXXX psi.",
+            "text": "Durante bombeio de diesel (baixa vazão), após identificar equalização da pressão acima / abaixo da DHSV, pressurizar LC1 da DHSV com {{pressaoBullheadDhsv=XXXX}} psi.",
             "duration": 0.5,
             "bop": null,
             "compensando": true,
@@ -1853,7 +1853,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Testar contra a gaveta do BOP de arame via UC > W-SFT > S-SFT com 300 / XXXX psi por 5 / 10 min. Drenar pressão pela planta de WT, abrir gaveta do BOP e testar contra lubrificador de arame com 300 / XXXX psi por 5 / 10 min.",
+            "text": "Testar contra a gaveta do BOP de arame via UC > W-SFT > S-SFT com 300 / {{pressaoBopArameHigh=XXXX}} psi por 5 / 10 min. Drenar pressão pela planta de WT, abrir gaveta do BOP e testar contra lubrificador de arame com 300 / {{pressaoBopArameHigh=XXXX}} psi por 5 / 10 min.",
             "duration": 2,
             "bop": null,
             "compensando": true,
@@ -1897,7 +1897,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Testar contra a gaveta do BOP de arame via UC > W-SFT > S-SFT com 300 / XXXX psi por 5 / 10 min. Drenar pressão pela planta de WT, abrir gaveta do BOP e testar contra lubrificador de arame com 300 / XXX psi por 5 / 10 min.",
+            "text": "Testar contra a gaveta do BOP de arame via UC > W-SFT > S-SFT com 300 / {{pressaoBopArameHigh=XXXX}} psi por 5 / 10 min. Drenar pressão pela planta de WT, abrir gaveta do BOP e testar contra lubrificador de arame com 300 / {{pressaoBopArameHigh=XXX}} psi por 5 / 10 min.",
             "duration": 2,
             "bop": null,
             "compensando": null,
@@ -1941,7 +1941,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Testar contra a gaveta do BOP de arame via UC > W1-THead > S1-THead com 300 / XXXX psi por 5 / 10 min. Drenar pressão pela planta de WT, abrir gaveta do BOP e testar contra lubrificador de arame com 300 / XXX psi por 5 / 10 min.",
+            "text": "Testar contra a gaveta do BOP de arame via UC > W1-THead > S1-THead com 300 / {{pressaoBopArameHigh=XXXX}} psi por 5 / 10 min. Drenar pressão pela planta de WT, abrir gaveta do BOP e testar contra lubrificador de arame com 300 / {{pressaoBopArameHigh=XXX}} psi por 5 / 10 min.",
             "duration": 2,
             "bop": null,
             "compensando": true,
@@ -1985,7 +1985,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Testar contra a gaveta do BOP de arame via UC > W2-THead > S2-THead com 300 / XXXX psi por 5 / 10 min. Drenar pressão pela planta de WT, abrir gaveta do BOP e testar contra lubrificador de arame com 300 / XXXX psi por 5 / 10 min.",
+            "text": "Testar contra a gaveta do BOP de arame via UC > W2-THead > S2-THead com 300 / {{pressaoBopArameHigh=XXXX}} psi por 5 / 10 min. Drenar pressão pela planta de WT, abrir gaveta do BOP e testar contra lubrificador de arame com 300 / {{pressaoBopArameHigh=XXXX}} psi por 5 / 10 min.",
             "duration": 2,
             "bop": null,
             "compensando": true,
@@ -2001,7 +2001,7 @@
     ],
     "ABAN 034": [
         {
-            "text": "Descer pescador JDC X\" para recuperação da haste do plug no TMF.",
+            "text": "Descer pescador JDC {{diamJdc=X}}\" para recuperação da haste do plug no TMF.",
             "duration": 1.5,
             "bop": null,
             "compensando": true,
@@ -2043,7 +2043,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Desmobilizar haste + JDC e montar pescador XXX no trem de arame.",
+            "text": "Desmobilizar haste + JDC e montar pescador {{modelo=XXX}} no trem de arame.",
             "duration": 1,
             "bop": null,
             "compensando": true,
@@ -2057,7 +2057,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Descer trem de arame com pescador XXX e recuperar plug do TMF, conforme procedimento SMAB.",
+            "text": "Descer trem de arame com pescador {{modelo=XXX}} e recuperar plug do TMF, conforme procedimento SMAB.",
             "duration": 1.5,
             "bop": null,
             "compensando": true,
@@ -2143,7 +2143,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Desmobilizar haste + JDC e montar pescador XXX no trem de arame.",
+            "text": "Desmobilizar haste + JDC e montar pescador {{modelo=XXX}} no trem de arame.",
             "duration": 3,
             "bop": null,
             "compensando": true,
@@ -2157,7 +2157,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Descer trem de arame com pescador XXX e recuperar plug do TMF, conforme procedimento SMAB.",
+            "text": "Descer trem de arame com pescador {{modelo=XXX}} e recuperar plug do TMF, conforme procedimento SMAB.",
             "duration": 2,
             "bop": null,
             "compensando": true,
@@ -2201,7 +2201,7 @@
     ],
     "ABAN 036": [
         {
-            "text": "Montar trem padrão 1 7/8\" + localizador de nipple tipo collet x” + estampador x” (biselado 5 mm x 45º). Acoplar trem no lubrificador e testar com 300 / XXXX psi via QTS (se necessário).",
+            "text": "Montar trem padrão 1 7/8\" + localizador de nipple tipo collet {{diamLocalizador=x}}” + estampador {{diamEstampador=x}}” (biselado 5 mm x 45º). Acoplar trem no lubrificador e testar com 300 / {{pressaoBopArameHigh=XXXX}} psi via QTS (se necessário).",
             "duration": 2,
             "bop": null,
             "compensando": true,
@@ -2245,7 +2245,7 @@
     ],
     "ABAN 037": [
         {
-            "text": "Montar trem padrão 1 7/8\" + localizador de nipple tipo collet x” + \nestampador x”. Acoplar trem no lubrificador e \ntestar com 300 / XXXX psi via QTS (se necessário).",
+            "text": "Montar trem padrão 1 7/8\" + localizador de nipple tipo collet {{diamLocalizador=x}}” + \nestampador {{diamEstampador=x}}”. Acoplar trem no lubrificador e \ntestar com 300 / {{pressaoBopArameHigh=XXXX}} psi via QTS (se necessário).",
             "duration": 2,
             "bop": null,
             "compensando": true,
@@ -2259,7 +2259,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Gabaritar COP até DHSV @ xx m, correlacionando com profundidade do TH. Retirar trem até a superfície.",
+            "text": "Gabaritar COP até DHSV @ {{prof=xx}} m, correlacionando com profundidade do TH. Retirar trem até a superfície.",
             "duration": 3,
             "bop": null,
             "compensando": true,
@@ -2273,7 +2273,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Montar trem padrão 1 7/8\" + pescador x” + camisão. Acoplar trem no lubrificador e \ntestar com 300 / XXXX psi via QTS (se necessário).",
+            "text": "Montar trem padrão 1 7/8\" + {{aplicadorCamisao=pescador x”}} + camisão. Acoplar trem no lubrificador e \ntestar com 300 / {{pressaoBopArameHigh=XXXX}} psi via QTS (se necessário).",
             "duration": 1,
             "bop": null,
             "compensando": true,
@@ -2287,7 +2287,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Instalar camisão na DHSV @ xxx m. Obs.: ID do camisão X”. Efetuar teste de ancoragem com 500 lbf de overpull.",
+            "text": "Instalar camisão na DHSV @ {{prof=xxx}} m. Obs.: ID do camisão {{camDiamInt=X}}”. Efetuar teste de ancoragem com 500 lbf de overpull.",
             "duration": 3,
             "bop": null,
             "compensando": true,
@@ -2345,7 +2345,7 @@
     ],
     "ABAN 038": [
         {
-            "text": "Montar trem padrão 1 7/8\" + JDC 3\" + STV RB-2. Acoplar trem no lubrificador e \ntestar com 300 / XXXX psi via QTS.",
+            "text": "Montar trem padrão 1 7/8\" + JDC 3\" + STV RB-2. Acoplar trem no lubrificador e \ntestar com 300 / {{pressaoBopArameHigh=XXXX}} psi via QTS.",
             "duration": 1.5,
             "bop": null,
             "compensando": true,
@@ -2359,7 +2359,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Descer trem de arame com STV e assentar no nipple R-2,75\" @ xxx m. Retirar trem de arame. Avaliar possibilidade de descida sem PCL para efetuar pré teste da STV com pescador conectado.",
+            "text": "Descer trem de arame com STV e assentar no nipple R-2,75\" @ {{prof=xxx}} m. Retirar trem de arame. Avaliar possibilidade de descida sem PCL para efetuar pré teste da STV com pescador conectado.",
             "duration": 4,
             "bop": null,
             "compensando": true,
@@ -2373,7 +2373,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Pressurizar COP e confirmar estanqueidade da STV com XXX psi.",
+            "text": "{{_hpEstStvR=}}Pressurizar COP e confirmar estanqueidade da STV com {{pressaoEstStvR=XXX}} psi.",
             "duration": 2,
             "bop": null,
             "compensando": true,
@@ -2389,7 +2389,7 @@
     ],
     "ABAN 039": [
         {
-            "text": "Montar trem padrão 1 7/8\" + JDC 3\" + STV FB-2. Acoplar trem no lubrificador e \ntestar com 300 / XXXX psi via QTS.",
+            "text": "Montar trem padrão 1 7/8\" + JDC 3\" + STV FB-2. Acoplar trem no lubrificador e \ntestar com 300 / {{pressaoBopArameHigh=XXXX}} psi via QTS.",
             "duration": 1.5,
             "bop": null,
             "compensando": true,
@@ -2403,7 +2403,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Descer trem de arame com STV FB-2 e assentar no nipple F 2,81\" @ xxx m. Retirar trem de arame. Avaliar possibilidade de descida sem PCL para efetuar pré teste da STV com pescador conectado.",
+            "text": "Descer trem de arame com STV FB-2 e assentar no nipple F 2,81\" @ {{prof=xxx}} m. Retirar trem de arame. Avaliar possibilidade de descida sem PCL para efetuar pré teste da STV com pescador conectado.",
             "duration": 4,
             "bop": null,
             "compensando": true,
@@ -2417,7 +2417,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Pressurizar COP e confirmar estanqueidade da STV com XXX psi.",
+            "text": "{{_hpEstStvR=}}Pressurizar COP e confirmar estanqueidade da STV com {{pressaoEstStvR=XXX}} psi.",
             "duration": 2,
             "bop": null,
             "compensando": true,
@@ -2433,7 +2433,7 @@
     ],
     "ABAN 040": [
         {
-            "text": "Montar trem padrão 1 7/8\" + GS 3\" + Destravador M (ou M-1 2,75\") + corpo do plug RKH 2,75\". Acoplar trem no lubrificador e \ntestar com 300 / XXXX psi via QTS.",
+            "text": "Montar trem padrão 1 7/8\" + GS 3\" + Destravador M (ou M-1 2,75\") + corpo do plug RKH 2,75\". Acoplar trem no lubrificador e \ntestar com 300 / {{pressaoBopArameHigh=XXXX}} psi via QTS.",
             "duration": 1,
             "bop": null,
             "compensando": true,
@@ -2447,7 +2447,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Descer trem de arame com corpo do plug RKH 2,75\" e assentar no nipple R-2,75\" @ XXX m. Retirar trem de arame.",
+            "text": "Descer trem de arame com corpo do plug RKH 2,75\" e assentar no nipple R-2,75\" @ {{prof=XXX}} m. Retirar trem de arame.",
             "duration": 3,
             "bop": null,
             "compensando": true,
@@ -2475,7 +2475,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Montar trem padrão de arame com aplicador JDC 3\" + haste de equalização, acoplar ao lubrificador e testar via QTS. Descer trem de arame e instalar haste de equalização no plug RKH 2,75” @ xxx m.  Retirar trem de arame.",
+            "text": "Montar trem padrão de arame com aplicador JDC 3\" + haste de equalização, acoplar ao lubrificador e testar via QTS. Descer trem de arame e instalar haste de equalização no plug RKH 2,75” @ {{prof=xxx}} m.  Retirar trem de arame.",
             "duration": 3,
             "bop": null,
             "compensando": true,
@@ -2489,7 +2489,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Pressurizar COP e confirmar estanqueidade do plug com XXX psi. Avaliar necessidade de efetuar teste de influxo do plug com redução de hidrostática no SCVS.",
+            "text": "{{_hpEstPlugR=}}Pressurizar COP e confirmar estanqueidade do plug com {{pressaoEstPlugR=XXX}} psi. Avaliar necessidade de efetuar teste de influxo do plug com redução de hidrostática no SCVS.",
             "duration": 1.5,
             "bop": null,
             "compensando": true,
@@ -2505,7 +2505,7 @@
     ],
     "ABAN 041": [
         {
-            "text": "Montar trem padrão 1 7/8\" + GS 3\" + Destravador M (ou M-1 2,81\") + corpo do plug FMH 2,81\". Acoplar trem no lubrificador e \ntestar com 300 / XXXX psi via QTS.",
+            "text": "Montar trem padrão 1 7/8\" + GS 3\" + Destravador M (ou M-1 2,81\") + corpo do plug FMH 2,81\". Acoplar trem no lubrificador e \ntestar com 300 / {{pressaoBopArameHigh=XXXX}} psi via QTS.",
             "duration": 1,
             "bop": null,
             "compensando": true,
@@ -2519,7 +2519,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Descer trem de arame com corpo do plug FMH 2,81\" e assentar no nipple F-2,81 @ XXX m. Retirar trem de arame.",
+            "text": "Descer trem de arame com corpo do plug FMH 2,81\" e assentar no nipple F-2,81 @ {{prof=XXX}} m. Retirar trem de arame.",
             "duration": 3,
             "bop": null,
             "compensando": true,
@@ -2547,7 +2547,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Montar trem padrão de arame com aplicador JDC 3\" + haste de equalização,\n acoplar ao lubrificador e testar via QTS. Descer trem de arame e \ninstalar haste de equalização no plug FMH 2,81” @ xxx m.  Retirar trem \nde arame.",
+            "text": "Montar trem padrão de arame com aplicador JDC 3\" + haste de equalização,\n acoplar ao lubrificador e testar via QTS. Descer trem de arame e \ninstalar haste de equalização no plug FMH 2,81” @ {{prof=xxx}} m.  Retirar trem \nde arame.",
             "duration": 3,
             "bop": null,
             "compensando": true,
@@ -2561,7 +2561,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Pressurizar COP e confirmar estanqueidade do plug com XXX psi. Avaliar \nnecessidade de efetuar teste de influxo do plug com redução de \nhidrostática no SCVS.",
+            "text": "{{_hpEstPlugF=}}Pressurizar COP e confirmar estanqueidade do plug com {{pressaoEstPlugF=XXX}} psi. Avaliar \nnecessidade de efetuar teste de influxo do plug com redução de \nhidrostática no SCVS.",
             "duration": 1.5,
             "bop": null,
             "compensando": true,
@@ -2577,7 +2577,7 @@
     ],
     "ABAN 042": [
         {
-            "text": "Montar trem padrão 1 7/8\" +aplicador Z-6 4\" + corpo do plug FDB 3,75\". Acoplar trem no lubrificador e \ntestar com 300 / XXXX psi via QTS.",
+            "text": "Montar trem padrão 1 7/8\" +aplicador Z-6 4\" + corpo do plug FDB 3,75\". Acoplar trem no lubrificador e \ntestar com 300 / {{pressaoBopArameHigh=XXXX}} psi via QTS.",
             "duration": 4.5,
             "bop": null,
             "compensando": true,
@@ -2591,7 +2591,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Descer trem de arame com corpo do plug  FDB 3,75\" e assentar no TH - nipple DB @ XXX m. Efetuar teste de ancoragem do plug com 500 lbf  de overpull. Liberar aplicador e retirar trem de arame.",
+            "text": "Descer trem de arame com corpo do plug  FDB 3,75\" e assentar no TH - nipple DB @ {{prof=XXX}} m. Efetuar teste de ancoragem do plug com 500 lbf  de overpull. Liberar aplicador e retirar trem de arame.",
             "duration": 4,
             "bop": null,
             "compensando": true,
@@ -2605,7 +2605,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Montar trem padrão de arame com aplicador JDC 3\" + haste de equalização,\n acoplar ao lubrificador e testar via QTS. Descer trem de arame e \ninstalar haste de equalização no plug FDB 3,75” @ xxx m.  Retirar trem \nde arame.",
+            "text": "Montar trem padrão de arame com aplicador JDC 3\" + haste de equalização,\n acoplar ao lubrificador e testar via QTS. Descer trem de arame e \ninstalar haste de equalização no plug FDB 3,75” @ {{prof=xxx}} m.  Retirar trem \nde arame.",
             "duration": 4,
             "bop": null,
             "compensando": true,
@@ -2619,7 +2619,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Testar plug com XXX psi, pressurizando  via B2\" > M2 > anular > VGL (ou furo COP) > COP, e monitorando via B4\".",
+            "text": "{{_hpEstPlugTH=}}Testar plug com {{pressaoEstPlugTH=XXX}} psi, pressurizando  via B2\" > M2 > anular > VGL (ou furo COP) > COP, e monitorando via B4\".",
             "duration": 4,
             "bop": null,
             "compensando": true,
@@ -2635,7 +2635,7 @@
     ],
     "ABAN 043": [
         {
-            "text": "Montar BHA de arame padrão 1 7/8\"  com aplicador CL + BRV 2,81\". Acoplar trem no lubrificador e \ntestar com 300 / XXXX psi via QTS. Avaliar necessidade de bullhead prévio de diesel para efetuar o teste da BRV.",
+            "text": "Montar BHA de arame padrão 1 7/8\"  com aplicador CL + BRV 2,81\". Acoplar trem no lubrificador e \ntestar com 300 / {{pressaoBopArameHigh=XXXX}} psi via QTS. Avaliar necessidade de bullhead prévio de diesel para efetuar o teste da BRV.",
             "duration": 3,
             "bop": null,
             "compensando": true,
@@ -2649,7 +2649,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Descer BRV CLF 2,81\" e instalar no nipple F no topo do TSR @ xxxx m. Efetuar teste de ancoragem com 500 lbf de overpull.",
+            "text": "Descer BRV CLF 2,81\" e instalar no nipple F no topo do TSR @ {{prof=xxxx}} m. Efetuar teste de ancoragem com 500 lbf de overpull.",
             "duration": 4,
             "bop": null,
             "compensando": true,
@@ -2693,7 +2693,7 @@
     ],
     "ABAN 044": [
         {
-            "text": "Montar BHA de arame padrão 1 7/8\"  com aplicador GS 3\" + Destravador M 2,75\" +  BRV 2,75\". Acoplar trem no lubrificador e \ntestar com 300 / XXXX psi via QTS. \nAvaliar necessidade de bullhead prévio de diesel para efetuar o teste da\n BRV.",
+            "text": "Montar BHA de arame padrão 1 7/8\"  com aplicador GS 3\" + Destravador M 2,75\" +  BRV 2,75\". Acoplar trem no lubrificador e \ntestar com 300 / {{pressaoBopArameHigh=XXXX}} psi via QTS. \nAvaliar necessidade de bullhead prévio de diesel para efetuar o teste da\n BRV.",
             "duration": 3,
             "bop": null,
             "compensando": true,
@@ -2707,7 +2707,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Descer BRV 2,75\" e instalar no nipple R  @ xxxx m. Retirar trem até a superfície.",
+            "text": "Descer BRV 2,75\" e instalar no nipple R  @ {{prof=xxxx}} m. Retirar trem até a superfície.",
             "duration": 4,
             "bop": null,
             "compensando": true,
@@ -2751,7 +2751,7 @@
     ],
     "ABAN 045": [
         {
-            "text": "Montar BHA de arame padrão 1 7/8\" + e-Fire. Acoplar trem no lubrificador e \ntestar com 300 / XXXX psi via QTS.",
+            "text": "Montar BHA de arame padrão 1 7/8\" + e-Fire. Acoplar trem no lubrificador e \ntestar com 300 / {{pressaoBopArameHigh=XXXX}} psi via QTS.",
             "duration": 3,
             "bop": null,
             "compensando": true,
@@ -2765,7 +2765,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Perfurar COP com e-Fire @ xxx m, conforme procedimento da Cia de serviço.  Garantir pressão na COP maior que pressão do anular na profundidade prevista para perfuração da COP, previamente à operação com e-fire.",
+            "text": "Perfurar COP com e-Fire @ {{prof=xxx}} m, conforme procedimento da Cia de serviço.  Garantir pressão na COP maior que pressão do anular na profundidade prevista para perfuração da COP, previamente à operação com e-fire.",
             "duration": 9,
             "bop": null,
             "compensando": true,
@@ -2809,7 +2809,7 @@
     ],
     "ABAN 046": [
         {
-            "text": "Montar BHA de arame padrão 1 7/8\" + caçamba X,XX\" (mecânica ou hidrostática). Acoplar trem no lubrificador e \ntestar com 300 / XXXX psi via QTS.",
+            "text": "Montar BHA de arame padrão 1 7/8\" + caçamba {{diamCacamba=X,XX}}\" (mecânica ou hidrostática). Acoplar trem no lubrificador e \ntestar com 300 / {{pressaoBopArameHigh=XXXX}} psi via QTS.",
             "duration": 2,
             "bop": null,
             "compensando": true,
@@ -2839,7 +2839,7 @@
     ],
     "ABAN 047": [
         {
-            "text": "Montar BHA de arame padrão 1 7/8\" + registrador eletrônico de memória. Acoplar trem no lubrificador e \ntestar com 300 / XXXX psi via QTS.",
+            "text": "Montar BHA de arame padrão 1 7/8\" + registrador eletrônico de memória. Acoplar trem no lubrificador e \ntestar com 300 / {{pressaoBopArameHigh=XXXX}} psi via QTS.",
             "duration": 2,
             "bop": null,
             "compensando": true,
@@ -2853,7 +2853,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Descer registrador e efetuar RP na profundidade x m, conforme especificação do RES/AR. Efetuar z estações, de 10 min cada, durante a retirada do registrador - vide observação para profundidades.",
+            "text": "Descer registrador e efetuar RP na profundidade {{profRegistroPressao=x}} m, conforme especificação do RES/AR. Efetuar {{numEstacoesRp=z}} estações, de 10 min cada, durante a retirada do registrador - vide observação para profundidades.",
             "duration": 8,
             "bop": null,
             "compensando": true,
@@ -2883,7 +2883,7 @@
     ],
     "ABAN 048": [
         {
-            "text": "Montar BHA de arame padrão 1 7/8\" + JDC 3\". Acoplar trem no lubrificador e \ntestar com 300 / XXXX psi via QTS.",
+            "text": "Montar BHA de arame padrão 1 7/8\" + JDC 3\". Acoplar trem no lubrificador e \ntestar com 300 / {{pressaoBopArameHigh=XXXX}} psi via QTS.",
             "duration": 2,
             "bop": null,
             "compensando": true,
@@ -2897,7 +2897,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Descer trem de arame com JDC3\" até o nipple R @ xxx m.",
+            "text": "Descer trem de arame com JDC3\" até o nipple R @ {{prof=xxx}} m.",
             "duration": 2,
             "bop": null,
             "compensando": true,
@@ -2911,7 +2911,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Prover overbalance para retirada da STV / pressurizar COP com XXX psi. Trabalhar para recuperar STV 2,75\" do nipple R com JDC 3\" @ xxx m. Observar queda de pressão após desalojamento do nipple.",
+            "text": "Prover overbalance para retirada da STV / pressurizar COP com {{pressaoProva=XXX}} psi. Trabalhar para recuperar STV 2,75\" do nipple R com JDC 3\" @ {{prof=xxx}} m. Observar queda de pressão após desalojamento do nipple.",
             "duration": 1,
             "bop": null,
             "compensando": true,
@@ -2955,7 +2955,7 @@
     ],
     "ABAN 049": [
         {
-            "text": "Montar BHA de arame padrão 1 7/8\" + JDC 3\". Acoplar trem no lubrificador e \ntestar com 300 / XXXX psi via QTS.",
+            "text": "Montar BHA de arame padrão 1 7/8\" + JDC 3\". Acoplar trem no lubrificador e \ntestar com 300 / {{pressaoBopArameHigh=XXXX}} psi via QTS.",
             "duration": 2,
             "bop": null,
             "compensando": true,
@@ -2969,7 +2969,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Descer trem de arame com JDC 3\" até o nipple F @ xxx m",
+            "text": "Descer trem de arame com JDC 3\" até o nipple F @ {{prof=xxx}} m",
             "duration": 2,
             "bop": null,
             "compensando": true,
@@ -2983,7 +2983,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Prover overbalance para retirada da STV / pressurizar COP com XXX psi. \nTrabalhar para recuperar STV 2,81\" do nipple F com JDC 3\" @ xxx m. \nObservar queda de pressão após desalojamento do nipple.",
+            "text": "Prover overbalance para retirada da STV / pressurizar COP com {{pressaoProva=XXX}} psi. \nTrabalhar para recuperar STV 2,81\" do nipple F com JDC 3\" @ {{prof=xxx}} m. \nObservar queda de pressão após desalojamento do nipple.",
             "duration": 1,
             "bop": null,
             "compensando": true,
@@ -3027,7 +3027,7 @@
     ],
     "ABAN 050": [
         {
-            "text": "Montar BHA de arame padrão 1 7/8\" + JDC 3\". Acoplar trem no lubrificador e \ntestar com 300 / XXXX psi via QTS.",
+            "text": "Montar BHA de arame padrão 1 7/8\" + JDC 3\". Acoplar trem no lubrificador e \ntestar com 300 / {{pressaoBopArameHigh=XXXX}} psi via QTS.",
             "duration": 1.5,
             "bop": null,
             "compensando": true,
@@ -3041,7 +3041,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Descer trem de arame com JDC 3\" até o nipple R @ xxx m.",
+            "text": "Descer trem de arame com JDC 3\" até o nipple R @ {{prof=xxx}} m.",
             "duration": 2,
             "bop": null,
             "compensando": true,
@@ -3055,7 +3055,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Prover overbalance para retirada da haste / pressurizar COP com XXX psi. \nTrabalhar para recuperar haste do plug 2,75\" @ xxx m. \nObservar queda de pressão após desalojamento da haste do plug.",
+            "text": "Prover overbalance para retirada da haste / pressurizar COP com {{pressaoProva=XXX}} psi. \nTrabalhar para recuperar haste do plug 2,75\" @ {{prof=xxx}} m. \nObservar queda de pressão após desalojamento da haste do plug.",
             "duration": 0.5,
             "bop": null,
             "compensando": true,
@@ -3097,7 +3097,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Montar trem de arame com pescador GS 3\" + Destravador (M ou M-1 2,75\"). Acoplar trem no lubrificador e \ntestar com 300 / XXXX psi via QTS.",
+            "text": "Montar trem de arame com pescador GS 3\" + Destravador (M ou M-1 2,75\"). Acoplar trem no lubrificador e \ntestar com 300 / {{pressaoBopArameHigh=XXXX}} psi via QTS.",
             "duration": 1,
             "bop": null,
             "compensando": true,
@@ -3111,7 +3111,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Descer trem de arame com GS 3\" + destravador até o nipple R @ xxx m",
+            "text": "Descer trem de arame com GS 3\" + destravador até o nipple R @ {{prof=xxx}} m",
             "duration": 2,
             "bop": null,
             "compensando": true,
@@ -3169,7 +3169,7 @@
     ],
     "ABAN 051": [
         {
-            "text": "Montar BHA de arame padrão 1 7/8\" + JDC 3\". Acoplar trem no lubrificador e \ntestar com 300 / XXXX psi via QTS.",
+            "text": "Montar BHA de arame padrão 1 7/8\" + JDC 3\". Acoplar trem no lubrificador e \ntestar com 300 / {{pressaoBopArameHigh=XXXX}} psi via QTS.",
             "duration": 1.5,
             "bop": null,
             "compensando": true,
@@ -3183,7 +3183,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Descer trem de arame com JDC 3\" até o nipple F @ xxx m.",
+            "text": "Descer trem de arame com JDC 3\" até o nipple F @ {{prof=xxx}} m.",
             "duration": 2,
             "bop": null,
             "compensando": true,
@@ -3197,7 +3197,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Prover overbalance para retirada da haste / pressurizar COP com XXX psi. \nTrabalhar para recuperar haste do plug 2,81\" @ xxx m. \nObservar queda de pressão após desalojamento da haste do plug.",
+            "text": "Prover overbalance para retirada da haste / pressurizar COP com {{pressaoProva=XXX}} psi. \nTrabalhar para recuperar haste do plug 2,81\" @ {{prof=xxx}} m. \nObservar queda de pressão após desalojamento da haste do plug.",
             "duration": 0.5,
             "bop": null,
             "compensando": true,
@@ -3239,7 +3239,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Montar trem de arame com pescador GS 3\" + Destravador (M ou M-1 2,81\"). Acoplar trem no lubrificador e \ntestar com 300 / XXXX psi via QTS.",
+            "text": "Montar trem de arame com pescador GS 3\" + Destravador (M ou M-1 2,81\"). Acoplar trem no lubrificador e \ntestar com 300 / {{pressaoBopArameHigh=XXXX}} psi via QTS.",
             "duration": 1,
             "bop": null,
             "compensando": true,
@@ -3253,7 +3253,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Descer trem de arame com GS 3\" + destravador até o nipple F @ xxx m.",
+            "text": "Descer trem de arame com GS 3\" + destravador até o nipple F @ {{prof=xxx}} m.",
             "duration": 2,
             "bop": null,
             "compensando": true,
@@ -3267,7 +3267,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Trabalhar para recuperar corpo do plug FMH 2,81\" do nipple F com GS 3\" @ xxx m.",
+            "text": "Trabalhar para recuperar corpo do plug FMH 2,81\" do nipple F com GS 3\" @ {{prof=xxx}} m.",
             "duration": 0.5,
             "bop": null,
             "compensando": true,
@@ -3311,7 +3311,7 @@
     ],
     "ABAN 052": [
         {
-            "text": "Montar BHA de arame padrão 1 7/8\" + JDC 3\". Acoplar trem no lubrificador e \ntestar com 300 / XXXX psi via QTS.",
+            "text": "Montar BHA de arame padrão 1 7/8\" + JDC 3\". Acoplar trem no lubrificador e \ntestar com 300 / {{pressaoBopArameHigh=XXXX}} psi via QTS.",
             "duration": 3,
             "bop": null,
             "compensando": true,
@@ -3325,7 +3325,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Aplicar overbalance / pressurizar B4\" previamente à recuperação da haste. Descer JDC 3\" e recuperar haste do Plug FDB 3,75\" no TH @ xxx m.",
+            "text": "Aplicar overbalance / pressurizar B4\" previamente à recuperação da haste. Descer JDC 3\" e recuperar haste do Plug FDB 3,75\" no TH @ {{prof=xxx}} m.",
             "duration": 4,
             "bop": null,
             "compensando": true,
@@ -3339,7 +3339,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Montar BHA de arame padrão 1 7/8\" + PRS 4\". Acoplar trem no lubrificador e \ntestar com 300 / XXXX psi via QTS.",
+            "text": "Montar BHA de arame padrão 1 7/8\" + PRS 4\". Acoplar trem no lubrificador e \ntestar com 300 / {{pressaoBopArameHigh=XXXX}} psi via QTS.",
             "duration": 4,
             "bop": null,
             "compensando": true,
@@ -3353,7 +3353,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Descer PRS 4\" e recuperar corpo do plug FDB 3,75\" no TH @ XXX m. Nota: Se necessário, avaliar possibilidade de circulação reversa para remover resíduo do corpo do plug e auxiliar no acoplamento do pescador.",
+            "text": "Descer PRS 4\" e recuperar corpo do plug FDB 3,75\" no TH @ {{prof=XXX}} m. Nota: Se necessário, avaliar possibilidade de circulação reversa para remover resíduo do corpo do plug e auxiliar no acoplamento do pescador.",
             "duration": 5,
             "bop": null,
             "compensando": true,
@@ -3369,7 +3369,7 @@
     ],
     "ABAN 053": [
         {
-            "text": "Montar BHA de arame padrão 1 7/8\" + GS 3\" + Destravador M 2,81\". Acoplar trem no lubrificador e \ntestar com 300 / XXXX psi via QTS.",
+            "text": "Montar BHA de arame padrão 1 7/8\" + GS 3\" + Destravador M 2,81\". Acoplar trem no lubrificador e \ntestar com 300 / {{pressaoBopArameHigh=XXXX}} psi via QTS.",
             "duration": 2,
             "bop": null,
             "compensando": true,
@@ -3383,7 +3383,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Descer trem de arame com GS 3\" até 10 m acima do nipple F @ xxx m. \nEfetuar bombeio de diesel (baixa vazão) para equalizar pressão acima / \nabaixo da BRV.",
+            "text": "Descer trem de arame com GS 3\" até 10 m acima do nipple F @ {{prof=xxx}} m. \nEfetuar bombeio de diesel (baixa vazão) para equalizar pressão acima / \nabaixo da BRV.",
             "duration": 3,
             "bop": null,
             "compensando": true,
@@ -3413,7 +3413,7 @@
     ],
     "ABAN 054": [
         {
-            "text": "Montar BHA de arame padrão 1 7/8\" + GS 3\" + Destravador M 2,75\". Acoplar trem no lubrificador e \ntestar com 300 / XXXX psi via QTS.",
+            "text": "Montar BHA de arame padrão 1 7/8\" + GS 3\" + Destravador M 2,75\". Acoplar trem no lubrificador e \ntestar com 300 / {{pressaoBopArameHigh=XXXX}} psi via QTS.",
             "duration": 2.5,
             "bop": null,
             "compensando": true,
@@ -3427,7 +3427,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Descer trem de arame com GS 3\" até 10 m acima do nipple R @ xxx m. \nEfetuar bombeio de diesel (baixa vazão) para equalizar pressão acima / \nabaixo da BRV.",
+            "text": "Descer trem de arame com GS 3\" até 10 m acima do nipple R @ {{prof=xxx}} m. \nEfetuar bombeio de diesel (baixa vazão) para equalizar pressão acima / \nabaixo da BRV.",
             "duration": 3,
             "bop": null,
             "compensando": true,
@@ -3457,7 +3457,7 @@
     ],
     "ABAN 055": [
         {
-            "text": "Montar BHA de arame padrão 1 7/8\" + GS 4\". Acoplar trem no lubrificador e \ntestar com 300 / XXXX psi via QTS.",
+            "text": "Montar BHA de arame padrão 1 7/8\" + GS 4\". Acoplar trem no lubrificador e \ntestar com 300 / {{pressaoBopArameHigh=XXXX}} psi via QTS.",
             "duration": 2,
             "bop": null,
             "compensando": true,
@@ -3471,7 +3471,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Descer GS 4\" e desassentar camisão da DHSV perfil DB 3,68” @ XXXX m. Retirar camisão até a superfície.",
+            "text": "Descer GS 4\" e desassentar camisão da DHSV perfil DB 3,68” @ {{prof=XXXX}} m. Retirar camisão até a superfície.",
             "duration": 2.5,
             "bop": null,
             "compensando": true,
@@ -3487,7 +3487,7 @@
     ],
     "ABAN 056": [
         {
-            "text": "Montar BHA de arame padrão 1 7/8\" com desviador XX e pescador JDC X\". Acoplar trem no lubrificador e \ntestar com 300 / XXXX psi via QTS.",
+            "text": "Montar BHA de arame padrão 1 7/8\" com desviador {{tipoDesviador=XX}} e pescador JDC {{diamJdc=X}}\". Acoplar trem no lubrificador e \ntestar com 300 / {{pressaoBopArameHigh=XXXX}} psi via QTS.",
             "duration": 2,
             "bop": null,
             "compensando": true,
@@ -3501,7 +3501,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Descer trem de arame até 10 m abaixo do MGL @ XXXX m. Subir trem com desviador para orientação no MGL. Tracionar com 200 lbf para acionar braço do desviador. Descer pescador para agarramento da VGL. Percutir e retirar trem até a superfície.",
+            "text": "Descer trem de arame até 10 m abaixo do MGL @ {{prof=XXXX}} m. Subir trem com desviador para orientação no MGL. Tracionar com 200 lbf para acionar braço do desviador. Descer pescador para agarramento da VGL. Percutir e retirar trem até a superfície.",
             "duration": 6,
             "bop": null,
             "compensando": true,
@@ -3517,7 +3517,7 @@
     ],
     "ABAN 057": [
         {
-            "text": "Montar BHA de arame padrão 1 7/8\" com desviador XX + JDC X\" + VGL. Acoplar trem no lubrificador e \ntestar com 300 / XXXX psi via QTS. Avaliar possibilidade de circulação prévia para limpeza do MGL.",
+            "text": "Montar BHA de arame padrão 1 7/8\" com desviador {{tipoDesviador=XX}} + JDC {{diamJdc=X}}\" + VGL. Acoplar trem no lubrificador e \ntestar com 300 / {{pressaoBopArameHigh=XXXX}} psi via QTS. Avaliar possibilidade de circulação prévia para limpeza do MGL.",
             "duration": 2,
             "bop": null,
             "compensando": true,
@@ -3531,7 +3531,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Descer trem de arame até 10 m abaixo do MGL @ XXXX m. Subir trem com \ndesviador para orientação no MGL. Tracionar com 200 lbf para acionar \nbraço do desviador. Descer pescador para percutir para assentar a VGL. Liberar aplicador e \nretirar trem até a supe",
+            "text": "Descer trem de arame até 10 m abaixo do MGL @ {{prof=XXXX}} m. Subir trem com \ndesviador para orientação no MGL. Tracionar com 200 lbf para acionar \nbraço do desviador. Descer pescador para percutir para assentar a VGL. Liberar aplicador e \nretirar trem até a supe",
             "duration": 4,
             "bop": null,
             "compensando": true,
@@ -3545,7 +3545,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Se possível, testar estanqueidade da coluna com xxx psi para confirmar instalação adequada da (s) VGL (s).",
+            "text": "Se possível, testar estanqueidade da coluna com {{pressaoProva=xxx}} psi para confirmar instalação adequada da (s) VGL (s).",
             "duration": 1,
             "bop": null,
             "compensando": true,
@@ -3561,7 +3561,7 @@
     ],
     "ABAN 058": [
         {
-            "text": "Montar BHA de arame padrão 1 7/8\" com ferramenta deslocadora. Acoplar trem no lubrificador e \ntestar com 300 / XXXX psi via QTS.",
+            "text": "Montar BHA de arame padrão 1 7/8\" com ferramenta deslocadora. Acoplar trem no lubrificador e \ntestar com 300 / {{pressaoBopArameHigh=XXXX}} psi via QTS.",
             "duration": 3,
             "bop": null,
             "compensando": true,
@@ -3575,7 +3575,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "(Contingência) Localizar perfil da Sliding Sleeve mod. XXX\" @ XXX m MD com estampador X,XX”, localizador de nipple tipo collet XXX” e trem padrão de Arame.",
+            "text": "(Contingência) Localizar perfil da Sliding Sleeve mod. {{modeloSlidingSleeve=XXX}}\" @ {{prof=XXX}} m MD com estampador {{diamEstampador=X,XX}}”, localizador de nipple tipo collet {{diamLocalizador=XXX}}” e trem padrão de Arame.",
             "duration": 0,
             "bop": null,
             "compensando": true,
@@ -3589,7 +3589,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Descer ferramenta deslocadora e localizar SS @ XXX m. Efetuar percussão (sentido depende de modelo) para deslocar camisa interna e comunicar COP x Anular. Testar circulação / injeção para verificar efetividade da abertura da SS.",
+            "text": "Descer ferramenta deslocadora e localizar SS @ {{prof=XXX}} m. Efetuar percussão (sentido depende de modelo) para deslocar camisa interna e comunicar COP x Anular. Testar circulação / injeção para verificar efetividade da abertura da SS.",
             "duration": 3,
             "bop": null,
             "compensando": true,
@@ -3605,7 +3605,7 @@
     ],
     "ABAN 059": [
         {
-            "text": "Montar BHA de arame padrão 1 7/8\" com ferramenta deslocadora. Acoplar trem no lubrificador e \ntestar com 300 / XXXX psi via QTS.",
+            "text": "Montar BHA de arame padrão 1 7/8\" com ferramenta deslocadora. Acoplar trem no lubrificador e \ntestar com 300 / {{pressaoBopArameHigh=XXXX}} psi via QTS.",
             "duration": 3,
             "bop": null,
             "compensando": true,
@@ -3619,7 +3619,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "(Contingência) Localizar perfil da(s) Slide Sleeve(s) mod. XXX XXX\" @XXX m MD com estampador XXX”, localizador de nipple tipo collet XXX” e trem padrão de Arame.",
+            "text": "(Contingência) Localizar perfil da(s) Slide Sleeve(s) mod. {{modeloSlidingSleeve=XXX XXX}}\" @{{prof=XXX}} m MD com estampador {{diamEstampador=XXX}}”, localizador de nipple tipo collet {{diamLocalizador=XXX}}” e trem padrão de Arame.",
             "duration": 0,
             "bop": null,
             "compensando": true,
@@ -3633,7 +3633,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Descer ferramenta deslocadora e localizar SS @ XXX m. Efetuar percussão \n(sentido depende de modelo) para deslocar camisa interna. Testar circulação / injeção para verificar efetividade do fechamento da SS.",
+            "text": "Descer ferramenta deslocadora e localizar SS @ {{prof=XXX}} m. Efetuar percussão \n(sentido depende de modelo) para deslocar camisa interna. Testar circulação / injeção para verificar efetividade do fechamento da SS.",
             "duration": 3.5,
             "bop": null,
             "compensando": true,
@@ -3649,7 +3649,7 @@
     ],
     "ABAN 060": [
         {
-            "text": "Montar BHA de arame padrão 1 7/8\" com localizador de nipple + estampador XXX\". Acoplar trem no lubrificador e \ntestar com 300 / XXXX psi via QTS.",
+            "text": "Montar BHA de arame padrão 1 7/8\" com localizador de nipple + estampador {{diamEstampador=XXX}}\". Acoplar trem no lubrificador e \ntestar com 300 / {{pressaoBopArameHigh=XXXX}} psi via QTS.",
             "duration": 2,
             "bop": null,
             "compensando": true,
@@ -3663,7 +3663,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Descer estampador XXX” até a profundidade de interesse @ XXX m. Ao topar, realizar uma percussão para baixo e retirar o trem até a superfície para avaliação da marca.",
+            "text": "Descer estampador {{diamEstampador=XXX}}” até a profundidade de interesse @ {{prof=XXX}} m. Ao topar, realizar uma percussão para baixo e retirar o trem até a superfície para avaliação da marca.",
             "duration": 6,
             "bop": null,
             "compensando": true,
@@ -3721,7 +3721,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Amortecer COP com FCBA X,X ppg por bullheading via B4\" > COP > Formação (2x o volume da COP), à máxima vazão possível, limitando a pressão de cabeça a XXXX psi.",
+            "text": "Amortecer COP com FCBA {{amortFcbaDensidade=X,X}} ppg por bullheading via B4\" > COP > Formação (2x o volume da COP), à máxima vazão possível, limitando a pressão de cabeça a {{pressaoCabecaLimite=XXXX}} psi.",
             "duration": 5,
             "bop": null,
             "compensando": true,
@@ -3779,7 +3779,7 @@
     ],
     "ABAN 062": [
         {
-            "text": "Amortecer COP com MEG + FCBA X,X ppg por bullheading via B4\" > COP > Formação (2x o volume da COP), à máxima vazão possível, limitando a pressão de cabeça a XXXX psi.",
+            "text": "Amortecer COP com MEG + FCBA {{amortFcbaDensidade=X,X}} ppg por bullheading via B4\" > COP > Formação (2x o volume da COP), à máxima vazão possível, limitando a pressão de cabeça a XXXX psi.",
             "duration": 9,
             "bop": null,
             "compensando": true,
@@ -3865,7 +3865,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Injetar FCBA XX ppg via  B4\" > XO > Anular > COP > Formação (2x o vol. do anular), à máxima vazão possível. Ao final do bombeio, ventilar anular via B4\", monitorar poço (Pcab, TPT e PDG) e confirmar amortecimento. Posicionar fluido inibido (XX% MEG + XX% FCBA) no DPR e HCR / B4\" e B2\".",
+            "text": "Injetar FCBA {{amortFcbaDensidade=XX}} ppg via  B4\" > XO > Anular > COP > Formação (2x o vol. do anular), à máxima vazão possível. Ao final do bombeio, ventilar anular via B4\", monitorar poço (Pcab, TPT e PDG) e confirmar amortecimento. Posicionar fluido inibido (XX% MEG + XX% FCBA) no DPR e HCR / B4\" e B2\".",
             "duration": 5,
             "bop": null,
             "compensando": true,
@@ -4945,7 +4945,7 @@
     ],
     "ABAN 078": [
         {
-            "text": "Bombear direto via  XXX > XXX > XXX de tampão de combate a perda (XXX bbl, XXX lb/gal), de acordo com diretrizes do programa de fluido.",
+            "text": "Bombear direto via  {{cimentAlinhamento=XXX > XXX > XXX}} de tampão de combate a perda ({{cimentPlugVol=XXX}} bbl, {{cimentPlugDens=XXX}} lb/gal), de acordo com diretrizes do programa de fluido.",
             "duration": 1,
             "bop": null,
             "compensando": true,
@@ -4959,7 +4959,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Deslocar tampão de combate a perda com FCBA XXX lb/gal.",
+            "text": "Deslocar tampão de combate a perda com FCBA {{cimentFcbaDens=XXX}} lb/gal.",
             "duration": 1,
             "bop": null,
             "compensando": true,
@@ -5003,7 +5003,7 @@
     ],
     "ABAN 079": [
         {
-            "text": "Bombear direto via  DPR ou Bore 4\" > COP/COI  > Formação xxx bbl de Fluido eCSB xxx lb/gal de acordo com diretrizes do programa de fluido.",
+            "text": "Bombear direto via  DPR ou Bore 4\" > COP/COI  > Formação {{cimentPlugVol=xxx}} bbl de Fluido eCSB {{cimentPlugDens=xxx}} lb/gal de acordo com diretrizes do programa de fluido.",
             "duration": 2,
             "bop": null,
             "compensando": true,
@@ -5017,7 +5017,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Deslocar tampão de combate a perda com FCBA XXX lb/gal.",
+            "text": "Deslocar tampão de combate a perda com FCBA {{cimentFcbaDens=XXX}} lb/gal.",
             "duration": null,
             "bop": null,
             "compensando": null,
@@ -5059,7 +5059,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "(Paralela) Montar trem de arame/DSL com estampador xx\" + localizador de nipple xx\". Acoplar trem no lubrificador e testar com 300 / XXXX psi via QTS.",
+            "text": "(Paralela) Montar trem de arame/DSL com estampador {{diamEstampador=xx}}\" + localizador de nipple {{diamLocalizador=xx}}\". Acoplar trem no lubrificador e testar com 300 / {{pressaoBopArameHigh=XXXX}} psi via QTS.",
             "duration": 0,
             "bop": null,
             "compensando": true,
@@ -5073,7 +5073,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Gabaritar poço até o nipple XX\" a XX,m confirmando acesso ao(s) nipple.",
+            "text": "Gabaritar poço até o nipple {{gabaritoNippleDiam=XX}}\" a {{prof=XX}},m confirmando acesso ao(s) nipple.",
             "duration": 4,
             "bop": null,
             "compensando": true,
@@ -5087,7 +5087,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Montar trem de arame/DSL com tampão xxx (plug/TAE/Bismuto).",
+            "text": "Montar trem de arame/DSL com tampão {{tampaoTipo=xxx}} (plug/TAE/Bismuto).",
             "duration": 1,
             "bop": null,
             "compensando": true,
@@ -5115,7 +5115,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Pressurizar COP/COI e confirmar estanqueidade do tampão mecânico com XXX psi. Avaliar necessidade de efetuar teste de influxo do plug com redução de hidrostática no SCVS.",
+            "text": "Pressurizar COP/COI e confirmar estanqueidade do tampão mecânico com {{pressaoProva=XXX}} psi. Avaliar necessidade de efetuar teste de influxo do plug com redução de hidrostática no SCVS.",
             "duration": 1.5,
             "bop": null,
             "compensando": true,
@@ -5287,7 +5287,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "(Contingência) Montar BHA de Flexitubo com Broca XXX\" + Motor de Fundo XX e posicionar no interior dos equipamentos de pressão. Testar com 300 / XXX psi.",
+            "text": "(Contingência) Montar BHA de Flexitubo com Broca {{broca=XXX}}\" + Motor de Fundo XX e posicionar no interior dos equipamentos de pressão. Testar com 300 / {{pressaoBopArameHigh=XXX}} psi.",
             "duration": 0,
             "bop": null,
             "compensando": true,
@@ -5301,7 +5301,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "(Contingência) Descer BHA com Broca + MF e efetuar corte do cimento no interior da coluna até XXX m.",
+            "text": "(Contingência) Descer BHA com Broca + MF e efetuar corte do cimento no interior da coluna até {{prof=XXX}} m.",
             "duration": 0,
             "bop": null,
             "compensando": true,
@@ -5343,7 +5343,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "(Contingência) Posicionar BHA no interior dos equipamentos de pressão e testar com 300 / xxx psi via QTS.",
+            "text": "(Contingência) Posicionar BHA no interior dos equipamentos de pressão e testar com 300 / {{pressaoBopArameHigh=xxx}} psi via QTS.",
             "duration": 0,
             "bop": null,
             "compensando": true,
@@ -5357,7 +5357,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "(Contingência) [HOLD POINT - REVCIM] Efetuar perfilagem para avaliação da cimentação no anular A no intervalo XXX a XXX m. [Hold Point] Enviar dados para CSD do SPO/SEP/REVCIM para avaliação da cimentação por inferência.",
+            "text": "(Contingência) [HOLD POINT - REVCIM] Efetuar perfilagem para avaliação da cimentação no anular A no intervalo {{intervaloInteresseTopo=XXX}} a {{intervaloInteresseBase=XXX}} m. [Hold Point] Enviar dados para CSD do SPO/SEP/REVCIM para avaliação da cimentação por inferência.",
             "duration": 0,
             "bop": null,
             "compensando": true,
@@ -5385,7 +5385,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "(Contingência) Montar BHA de Flexitubo com Ogiva e posicionar no interior dos equipamentos de pressão. Testar com 300 / XXX psi.",
+            "text": "(Contingência) Montar BHA de Flexitubo com Ogiva e posicionar no interior dos equipamentos de pressão. Testar com 300 / {{pressaoBopArameHigh=XXX}} psi.",
             "duration": 0,
             "bop": null,
             "compensando": true,
@@ -5399,7 +5399,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "(Contingência) Descer BHA de Flexitubo até XXX m.",
+            "text": "(Contingência) Descer BHA de Flexitubo até {{prof=XXX}} m.",
             "duration": 0,
             "bop": null,
             "compensando": true,
@@ -5427,7 +5427,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "(Contingência) Aguardar tempo de pega da pasta de cimento. Em paralelo, substituir BHA de Flexitubo por Broca XXX\" + Motor de fundo.",
+            "text": "(Contingência) Aguardar tempo de pega da pasta de cimento. Em paralelo, substituir BHA de Flexitubo por Broca {{broca=XXX}}\" + Motor de fundo.",
             "duration": 0,
             "bop": null,
             "compensando": true,
@@ -5513,7 +5513,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Prosseguir deslocamento da pasta de cimento para posicionamento do “cimento em anular A” e do “tampão de cimento no interior da  coluna”. Previsto topo do cimento em anular XX m acima do topo do tampão de cimento no interior da coluna.",
+            "text": "Prosseguir deslocamento da pasta de cimento para posicionamento do “cimento em anular A” e do “tampão de cimento no interior da  coluna”. Previsto topo do cimento em anular {{cimentAnularAcimaTampao=XX}} m acima do topo do tampão de cimento no interior da coluna.",
             "duration": 1,
             "bop": null,
             "compensando": true,
@@ -5569,7 +5569,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Posicionar BHA no interior dos equipamentos de pressão e testar com 300 / xxx psi via QTS.",
+            "text": "Posicionar BHA no interior dos equipamentos de pressão e testar com 300 / {{pressaoBopArameHigh=xxx}} psi via QTS.",
             "duration": 1,
             "bop": null,
             "compensando": true,
@@ -5583,7 +5583,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "[HOLD POINT - REVCIM] - Efetuar perfilagem para avaliação da cimentação no anular A no intervalo XXX a XXX m. Enviar dados para CSD do SPO/SEP/REVCIM para avaliação da cimentação por inferência.",
+            "text": "[HOLD POINT - REVCIM] - Efetuar perfilagem para avaliação da cimentação no anular A no intervalo {{intervaloInteresseTopo=XXX}} a {{intervaloInteresseBase=XXX}} m. Enviar dados para CSD do SPO/SEP/REVCIM para avaliação da cimentação por inferência.",
             "duration": 4,
             "bop": null,
             "compensando": true,
@@ -5625,7 +5625,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "(Contingência) Montar BHA de Flexitubo com Broca XXX\" + Motor de Fundo e posicionar no interior dos equipamentos de pressão. Testar com 300 / XXX psi.",
+            "text": "(Contingência) Montar BHA de Flexitubo com Broca {{broca=XXX}}\" + Motor de Fundo e posicionar no interior dos equipamentos de pressão. Testar com 300 / {{pressaoBopArameHigh=XXX}} psi.",
             "duration": 0,
             "bop": null,
             "compensando": true,
@@ -5639,7 +5639,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "(Contingência) Descer BHA com Broca + MF e efetuar corte do cimento no interior da coluna até XXX m.",
+            "text": "(Contingência) Descer BHA com Broca + MF e efetuar corte do cimento no interior da coluna até {{prof=XXX}} m.",
             "duration": 0,
             "bop": null,
             "compensando": true,
@@ -5681,7 +5681,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "(Contingência) Posicionar BHA no interior dos equipamentos de pressão e testar com 300 / xxx psi via QTS.",
+            "text": "(Contingência) Posicionar BHA no interior dos equipamentos de pressão e testar com 300 / {{pressaoBopArameHigh=xxx}} psi via QTS.",
             "duration": 0,
             "bop": null,
             "compensando": true,
@@ -5695,7 +5695,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "(Contingência) Efetuar perfilagem para avaliação da cimentação no anular A no intervalo XXX a XXX m. [Hold Point] Enviar dados para CSD do SPO/SEP/REVCIM para avaliação da cimentação por inferência.",
+            "text": "(Contingência) {{_hpRevcim=}}Efetuar perfilagem para avaliação da cimentação no anular A no intervalo {{intervaloInteresseTopo=XXX}} a {{intervaloInteresseBase=XXX}} m. [Hold Point] Enviar dados para CSD do SPO/SEP/REVCIM para avaliação da cimentação por inferência.",
             "duration": 0,
             "bop": null,
             "compensando": true,
@@ -5723,7 +5723,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "(Contingência) Montar BHA de Flexitubo com Ogiva e posicionar no interior dos equipamentos de pressão. Testar com 300 / XXX psi.",
+            "text": "(Contingência) Montar BHA de Flexitubo com Ogiva e posicionar no interior dos equipamentos de pressão. Testar com 300 / {{pressaoBopArameHigh=XXX}} psi.",
             "duration": 0,
             "bop": null,
             "compensando": true,
@@ -5737,7 +5737,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "(Contingência) Descer BHA de Flexitubo até XXX m.",
+            "text": "(Contingência) Descer BHA de Flexitubo até {{prof=XXX}} m.",
             "duration": 0,
             "bop": null,
             "compensando": true,
@@ -5765,7 +5765,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "(Contingência) Aguardar tempo de pega da pasta de cimento. Em paralelo, substituir BHA de Flexitubo por Broca XXX\" + Motor de fundo.",
+            "text": "(Contingência) Aguardar tempo de pega da pasta de cimento. Em paralelo, substituir BHA de Flexitubo por Broca {{broca=XXX}}\" + Motor de fundo.",
             "duration": 0,
             "bop": null,
             "compensando": true,
@@ -5809,7 +5809,7 @@
     ],
     "ABAN 083": [
         {
-            "text": "Efetuar alinhamnento para iniciar bombeio de cimento para Coluna via xxx > xxx > xxx.",
+            "text": "Efetuar alinhamnento para iniciar bombeio de cimento para Coluna via {{cimentAlinhamento=xxx > xxx > xxx}}.",
             "duration": 1,
             "bop": null,
             "compensando": true,
@@ -5879,7 +5879,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "(Contingência) Montar BHA de Flexitubo com Broca XXX\" + Motor de Fundo e posicionar no interior dos equipamentos de pressão. Testar com 300 / XXX psi.",
+            "text": "(Contingência) Montar BHA de Flexitubo com Broca {{broca=XXX}}\" + Motor de Fundo e posicionar no interior dos equipamentos de pressão. Testar com 300 / {{pressaoBopArameHigh=XXX}} psi.",
             "duration": 0,
             "bop": null,
             "compensando": true,
@@ -5893,7 +5893,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "(Contingência) Descer BHA com Broca + MF e efetuar corte do cimento no interior da coluna até XXX m.",
+            "text": "(Contingência) Descer BHA com Broca + MF e efetuar corte do cimento no interior da coluna até {{prof=XXX}} m.",
             "duration": 0,
             "bop": null,
             "compensando": true,
@@ -5935,7 +5935,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "(Contingência) Posicionar BHA no interior dos equipamentos de pressão e testar com 300 / xxx psi via QTS.",
+            "text": "(Contingência) Posicionar BHA no interior dos equipamentos de pressão e testar com 300 / {{pressaoBopArameHigh=xxx}} psi via QTS.",
             "duration": 0,
             "bop": null,
             "compensando": true,
@@ -5949,7 +5949,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "(Contingência) [HOLD POINT - REVCIM] Efetuar perfilagem para avaliação da cimentação no anular A no intervalo XXX a XXX m. Enviar dados para CSD do SPO/SEP/REVCIM para avaliação da cimentação por inferência.",
+            "text": "(Contingência) [HOLD POINT - REVCIM] Efetuar perfilagem para avaliação da cimentação no anular A no intervalo {{intervaloInteresseTopo=XXX}} a {{intervaloInteresseBase=XXX}} m. Enviar dados para CSD do SPO/SEP/REVCIM para avaliação da cimentação por inferência.",
             "duration": 0,
             "bop": null,
             "compensando": true,
@@ -5977,7 +5977,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "(Contingência) Montar BHA de Flexitubo com Ogiva e posicionar no interior dos equipamentos de pressão. Testar com 300 / XXX psi.",
+            "text": "(Contingência) Montar BHA de Flexitubo com Ogiva e posicionar no interior dos equipamentos de pressão. Testar com 300 / {{pressaoBopArameHigh=XXX}} psi.",
             "duration": 0,
             "bop": null,
             "compensando": true,
@@ -5991,7 +5991,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "(Contingência) Descer BHA de Flexitubo até XXX m.",
+            "text": "(Contingência) Descer BHA de Flexitubo até {{prof=XXX}} m.",
             "duration": 0,
             "bop": null,
             "compensando": true,
@@ -6019,7 +6019,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "(Contingência,Paralela) Aguardar tempo de pega da pasta de cimento. Em paralelo, substituir BHA de Flexitubo por Broca XXX\" + Motor de fundo.",
+            "text": "(Contingência,Paralela) Aguardar tempo de pega da pasta de cimento. Em paralelo, substituir BHA de Flexitubo por Broca {{broca=XXX}}\" + Motor de fundo.",
             "duration": 0,
             "bop": null,
             "compensando": true,
@@ -6063,7 +6063,7 @@
     ],
     "ABAN 084": [
         {
-            "text": "Efetuar alinhamento para iniciar bombeio de cimento para Coluna via xxx > xxx > xxx.",
+            "text": "Efetuar alinhamento para iniciar bombeio de cimento para Coluna via {{cimentAlinhamento=xxx > xxx > xxx}}.",
             "duration": 1,
             "bop": null,
             "compensando": null,
@@ -6077,7 +6077,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Efetuar bombeio / deslocamento da pasta de cimento por bullheading para posicionamento do cimento em anular A e do COP/COI. Previsto topo do cimento em anular XX m acima do topo do tampão de cimento no interior da COP/COI.",
+            "text": "Efetuar bombeio / deslocamento da pasta de cimento por bullheading para posicionamento do cimento em anular A e do COP/COI. Previsto topo do cimento em anular {{cimentAnularAcimaTampao=XX}} m acima do topo do tampão de cimento no interior da COP/COI.",
             "duration": 2,
             "bop": null,
             "compensando": null,
@@ -6133,7 +6133,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Posicionar BHA no interior dos equipamentos de pressão e testar com 300 / xxx psi via QTS.",
+            "text": "Posicionar BHA no interior dos equipamentos de pressão e testar com 300 / {{pressaoBopArameHigh=xxx}} psi via QTS.",
             "duration": 1,
             "bop": null,
             "compensando": null,
@@ -6147,7 +6147,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "[HOLD POINT - REVCIM] Efetuar perfilagem para avaliação da cimentação no anular A no intervalo XXX a XXX m. [Hold Point] Enviar dados para CSD do SPO/SEP/REVCIM para avaliação da cimentação por inferência.",
+            "text": "[HOLD POINT - REVCIM] Efetuar perfilagem para avaliação da cimentação no anular A no intervalo {{intervaloInteresseTopo=XXX}} a {{intervaloInteresseBase=XXX}} m. [Hold Point] Enviar dados para CSD do SPO/SEP/REVCIM para avaliação da cimentação por inferência.",
             "duration": 4,
             "bop": null,
             "compensando": null,
@@ -6189,7 +6189,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "(Contingência) Montar BHA de Flexitubo com Broca XXX\" + Motor de Fundo e posicionar no interior dos equipamentos de pressão. Testar com 300 / XXX psi.",
+            "text": "(Contingência) Montar BHA de Flexitubo com Broca {{broca=XXX}}\" + Motor de Fundo e posicionar no interior dos equipamentos de pressão. Testar com 300 / {{pressaoBopArameHigh=XXX}} psi.",
             "duration": 0,
             "bop": null,
             "compensando": null,
@@ -6203,7 +6203,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "(Contingência) Descer BHA com Broca + MF e efetuar corte do cimento no interior da coluna até XXX m.",
+            "text": "(Contingência) Descer BHA com Broca + MF e efetuar corte do cimento no interior da coluna até {{prof=XXX}} m.",
             "duration": 0,
             "bop": null,
             "compensando": null,
@@ -6245,7 +6245,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "(Contingência) Posicionar BHA no interior dos equipamentos de pressão e testar com 300 / xxx psi via QTS.",
+            "text": "(Contingência) Posicionar BHA no interior dos equipamentos de pressão e testar com 300 / {{pressaoBopArameHigh=xxx}} psi via QTS.",
             "duration": 0,
             "bop": null,
             "compensando": null,
@@ -6259,7 +6259,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "(Contingência) [HOLD POINT - REVCIM] Efetuar perfilagem para avaliação da cimentação no anular A no intervalo XXX a XXX m. Enviar dados para CSD do SPO/SEP/REVCIM para avaliação da cimentação por inferência.",
+            "text": "(Contingência) [HOLD POINT - REVCIM] Efetuar perfilagem para avaliação da cimentação no anular A no intervalo {{intervaloInteresseTopo=XXX}} a {{intervaloInteresseBase=XXX}} m. Enviar dados para CSD do SPO/SEP/REVCIM para avaliação da cimentação por inferência.",
             "duration": 0,
             "bop": null,
             "compensando": null,
@@ -6287,7 +6287,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "(Contingência) Montar BHA de Flexitubo com Ogiva e posicionar no interior dos equipamentos de pressão. Testar com 300 / XXX psi.",
+            "text": "(Contingência) Montar BHA de Flexitubo com Ogiva e posicionar no interior dos equipamentos de pressão. Testar com 300 / {{pressaoBopArameHigh=XXX}} psi.",
             "duration": 0,
             "bop": null,
             "compensando": null,
@@ -6301,7 +6301,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "(Contingência) Descer BHA de Flexitubo até XXX m.",
+            "text": "(Contingência) Descer BHA de Flexitubo até {{prof=XXX}} m.",
             "duration": 0,
             "bop": null,
             "compensando": null,
@@ -6329,7 +6329,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "(Contingência) Aguardar tempo de pega da pasta de cimento. Em paralelo, substituir BHA de Flexitubo por Broca XXX\" + Motor de fundo.",
+            "text": "(Contingência) Aguardar tempo de pega da pasta de cimento. Em paralelo, substituir BHA de Flexitubo por Broca {{broca=XXX}}\" + Motor de fundo.",
             "duration": 0,
             "bop": null,
             "compensando": null,
@@ -6387,7 +6387,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Mobilizar equipamentos de pressão de perfilagem e testar com 300/ XXX psi por 5/10 min.",
+            "text": "Mobilizar equipamentos de pressão de perfilagem e testar com 300/ {{pressaoBopArameHigh=XXX}} psi por 5/10 min.",
             "duration": 13.5,
             "bop": null,
             "compensando": true,
@@ -6417,7 +6417,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Mobilizar equipamentos de pressão de perfilagem e testar com 300/ XXX psi por 5/10 min.",
+            "text": "Mobilizar equipamentos de pressão de perfilagem e testar com 300/ {{pressaoBopArameHigh=XXX}} psi por 5/10 min.",
             "duration": 13.5,
             "bop": null,
             "compensando": true,
@@ -6447,7 +6447,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Mobilizar equipamentos de pressão de perfilagem e testar com 300/ XX psi por 5/10 min.",
+            "text": "Mobilizar equipamentos de pressão de perfilagem e testar com 300/ {{pressaoBopArameHigh=XX}} psi por 5/10 min.",
             "duration": 13.5,
             "bop": null,
             "compensando": true,
@@ -6491,7 +6491,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "(Contingência) Posicionar BHA no interior dos equipamentos de pressão e testar com 300 / xxx psi via QTS.",
+            "text": "(Contingência) Posicionar BHA no interior dos equipamentos de pressão e testar com 300 / {{pressaoBopArameHigh=xxx}} psi via QTS.",
             "duration": 2,
             "bop": null,
             "compensando": true,
@@ -6575,7 +6575,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Posicionar BHA no interior dos equipamentos de pressão e testar com 300 / xxx psi via QTS.",
+            "text": "Posicionar BHA no interior dos equipamentos de pressão e testar com 300 / {{pressaoBopArameHigh=xxx}} psi via QTS.",
             "duration": 2,
             "bop": null,
             "compensando": true,
@@ -6689,7 +6689,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "(Contingência) Posicionar BHA no interior dos equipamentos de pressão e testar com 300 / xxx psi via QTS.",
+            "text": "(Contingência) Posicionar BHA no interior dos equipamentos de pressão e testar com 300 / {{pressaoBopArameHigh=xxx}} psi via QTS.",
             "duration": 2,
             "bop": null,
             "compensando": true,
@@ -6773,7 +6773,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Posicionar BHA no interior dos equipamentos de pressão e testar com 300 / xxx psi via QTS.",
+            "text": "Posicionar BHA no interior dos equipamentos de pressão e testar com 300 / {{pressaoBopArameHigh=xxx}} psi via QTS.",
             "duration": 2,
             "bop": null,
             "compensando": true,
@@ -6887,7 +6887,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Posicionar BHA no interior dos equipamentos ede pressão e testar com 300 / xxx psi via QTS.",
+            "text": "Posicionar BHA no interior dos equipamentos ede pressão e testar com 300 / {{pressaoBopArameHigh=xxx}} psi via QTS.",
             "duration": 2,
             "bop": null,
             "compensando": true,
@@ -7001,7 +7001,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Posicionar BHA no interior dos equipamentos de pressão e testar com 300 / xxx psi via QTS.",
+            "text": "Posicionar BHA no interior dos equipamentos de pressão e testar com 300 / {{pressaoBopArameHigh=xxx}} psi via QTS.",
             "duration": 2,
             "bop": null,
             "compensando": true,
@@ -7115,7 +7115,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "(Contingência) Posicionar BHA no interior dos equipamentos de pressão e testar com 300 / xxx psi via QTS.",
+            "text": "(Contingência) Posicionar BHA no interior dos equipamentos de pressão e testar com 300 / {{pressaoBopArameHigh=xxx}} psi via QTS.",
             "duration": 2,
             "bop": null,
             "compensando": true,
@@ -7199,7 +7199,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Posicionar BHA no interior dos equipamentos ede pressão e testar com 300 / xxx psi via QTS.",
+            "text": "Posicionar BHA no interior dos equipamentos ede pressão e testar com 300 / {{pressaoBopArameHigh=xxx}} psi via QTS.",
             "duration": 2,
             "bop": null,
             "compensando": true,
@@ -7313,7 +7313,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "(Contingência) Posicionar BHA no interior dos equipamentos de pressão e testar com 300 / xxx psi via QTS.",
+            "text": "(Contingência) Posicionar BHA no interior dos equipamentos de pressão e testar com 300 / {{pressaoBopArameHigh=xxx}} psi via QTS.",
             "duration": 2,
             "bop": null,
             "compensando": true,
@@ -7397,7 +7397,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Posicionar BHA no interior dos equipamentos e de pressão e testar com 300 / xxx psi via QTS.",
+            "text": "Posicionar BHA no interior dos equipamentos e de pressão e testar com 300 / {{pressaoBopArameHigh=xxx}} psi via QTS.",
             "duration": 2,
             "bop": null,
             "compensando": true,
@@ -7497,7 +7497,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "(Contingência) Mobilizar BHA de perfilagem com stroker e pescador JDC XXX\" .",
+            "text": "(Contingência) Mobilizar BHA de perfilagem com stroker e pescador JDC {{diamJdc=XXX}}\" .",
             "duration": 2,
             "bop": null,
             "compensando": true,
@@ -7511,7 +7511,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "(Contingência) Posicionar BHA no interior dos equipamentos de pressão e testar com 300 / xxx psi via QTS.",
+            "text": "(Contingência) Posicionar BHA no interior dos equipamentos de pressão e testar com 300 / {{pressaoBopArameHigh=xxx}} psi via QTS.",
             "duration": 2,
             "bop": null,
             "compensando": true,
@@ -7595,7 +7595,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Posicionar BHA no interior dos equipamentos de pressão e testar com 300 / xxx psi via QTS.",
+            "text": "Posicionar BHA no interior dos equipamentos de pressão e testar com 300 / {{pressaoBopArameHigh=xxx}} psi via QTS.",
             "duration": 2,
             "bop": null,
             "compensando": true,
@@ -7709,7 +7709,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Posicionar BHA no interior dos equipamentos ede pressão e testar com 300 / xxx psi via QTS.",
+            "text": "Posicionar BHA no interior dos equipamentos ede pressão e testar com 300 / {{pressaoBopArameHigh=xxx}} psi via QTS.",
             "duration": 1,
             "bop": null,
             "compensando": true,
@@ -7837,7 +7837,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Posicionar BHA no interior dos equipamentos de pressão e testar com 300 / xxx psi via QTS.",
+            "text": "Posicionar BHA no interior dos equipamentos de pressão e testar com 300 / {{pressaoBopArameHigh=xxx}} psi via QTS.",
             "duration": 1,
             "bop": null,
             "compensando": true,
@@ -7951,7 +7951,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Mobilizar BHA de perfilagem com stroker e pescador GS XX\" para o camisão.",
+            "text": "Mobilizar BHA de perfilagem com stroker e pescador {{aplicadorCamisao=GS XX\"}} para o camisão.",
             "duration": 2,
             "bop": null,
             "compensando": true,
@@ -7965,7 +7965,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Posicionar BHA no interior dos equipamentos ede pressão e testar com 300 / xxx psi via QTS.",
+            "text": "Posicionar BHA no interior dos equipamentos ede pressão e testar com 300 / {{pressaoBopArameHigh=xxx}} psi via QTS.",
             "duration": 2,
             "bop": null,
             "compensando": true,
@@ -8079,7 +8079,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Posicionar BHA no interior dos equipamentos de pressão e testar com 300 / xxx psi via QTS.",
+            "text": "Posicionar BHA no interior dos equipamentos de pressão e testar com 300 / {{pressaoBopArameHigh=xxx}} psi via QTS.",
             "duration": 2,
             "bop": null,
             "compensando": true,
@@ -8107,7 +8107,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Descer  BHA com estampador xxx\" gabaritando coluna até xxx m.",
+            "text": "Descer  BHA com estampador {{diamEstampador=xxx}}\" gabaritando coluna até {{prof=xxx}} m.",
             "duration": 3,
             "bop": null,
             "compensando": true,
@@ -8179,7 +8179,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Posicionar BHA no interior dos equipamentos de pressão e testar com 300 / xxx psi via QTS.",
+            "text": "Posicionar BHA no interior dos equipamentos de pressão e testar com 300 / {{pressaoBopArameHigh=xxx}} psi via QTS.",
             "duration": 2,
             "bop": null,
             "compensando": true,
@@ -8221,7 +8221,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Pressurizar coluna com XXX psi e efetuar corridas ascendentes e descentes para verificar integridade da coluna com ferramenta PLT. Manter pressão constante na coluna ou fluxo estabilizado (possibilidade de circulação).",
+            "text": "Pressurizar coluna com {{pressaoProva=XXX}} psi e efetuar corridas ascendentes e descentes para verificar integridade da coluna com ferramenta PLT. Manter pressão constante na coluna ou fluxo estabilizado (possibilidade de circulação).",
             "duration": 2,
             "bop": null,
             "compensando": true,
@@ -8321,7 +8321,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Posicionar BHA no interior dos equipamentos de pressão e testar com 300 / xxx psi via QTS.",
+            "text": "Posicionar BHA no interior dos equipamentos de pressão e testar com 300 / {{pressaoBopArameHigh=xxx}} psi via QTS.",
             "duration": 2,
             "bop": null,
             "compensando": true,
@@ -8363,7 +8363,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Realizar estação a XXX m (ponto de investigação do fluxo no anular) através de ativação de Oxigênio / leitura. OBS.: Calibrar ferramenta de acordo com sentido esperado do fluxo de água.",
+            "text": "Realizar estação a {{prof=XXX}} m (ponto de investigação do fluxo no anular) através de ativação de Oxigênio / leitura. OBS.: Calibrar ferramenta de acordo com sentido esperado do fluxo de água.",
             "duration": 2,
             "bop": null,
             "compensando": true,
@@ -8549,7 +8549,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Mobilizar e montar o BHA  de perfilagem com canhão XXX XX\" + cargas Deep Penetration. Medir CCL a extremidade a profundidade das cargas, introduzir na coluna e conectar lubrificadores, testando via QTS.",
+            "text": "Mobilizar e montar o BHA  de perfilagem com canhão {{canhaoModelo=XXX}} {{canhao=XX}}\" + cargas Deep Penetration. Medir CCL a extremidade a profundidade das cargas, introduzir na coluna e conectar lubrificadores, testando via QTS.",
             "duration": 2,
             "bop": null,
             "compensando": true,
@@ -9119,7 +9119,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Descer ferramenta de perfilagem a cabo até xxx m (profundidade desejada de investigação).",
+            "text": "Descer ferramenta de perfilagem a cabo até {{prof=xxx}} m (profundidade desejada de investigação).",
             "duration": 1.5,
             "bop": null,
             "compensando": null,
@@ -9191,7 +9191,7 @@
     ],
     "ABAN 108": [
         {
-            "text": "Mobilizar e montar o BHA com BPP  xx\" e realizar inspeção das condições mecânicas da ferramenta. Medir CCL a extremidade inferior e prepar para descida.",
+            "text": "Mobilizar e montar o BHA com BPP  {{bpDiam=xx}}\" e realizar inspeção das condições mecânicas da ferramenta. Medir CCL a extremidade inferior e prepar para descida.",
             "duration": 1,
             "bop": null,
             "compensando": null,
@@ -9219,7 +9219,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Descer BPP a cabo até a xxx m (profundidade desejada de operação).",
+            "text": "Descer BPP a cabo até a {{prof=xxx}} m (profundidade desejada de operação).",
             "duration": 1.5,
             "bop": null,
             "compensando": null,
@@ -9261,7 +9261,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Realizar teste de ancoragem do BPP com xxx klbf/5 min.",
+            "text": "Realizar teste de ancoragem do BPP com {{bppAncoragemKlbf=xxx}} klbf/5 min.",
             "duration": 0.5,
             "bop": null,
             "compensando": null,
@@ -9305,7 +9305,7 @@
     ],
     "ABAN 109": [
         {
-            "text": "Mobilizar e montar o BHA com BPP  xx\" e realizar inspeção das condições mecânicas da ferramenta. Medir CCL a extremidade inferior. Montar jogo de polias para descida.",
+            "text": "Mobilizar e montar o BHA com BPP  {{bpDiam=xx}}\" e realizar inspeção das condições mecânicas da ferramenta. Medir CCL a extremidade inferior. Montar jogo de polias para descida.",
             "duration": 1.5,
             "bop": null,
             "compensando": true,
@@ -9333,7 +9333,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Descer BPP a cabo até a xxx m (profundidade desejada de operação).",
+            "text": "Descer BPP a cabo até a {{prof=xxx}} m (profundidade desejada de operação).",
             "duration": 2,
             "bop": null,
             "compensando": true,
@@ -9375,7 +9375,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Realizar teste de ancoragem do BPP com xxx klbf/5 min.",
+            "text": "Realizar teste de ancoragem do BPP com {{bppAncoragemKlbf=xxx}} klbf/5 min.",
             "duration": 0.5,
             "bop": null,
             "compensando": true,
@@ -9389,7 +9389,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Realizar teste de estanqueidade do BPP com xxx psi/10 min.",
+            "text": "Realizar teste de estanqueidade do BPP com {{pressaoProva=xxx}} psi/10 min.",
             "duration": 0.5,
             "bop": null,
             "compensando": true,
@@ -10347,7 +10347,7 @@
     ],
     "ABAN 119": [
         {
-            "text": "Mobilizar e montar BOP-FT sobre a SFT, conforme procedimento da Cia de serviço. Efetuar teste funcional e de estanqueidade do BOP-FT contra válvula Master da SFT com 300 psi / 5 min e XXX psi / 10 min.",
+            "text": "Mobilizar e montar BOP-FT sobre a SFT, conforme procedimento da Cia de serviço. Efetuar teste funcional e de estanqueidade do BOP-FT contra válvula Master da SFT com 300 psi / 5 min e {{pressaoBopArameHigh=XXX}} psi / 10 min.",
             "duration": 5,
             "bop": null,
             "compensando": true,
@@ -10377,7 +10377,7 @@
     ],
     "ABAN 120": [
         {
-            "text": "Mobilizar e montar BOP-FT sobre o bore 2\" do Terminal Head (THead), conforme procedimento da Cia de serviço. Efetuar teste funcional e de estanqueidade do BOP-FT contra  M2 do THead com 300 psi / 5 min e XXX psi / 10 min .",
+            "text": "Mobilizar e montar BOP-FT sobre o bore 2\" do Terminal Head (THead), conforme procedimento da Cia de serviço. Efetuar teste funcional e de estanqueidade do BOP-FT contra  M2 do THead com 300 psi / 5 min e {{pressaoBopArameHigh=XXX}} psi / 10 min .",
             "duration": 5,
             "bop": null,
             "compensando": true,
@@ -10407,7 +10407,7 @@
     ],
     "ABAN 121": [
         {
-            "text": "Mobilizar e montar BOP-FT sobre o bore 4\" do Terminal Head (THead), conforme procedimento da Cia de serviço. Efetuar teste funcional e de estanqueidade do BOP-FT contra M1 do THead com 300 psi/5 min e xxx psi/10 min.",
+            "text": "Mobilizar e montar BOP-FT sobre o bore 4\" do Terminal Head (THead), conforme procedimento da Cia de serviço. Efetuar teste funcional e de estanqueidade do BOP-FT contra M1 do THead com 300 psi/5 min e {{pressaoBopArameHigh=xxx}} psi/10 min.",
             "duration": 5,
             "bop": null,
             "compensando": true,
@@ -10451,7 +10451,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Inserir BHA no BOP-FT e acoplar injetor, testando estanqueidade com diesel/FCBA/MEG por xxx psi/5 min.",
+            "text": "Inserir BHA no BOP-FT e acoplar injetor, testando estanqueidade com diesel/FCBA/MEG por {{pressaoBopArameHigh=xxx}} psi/5 min.",
             "duration": 2,
             "bop": null,
             "compensando": true,
@@ -10535,7 +10535,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Inserir BHA no BOP-FT e acoplar injetor, testando estanqueidade com diesel/FCBA/MEG por xxx psi/5 min.",
+            "text": "Inserir BHA no BOP-FT e acoplar injetor, testando estanqueidade com diesel/FCBA/MEG por {{pressaoBopArameHigh=xxx}} psi/5 min.",
             "duration": 1,
             "bop": null,
             "compensando": true,
@@ -10621,7 +10621,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Inserir BHA no BOP-FT e acoplar injetor, testando estanqueidade com diesel/FCBA/MEG por xxx psi/5 min.",
+            "text": "Inserir BHA no BOP-FT e acoplar injetor, testando estanqueidade com diesel/FCBA/MEG por {{pressaoBopArameHigh=xxx}} psi/5 min.",
             "duration": 2,
             "bop": null,
             "compensando": true,
@@ -10705,7 +10705,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Inserir BHA no BOP-FT e acoplar injetor, testando estanqueidade com diesel/FCBA/MEG por xxx psi/5 min.",
+            "text": "Inserir BHA no BOP-FT e acoplar injetor, testando estanqueidade com diesel/FCBA/MEG por {{pressaoBopArameHigh=xxx}} psi/5 min.",
             "duration": 2,
             "bop": null,
             "compensando": true,
@@ -10791,7 +10791,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Inserir BHA no BOP-FT e acoplar injetor, testando estanqueidade com diesel/FCBA/MEG por xxx psi/5 min.",
+            "text": "Inserir BHA no BOP-FT e acoplar injetor, testando estanqueidade com diesel/FCBA/MEG por {{pressaoBopArameHigh=xxx}} psi/5 min.",
             "duration": 2,
             "bop": null,
             "compensando": true,
@@ -10877,7 +10877,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Inserir BHA no BOP-FT e acoplar injetor, testando estanqueidade com diesel/FCBA/MEG por xxx psi/ 5 min.",
+            "text": "Inserir BHA no BOP-FT e acoplar injetor, testando estanqueidade com diesel/FCBA/MEG por {{pressaoBopArameHigh=xxx}} psi/ 5 min.",
             "duration": 2,
             "bop": null,
             "compensando": true,
@@ -11091,7 +11091,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Testar estanqueidade do plug com XXX psi.",
+            "text": "Testar estanqueidade do plug com {{pressaoProva=XXX}} psi.",
             "duration": 1,
             "bop": null,
             "compensando": true,
@@ -11205,7 +11205,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Testar estanqueidade do plug com XXX psi/10 min.",
+            "text": "Testar estanqueidade do plug com {{pressaoProva=XXX}} psi/10 min.",
             "duration": 1,
             "bop": null,
             "compensando": true,
@@ -11249,7 +11249,7 @@
     ],
     "ABAN 129": [
         {
-            "text": "Mobilizar e montar BHA de Flexitubo com corpo do plug X,XX\" do Tubing Hanger + aplicador XXX.",
+            "text": "Mobilizar e montar BHA de Flexitubo com corpo do plug {{plugFtDiam=X,XX}}\" do Tubing Hanger + aplicador {{plugFtAplicador=XXX}}.",
             "duration": 2,
             "bop": null,
             "compensando": true,
@@ -11277,7 +11277,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Retirar BHA com aplicador e mobilizar BHA com haste do plug X,XX\" + aplicador.",
+            "text": "Retirar BHA com aplicador e mobilizar BHA com haste do plug {{plugFtDiam=X,XX}}\" + aplicador.",
             "duration": 3,
             "bop": null,
             "compensando": true,
@@ -11305,7 +11305,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Efetuar teste negativo do plug (sentido anular > MGL (ou furo) > coluna) com XXXX psi.",
+            "text": "Efetuar teste negativo do plug (sentido anular > MGL (ou furo) > coluna) com {{pressaoProva=XXXX}} psi.",
             "duration": 1,
             "bop": null,
             "compensando": true,
@@ -11377,7 +11377,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Testar estanqueidade da STV com XXX psi/10 min.",
+            "text": "Testar estanqueidade da STV com {{pressaoProva=XXX}} psi/10 min.",
             "duration": 1,
             "bop": null,
             "compensando": true,
@@ -11449,7 +11449,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Testar estanqueidade da STV com XXX psi/10 min.",
+            "text": "Testar estanqueidade da STV com {{pressaoProva=XXX}} psi/10 min.",
             "duration": 1,
             "bop": null,
             "compensando": true,
@@ -11939,7 +11939,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Descer FT até XXX m – 30 m acima da do plug 2,75\".",
+            "text": "Descer FT até {{prof=XXX}} m – 30 m acima da do plug 2,75\".",
             "duration": 9,
             "bop": null,
             "compensando": true,
@@ -12023,7 +12023,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Descer FT até XXX m – 30 m acima da do plug 2,75\".",
+            "text": "Descer FT até {{prof=XXX}} m – 30 m acima da do plug 2,75\".",
             "duration": 9,
             "bop": null,
             "compensando": true,
@@ -12109,7 +12109,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Descer FT até XXX m – 30 m acima da do plug 2,81\".",
+            "text": "Descer FT até {{prof=XXX}} m – 30 m acima da do plug 2,81\".",
             "duration": 9,
             "bop": null,
             "compensando": true,
@@ -12193,7 +12193,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Descer FT até XXX m – 30 m acima da do plug 2,81\".",
+            "text": "Descer FT até {{prof=XXX}} m – 30 m acima da do plug 2,81\".",
             "duration": 9,
             "bop": null,
             "compensando": true,
@@ -12279,7 +12279,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Descer FT até XXX m – 30 m acima do plug do TH.",
+            "text": "Descer FT até {{prof=XXX}} m – 30 m acima do plug do TH.",
             "duration": 3,
             "bop": null,
             "compensando": true,
@@ -12363,7 +12363,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Descer FT até xxxx m – 30 m acima do plug do TH.",
+            "text": "Descer FT até {{prof=xxxx}} m – 30 m acima do plug do TH.",
             "duration": 3,
             "bop": null,
             "compensando": true,
@@ -12449,7 +12449,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Descer FT até xxx m – 30 m acima da BRV 2,81\".",
+            "text": "Descer FT até {{prof=xxx}} m – 30 m acima da BRV 2,81\".",
             "duration": 9,
             "bop": null,
             "compensando": true,
@@ -12535,7 +12535,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Descer FT até xxx m – 30 m acima da BRV 2,75\".",
+            "text": "Descer FT até {{prof=xxx}} m – 30 m acima da BRV 2,75\".",
             "duration": 9,
             "bop": null,
             "compensando": true,
@@ -12707,7 +12707,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Descer FT até xxx m – 30 m acima da slide sleeve xxx\".",
+            "text": "Descer FT até {{prof=xxx}} m – 30 m acima da slide sleeve {{modeloSlidingSleeve=xxx}}\".",
             "duration": 9,
             "bop": null,
             "compensando": true,
@@ -12721,7 +12721,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Efetuar procedimento de abertura da slide sleeve xxx\".",
+            "text": "Efetuar procedimento de abertura da slide sleeve {{modeloSlidingSleeve=xxx}}\".",
             "duration": 2,
             "bop": null,
             "compensando": true,
@@ -12779,7 +12779,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Descer FT até xxx m – 30 m acima da slide sleeve xxx\".",
+            "text": "Descer FT até {{prof=xxx}} m – 30 m acima da slide sleeve {{modeloSlidingSleeve=xxx}}\".",
             "duration": 7,
             "bop": null,
             "compensando": true,
@@ -12793,7 +12793,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Efetuar procedimento de fechamento da slide sleeve xxx\".",
+            "text": "Efetuar procedimento de fechamento da slide sleeve {{modeloSlidingSleeve=xxx}}\".",
             "duration": 1,
             "bop": null,
             "compensando": true,
@@ -12837,7 +12837,7 @@
     ],
     "ABAN 146": [
         {
-            "text": "Mobilizar e montar BHA de FT com estampador xxx\". Inserir BHA no BOP-FT, acoplar injetor e testar estanqueidade com FCBA inibido/diesel/MEG com 300 psi / XXX psi / 5 min.",
+            "text": "Mobilizar e montar BHA de FT com estampador {{diamEstampador=xxx}}\". Inserir BHA no BOP-FT, acoplar injetor e testar estanqueidade com FCBA inibido/diesel/MEG com 300 psi / XXX psi / 5 min.",
             "duration": 5,
             "bop": null,
             "compensando": true,
@@ -12851,7 +12851,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Descer FT até xxx m – 30 m acima do objetivo de estampagem.",
+            "text": "Descer FT até {{prof=xxx}} m – 30 m acima do objetivo de estampagem.",
             "duration": 8,
             "bop": null,
             "compensando": true,
@@ -12893,7 +12893,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Desmobilizar BHA + estampador XXX\", analisando marca e comparando com o estampador originalmente descido.",
+            "text": "Desmobilizar BHA + estampador {{diamEstampador=XXX}}\", analisando marca e comparando com o estampador originalmente descido.",
             "duration": 4,
             "bop": null,
             "compensando": true,
@@ -12923,7 +12923,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Descer FT até xxx m – profundidade do início do registro de pressão.",
+            "text": "Descer FT até {{prof=xxx}} m – profundidade do início do registro de pressão.",
             "duration": 8,
             "bop": null,
             "compensando": true,
@@ -12965,7 +12965,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Desmobilizar BHA + XXX.",
+            "text": "Desmobilizar BHA + {{ferramentaBhaFt=XXX}}.",
             "duration": 4,
             "bop": null,
             "compensando": true,
@@ -13011,7 +13011,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Descer FT até xxxx m – 300 m acima do TOC previsto (ou e tubulação compatível para calibração).",
+            "text": "Descer FT até {{prof=xxxx}} m – 300 m acima do TOC previsto (ou e tubulação compatível para calibração).",
             "duration": 8,
             "bop": null,
             "compensando": true,
@@ -13039,7 +13039,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Aguardar aprovação do Hold Point pelo CSD.",
+            "text": "{{_hpRevcim=}}Aguardar aprovação do Hold Point pelo CSD.",
             "duration": 1,
             "bop": null,
             "compensando": true,
@@ -13183,7 +13183,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Descer FT até xxxx m – profundidade do início da investigação.",
+            "text": "Descer FT até {{prof=xxxx}} m – profundidade do início da investigação.",
             "duration": 8.5,
             "bop": null,
             "compensando": true,
@@ -13283,7 +13283,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Descer FT até xxxx m – profundidade do início da investigação.",
+            "text": "Descer FT até {{prof=xxxx}} m – profundidade do início da investigação.",
             "duration": 8,
             "bop": null,
             "compensando": true,
@@ -13369,7 +13369,7 @@
     ],
     "ABAN 153": [
         {
-            "text": "Mobilizar e montar trem de wireline com canhão XXX (cargas de alta penetração), inserindo no poço.",
+            "text": "Mobilizar e montar trem de wireline com canhão {{canhao=XXX}} (cargas de alta penetração), inserindo no poço.",
             "duration": 2,
             "bop": null,
             "compensando": true,
@@ -13397,7 +13397,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Descer FT até xxxx m – profundidade do disparo.",
+            "text": "Descer FT até {{prof=xxxx}} m – profundidade do disparo.",
             "duration": 9,
             "bop": null,
             "compensando": true,
@@ -13455,7 +13455,7 @@
     ],
     "ABAN 154": [
         {
-            "text": "Mobilizar e montar trem de wireline com canhão XXX (cargas de tubing puncher/sem expectativa de perfurar o revestimento), inserindo no poço.",
+            "text": "Mobilizar e montar trem de wireline com canhão {{canhao=XXX}} (cargas de tubing puncher/sem expectativa de perfurar o revestimento), inserindo no poço.",
             "duration": 2,
             "bop": null,
             "compensando": true,
@@ -13483,7 +13483,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Descer FT até xxx m – profundidade do disparo.",
+            "text": "Descer FT até {{prof=xxx}} m – profundidade do disparo.",
             "duration": 9,
             "bop": null,
             "compensando": true,
@@ -14055,7 +14055,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Descer FT até xxx m a profundidade da base do tampão.",
+            "text": "Descer FT até {{prof=xxx}} m a profundidade da base do tampão.",
             "duration": 8,
             "bop": null,
             "compensando": true,
@@ -14257,7 +14257,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Descer FT com overshot até topar no BPR @ xxx m com 2-3 klbf de peso.",
+            "text": "Descer FT com overshot até topar no BPR @ {{prof=xxx}} m com 2-3 klbf de peso.",
             "duration": 8,
             "bop": null,
             "compensando": true,
@@ -15737,7 +15737,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Descer FETH com funil e BHA pesado com COT DP xx\" a mar aberto.",
+            "text": "Descer FETH com funil e BHA pesado com COT DP {{colunaTrabalhoDpDiam=xx}}\" a mar aberto.",
             "duration": 5,
             "bop": null,
             "compensando": null,
@@ -15839,7 +15839,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Concluir preparativos para iniciar a descida do BOP. Mergulhar BOP e testar linhas de kill e choke com 300 / XXX psi, booster com 300 / 3.000 psi e conduítes com 300 / 5.000 psi por 5 / 5 min.",
+            "text": "Concluir preparativos para iniciar a descida do BOP. Mergulhar BOP e testar linhas de kill e choke com 300 / {{pressaoKillChoke=XXX}} psi, booster com 300 / 3.000 psi e conduítes com 300 / 5.000 psi por 5 / 5 min.",
             "duration": 3,
             "bop": null,
             "compensando": null,
@@ -15867,7 +15867,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Testar linhas de kill e choke com 300 / XXX psi, booster com 300 / 3.000 psi e conduítes com 300 / 5.000 psi por 5 / 5 min.",
+            "text": "Testar linhas de kill e choke com 300 / {{pressaoKillChoke=XXX}} psi, booster com 300 / 3.000 psi e conduítes com 300 / 5.000 psi por 5 / 5 min.",
             "duration": 1.5,
             "bop": null,
             "compensando": null,
@@ -15909,7 +15909,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Testar linhas de kill e choke com 300 / XXX psi, booster com 300 / 3.000 psi e conduítes com 300 / 5.000 psi por 5 / 5 min.",
+            "text": "Testar linhas de kill e choke com 300 / {{pressaoKillChoke=XXX}} psi, booster com 300 / 3.000 psi e conduítes com 300 / 5.000 psi por 5 / 5 min.",
             "duration": 1.5,
             "bop": null,
             "compensando": null,
@@ -15923,7 +15923,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Conectar junta telescópica. Instalar mangueiras e testar linhas de kill e choke com 300 / XXX psi, booster com 300 / 3.000 psi e conduítes com 300 / 5.000 psi por 5 / 5 min.",
+            "text": "{{_hpEcsBop=}}Conectar junta telescópica. Instalar mangueiras e testar linhas de kill e choke com 300 / {{pressaoKillChoke=XXX}} psi, booster com 300 / 3.000 psi e conduítes com 300 / 5.000 psi por 5 / 5 min.",
             "duration": 7,
             "bop": null,
             "compensando": null,
@@ -15979,7 +15979,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Testar linha de Kill contra válvula submarina com 300 / XXX psi por 5 / 5 min. Testar gaveta(s) cega(s) e anel VGX do BOP contra CSB do poço com 300  / XXX psi (MAPECAB) por 10 / 10 min.",
+            "text": "{{_hpEcsBop=}}Testar linha de Kill contra válvula submarina com 300 / {{pressaoKillChoke=XXX}} psi por 5 / 5 min. Testar gaveta(s) cega(s) e anel VGX do BOP contra CSB do poço com 300  / {{pressaoVgx=XXX}} psi (MAPECAB) por 10 / 10 min.",
             "duration": 1,
             "bop": null,
             "compensando": null,
@@ -16049,7 +16049,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "(Paralela) Testar equipamentos de superfície com 300 / XXX psi por 5 / 5 min (choke manifold, standpipe manifold, TIWs, inside BOPs, mangueira de lama e IBOPs).",
+            "text": "(Paralela) Testar equipamentos de superfície com 300 / {{pressaoEquipSupBop=XXX}} psi por 5 / 5 min (choke manifold, standpipe manifold, TIWs, inside BOPs, mangueira de lama e IBOPs).",
             "duration": 0,
             "bop": null,
             "compensando": null,
@@ -16093,7 +16093,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Descer FETH e BHA pesado com COT DP xxx\".",
+            "text": "Descer FETH e BHA pesado com COT DP {{colunaTrabalhoDpDiam=xxx}}\".",
             "duration": 5,
             "bop": null,
             "compensando": null,
@@ -16291,7 +16291,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Levantar THRT, abrir gaveta cega e descer THRT até o TH. Deslocar colchão viscoso e circular para limpeza via coluna e linhas de K&C e booster, substituindo fluido do riser por FCBA xxx ppg.",
+            "text": "Levantar THRT, abrir gaveta cega e descer THRT até o TH. Deslocar colchão viscoso e circular para limpeza via coluna e linhas de K&C e booster, substituindo fluido do riser por FCBA {{fcbaCorteDens=xxx}} ppg.",
             "duration": 4,
             "bop": null,
             "compensando": true,
@@ -16319,7 +16319,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Realizar teste de overpull com xxx klbf acima do peso total da coluna de produção de acordo com procedimento  SSUB e manter por 10 min.",
+            "text": "Realizar teste de overpull com {{overpullKlbf=xxx}} klbf acima do peso total da coluna de produção de acordo com procedimento  SSUB e manter por 10 min.",
             "duration": 0.5,
             "bop": null,
             "compensando": true,
@@ -16463,7 +16463,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Instalar bucha no MPH e acunhar COI (primeiro tubo xxx) com luva no máximo 55 cm acima do piso do MPH.",
+            "text": "Instalar bucha no MPH e acunhar COI (primeiro tubo {{copCoiTubo=xxx}}) com luva no máximo 55 cm acima do piso do MPH.",
             "duration": 2,
             "bop": null,
             "compensando": null,
@@ -16477,7 +16477,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Efetuar corte da COP/COI acima da luva no MPH (tubo xxx), com aux. de ferramenta de caldeiraria.",
+            "text": "Efetuar corte da COP/COI acima da luva no MPH (tubo {{copCoiTubo=xxx}}), com aux. de ferramenta de caldeiraria.",
             "duration": 2,
             "bop": null,
             "compensando": null,
@@ -16659,7 +16659,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Retirar COP/COI xxx, por unidade. Recolhendo/cortando linhas hidráulicas e cabo(s) flatpacks (quando aplicável).",
+            "text": "Retirar COP/COI {{copCoiTubo=xxx}}, por unidade. Recolhendo/cortando linhas hidráulicas e cabo(s) flatpacks (quando aplicável).",
             "duration": 26,
             "bop": null,
             "compensando": null,
@@ -16703,7 +16703,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Tracionar conjunto com overpull acima do peso de TH+COP/COI para liberar o suspensor do seu ponto de assentamento. Desassentar TH e fechar o BOP Anular. Circular FCBA xxx ppg da linha de kill para choke para confirmar ausência de gás abaixo do TH.Em paral",
+            "text": "Tracionar conjunto com overpull acima do peso de TH+COP/COI para liberar o suspensor do seu ponto de assentamento. Desassentar TH e fechar o BOP Anular. Circular FCBA {{fcbaCorteDens=xxx}} ppg da linha de kill para choke para confirmar ausência de gás abaixo do TH.Em paral",
             "duration": 1.5,
             "bop": null,
             "compensando": true,
@@ -16717,7 +16717,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Retirar TH e COP/COI com FETH e COT DP xx\".",
+            "text": "Retirar TH e COP/COI com FETH e COT DP {{colunaTrabalhoDpDiam=xx}}\".",
             "duration": 5,
             "bop": null,
             "compensando": null,
@@ -16759,7 +16759,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Retirar COP/COI xxx por unidade até a superfície utiilzando o Robô da sonda/chave hidráulica, recolhendo ou cortando o linhas de controle/flatpacks (quando aplicável).",
+            "text": "Retirar COP/COI {{copCoiTubo=xxx}} por unidade até a superfície utiilzando o Robô da sonda/chave hidráulica, recolhendo ou cortando o linhas de controle/flatpacks (quando aplicável).",
             "duration": 32,
             "bop": null,
             "compensando": null,
@@ -16831,7 +16831,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "(Contingência)    Descer FETH com Jar + COT DP xxx da sonda.",
+            "text": "(Contingência)    Descer FETH com Jar + COT DP {{colunaTrabalhoDpDiam=xxx}} da sonda.",
             "duration": 6,
             "bop": null,
             "compensando": null,
@@ -16873,7 +16873,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Circular FCBA xxx ppg da linha de kill para linha de choke para confirmar ausência de gás abaixo do TH. Em paralelo, monitorar riser via trip tank por 30 min para confirmar ausência de gás de riser. Ao final, abrir BOP Anular e efetuar flowcheck de 15 min",
+            "text": "Circular FCBA {{fcbaCorteDens=xxx}} ppg da linha de kill para linha de choke para confirmar ausência de gás abaixo do TH. Em paralelo, monitorar riser via trip tank por 30 min para confirmar ausência de gás de riser. Ao final, abrir BOP Anular e efetuar flowcheck de 15 min",
             "duration": 2,
             "bop": null,
             "compensando": true,
@@ -16971,7 +16971,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Retirar COP xxx por unidade até superfície utilizando Robô da sonda/chave hidráulica, recolhendo ou cortando o linhas de controle/flatpacks.(quando aplicável).",
+            "text": "Retirar COP {{copCoiTubo=xxx}} por unidade até superfície utilizando Robô da sonda/chave hidráulica, recolhendo ou cortando o linhas de controle/flatpacks.(quando aplicável).",
             "duration": 34,
             "bop": null,
             "compensando": null,
@@ -17015,7 +17015,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "(Contingência) Descer BHA retificador de topo com coluna de trabalho DP XX\".",
+            "text": "(Contingência) Descer BHA retificador de topo com coluna de trabalho DP {{colunaTrabalhoDpDiam=XX}}\".",
             "duration": 5,
             "bop": null,
             "compensando": null,
@@ -17043,7 +17043,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "(Contingência) Retirar BHA retificador com coluna de trabalho DP XX\".",
+            "text": "(Contingência) Retirar BHA retificador com coluna de trabalho DP {{colunaTrabalhoDpDiam=XX}}\".",
             "duration": 5,
             "bop": null,
             "compensando": null,
@@ -17141,7 +17141,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Retirar cauda + BHA de pescaria com coluna de trabalho DP XXX\".",
+            "text": "Retirar cauda + BHA de pescaria com coluna de trabalho DP {{colunaTrabalhoDpDiam=XXX}}\".",
             "duration": 5,
             "bop": null,
             "compensando": null,
@@ -17199,7 +17199,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Descer BHA da Retrieving Tool com COT DP xxx\".",
+            "text": "Descer BHA da Retrieving Tool com COT DP {{colunaTrabalhoDpDiam=xxx}}\".",
             "duration": 5,
             "bop": null,
             "compensando": null,
@@ -17241,7 +17241,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Retirar Packer + BHA de recuperação com COT DP xx\" até superfície.",
+            "text": "Retirar Packer + BHA de recuperação com COT DP {{colunaTrabalhoDpDiam=xx}}\" até superfície.",
             "duration": 5,
             "bop": null,
             "compensando": null,
@@ -17285,7 +17285,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "(Contingência) Descer BHA retificador de topo com COT DP xx\".",
+            "text": "(Contingência) Descer BHA retificador de topo com COT DP {{colunaTrabalhoDpDiam=xx}}\".",
             "duration": 5,
             "bop": null,
             "compensando": null,
@@ -17313,7 +17313,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "(Contingência) Retirar BHA retificador com COT DP xx\" até a superfície.",
+            "text": "(Contingência) Retirar BHA retificador com COT DP {{colunaTrabalhoDpDiam=xx}}\" até a superfície.",
             "duration": 5,
             "bop": null,
             "compensando": null,
@@ -17355,7 +17355,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Descer BHA de lavagem com COT DP xx\".",
+            "text": "Descer BHA de lavagem com COT DP {{colunaTrabalhoDpDiam=xx}}\".",
             "duration": 5,
             "bop": null,
             "compensando": null,
@@ -17397,7 +17397,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Retirar BHA de lavagem com COT DP XX\" até a superfície.",
+            "text": "Retirar BHA de lavagem com COT DP {{colunaTrabalhoDpDiam=XX}}\" até a superfície.",
             "duration": 5,
             "bop": null,
             "compensando": null,
@@ -17427,7 +17427,7 @@
     ],
     "ABAN 194": [
         {
-            "text": "Mobilizar e montar BHA com estampador XX\".",
+            "text": "Mobilizar e montar BHA com estampador {{diamEstampador=XX}}\".",
             "duration": 2.5,
             "bop": null,
             "compensando": null,
@@ -17441,7 +17441,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Descer BHA de estampagem com COT DP XX\".",
+            "text": "Descer BHA de estampagem com COT DP {{colunaTrabalhoDpDiam=XX}}\".",
             "duration": 5,
             "bop": null,
             "compensando": null,
@@ -17455,7 +17455,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Realizar estampagem do topo do peixe - previsto a xxx m.",
+            "text": "Realizar estampagem do topo do peixe - previsto a {{prof=xxx}} m.",
             "duration": 1,
             "bop": null,
             "compensando": true,
@@ -17469,7 +17469,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Retirar BHA de estampagem com COT DP XX\" até a superfície.",
+            "text": "Retirar BHA de estampagem com COT DP {{colunaTrabalhoDpDiam=XX}}\" até a superfície.",
             "duration": 5,
             "bop": null,
             "compensando": null,
@@ -17513,7 +17513,7 @@
     ],
     "ABAN 195": [
         {
-            "text": "Mobilizar e montar BHA com canhão XX\" para canhoneio TCP.",
+            "text": "Mobilizar e montar BHA com canhão {{canhao=XX}}\" para canhoneio TCP.",
             "duration": 2.5,
             "bop": null,
             "compensando": null,
@@ -17527,7 +17527,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Descer BHA de canhoneio TCP com COT DP XX\", conforme tally.",
+            "text": "Descer BHA de canhoneio TCP com COT DP {{colunaTrabalhoDpDiam=XX}}\", conforme tally.",
             "duration": 1.5,
             "bop": null,
             "compensando": null,
@@ -17555,7 +17555,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Descer BHA de canhoneio TCP com CT DP até xxx m.",
+            "text": "Descer BHA de canhoneio TCP com CT DP até {{prof=xxx}} m.",
             "duration": 12.5,
             "bop": null,
             "compensando": true,
@@ -17823,7 +17823,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Descer ferramenta de recuperação do packoff com COT DP xx\".",
+            "text": "Descer ferramenta de recuperação do packoff com COT DP {{colunaTrabalhoDpDiam=xx}}\".",
             "duration": 3,
             "bop": null,
             "compensando": null,
@@ -17851,7 +17851,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Retirar BHA + packoff com COT DP xx\".",
+            "text": "Retirar BHA + packoff com COT DP {{colunaTrabalhoDpDiam=xx}}\".",
             "duration": 3,
             "bop": null,
             "compensando": null,
@@ -17907,7 +17907,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Descer BHA de corte com COT DP xx\".",
+            "text": "Descer BHA de corte com COT DP {{colunaTrabalhoDpDiam=xx}}\".",
             "duration": 6,
             "bop": null,
             "compensando": null,
@@ -17935,7 +17935,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Retirar BHA de corte com COPT DP xx\" até superfície.",
+            "text": "Retirar BHA de corte com COPT DP {{colunaTrabalhoDpDiam=xx}}\" até superfície.",
             "duration": 7,
             "bop": null,
             "compensando": null,
@@ -17977,7 +17977,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Descer BHA de pescaria com COT DP xx\".",
+            "text": "Descer BHA de pescaria com COT DP {{colunaTrabalhoDpDiam=xx}}\".",
             "duration": 1.5,
             "bop": null,
             "compensando": null,
@@ -18005,7 +18005,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Retirar BHA de pescaria + Revestimento com COT DP xx\".",
+            "text": "Retirar BHA de pescaria + Revestimento com COT DP {{colunaTrabalhoDpDiam=xx}}\".",
             "duration": 4,
             "bop": null,
             "compensando": null,
@@ -18033,7 +18033,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Mobilizar e montar equipamentos para manobra de revestimento xx\".",
+            "text": "Mobilizar e montar equipamentos para manobra de revestimento {{revestimentoDiam=xx}}\".",
             "duration": 2,
             "bop": null,
             "compensando": null,
@@ -18077,7 +18077,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "(Contingência) Descer BHA de retificação (Junk Mill) com COT DP xx\".",
+            "text": "(Contingência) Descer BHA de retificação (Junk Mill) com COT DP {{colunaTrabalhoDpDiam=xx}}\".",
             "duration": 5,
             "bop": null,
             "compensando": null,
@@ -18147,7 +18147,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Descer BHA de milling com COT DP xx\".",
+            "text": "Descer BHA de milling com COT DP {{colunaTrabalhoDpDiam=xx}}\".",
             "duration": 5,
             "bop": null,
             "compensando": null,
@@ -18189,7 +18189,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Retirar BHA de milling com COT DP xx\".",
+            "text": "Retirar BHA de milling com COT DP {{colunaTrabalhoDpDiam=xx}}\".",
             "duration": 5,
             "bop": null,
             "compensando": null,
@@ -18233,7 +18233,7 @@
     ],
     "ABAN 198": [
         {
-            "text": "Mobilizar e montar BHA com BPP XX\"",
+            "text": "Mobilizar e montar BHA com BPP {{bpDiam=XX}}\"",
             "duration": 3,
             "bop": null,
             "compensando": null,
@@ -18247,7 +18247,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Descer BPP com COT DP XX\"\" e assentar BPP @ XXX m.",
+            "text": "Descer BPP com COT DP {{colunaTrabalhoDpDiam=XX}}\"\" e assentar BPP @ {{prof=XXX}} m.",
             "duration": 7,
             "bop": null,
             "compensando": true,
@@ -18261,7 +18261,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Desencamisar stinger/MST e posicionar 2 m acima do BPP. Fechar BOP Anular e testar BPP com XXX psi. Abrir BOP Anular ao final.",
+            "text": "Desencamisar stinger/MST e posicionar 2 m acima do BPP. Fechar BOP Anular e testar BPP com {{pressaoProva=XXX}} psi. Abrir BOP Anular ao final.",
             "duration": 2,
             "bop": null,
             "compensando": true,
@@ -18275,7 +18275,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Retirar COT DP XX\", por seção, até superfície e desmobilizar setting tool",
+            "text": "Retirar COT DP {{colunaTrabalhoDpDiam=XX}}\", por seção, até superfície e desmobilizar setting tool",
             "duration": 5,
             "bop": null,
             "compensando": null,
@@ -18305,7 +18305,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Mobilizar e montar BHA com BPP XX\".",
+            "text": "Mobilizar e montar BHA com BPP {{bpDiam=XX}}\".",
             "duration": 3.5,
             "bop": null,
             "compensando": null,
@@ -18319,7 +18319,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Descer BPP com COT DP XX\", por seção, e assentar BPP @ XXX m.",
+            "text": "Descer BPP com COT DP {{colunaTrabalhoDpDiam=XX}}\", por seção, e assentar BPP @ {{prof=XXX}} m.",
             "duration": 7,
             "bop": null,
             "compensando": true,
@@ -18361,7 +18361,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Efetuar tampão de cimento de abandono balanceado conforme programa de tamponamento com pasta XXX ppg e topo previsto a xxx m (xxx m de comprimento).",
+            "text": "Efetuar tampão de cimento de abandono balanceado conforme programa de tamponamento com pasta {{tampaoAbandonoDens=XXX}} ppg e topo previsto a {{tampaoAbandonoTopo=xxx}} m ({{tampaoAbandonoCompr=xxx}} m de comprimento).",
             "duration": 5,
             "bop": null,
             "compensando": null,
@@ -18375,7 +18375,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Retirar stinger/MST até XXX m, circular para limpeza e retirar stinger até a superfície. Em paralelo, aguardar pega do cimento para checar topo.",
+            "text": "Retirar stinger/MST até {{prof=XXX}} m, circular para limpeza e retirar stinger até a superfície. Em paralelo, aguardar pega do cimento para checar topo.",
             "duration": 6,
             "bop": null,
             "compensando": null,
@@ -18403,7 +18403,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Descer pata de elefante com COT DP XX\" até 100 m acima do topo teórico \ndo cimento. Finalizar aguardo de pega do cimento.",
+            "text": "Descer pata de elefante com COT DP {{colunaTrabalhoDpDiam=XX}}\" até 100 m acima do topo teórico \ndo cimento. Finalizar aguardo de pega do cimento.",
             "duration": 9,
             "bop": null,
             "compensando": null,
@@ -18445,7 +18445,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Retirar pata de elefante com COT DP XX\", por seção, até superfície.",
+            "text": "Retirar pata de elefante com COT DP {{colunaTrabalhoDpDiam=XX}}\", por seção, até superfície.",
             "duration": 6,
             "bop": null,
             "compensando": null,
@@ -18489,7 +18489,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Descer pata de mula com COT DP XXX\" até XXX m. Obs.: Em caso de execução de operação de cimentação a mar aberto, instalar Junta de Segurança 400 m acima da extremidade.",
+            "text": "Descer pata de mula com COT DP {{colunaTrabalhoDpDiam=XXX}}\" até {{prof=XXX}} m. Obs.: Em caso de execução de operação de cimentação a mar aberto, instalar Junta de Segurança 400 m acima da extremidade.",
             "duration": 8,
             "bop": null,
             "compensando": null,
@@ -18503,7 +18503,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Circular fluido para resfriamento para cimentação. Obs.: Em caso execução de operação a mar aberto, utilizar fluido eCSB XXX ppg 1,5x o volume do poço.",
+            "text": "Circular fluido para resfriamento para cimentação. Obs.: Em caso execução de operação a mar aberto, utilizar fluido eCSB {{ecsbFluidoDens=XXX}} ppg 1,5x o volume do poço.",
             "duration": 3,
             "bop": null,
             "compensando": null,
@@ -18517,7 +18517,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Efetuar tampão de cimento de abandono balanceado conforme programa de tamponamento com pasta XXX ppg e topo previsto a xxx m (xxx m de comprimento).",
+            "text": "Efetuar tampão de cimento de abandono balanceado conforme programa de tamponamento com pasta {{tampaoAbandonoDens=XXX}} ppg e topo previsto a {{tampaoAbandonoTopo=xxx}} m ({{tampaoAbandonoCompr=xxx}} m de comprimento).",
             "duration": 6,
             "bop": null,
             "compensando": null,
@@ -18531,7 +18531,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Retirar BHA com COT DP XXX\", por seção, até a superfície, substituindo por BHA com pata de elefante. Descer BHA e aguardar término do tempo de pega em trecho acima da CABP.",
+            "text": "Retirar BHA com COT DP {{colunaTrabalhoDpDiam=XXX}}\", por seção, até a superfície, substituindo por BHA com pata de elefante. Descer BHA e aguardar término do tempo de pega em trecho acima da CABP.",
             "duration": 18,
             "bop": null,
             "compensando": null,
@@ -18559,7 +18559,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Retirar pata de elefante com COT DP XXX\" até a superfície.",
+            "text": "Retirar pata de elefante com COT DP {{colunaTrabalhoDpDiam=XXX}}\" até a superfície.",
             "duration": 8,
             "bop": null,
             "compensando": null,
@@ -18603,7 +18603,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Descer packer de operação com COT DP, por seção, até XXXX m.",
+            "text": "Descer packer de operação com COT DP, por seção, até {{prof=XXXX}} m.",
             "duration": 8,
             "bop": null,
             "compensando": null,
@@ -18631,7 +18631,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Realizar teste de pressão do trecho superior/inferior ao ponto de assentamento com xxxx psi.",
+            "text": "Realizar teste de pressão do trecho superior/inferior ao ponto de assentamento com {{pressaoProva=xxxx}} psi.",
             "duration": 2,
             "bop": null,
             "compensando": true,
@@ -18689,7 +18689,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Realizar balanceio da coluna e conectar seção de cimentação. Assentar CR @ xxxx m, conforme procedimento da Cia de serviço.",
+            "text": "Realizar balanceio da coluna e conectar seção de cimentação. Assentar CR @ {{prof=xxxx}} m, conforme procedimento da Cia de serviço.",
             "duration": 2,
             "bop": null,
             "compensando": null,
@@ -18731,7 +18731,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Efetuar circulação para avaliar perdas de carga após reconectar stinger. Montar e testar linhas de superfície com xxxx psi. Confirmar alinhamento.",
+            "text": "Efetuar circulação para avaliar perdas de carga após reconectar stinger. Montar e testar linhas de superfície com {{pressaoProva=xxxx}} psi. Confirmar alinhamento.",
             "duration": 2,
             "bop": null,
             "compensando": true,
@@ -18787,7 +18787,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Retirar stinger até xxx m acima do canhoneado superior, monitorando possíveis perdas via Trip Tank.",
+            "text": "Retirar stinger até {{prof=xxx}} m acima do canhoneado superior, monitorando possíveis perdas via Trip Tank.",
             "duration": 1,
             "bop": null,
             "compensando": null,
@@ -18815,7 +18815,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Retirar stinger com COT DP XXX\", por seção, até a superfície. Desmobilizar stinger.",
+            "text": "Retirar stinger com COT DP {{colunaTrabalhoDpDiam=XXX}}\", por seção, até a superfície. Desmobilizar stinger.",
             "duration": 6,
             "bop": null,
             "compensando": null,
@@ -19061,7 +19061,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "[HOLD POINT SANM] - Testar estanqueidade do sistema (SFT +  linhas e manifold de superfície) com XXX psi/10 min de AGMAR.",
+            "text": "[HOLD POINT SANM] - Testar estanqueidade do sistema (SFT +  linhas e manifold de superfície) com {{pressaoBoreTest=XXX}} psi/10 min de AGMAR.",
             "duration": 4.5,
             "bop": null,
             "compensando": null,
@@ -19233,7 +19233,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Navegar para locação do poço XXXX. Distância: XX NM. Efetuar aproximação final da sonda, posicionando embarcação no centro do quadro de bóias.",
+            "text": "Navegar para locação do poço {{poco=?}}. Distância: {{distanciaEntrePocos=?}} NM. Efetuar aproximação final da sonda, posicionando embarcação no centro do quadro de bóias.",
             "duration": 22,
             "bop": null,
             "compensando": null,
@@ -19893,7 +19893,7 @@
     ],
     "ABAN 216": [
         {
-            "text": "Posicionar mistura XX % MEG + XX % FCBA 9,9 ppg (CADIT) no DPR/HCR, circulando 1,2 x volume dos bores + linhas de superfície via DPR > XO TRT > HCR para remoção da AGMAR do SCVS.",
+            "text": "Posicionar mistura {{outrosMegConc=XX}} % MEG + {{outrosMegConc=XX}} % FCBA 9,9 ppg (CADIT) no DPR/HCR, circulando 1,2 x volume dos bores + linhas de superfície via DPR > XO TRT > HCR para remoção da AGMAR do SCVS.",
             "duration": 2,
             "bop": null,
             "compensando": null,
@@ -19909,7 +19909,7 @@
     ],
     "ABAN 217": [
         {
-            "text": "Posicionar mistura XX % MEG + XX % FCBA 9,9 ppg (CADIT) no riser dual bore, circulando 1,2 x volume dos bores + linhas de superfície via B4\" > XO TRT > B2\" para remoção da AGMAR do SCVS.",
+            "text": "Posicionar mistura {{outrosMegConc=XX}} % MEG + {{outrosMegConc=XX}} % FCBA 9,9 ppg (CADIT) no riser dual bore, circulando 1,2 x volume dos bores + linhas de superfície via B4\" > XO TRT > B2\" para remoção da AGMAR do SCVS.",
             "duration": 2,
             "bop": null,
             "compensando": null,
@@ -19939,7 +19939,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Drenar B2\" até XXXX psi (inferior à pressão do B4\"). Abrir S1 e S2 da ANM e avaliar comportamento de pressão por 5 minutos.",
+            "text": "Drenar B2\" até {{outrosDrainB2Psi=XXXX}} psi (inferior à pressão do B4\"). Abrir S1 e S2 da ANM e avaliar comportamento de pressão por 5 minutos.",
             "duration": 1,
             "bop": null,
             "compensando": true,
@@ -20013,7 +20013,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Ajustar Pcab de N2 para XXX psi para prover o underbalance desejado sobre o plug. Alinhar B2\" para COP e efetuar o teste de influxo do plug (diferencial no plug de XXX psi), monitorando por 15 min.",
+            "text": "{{_hpPcabN2=}}Ajustar Pcab de N2 para {{outrosPcabN2Psi=XXX}} psi para prover o underbalance desejado sobre o plug. Alinhar B2\" para COP e efetuar o teste de influxo do plug (diferencial no plug de {{outrosPcabN2Psi=XXX}} psi), monitorando por 15 min.",
             "duration": 4,
             "bop": null,
             "compensando": true,
@@ -20043,7 +20043,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Ajustar Pcab de N2 para XXX psi para prover o underbalance desejado sobre o plug. Alinhar HCR para COP e efetuar o teste de influxo do plug (diferencial no plug de XXX psi), monitorando por 15 min.",
+            "text": "{{_hpPcabN2=}}Ajustar Pcab de N2 para {{outrosPcabN2Psi=XXX}} psi para prover o underbalance desejado sobre o plug. Alinhar HCR para COP e efetuar o teste de influxo do plug (diferencial no plug de {{outrosPcabN2Psi=XXX}} psi), monitorando por 15 min.",
             "duration": 4,
             "bop": null,
             "compensando": true,
@@ -20059,7 +20059,7 @@
     ],
     "ABAN 222": [
         {
-            "text": "Circular para confirmar limpeza do poço de 1,5 x Vol. do B2\" de AGMAR com circulação direta. Avaliar condição de limpeza do fluido retornado na planta de WT; Limitar pressão de bombeio em XXX psi. Validar limpeza realizando sheen test ou medição de TOG.",
+            "text": "Circular para confirmar limpeza do poço de 1,5 x Vol. do B2\" de AGMAR com circulação direta. Avaliar condição de limpeza do fluido retornado na planta de WT; Limitar pressão de bombeio em {{limitePressaoBombeio=XXX}} psi. Validar limpeza realizando sheen test ou medição de TOG.",
             "duration": 10,
             "bop": null,
             "compensando": true,
@@ -20117,7 +20117,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Efetuar bombeio de AGMAR  B4\" > COP > Anular > B2\" a XX bpm para realizar o resfriamento do poço para operação de cimentação. Avaliar parâmetros de bombeio (vazão / pressão) para comparação com inputs da simulação para o BDC.",
+            "text": "Efetuar bombeio de AGMAR  B4\" > COP > Anular > B2\" a {{outrosCoolingFlow=XX}} bpm para realizar o resfriamento do poço para operação de cimentação. Avaliar parâmetros de bombeio (vazão / pressão) para comparação com inputs da simulação para o BDC.",
             "duration": 1.5,
             "bop": null,
             "compensando": null,
@@ -20147,7 +20147,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Efetuar bombeio de AGMAR  DPR > COP > Anular > HCR's (ou fundo do mar) a XX bpm para realizar o resfriamento do poço para operação de cimentação. Avaliar parâmetros de bombeio (vazão / pressão) para comparação com inputs da simulação para o BDC.",
+            "text": "Efetuar bombeio de AGMAR  DPR > COP > Anular > HCR's (ou fundo do mar) a {{outrosCoolingFlow=XX}} bpm para realizar o resfriamento do poço para operação de cimentação. Avaliar parâmetros de bombeio (vazão / pressão) para comparação com inputs da simulação para o BDC.",
             "duration": 1.5,
             "bop": null,
             "compensando": null,
@@ -20277,7 +20277,7 @@
     ],
     "ABAN 226": [
         {
-            "text": "Pressurizar o poço com FCBA com XXX psi para verificar estanqueidade de revestimento + packer + coluna + objeto instalado na coluna. Monitorar pressão por 15 min.",
+            "text": "Pressurizar o poço com FCBA com {{pressaoProva=XXX}} psi para verificar estanqueidade de revestimento + packer + coluna + objeto instalado na coluna. Monitorar pressão por 15 min.",
             "duration": 3.5,
             "bop": null,
             "compensando": true,
@@ -20463,7 +20463,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "[HOLD POINT - ECS/BOP] - Realizar testes do BOP com 300 psi / 5 min e XXXX psi / 10 min.",
+            "text": "[HOLD POINT - ECS/BOP] - Realizar testes do BOP com 300 psi / 5 min e {{pressaoBopPerfuracao=XXXX}} psi / 10 min.",
             "duration": 6.5,
             "bop": null,
             "compensando": true,
@@ -20577,7 +20577,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "[HOLD POINT - ECS/BOP] - Testar gaveta de tubos inferior por baixo contra revestimento e tampão de superfície com 300/XXX psi por 10 min, conforme anexo D do padrão PE-1PBR-00051. Ao final, se necessário, manter gaveta inferior fechada e pressão abaixo de XXX psi.",
+            "text": "[HOLD POINT - ECS/BOP] - Testar gaveta de tubos inferior por baixo contra revestimento e tampão de superfície com 300/{{pressaoBopPerfuracao=XXX}} psi por 10 min, conforme anexo D do padrão PE-1PBR-00051. Ao final, se necessário, manter gaveta inferior fechada e pressão abaixo de {{pressaoBopPerfuracao=XXX}} psi.",
             "duration": 1,
             "bop": null,
             "compensando": true,
@@ -20591,7 +20591,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "[HOLD POINT - ECS/BOP] - Prosseguir teste completo do BOP com 300/XXX psi por 5 min contra poço (ou contra gaveta de tubos inferior). Enviar resultado do teste do BOP e aguardar validação dos testes pelo CSD.",
+            "text": "[HOLD POINT - ECS/BOP] - Prosseguir teste completo do BOP com 300/{{pressaoBopPerfuracao=XXX}} psi por 5 min contra poço (ou contra gaveta de tubos inferior). Enviar resultado do teste do BOP e aguardar validação dos testes pelo CSD.",
             "duration": 6,
             "bop": null,
             "compensando": true,
@@ -20749,7 +20749,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Aguardar pega do cimento. Em paralelo substituir BHA para utilização de broca para checagem de topo. Descer BHA e checar topo do cimento no interior do revestimento.",
+            "text": "{{_hpRevcim=}}Aguardar pega do cimento. Em paralelo substituir BHA para utilização de broca para checagem de topo. Descer BHA e checar topo do cimento no interior do revestimento.",
             "duration": 24,
             "bop": null,
             "compensando": true,
@@ -20805,7 +20805,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "(Contingência) Aguardar aprovação / validação da operação de cimentação (hold point).",
+            "text": "{{_hpRevcim=}}(Contingência) Aguardar aprovação / validação da operação de cimentação (hold point).",
             "duration": 0,
             "bop": null,
             "compensando": null,
@@ -20849,7 +20849,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Checar topo do cimento com Broca + Motor de fundo. Arriar o máximo de peso permitido no BHA de FT. Correlacionar com parâmetros de telemetria.",
+            "text": "{{_hpRevcim=}}Checar topo do cimento com Broca + Motor de fundo. Arriar o máximo de peso permitido no BHA de FT. Correlacionar com parâmetros de telemetria.",
             "duration": 6,
             "bop": null,
             "compensando": true,
@@ -21009,7 +21009,7 @@
     ],
     "ABAN 235": [
         {
-            "text": "Montar BHA liso de corte de cimento com broca tric. X” (sem jatos) + bit sub c/ float valve + X seç DC 6 ¾” + X seç HWDP 5“. Anotar peso do BHA no MD.",
+            "text": "Montar BHA liso de corte de cimento com broca tric. {{corteBrocaDiam=X}}” (sem jatos) + bit sub c/ float valve + {{corteDcSecoes=X}} seç DC 6 ¾” + {{corteHwdpSecoes=X}} seç HWDP 5“. Anotar peso do BHA no MD.",
             "duration": 6.5,
             "bop": null,
             "compensando": null,
@@ -21037,7 +21037,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Efetuar corte do tampão de superfície com FCBA XX ppg. Ver recomendações.",
+            "text": "Efetuar corte do tampão de superfície com FCBA {{fcbaCorteDens=XX}} ppg. Ver recomendações.",
             "duration": 24,
             "bop": null,
             "compensando": null,
@@ -21053,7 +21053,7 @@
     ],
     "ABAN 236": [
         {
-            "text": "Substituir fluido do riser e linhas de submarinas de kill / choke / booster por FCBA XX ppg.",
+            "text": "Substituir fluido do riser e linhas de submarinas de kill / choke / booster por FCBA {{fcbaCorteDens=XX}} ppg.",
             "duration": 6,
             "bop": null,
             "compensando": null,
@@ -21069,7 +21069,7 @@
     ],
     "ABAN 237": [
         {
-            "text": "Mobilizar e montar BHA de wireline com setting tool + CCL + TAE XXX\".",
+            "text": "Mobilizar e montar BHA de wireline com setting tool + CCL + TAE {{taeDiamNom=XXX}}\".",
             "duration": 3,
             "bop": null,
             "compensando": true,
@@ -21083,7 +21083,7 @@
             "genOperacaoDual": "Assentamento de tampão mecânico a cabo elétrico"
         },
         {
-            "text": "Posicionar BHA no interior dos equipamentos de pressão e testar com 300 / xxx psi, via QTS.",
+            "text": "Posicionar BHA no interior dos equipamentos de pressão e testar com 300 / {{pressaoBopArameHigh=xxx}} psi, via QTS.",
             "duration": 1,
             "bop": null,
             "compensando": true,
@@ -21111,7 +21111,7 @@
             "genOperacaoDual": "Assentamento de tampão mecânico a cabo elétrico"
         },
         {
-            "text": "Descer BHA de wireline com TAE até xxx m.",
+            "text": "Descer BHA de wireline com TAE até {{taeProf=xxx}} m.",
             "duration": 4,
             "bop": null,
             "compensando": true,
@@ -21125,7 +21125,7 @@
             "genOperacaoDual": "Assentamento de tampão mecânico a cabo elétrico"
         },
         {
-            "text": "Efetuar a correlação de profundidade e posicionar o TAE próximo a luva do tubo XXX\" a XXX m.",
+            "text": "Efetuar a correlação de profundidade e posicionar o TAE próximo a luva do tubo {{taeTuboDiam=XXX}}\" a {{taeProf=XXX}} m.",
             "duration": 1,
             "bop": null,
             "compensando": true,
@@ -21211,7 +21211,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Posicionar BHA no interior dos equipamentos de pressão e testar com 300 / xxx psi, via QTS.",
+            "text": "Posicionar BHA no interior dos equipamentos de pressão e testar com 300 / {{pressaoBopArameHigh=xxx}} psi, via QTS.",
             "duration": 1,
             "bop": null,
             "compensando": true,
@@ -21253,7 +21253,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Efetuar correlação de profundidade com o CCL e posicionar tampão de bismuto em xxx m.",
+            "text": "Efetuar correlação de profundidade com o CCL e posicionar tampão de bismuto em {{prof=xxx}} m.",
             "duration": 0.5,
             "bop": null,
             "compensando": true,
@@ -21267,7 +21267,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Instalar tampão de bismuto a xxx m. Obs: Extensão útil real (EUR) do tampão = xxx m.",
+            "text": "Instalar tampão de bismuto a {{prof=xxx}} m. Obs: Extensão útil real (EUR) do tampão = {{bismutoEur=xxx}} m.",
             "duration": 1,
             "bop": null,
             "compensando": true,
@@ -21295,7 +21295,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Liberar ferramenta de aplicação do tampão de bismuto com overpull de xxx lbf.",
+            "text": "Liberar ferramenta de aplicação do tampão de bismuto com overpull de {{bismutoOverpull=xxx}} lbf.",
             "duration": 0.5,
             "bop": null,
             "compensando": true,
@@ -21493,7 +21493,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Conectar Stress Joint na FIBOP/FDR e testar cavidade com XXXX psi.",
+            "text": "Conectar Stress Joint na FIBOP/FDR e testar cavidade com {{pressaoProva=XXXX}} psi.",
             "duration": 4,
             "bop": null,
             "compensando": null,
@@ -21549,7 +21549,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Testar estanqueidade do HCR com AGMAR com XXXX psi por 10 min contra VXXX FIBOP/FDR.",
+            "text": "Testar estanqueidade do HCR com AGMAR com {{pressaoProva=XXXX}} psi por 10 min contra VXXX FIBOP/FDR.",
             "duration": 1,
             "bop": null,
             "compensando": null,
@@ -21563,7 +21563,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Testar estanqueidade dos Bores 4\" e 2\" do CWO e do HCR com XXXX psi/10 min contra base de teste.",
+            "text": "Testar estanqueidade dos Bores 4\" e 2\" do CWO e do HCR com {{pressaoProva=XXXX}} psi/10 min contra base de teste.",
             "duration": 1,
             "bop": null,
             "compensando": null,
@@ -21745,7 +21745,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Efetuar teste de todo o conjunto contra válvulas de fundo da TRT com XXX psi/15 min.",
+            "text": "Efetuar teste de todo o conjunto contra válvulas de fundo da TRT com {{pressaoProva=XXX}} psi/15 min.",
             "duration": 2,
             "bop": null,
             "compensando": null,
@@ -21801,7 +21801,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "[Hold Point SUB] Testar interface TRT x ANM (contra S1 e S2 separadamente) com XXX psi de N2",
+            "text": "[Hold Point SUB] Testar interface TRT x ANM (contra S1 e S2 separadamente) com {{pressaoProva=XXX}} psi de N2",
             "duration": 4.5,
             "bop": null,
             "compensando": null,
@@ -21815,7 +21815,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Abrir Swabs e testar o bloco de produção e do anular (separadamente) com XXX psi de N2.",
+            "text": "Abrir Swabs e testar o bloco de produção e do anular (separadamente) com {{pressaoProva=XXX}} psi de N2.",
             "duration": 4.5,
             "bop": null,
             "compensando": null,
@@ -22247,7 +22247,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Montar e testar linhas de superfície + manifold . Testar com xxx psi de AGMAR /10 min contra bloco da SFT.",
+            "text": "Montar e testar linhas de superfície + manifold . Testar com {{pressaoProva=xxx}} psi de AGMAR /10 min contra bloco da SFT.",
             "duration": 4,
             "bop": null,
             "compensando": null,
@@ -22319,7 +22319,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "[HOLD POINT SANM] Montar e testar linhas de superfície + manifold. Testar com xxx psi de AGMAR/10 min contra bloco do terminal head.",
+            "text": "[HOLD POINT SANM] Montar e testar linhas de superfície + manifold. Testar com {{pressaoProva=xxx}} psi de AGMAR/10 min contra bloco do terminal head.",
             "duration": 4,
             "bop": null,
             "compensando": null,
@@ -22463,7 +22463,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Testar plug com XXX psi, pressurizando via HCR ou B2\">S2>XO>S1>Plug 3,81\", ou via poço, e monitorando DPR ou B4\".",
+            "text": "Testar plug com {{pressaoProva=XXX}} psi, pressurizando via HCR ou B2\">S2>XO>S1>Plug 3,81\", ou via poço, e monitorando DPR ou B4\".",
             "duration": 4,
             "bop": null,
             "compensando": true,
@@ -22507,7 +22507,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Testar plug com XXX psi,  pressurizando via B4\">S1>XO>S2>Plug FWG 1,875” ou via poço e monitorando bore 4\".",
+            "text": "Testar plug com {{pressaoProva=XXX}} psi,  pressurizando via B4\">S1>XO>S2>Plug FWG 1,875” ou via poço e monitorando bore 4\".",
             "duration": 4,
             "bop": null,
             "compensando": true,
@@ -22809,7 +22809,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "[HOLD POINT - ECS/BOP] - Realizar testes do BOP com 300 psi / 5 min e XXXX psi / 10 min.",
+            "text": "[HOLD POINT - ECS/BOP] - Realizar testes do BOP com 300 psi / 5 min e {{pressaoBopPerfuracao=XXXX}} psi / 10 min.",
             "duration": 6.5,
             "bop": null,
             "compensando": true,
