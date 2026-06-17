@@ -512,7 +512,7 @@ const FIELD_IMPACT: Partial<Record<keyof ProjectData, FieldImpact>> = {
   // Pressões operacionais
   pressaoCavFibop:    { packageIds: ['ABAN 011','ABAN 012','ABAN 211','ABAN 212'] },
   pressaoBoreTest:    { packageIds: ['ABAN 012','ABAN 013','ABAN 206'] },
-  pressaoRiserDpr:    { packageIds: ['ABAN 014','ABAN 015','ABAN 016','ABAN 017','ABAN 206','NOVO 013'] },
+  pressaoRiserDpr:    { packageIds: ['ABAN 014','ABAN 015','ABAN 016','ABAN 017','ABAN 206','ABAN 244'] },
   pressaoColunaDpr:   { packageIds: ['ABAN 014'] },
   pressaoColunaRiserDb:{ packageIds: ['ABAN 015'] },
   pressaoN2Trt:       { packageIds: ['ABAN 024','ABAN 025'] },
@@ -961,7 +961,7 @@ export function ProjectDataPanel({ onLocate, onClearLocate, locatedTarget, oneBy
 
         {/* ── Equipamentos de superfície ── */}
         {(() => {
-          const showRiser  = hasPkgFn('ABAN 014','ABAN 015','ABAN 016','ABAN 017','ABAN 206','NOVO 013')
+          const showRiser  = hasPkgFn('ABAN 014','ABAN 015','ABAN 016','ABAN 017','ABAN 206','ABAN 244')
           const showBopAr  = hasPkgFn(...SLWLFT_HIGH_PKG_IDS)
           if (!showRiser && !showBopAr) return null
           const setEquipSup = setter('equipamentos_superficie')
@@ -970,7 +970,7 @@ export function ProjectDataPanel({ onLocate, onClearLocate, locatedTarget, oneBy
           const push = (show: boolean, pkgs: string[], node: React.ReactNode) => {
             if (show) entries.push({ ord: pkgOrderOf(...pkgs), node })
           }
-          push(showRiser,      ['ABAN 014','ABAN 015','ABAN 016','ABAN 017','ABAN 206','NOVO 013'], <Field key="riserDpr" label="Teste de linhas de superfície e manifold auxiliar" value={d.pressaoRiserDpr} onChange={v => setEquipSup({ pressaoRiserDpr: v })} unit="psi" locate={{ kind: 'data', field: 'pressaoRiserDpr' }} />)
+          push(showRiser,      ['ABAN 014','ABAN 015','ABAN 016','ABAN 017','ABAN 206','ABAN 244'], <Field key="riserDpr" label="Teste de linhas de superfície e manifold auxiliar" value={d.pressaoRiserDpr} onChange={v => setEquipSup({ pressaoRiserDpr: v })} unit="psi" locate={{ kind: 'data', field: 'pressaoRiserDpr' }} />)
           push(showBopAr,      [...SLWLFT_HIGH_PKG_IDS], <Field key="bopArame" label="Teste alta equipamentos de pressão (SL, WL e FT)" value={d.pressaoBopArameHigh} onChange={v => setEquipSup({ pressaoBopArameHigh: v })} unit="psi" locate={{ kind: 'data', field: 'pressaoBopArameHigh' }} />)
           entries.sort((a, b) => a.ord - b.ord)
           return (

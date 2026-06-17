@@ -341,7 +341,7 @@ export interface ProjectData {
   pressaoTmfAnulAnm: string      // ABAN 027,028,029 — blocos ANM
   pressaoBullheadDhsv: string    // ABAN 030 — teste funcional de DHSV
   pressaoBopArameHigh: string    // ABAN 031A/B,032,033 (wireline), 085,086,087 (electric), 119,120 (CT) — teste alta equipamentos pressão
-  pressaoBopPerfuracao: string   // ABAN 228,229,NOVO 011,012 — teste pressão BOP perfuração descido Fase 2
+  pressaoBopPerfuracao: string   // ABAN 228,229,254,241 — teste pressão BOP perfuração descido Fase 2
   pressaoVgx: string             // ABAN 184 — teste anel VGX do BOP contra CSB (auto: MAPECAB)
   pressaoKillChoke: string       // ABAN 184 — linhas kill/choke descida BOP (auto: MAPECAB)
   pressaoEquipSupBop: string     // ABAN 184 — equipamentos de superfície (choke/standpipe manifold, TIWs, IBOPs)

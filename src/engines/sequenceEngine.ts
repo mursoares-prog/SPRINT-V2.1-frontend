@@ -31,7 +31,7 @@ function getDismountPackage(tech: Technology, _rigType: 'ANC' | 'DP', opType: 'G
     if (_mode === 'through_casing') return null
     return opType === 'LWO' ? 'ABAN 242' : 'ABAN 243'
   }
-  if (tech === 'ct') return opType === 'LWO' ? 'ABAN 240' : 'ABAN 241'
+  if (tech === 'ct') return opType === 'LWO' ? 'ABAN 148' : 'ABAN 161'
   return null
 }
 
@@ -166,13 +166,13 @@ export function generateSchedule(inputs: WizardInputs): ScheduleItem[] {
           else if (ancTcapByRov) addItem(items, 'ABAN 015', step.phase, percentile)
         }
       } else if (rigType === 'DP' && !hasWorkstringTcap) {
-        // Generalista: montagem de SFT e arranjo de superfície (NOVO 015) antes do flush —
+        // Generalista: montagem de SFT e arranjo de superfície (ABAN 246) antes do flush —
         // análogo ao ABAN 206 (Montagem de ITF) usado em LWO.
-        addItem(items, 'NOVO 015', step.phase, percentile)
+        addItem(items, 'ABAN 246', step.phase, percentile)
         addItem(items, 'ABAN 014', step.phase, percentile)
       } else if (ancTcapByRov) {
-        // Generalista, ANC com TCap por ROV: montagem do Terminal Head (NOVO 016) e flush na descida.
-        addItem(items, 'NOVO 016', step.phase, percentile)
+        // Generalista, ANC com TCap por ROV: montagem do Terminal Head (ABAN 247) e flush na descida.
+        addItem(items, 'ABAN 247', step.phase, percentile)
         addItem(items, 'ABAN 015', step.phase, percentile)
       }
       continue
@@ -221,8 +221,8 @@ export function generateSchedule(inputs: WizardInputs): ScheduleItem[] {
       const hasTC = equipments.includes('tree_cap')
       if (hasTC) {
         // Descida do conjunto de WO para retirada da TCAP:
-        // DP com DPR/HCR (NOVO 013); ANC com Riser Dual Bore (NOVO 014)
-        addItem(items, rigType === 'ANC' ? 'NOVO 014' : 'NOVO 013', step.phase, percentile)
+        // DP com DPR/HCR (ABAN 244); ANC com Riser Dual Bore (ABAN 245)
+        addItem(items, rigType === 'ANC' ? 'ABAN 245' : 'ABAN 244', step.phase, percentile)
         addItem(items, 'ABAN 018', step.phase, percentile)
         addItem(items, 'ABAN 019', step.phase, percentile)
         // Hidrato no conector da TCap: dissociado APÓS o desassentamento da TCap (ABAN 020/021/022).
@@ -242,11 +242,11 @@ export function generateSchedule(inputs: WizardInputs): ScheduleItem[] {
           // Re-descida do conjunto de WO após subida da TCap à superfície (sem re-prep separado)
           addItem(items, rigType === 'ANC' ? 'ABAN 012' : 'ABAN 011', step.phase, percentile)
           // Arranjo de superfície antes do flush: LWO monta o ITF (ABAN 206); Generalista monta
-          // o SFT (DP → NOVO 015) ou o Terminal Head (ANC → NOVO 016).
+          // o SFT (DP → ABAN 246) ou o Terminal Head (ANC → ABAN 247).
           if (operationType === 'LWO') addItem(items, 'ABAN 206', step.phase, percentile)
-          else addItem(items, rigType === 'ANC' ? 'NOVO 016' : 'NOVO 015', step.phase, percentile)
+          else addItem(items, rigType === 'ANC' ? 'ABAN 247' : 'ABAN 246', step.phase, percentile)
           // Flush (ANC: ABAN 015 / DP: ABAN 014) imediatamente antes do fluido (ABAN 017/209/217).
-          // A descida inicial do WO para retirada da TCAP está contida em NOVO 013/014.
+          // A descida inicial do WO para retirada da TCAP está contida em ABAN 244/245.
           addItem(items, rigType === 'ANC' ? 'ABAN 015' : 'ABAN 014', step.phase, percentile)
           const surfFluid = inputs.tcapSurfaceFluid ?? 'n2'
           if (surfFluid === 'n2') {
@@ -261,9 +261,9 @@ export function generateSchedule(inputs: WizardInputs): ScheduleItem[] {
           addItem(items, 'ABAN 020', step.phase, percentile)  // fundeio
           emitTcapHydrateContingency()
           // Arranjo de superfície antes do flush: LWO monta o ITF (ABAN 206); Generalista monta
-          // o SFT (DP → NOVO 015) ou o Terminal Head (ANC → NOVO 016).
+          // o SFT (DP → ABAN 246) ou o Terminal Head (ANC → ABAN 247).
           if (operationType === 'LWO') addItem(items, 'ABAN 206', step.phase, percentile)
-          else addItem(items, rigType === 'ANC' ? 'NOVO 016' : 'NOVO 015', step.phase, percentile)
+          else addItem(items, rigType === 'ANC' ? 'ABAN 247' : 'ABAN 246', step.phase, percentile)
           // Flush (ANC: ABAN 015 / DP: ABAN 014) imediatamente antes do posicionamento de fluido
           // (ABAN 017/209) após o desassentamento da TCap — na Fase 1A.
           addItem(items, rigType === 'ANC' ? 'ABAN 015' : 'ABAN 014', step.phase, percentile)
@@ -329,9 +329,9 @@ export function generateSchedule(inputs: WizardInputs): ScheduleItem[] {
       if (rigType === 'DP' &&
           equipments.includes('tree_cap') && inputs.tcapRemovalMethod !== 'rov') continue
       if (rigType === 'ANC') {
-        // Generalista: montagem do Terminal Head e arranjo de superfície (NOVO 016) antes do
+        // Generalista: montagem do Terminal Head e arranjo de superfície (ABAN 247) antes do
         // flush — análogo ao ABAN 206 (Montagem de ITF) usado em LWO.
-        if (operationType !== 'LWO') addItem(items, 'NOVO 016', step.phase, percentile)
+        if (operationType !== 'LWO') addItem(items, 'ABAN 247', step.phase, percentile)
         addItem(items, 'ABAN 015', step.phase, percentile)
       }
       if (!inputs.riserFluid || inputs.riserFluid === 'n2') {
@@ -389,9 +389,7 @@ export function generateSchedule(inputs: WizardInputs): ScheduleItem[] {
     // ─── Perfuração da COP/COI: eFire (arame) ou tubing puncher (cabo elétrico) ──
     if (step.packageId === 'PERF_INJECT') {
       const eff: OperationMode = bopActive ? 'through_casing' : baseMode
-      const amortPkg = inputs.amortAnularFluid === 'diesel' ? 'NOVO 006'
-        : inputs.amortAnularFluid === 'inhibited' ? 'NOVO 005'
-        : 'NOVO 003'
+      const amortPkg = 'ABAN 255'  // amortecimento de Anular A pós-canhoneio (bullheading FCBA)
       // Fase 1 (FS1_Mec / Conv / RCMA): canhoneio profundo da coluna, controlado por fs1PerfProfunda.
       // A tecnologia segue tubingPerfMethod — a cabo: tubing puncher (ABAN 101); a arame: eFire
       // (ABAN 045); flexitubo: tubing puncher FT (ABAN 154). O canhoneio raso é feito depois, antes
@@ -1025,10 +1023,6 @@ export function generateSchedule(inputs: WizardInputs): ScheduleItem[] {
     if (step.packageId === 'CAMISAO_INJECT') {
       const camisaoArr = (inputs.installCamisao ?? []).filter(v => v !== 'no') as ('yes' | 'contingency')[]
       const effectiveModeNow: OperationMode = bopActive ? 'through_casing' : baseMode
-      // gabaritagem com camisão acoplado: NOVO 021 vem ANTES da instalação do camisão (ABAN 037)
-      if (inputs.gaugeTech !== 'no' && inputs.gaugeCamisaoAcoplado) {
-        addItem(items, 'NOVO 021', step.phase, percentile, { isContingency: inputs.gaugeContingency === true })
-      }
       for (const slot of ['yes', 'contingency'] as const) {
         if (!camisaoArr.includes(slot)) continue
         const isContingency = slot === 'contingency'
@@ -1048,8 +1042,8 @@ export function generateSchedule(inputs: WizardInputs): ScheduleItem[] {
           currentTech = 'wireline'
         }
       }
-      // gabaritagem sem camisão acoplado (arame/perfilagem/flexitubo conforme gaugeTech; omitir se 'no' ou já inserido acima)
-      if (inputs.gaugeTech !== 'no' && !inputs.gaugeCamisaoAcoplado) {
+      // gabaritagem da coluna (arame/perfilagem/flexitubo conforme gaugeTech; omitir se 'no')
+      if (inputs.gaugeTech !== 'no') {
         const gaugePackage = inputs.gaugeTech === 'electric' ? 'ABAN 098' : inputs.gaugeTech === 'ct' ? 'ABAN 124' : 'ABAN 036'
         addItem(items, gaugePackage, step.phase, percentile, { isContingency: inputs.gaugeContingency === true })
       }
@@ -1079,7 +1073,7 @@ export function generateSchedule(inputs: WizardInputs): ScheduleItem[] {
         }
         if (yesOrConting(inputs.installTmfPlugEndProd)) {
           ensureWireline()
-          addItem(items, 'NOVO 001', step.phase, percentile, { isContingency: isConting(inputs.installTmfPlugEndProd) })
+          addItem(items, 'ABAN 249', step.phase, percentile, { isContingency: isConting(inputs.installTmfPlugEndProd) })
         }
         if (rigType === 'DP' && yesOrConting(inputs.installTmfPlugEndAnul)) {
           // DP: plug anular instalado após desassentamento do conjunto de WO.
@@ -1093,14 +1087,14 @@ export function generateSchedule(inputs: WizardInputs): ScheduleItem[] {
           }
           addItem(items, 'ABAN 213', step.phase, percentile, { isContingency: conting })  // desassentamento WO
           ensureWireline()
-          addItem(items, 'NOVO 002', step.phase, percentile, { isContingency: conting })
+          addItem(items, 'ABAN 250', step.phase, percentile, { isContingency: conting })
           // Teste de interface: bore produção (S1 ou contra plug se instalado), bore anular (contra plug instalado)
           const hasProdPlug = yesOrConting(inputs.installTmfPlugEndProd)
           addItem(items, hasProdPlug ? 'ABAN 026' : 'ABAN 024', step.phase, percentile, { isContingency: conting })
           addItem(items, 'ABAN 027', step.phase, percentile, { isContingency: conting })
         } else if (rigType !== 'DP' && yesOrConting(inputs.installTmfPlugEndAnul)) {
           ensureWireline()
-          addItem(items, 'NOVO 002', step.phase, percentile, { isContingency: isConting(inputs.installTmfPlugEndAnul) })
+          addItem(items, 'ABAN 250', step.phase, percentile, { isContingency: isConting(inputs.installTmfPlugEndAnul) })
         }
       }
       continue
@@ -1164,7 +1158,7 @@ export function generateSchedule(inputs: WizardInputs): ScheduleItem[] {
       if (isFS2NonRCMA && inputs.bopTestMethod === 'feth_on_th') {
         // teste deslocado para após a FETH — BOP_TEST_FETH_INJECT cuida disso
       } else if (isFS2NonRCMA && inputs.bopTestMethod === 'ponteira_orman') {
-        addItem(items, 'NOVO 011', step.phase, percentile)
+        addItem(items, 'ABAN 254', step.phase, percentile)
       } else if (isFS2NonRCMA && inputs.bopTestMethod === 'coluna_flutuada') {
         addItem(items, 'ABAN 229', step.phase, percentile)
       } else {
@@ -1177,7 +1171,7 @@ export function generateSchedule(inputs: WizardInputs): ScheduleItem[] {
     if (step.packageId === 'BOP_TEST_FETH_INJECT') {
       const isFS2NonRCMA = (inputs.scopeId?.startsWith('FS2') ?? false) && inputs.scopeId !== 'FS2_Conv_RCMA'
       if (isFS2NonRCMA && inputs.bopTestMethod === 'feth_on_th') {
-        addItem(items, 'NOVO 012', step.phase, percentile)
+        addItem(items, 'ABAN 241', step.phase, percentile)
       }
       continue
     }
@@ -1193,7 +1187,7 @@ export function generateSchedule(inputs: WizardInputs): ScheduleItem[] {
         const isRcma = scopeId === 'FS2_Conv_RCMA'
         if (isRcma) {
           // RCMA (mar aberto): falha da FIBAP já na sequência → corte → descer FIBAP → retirar COP
-          addItem(items, 'NOVO 010', step.phase, percentile, cutOpts)
+          addItem(items, 'ABAN 252', step.phase, percentile, cutOpts)
           addItem(items, 'ABAN 183', step.phase, percentile, cutOpts)
           addItem(items, 'ABAN 188', step.phase, percentile, cutOpts)
         } else {
@@ -1206,11 +1200,11 @@ export function generateSchedule(inputs: WizardInputs): ScheduleItem[] {
               ...(isPlugConting ? { isContingency: true, contingencyReason: 'Contingência: retirada de plug 3,75" no TH antes do free point' } : {}),
             })
           }
-          addItem(items, 'NOVO 009', step.phase, percentile, cutOpts)
+          addItem(items, 'ABAN 251', step.phase, percentile, cutOpts)
           if (inputs.fs2CopCutMethod === 'ct') {
             addItem(items, rigType === 'ANC' ? 'ABAN 121' : 'ABAN 119', step.phase, percentile, cutOpts)
             addItem(items, 'ABAN 150', step.phase, percentile, cutOpts)
-            addItem(items, operationType === 'LWO' ? 'ABAN 240' : 'ABAN 241', step.phase, percentile, cutOpts)
+            addItem(items, operationType === 'LWO' ? 'ABAN 148' : 'ABAN 161', step.phase, percentile, cutOpts)
           } else if (inputs.fs2CopCutMethod === 'slip_shot') {
             addItem(items, 'ABAN 115', step.phase, percentile, cutOpts)
           } else if (inputs.fs2CopCutMethod === 'string_shot') {
@@ -1258,7 +1252,7 @@ export function generateSchedule(inputs: WizardInputs): ScheduleItem[] {
         } else if (log === 'imageamento') {
           pkgId = 'ABAN 112'
         } else if (log === 'free_point') {
-          pkgId = 'NOVO 009'
+          pkgId = 'ABAN 251'
         }
         if (pkgId) addItem(items, pkgId, step.phase, percentile, { isContingency: isConting })
       }
@@ -1297,15 +1291,15 @@ export function generateSchedule(inputs: WizardInputs): ScheduleItem[] {
       if (effectivePkgId === 'ABAN 029' && tmfBores.includes('annular'))    continue
     }
 
-    // NOVO 017/018 (prep Fase 0, com TCap — DP/ANC): suprimidos quando não há TCap a retirar pelo WO.
-    if ((effectivePkgId === 'NOVO 017' || effectivePkgId === 'NOVO 018') &&
+    // ABAN 211 (prep CWO+TRT Fase 0, com TCap): suprimido quando não há TCap a retirar pelo WO.
+    if (effectivePkgId === 'ABAN 211' &&
         (!equipments.includes('tree_cap') || inputs.tcapRemovalMethod === 'rov')) continue
 
-    // NOVO 019/020 (prep Fase 1A, sem TCap — DP/ANC): suprimidos quando há TCap a retirar pelo WO.
-    if ((effectivePkgId === 'NOVO 019' || effectivePkgId === 'NOVO 020') &&
+    // ABAN 212 (prep CWO+TRT reentrada, Fase 1A, sem TCap): suprimido quando há TCap a retirar pelo WO.
+    if (effectivePkgId === 'ABAN 212' &&
         equipments.includes('tree_cap') && inputs.tcapRemovalMethod !== 'rov') continue
 
-    // Descida do WO para retirada da TCap está contida em NOVO 013/014 (injetados em TCAP_INJECT);
+    // Descida do WO para retirada da TCap está contida em ABAN 244/245 (injetados em TCAP_INJECT);
     // ABAN 011/012 da sequência base são suprimidos para evitar dupla-previsão.
     if ((effectivePkgId === 'ABAN 011' || effectivePkgId === 'ABAN 012') &&
         equipments.includes('tree_cap') && inputs.tcapRemovalMethod !== 'rov') continue

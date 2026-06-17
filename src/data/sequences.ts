@@ -79,19 +79,19 @@ const MOB_DP: SequenceStep[] = [
 ]
 
 // Preparação e descida do conjunto de WO.
-// Com TCap: NOVO 017/018 (prep Fase 0, DP/ANC) + NOVO 013/014 (descida para TCap); ABAN 011/012 suprimidos.
-// Sem TCap: NOVO 017/018 suprimidos; NOVO 019/020 (prep Fase 1A, DP/ANC) + ABAN 011/012 (descida).
+// Com TCap: ABAN 211 (prep CWO+TRT, Fase 0) + ABAN 244/245 (descida para retirada da TCap); ABAN 011/012 suprimidos.
+// Sem TCap: ABAN 211 suprimido; ABAN 212 (prep CWO+TRT reentrada, Fase 1A) + ABAN 011/012 (descida).
 // Guards na engine controlam a supressão conforme presença de TCap.
 const DESCIDA_ANC: SequenceStep[] = [
-  { packageId: 'NOVO 018', phase: 'Fase 0' },
-  { packageId: 'NOVO 020', phase: 'Fase 1A' },
+  { packageId: 'ABAN 211', phase: 'Fase 0' },
+  { packageId: 'ABAN 212', phase: 'Fase 1A' },
   { packageId: 'ABAN 012', phase: 'Fase 1A' },
   ITF_INJECT,
   RISER_FLUID_STEP,
 ]
 const DESCIDA_DP: SequenceStep[] = [
-  { packageId: 'NOVO 017', phase: 'Fase 0' },
-  { packageId: 'NOVO 019', phase: 'Fase 1A' },
+  { packageId: 'ABAN 211', phase: 'Fase 0' },
+  { packageId: 'ABAN 212', phase: 'Fase 1A' },
   { packageId: 'ABAN 011', phase: 'Fase 1A' },
   // Flush do DPR/HCR (ABAN 014) emitido em ITF_INJECT: Generalista na descida;
   // LWO após a montagem do ITF (ABAN 206), nunca antes.
@@ -198,7 +198,7 @@ const FEJAT_CONTINGENCY: SequenceStep[] = [
 ]
 // Marcador: engine injeta teste do BOP (Test Plug / Ponteira ORMAN / Coluna flutuada conforme inputs)
 const BOP_TEST_INJECT: SequenceStep = { packageId: 'BOP_TEST_INJECT', phase: 'Fase 2' }
-// Marcador: engine injeta NOVO 012 quando bopTestMethod = 'feth_on_th' (após descida da FETH)
+// Marcador: engine injeta ABAN 241 quando bopTestMethod = 'feth_on_th' (após descida da FETH)
 const BOP_TEST_FETH_INJECT: SequenceStep = { packageId: 'BOP_TEST_FETH_INJECT', phase: 'Fase 2' }
 const BOP_INSTALA: SequenceStep[] = [
   ...FEJAT_CONTINGENCY,

@@ -579,7 +579,7 @@ const showRemoveANM = isTT || isFS1Mec
             )}
 
             <Row label="Fluido amort. anular A"
-              tooltip="Fluido utilizado no bombeio de amortecimento do anular A após canhoneio da COP (NOVO 003 diesel+FCBA / NOVO 005 MEG+FCBA / NOVO 006 diesel)"
+              tooltip="Fluido utilizado no bombeio de amortecimento do anular A após canhoneio da COP (pacote ABAN 255 — bullheading FCBA)"
               value={inputs.amortAnularFluid === 'diesel' ? 'Diesel' : inputs.amortAnularFluid === 'inhibited' ? 'MEG+FCBA' : inputs.amortAnularFluid === 'diesel_fcba' ? 'Diesel+FCBA' : '—'}
               isEditing={isEd('amortAnularFluid')} onEdit={() => edit('amortAnularFluid')}>
               <InlineRadio
@@ -669,7 +669,7 @@ const showRemoveANM = isTT || isFS1Mec
             </Row>
 
             <Row label="Gabaritar coluna?"
-              tooltip="Tecnologia para gabaritagem da coluna após instalação do camisão (Arame → ABAN 036, ou NOVO 021 se com camisão acoplado; Perfilagem → ABAN 098; Flexitubo → ABAN 124; Não → omitir gabaritagem)"
+              tooltip="Tecnologia para gabaritagem da coluna após instalação do camisão (Arame → ABAN 036; Perfilagem → ABAN 098; Flexitubo → ABAN 124; Não → omitir gabaritagem)"
               value={
                 inputs.gaugeTech === 'no' ? 'Não' :
                 inputs.gaugeTech === 'electric'
@@ -1495,7 +1495,7 @@ const showRemoveANM = isTT || isFS1Mec
 
             {isFS2 && !isRCMA && (
               <Row label="Teste do BOP"
-                tooltip="Método de teste de pressão do BOP (Test Plug → ABAN 228; Ponteira ORMAN → NOVO 011; Coluna flutuada → ABAN 229; FETH sobre TH → NOVO 012 após descida da FETH)"
+                tooltip="Método de teste de pressão do BOP (Test Plug → ABAN 228; Ponteira ORMAN → ABAN 254; Coluna flutuada → ABAN 229; FETH sobre TH → ABAN 241 após descida da FETH)"
                 value={
                   inputs.bopTestMethod === 'ponteira_orman' ? 'Ponteira de borracha' :
                   inputs.bopTestMethod === 'coluna_flutuada' ? 'Coluna flutuada (sem TH)' :

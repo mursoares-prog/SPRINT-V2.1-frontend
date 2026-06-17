@@ -24,29 +24,25 @@ export const PACKAGES: Record<string, Package> = {
   'ABAN 010': { id: 'ABAN 010', name: 'Retirar de TCap com ROV', category: 'Fase 0', technology: 'none', applicableRig: ALL, applicableOp: ALL_OP },
 
   // ── Fase 0 / Preparação WO ───────────────────────────────────────────────
-  'NOVO 017': { id: 'NOVO 017', name: 'Preparação do Conjunto de WO com DPR/HCR para retirada/fundeio da TCap', category: 'Fase 0', technology: 'none', applicableRig: DP, applicableOp: ALL_OP },
-  'NOVO 018': { id: 'NOVO 018', name: 'Preparação do Conjunto de WO com Riser Dual Bore para retirada/fundeio da TCap', category: 'Fase 0', technology: 'none', applicableRig: ANC, applicableOp: ALL_OP },
+  'ABAN 211': { id: 'ABAN 211', name: 'Preparação do Conjunto de WO + TRT para retirada/fundeio da TCap', category: 'Fase 0', technology: 'none', applicableRig: ALL, applicableOp: ALL_OP },
 
   // ── Descida WO ───────────────────────────────────────────────────────────
   'ABAN 011': { id: 'ABAN 011', name: 'Descida do Conjunto de WO com DPR/HCR', category: 'Descida WO', technology: 'none', applicableRig: DP, applicableOp: GEN },
   'ABAN 012': { id: 'ABAN 012', name: 'Descida do Conjunto de WO com Riser Dual Bore', category: 'Descida WO', technology: 'none', applicableRig: ANC, applicableOp: ALL_OP },
-  'NOVO 019': { id: 'NOVO 019', name: 'Preparação do Conjunto de WO com DPR/HCR (Reentrada na ANM)', category: 'Descida WO', technology: 'none', applicableRig: DP, applicableOp: ALL_OP },
-  'NOVO 020': { id: 'NOVO 020', name: 'Preparação do Conjunto de WO com Riser Dual Bore (Reentrada na ANM)', category: 'Descida WO', technology: 'none', applicableRig: ANC, applicableOp: ALL_OP },
+  'ABAN 212': { id: 'ABAN 212', name: 'Preparação do Conjunto de WO + TRT (Reentrada na ANM)', category: 'Descida WO', technology: 'none', applicableRig: ALL, applicableOp: ALL_OP },
   'ABAN 013': { id: 'ABAN 013', name: 'Coluna de trabalho - Preparação e descida de TRT', category: 'Descida WO', technology: 'workstring', applicableRig: ALL, applicableOp: LWO },
   'ABAN 014': { id: 'ABAN 014', name: 'Flush DPR/HCR com agmar', category: 'Descida WO', technology: 'none', applicableRig: DP, applicableOp: ALL_OP },
   'ABAN 015': { id: 'ABAN 015', name: 'Flush Riser Dual bore com agmar', category: 'Descida WO', technology: 'none', applicableRig: ANC, applicableOp: ALL_OP },
   'ABAN 016': { id: 'ABAN 016', name: 'Desalagamento DPR/HCR com Nitrogênio', category: 'Descida WO', technology: 'none', applicableRig: DP, applicableOp: ALL_OP },
   'ABAN 017': { id: 'ABAN 017', name: 'Desalagamento Riser Dual Bore com Nitrogênio', category: 'Descida WO', technology: 'none', applicableRig: ANC, applicableOp: ALL_OP },
   'ABAN 209': { id: 'ABAN 209', name: 'Posicionamento de fluido inibido no Riser Dual Bore (pré conexão)', category: 'Descida WO', technology: 'none', applicableRig: ANC, applicableOp: ALL_OP },
-  'ABAN 211': { id: 'ABAN 211', name: 'Preparação do Conjunto de WO e descida com DPR/HCR (Sonda LWO)', category: 'Descida WO', technology: 'none', applicableRig: DP, applicableOp: LWO },
-  'ABAN 212': { id: 'ABAN 212', name: 'Preparação do Conjunto de WO e descida com DPR/HCR (SS)', category: 'Descida WO', technology: 'none', applicableRig: DP, applicableOp: GEN },
   'ABAN 215': { id: 'ABAN 215', name: 'Posicionamento de fluido inibido no DPR/HCR (pré conexão)', category: 'Descida WO', technology: 'none', applicableRig: DP, applicableOp: ALL_OP },
   'ABAN 216': { id: 'ABAN 216', name: 'Posicionamento de fluido inibido no DPR/HCR (pós conexão)', category: 'Descida WO', technology: 'none', applicableRig: DP, applicableOp: ALL_OP },
   'ABAN 217': { id: 'ABAN 217', name: 'Posicionamento de fluido inibido no Riser Dual Bore (pós conexão)', category: 'Descida WO', technology: 'none', applicableRig: ANC, applicableOp: ALL_OP },
 
   // ── Conexão ANM ──────────────────────────────────────────────────────────
-  'NOVO 013': { id: 'NOVO 013', name: 'Descida do Conjunto de WO com DPR/HCR para retirada/fundeio da TCap', category: 'Conexão ANM', technology: 'none', applicableRig: DP, applicableOp: ALL_OP },
-  'NOVO 014': { id: 'NOVO 014', name: 'Descida do Conjunto de WO com Riser Dual Bore para retirada/fundeio da TCap', category: 'Conexão ANM', technology: 'none', applicableRig: ANC, applicableOp: ALL_OP },
+  'ABAN 244': { id: 'ABAN 244', name: 'Descida do Conjunto de WO com DPR/HCR para retirada/fundeio da TCap', category: 'Conexão ANM', technology: 'none', applicableRig: DP, applicableOp: ALL_OP },
+  'ABAN 245': { id: 'ABAN 245', name: 'Descida do Conjunto de WO com Riser Dual Bore para retirada/fundeio da TCap', category: 'Conexão ANM', technology: 'none', applicableRig: ANC, applicableOp: ALL_OP },
   'ABAN 018': { id: 'ABAN 018', name: 'Movimentação e conexão na Tcap', category: 'Conexão ANM', technology: 'none', applicableRig: ALL, applicableOp: ALL_OP },
   'ABAN 019': { id: 'ABAN 019', name: 'Ventilação de TCap', category: 'Conexão ANM', technology: 'none', applicableRig: ALL, applicableOp: ALL_OP },
   'ABAN 020': { id: 'ABAN 020', name: 'Desassentamento de TCap e fundeio no leito marinho', category: 'Conexão ANM', technology: 'none', applicableRig: ALL, applicableOp: ALL_OP },
@@ -74,7 +70,6 @@ export const PACKAGES: Record<string, Package> = {
   'ABAN 035':  { id: 'ABAN 035',  name: 'Arame - Retirada de plug no TMF - Bore de anular', category: 'Arame', technology: 'wireline', applicableRig: ALL, applicableOp: ALL_OP, nRuns: 2 },
   'ABAN 036':  { id: 'ABAN 036',  name: 'Arame - Gabaritagem', category: 'Arame', technology: 'wireline', applicableRig: ALL, applicableOp: ALL_OP },
   'ABAN 037':  { id: 'ABAN 037',  name: 'Arame - Instalação de camisão', category: 'Arame', technology: 'wireline', applicableRig: ALL, applicableOp: ALL_OP, nRuns: 2, nContSubruns: 1 },
-  'NOVO 021':  { id: 'NOVO 021',  name: 'Arame - Gabaritagem com camisão acoplado', category: 'Arame', technology: 'wireline', applicableRig: ALL, applicableOp: ALL_OP },
   'ABAN 038':  { id: 'ABAN 038',  name: 'Arame - Instalação de STV em nipple R 2,75"', category: 'Arame', technology: 'wireline', applicableRig: ALL, applicableOp: ALL_OP },
   'ABAN 039':  { id: 'ABAN 039',  name: 'Arame - Instalação de STV em nipple F 2,81"', category: 'Arame', technology: 'wireline', applicableRig: ALL, applicableOp: ALL_OP },
   'ABAN 040':  { id: 'ABAN 040',  name: 'Arame - Instalação de plug em nipple R 2,75"', category: 'Arame', technology: 'wireline', applicableRig: ALL, applicableOp: ALL_OP, nRuns: 3 },
@@ -103,8 +98,9 @@ export const PACKAGES: Record<string, Package> = {
   'ABAN 220':  { id: 'ABAN 220',  name: 'Arame - Teste de influxo com N2 (plug) - Riser dual bore', category: 'Arame', technology: 'none', applicableRig: ANC, applicableOp: ALL_OP },
   'ABAN 221':  { id: 'ABAN 221',  name: 'Arame - Teste de influxo com N2 (plug) - DPR', category: 'Arame', technology: 'none', applicableRig: DP, applicableOp: ALL_OP },
   'ABAN 234':  { id: 'ABAN 234',  name: 'Arame - Checagem de TOC - jogo de polias', category: 'Arame', technology: 'wireline', applicableRig: ALL, applicableOp: ALL_OP },
-  'NOVO 001':  { id: 'NOVO 001',  name: 'Arame - Instalação de plug no TMF (bore de produção)', category: 'Arame', technology: 'wireline', applicableRig: ALL, applicableOp: ALL_OP, nRuns: 2 },
-  'NOVO 002':  { id: 'NOVO 002',  name: 'Arame - Instalação de plug no TMF (bore anular)', category: 'Arame', technology: 'wireline', applicableRig: ALL, applicableOp: ALL_OP },
+  'ABAN 249':  { id: 'ABAN 249',  name: 'Arame - Instalação de plug no TMF (bore de produção)', category: 'Arame', technology: 'wireline', applicableRig: ALL, applicableOp: ALL_OP, nRuns: 2 },
+  'ABAN 250':  { id: 'ABAN 250',  name: 'Arame - Instalação de plug no TMF (bore de anular) via riser dual bore', category: 'Arame', technology: 'wireline', applicableRig: ALL, applicableOp: ALL_OP },
+  'ABAN 253':  { id: 'ABAN 253',  name: 'Arame - Instalação de plug no TMF (bore anular) a mar aberto', category: 'Arame', technology: 'wireline', applicableRig: ALL, applicableOp: ALL_OP },
 
   // ── Limpeza / Amortecimento ───────────────────────────────────────────────
   'ABAN 061': { id: 'ABAN 061', name: 'Limpeza e Amortecimento - COP (bullheading diesel + FCBA)', category: 'Limpeza/Amortecimento', technology: 'none', applicableRig: ALL, applicableOp: ALL_OP },
@@ -114,10 +110,7 @@ export const PACKAGES: Record<string, Package> = {
   'ABAN 065': { id: 'ABAN 065', name: 'Limpeza e Amortecimento - Anular A (Steps despressurização + preenchimento de Anular A com MEG/FCBA ("top kill"))', category: 'Limpeza/Amortecimento', technology: 'none', applicableRig: ALL, applicableOp: ALL_OP },
   'ABAN 219': { id: 'ABAN 219', name: 'Preenchimento de Anular A e Coluna com diesel', category: 'Limpeza/Amortecimento', technology: 'none', applicableRig: ALL, applicableOp: ALL_OP },
   'ABAN 222': { id: 'ABAN 222', name: 'Limpeza e Amortecimento - Confirmação de limpeza do poço', category: 'Limpeza/Amortecimento', technology: 'none', applicableRig: ALL, applicableOp: ALL_OP },
-  'NOVO 003': { id: 'NOVO 003', name: 'Limpeza e Amortecimento - Anular A (bullheading diesel + FCBA)', category: 'Limpeza/Amortecimento', technology: 'none', applicableRig: ALL, applicableOp: ALL_OP },
-  'NOVO 004': { id: 'NOVO 004', name: 'Limpeza e Amortecimento - Anular A (bullheading FCBA)', category: 'Limpeza/Amortecimento', technology: 'none', applicableRig: ALL, applicableOp: ALL_OP },
-  'NOVO 005': { id: 'NOVO 005', name: 'Limpeza e Amortecimento - Anular A (bullheading MEG + FCBA)', category: 'Limpeza/Amortecimento', technology: 'none', applicableRig: ALL, applicableOp: ALL_OP },
-  'NOVO 006': { id: 'NOVO 006', name: 'Limpeza e Amortecimento - Anular A (bullheading diesel)', category: 'Limpeza/Amortecimento', technology: 'none', applicableRig: ALL, applicableOp: ALL_OP },
+  'ABAN 255': { id: 'ABAN 255', name: 'Limpeza e Amortecimento - Anular A (bullheading FCBA)', category: 'Limpeza/Amortecimento', technology: 'none', applicableRig: ALL, applicableOp: ALL_OP },
 
   // ── Limpeza de linha ─────────────────────────────────────────────────────
   'ABAN 066': { id: 'ABAN 066', name: 'Limpeza de linha - DPR ou Bore 4" > FLPO', category: 'Limpeza de linha', technology: 'none', applicableRig: ALL, applicableOp: ALL_OP },
@@ -174,8 +167,8 @@ export const PACKAGES: Record<string, Package> = {
   'ABAN 110': { id: 'ABAN 110', name: 'Perfilagem/Cabo elétrico - Cimentação com dump bailer', category: 'Cabo Elétrico', technology: 'electric', applicableRig: ALL, applicableOp: ALL_OP },
   'ABAN 111': { id: 'ABAN 111', name: 'Perfilagem/Cabo elétrico - Perfilagem para investigação de diâmetro/cáliper', category: 'Cabo Elétrico', technology: 'electric', applicableRig: ALL, applicableOp: ALL_OP },
   'ABAN 112': { id: 'ABAN 112', name: 'Perfilagem/Cabo elétrico - Perfilagem com ferramenta de imageamento (espectro visual)', category: 'Cabo Elétrico', technology: 'electric', applicableRig: ALL, applicableOp: ALL_OP },
-  'NOVO 009': { id: 'NOVO 009', name: 'Perfilagem/Cabo elétrico - Perfilagem para investigação de prisão de coluna (Free Point)', category: 'Cabo Elétrico', technology: 'electric', applicableRig: ALL, applicableOp: ALL_OP },
-  'NOVO 010': { id: 'NOVO 010', name: 'Perfilagem/Cabo elétrico - Corte de coluna a mar aberto', category: 'Cabo Elétrico', technology: 'electric', applicableRig: ALL, applicableOp: ALL_OP },
+  'ABAN 251': { id: 'ABAN 251', name: 'Perfilagem/Cabo elétrico - Investigação com Free Point', category: 'Cabo Elétrico', technology: 'electric', applicableRig: ALL, applicableOp: ALL_OP },
+  'ABAN 252': { id: 'ABAN 252', name: 'Perfilagem/Cabo elétrico - Corte de coluna a mar aberto', category: 'Cabo Elétrico', technology: 'electric', applicableRig: ALL, applicableOp: ALL_OP },
   'ABAN 113': { id: 'ABAN 113', name: 'Perfilagem/Cabo elétrico - Corte de coluna (cortador mecânico)', category: 'Cabo Elétrico', technology: 'electric', applicableRig: ALL, applicableOp: ALL_OP },
   'ABAN 114': { id: 'ABAN 114', name: 'Perfilagem/Cabo elétrico - Retirada de VGL com Stroker', category: 'Cabo Elétrico', technology: 'electric', applicableRig: ALL, applicableOp: ALL_OP },
   'ABAN 115': { id: 'ABAN 115', name: 'Perfilagem/Cabo elétrico - Split shot', category: 'Cabo Elétrico', technology: 'electric', applicableRig: ALL, applicableOp: ALL_OP },
@@ -187,8 +180,7 @@ export const PACKAGES: Record<string, Package> = {
   'ABAN 238': { id: 'ABAN 238', name: 'Perfilagem/Cabo elétrico - Instalação de tampão de bismuto', category: 'Cabo Elétrico', technology: 'electric', applicableRig: ALL, applicableOp: ALL_OP },
   'ABAN 242': { id: 'ABAN 242', name: 'Perfilagem/Cabo elétrico - Desmobilização (sonda LWO)', category: 'Cabo Elétrico', technology: 'electric', applicableRig: ALL, applicableOp: ALL_OP, isDismountOp: true },
   'ABAN 243': { id: 'ABAN 243', name: 'Perfilagem/Cabo elétrico - Desmobilização (sonda generalista)', category: 'Cabo Elétrico', technology: 'electric', applicableRig: ALL, applicableOp: ALL_OP, isDismountOp: true },
-  'NOVO 007': { id: 'NOVO 007', name: 'Perfilagem/Cabo elétrico - Checagem de TOC - jogo de polias', category: 'Cabo Elétrico', technology: 'electric', applicableRig: ALL, applicableOp: ALL_OP },
-  'NOVO 008': { id: 'NOVO 008', name: 'Flexitubo - Gabaritagem com motor de fundo e broca', category: 'Flexitubo', technology: 'ct', applicableRig: ALL, applicableOp: ALL_OP },
+  'ABAN 248': { id: 'ABAN 248', name: 'Perfilagem/Cabo elétrico - Checagem de TOC - jogo de polias', category: 'Cabo Elétrico', technology: 'electric', applicableRig: ALL, applicableOp: ALL_OP },
 
   // ── Flexitubo ────────────────────────────────────────────────────────────
   'ABAN 119': { id: 'ABAN 119', name: 'Flexitubo - Montagem e teste da unidade sobre SFT', category: 'Flexitubo', technology: 'ct', applicableRig: DP, applicableOp: ALL_OP, isMountOp: true },
@@ -215,6 +207,7 @@ export const PACKAGES: Record<string, Package> = {
   'ABAN 140': { id: 'ABAN 140', name: 'Flexitubo - Retirada de plug no TH', category: 'Flexitubo', technology: 'ct', applicableRig: ALL, applicableOp: ALL_OP, nRuns: 2 },
   'ABAN 141': { id: 'ABAN 141', name: 'Flexitubo - Retirada de BRV em nipple F 2,81"', category: 'Flexitubo', technology: 'ct', applicableRig: ALL, applicableOp: ALL_OP },
   'ABAN 142': { id: 'ABAN 142', name: 'Flexitubo - Retirada de BRV em nipple R 2,75"', category: 'Flexitubo', technology: 'ct', applicableRig: ALL, applicableOp: ALL_OP },
+  'ABAN 143': { id: 'ABAN 143', name: 'Flexitubo - Abertura de válvula da ANM com martelete', category: 'Flexitubo', technology: 'ct', applicableRig: ALL, applicableOp: ALL_OP },
   'ABAN 144': { id: 'ABAN 144', name: 'Flexitubo - Abertura de slide sleeve', category: 'Flexitubo', technology: 'ct', applicableRig: ALL, applicableOp: ALL_OP },
   'ABAN 145': { id: 'ABAN 145', name: 'Flexitubo - Fechamento de slide sleeve', category: 'Flexitubo', technology: 'ct', applicableRig: ALL, applicableOp: ALL_OP },
   'ABAN 146': { id: 'ABAN 146', name: 'Flexitubo - Estampagem', category: 'Flexitubo', technology: 'ct', applicableRig: ALL, applicableOp: ALL_OP },
@@ -235,8 +228,8 @@ export const PACKAGES: Record<string, Package> = {
   'ABAN 163': { id: 'ABAN 163', name: 'Flexitubo - Recuperação de BPR', category: 'Flexitubo', technology: 'ct', applicableRig: ALL, applicableOp: ALL_OP },
   'ABAN 164': { id: 'ABAN 164', name: 'Flexitubo - Operação com Packer Multiset', category: 'Flexitubo', technology: 'ct', applicableRig: ALL, applicableOp: ALL_OP },
   'ABAN 232': { id: 'ABAN 232', name: 'Flexitubo - Checagem de topo de cimento com peso', category: 'Flexitubo', technology: 'ct', applicableRig: ALL, applicableOp: ALL_OP },
-  'ABAN 240': { id: 'ABAN 240', name: 'Flexitubo - Desmobilização (sonda LWO)', category: 'Flexitubo', technology: 'ct', applicableRig: ALL, applicableOp: LWO, isDismountOp: true },
-  'ABAN 241': { id: 'ABAN 241', name: 'Flexitubo - Desmobilização (sonda generalista)', category: 'Flexitubo', technology: 'ct', applicableRig: ALL, applicableOp: GEN, isDismountOp: true },
+  'ABAN 148': { id: 'ABAN 148', name: 'Flexitubo - Desmobilização (sonda LWO)', category: 'Flexitubo', technology: 'ct', applicableRig: ALL, applicableOp: LWO, isDismountOp: true },
+  'ABAN 161': { id: 'ABAN 161', name: 'Flexitubo - Desmobilização (sonda generalista)', category: 'Flexitubo', technology: 'ct', applicableRig: ALL, applicableOp: GEN, isDismountOp: true },
 
   // ── Hidrato ──────────────────────────────────────────────────────────────
   'ABAN 165': { id: 'ABAN 165', name: 'Dissociação de hidrato na ANM (bloco de produção) com DPR/HCR', category: 'Hidrato', technology: 'none', applicableRig: DP, applicableOp: ALL_OP },
@@ -288,8 +281,8 @@ export const PACKAGES: Record<string, Package> = {
   'ABAN 203': { id: 'ABAN 203', name: 'BOP - Preparação e retirada', category: 'BOP', technology: 'bop', applicableRig: ALL, applicableOp: ALL_OP, isDismountOp: true },
   'ABAN 228': { id: 'ABAN 228', name: 'Teste do BOP com Test Plug', category: 'BOP', technology: 'bop', applicableRig: ALL, applicableOp: ALL_OP },
   'ABAN 229': { id: 'ABAN 229', name: 'Teste do BOP com coluna flutuada', category: 'BOP', technology: 'bop', applicableRig: ALL, applicableOp: ALL_OP },
-  'NOVO 011': { id: 'NOVO 011', name: 'BOP - Teste do BOP com ponteira apoiada sobre TH', category: 'BOP', technology: 'bop', applicableRig: ALL, applicableOp: ALL_OP },
-  'NOVO 012': { id: 'NOVO 012', name: 'BOP - Teste do BOP com FETH apoiada sobre TH', category: 'BOP', technology: 'bop', applicableRig: ALL, applicableOp: ALL_OP },
+  'ABAN 254': { id: 'ABAN 254', name: 'Teste do BOP com sub jateador e ponteira de borracha', category: 'BOP', technology: 'bop', applicableRig: ALL, applicableOp: ALL_OP },
+  'ABAN 241': { id: 'ABAN 241', name: 'Teste do BOP com FETH (manobra combo)', category: 'BOP', technology: 'bop', applicableRig: ALL, applicableOp: ALL_OP },
   'ABAN 230': { id: 'ABAN 230', name: 'Efetuar teste de influxo do CSB permanente', category: 'Coluna de Trabalho', technology: 'workstring', applicableRig: ALL, applicableOp: ALL_OP },
   'ABAN 231': { id: 'ABAN 231', name: 'Coluna de trabalho - Complemento/Correção de cimentação com PWC', category: 'Coluna de Trabalho', technology: 'workstring', applicableRig: ALL, applicableOp: ALL_OP },
   'ABAN 233': { id: 'ABAN 233', name: 'Coluna de trabalho - Condicionamento do revestimento', category: 'Coluna de Trabalho', technology: 'workstring', applicableRig: ALL, applicableOp: ALL_OP },
@@ -299,8 +292,8 @@ export const PACKAGES: Record<string, Package> = {
   // ── Outros ───────────────────────────────────────────────────────────────
   'ABAN 206': { id: 'ABAN 206', name: 'Montagem de ITF', category: 'Outros', technology: 'none', applicableRig: ALL, applicableOp: ALL_OP },
   'ABAN 227': { id: 'ABAN 227', name: 'Jateamento do housing com FEJAT', category: 'Outros', technology: 'none', applicableRig: ALL, applicableOp: ALL_OP },
-  'NOVO 015': { id: 'NOVO 015', name: 'Montagem de SFT e arranjo de superfície', category: 'Outros', technology: 'none', applicableRig: DP, applicableOp: GEN },
-  'NOVO 016': { id: 'NOVO 016', name: 'Montagem de Terminal Head e arranjo de superfície', category: 'Outros', technology: 'none', applicableRig: ANC, applicableOp: ALL_OP },
+  'ABAN 246': { id: 'ABAN 246', name: 'Montagem de SFT e arranjo de superfície', category: 'Outros', technology: 'none', applicableRig: DP, applicableOp: GEN },
+  'ABAN 247': { id: 'ABAN 247', name: 'Montagem de Terminal Head e arranjo de superfície', category: 'Outros', technology: 'none', applicableRig: ANC, applicableOp: ALL_OP },
 }
 
 export const PACKAGE_DURATIONS: Record<string, { P50: number; P90: number }> = {
@@ -336,7 +329,6 @@ export const PACKAGE_DURATIONS: Record<string, { P50: number; P90: number }> = {
   'ABAN 035': { P50: 0.28, P90: 0.32 },
   'ABAN 036': { P50: 0.34, P90: 0.38 },
   'ABAN 037': { P50: 0.35, P90: 0.40 },
-  'NOVO 021': { P50: 0.50, P90: 0.55 },  // 037 L1-2 + 036 L1-3 (estimado — ajustar)
   'ABAN 038': { P50: 0.28, P90: 0.32 },
   'ABAN 039': { P50: 0.66, P90: 0.72 },
   'ABAN 040': { P50: 0.28, P90: 0.32 },
@@ -430,8 +422,8 @@ export const PACKAGE_DURATIONS: Record<string, { P50: number; P90: number }> = {
   'ABAN 226': { P50: 0.22, P90: 0.26 },
   'ABAN 227': { P50: 0.50, P90: 0.75 },
   'ABAN 228': { P50: 1.33, P90: 1.36 },
-  'NOVO 011': { P50: 1.33, P90: 1.36 },
-  'NOVO 012': { P50: 1.33, P90: 1.36 },
+  'ABAN 254': { P50: 4.06, P90: 4.50 },  // teste BOP c/ sub jateador e ponteira de borracha — estimado (ajustar)
+  'ABAN 241': { P50: 0.29, P90: 0.35 },  // teste BOP c/ FETH (manobra combo) — estimado (ajustar)
   'ABAN 230': { P50: 0.23, P90: 0.25 },
   'ABAN 231': { P50: 1.0,  P90: 1.3  },
   'ABAN 232': { P50: 0.75, P90: 0.81 },
@@ -441,26 +433,22 @@ export const PACKAGE_DURATIONS: Record<string, { P50: number; P90: number }> = {
   'ABAN 237': { P50: 0.50, P90: 0.65 },
   'ABAN 238': { P50: 0.45, P90: 0.60 },
   'ABAN 239': { P50: 0.50, P90: 0.70 },
-  'ABAN 240': { P50: 0.30, P90: 0.40 },
-  'ABAN 241': { P50: 0.30, P90: 0.40 },
+  'ABAN 148': { P50: 0.30, P90: 0.40 },
+  'ABAN 161': { P50: 0.30, P90: 0.40 },
   'ABAN 242': { P50: 0.20, P90: 0.28 },
   'ABAN 243': { P50: 0.20, P90: 0.28 },
-  'NOVO 009': { P50: 0.75, P90: 0.90 },
-  'NOVO 010': { P50: 0.87, P90: 0.95 },
-  'NOVO 001': { P50: 0.50, P90: 0.65 },
-  'NOVO 002': { P50: 0.50, P90: 0.65 },
-  'NOVO 003': { P50: 0.50, P90: 0.65 },
-  'NOVO 004': { P50: 0.50, P90: 0.65 },
-  'NOVO 005': { P50: 0.50, P90: 0.65 },
-  'NOVO 006': { P50: 0.50, P90: 0.65 },
-  'NOVO 007': { P50: 0.71, P90: 0.76 },
-  'NOVO 008': { P50: 1.50, P90: 2.00 },
-  'NOVO 013': { P50: 0.50, P90: 0.50 },  // descida DPR/HCR para TCAP (ajustar conforme calibração)
-  'NOVO 014': { P50: 0.55, P90: 0.60 },  // descida riser dual bore para TCAP (ajustar conforme calibração)
-  'NOVO 017': { P50: 3.53, P90: 3.91 },  // prep DPR/HCR c/ TCap (DP) — proporcional às linhas de ABAN 011 (ajustar)
-  'NOVO 018': { P50: 3.48, P90: 3.81 },  // prep Riser DB c/ TCap (ANC) — proporcional às linhas de ABAN 012 (ajustar)
-  'NOVO 019': { P50: 3.53, P90: 3.91 },  // prep DPR/HCR s/ TCap (DP) — igual ao NOVO 017 (ajustar)
-  'NOVO 020': { P50: 3.48, P90: 3.81 },  // prep Riser DB s/ TCap (ANC) — igual ao NOVO 018 (ajustar)
+  'ABAN 251': { P50: 0.75, P90: 0.90 },
+  'ABAN 252': { P50: 0.87, P90: 0.95 },
+  'ABAN 249': { P50: 0.50, P90: 0.65 },
+  'ABAN 250': { P50: 0.50, P90: 0.65 },
+  'ABAN 255': { P50: 0.50, P90: 0.65 },  // ex-NOVO 004: amortecimento Anular A pós-canhoneio (bullheading FCBA)
+  'ABAN 248': { P50: 0.71, P90: 0.76 },
+  'ABAN 244': { P50: 0.50, P90: 0.50 },  // descida DPR/HCR para TCAP (ajustar conforme calibração)
+  'ABAN 245': { P50: 0.55, P90: 0.60 },  // descida riser dual bore para TCAP (ajustar conforme calibração)
+  'ABAN 211': { P50: 3.53, P90: 3.91 },  // prep CWO+TRT p/ retirada da TCap (Fase 0) — ajustar
+  'ABAN 212': { P50: 3.53, P90: 3.91 },  // prep CWO+TRT reentrada na ANM (sem TCap) — ajustar
+  'ABAN 143': { P50: 1.08, P90: 1.20 },  // abertura de válvula da ANM com martelete — estimado (ajustar)
+  'ABAN 253': { P50: 0.33, P90: 0.40 },  // plug no TMF (bore anular) a mar aberto — estimado (ajustar)
 }
 
 // Pacotes CUSTOMIZADOS (criados/duplicados no Admin), carregados do servidor no
@@ -497,10 +485,6 @@ export const FLUID_VARIANT: Record<string, { label: string; alts: string[]; head
   'ABAN 062': { label: 'MEG + FCBA',   alts: ['ABAN 061'] },
   'ABAN 064': { label: 'diesel',        alts: ['ABAN 065'] },
   'ABAN 065': { label: 'MEG/FCBA',     alts: ['ABAN 064'] },
-  'NOVO 003': { label: 'diesel + FCBA', alts: ['NOVO 004', 'NOVO 005', 'NOVO 006'] },
-  'NOVO 004': { label: 'FCBA',          alts: ['NOVO 003', 'NOVO 005', 'NOVO 006'] },
-  'NOVO 005': { label: 'MEG + FCBA',   alts: ['NOVO 003', 'NOVO 004', 'NOVO 006'] },
-  'NOVO 006': { label: 'diesel',        alts: ['NOVO 003', 'NOVO 004', 'NOVO 005'] },
   // Ferramenta de intervenção BOP: FETH ↔ THRT
   'ABAN 185': { label: 'FETH', alts: ['ABAN 186'], heading: 'Trocar ferramenta' },
   'ABAN 186': { label: 'THRT', alts: ['ABAN 185'], heading: 'Trocar ferramenta' },
@@ -541,8 +525,8 @@ export const FLUID_VARIANT: Record<string, { label: string; alts: string[]; head
 }
 
 export const PACKAGE_ALTERNATES: Record<string, string[]> = {
-  'ABAN 234': ['NOVO 007'],
-  'NOVO 007': ['ABAN 234'],
+  'ABAN 234': ['ABAN 248'],
+  'ABAN 248': ['ABAN 234'],
   'ABAN 045': ['ABAN 101'],
   'ABAN 101': ['ABAN 045'],
 }

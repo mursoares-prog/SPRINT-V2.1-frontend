@@ -25,7 +25,7 @@
       "pad": "PE-2POC-00552: MOBILIZAÇÃO E OPERAÇÃO DE ROV EM SONDAS MARÍTIMAS;\nPE-2SUB-00201: RECOLHIMENTO E POSICIONAMENTO GEODÉSICO DE \"TRANSPONDERS\""
     }
   ],
-  "NOVO 001": [
+  "ABAN 249": [
     {
       "rec": "",
       "pad": "PE-2POC-01069 DIRETRIZES PARA CLUSTERIZAÇÃO DE POÇOS MARÍTIMOS NA ETAPA DE ABANDONO\n\nPE-2POC-00539 ENQUADRAMENTO DAS OPERAÇOES DAS SONDAS NAS CLÁUSULAS CONTRATUAIS"
@@ -49,7 +49,7 @@
       "pad": "PE-2POC-00552: MOBILIZAÇÃO E OPERAÇÃO DE ROV EM SONDAS MARÍTIMAS;\nPE-2SUB-00201: RECOLHIMENTO E POSICIONAMENTO GEODÉSICO DE \"TRANSPONDERS\""
     }
   ],
-  "NOVO 002": [
+  "ABAN 250": [
     {
       "rec": "",
       "pad": "PE-2POC-01069 DIRETRIZES PARA CLUSTERIZAÇÃO DE POÇOS MARÍTIMOS NA ETAPA DE ABANDONO\n\nPE-2POC-00539 ENQUADRAMENTO DAS OPERAÇOES DAS SONDAS NAS CLÁUSULAS CONTRATUAIS"
@@ -143,7 +143,7 @@
     null,
     null
   ],
-  "NOVO 018": [
+  "ABAN 211": [
     {
       "rec": "Se possível efetuar preparação em paralelo à intervenção anterior; Confirmar compatibilidade entre ferramentas de WO, conforme padrão PE-2SUB-00885. Confirmar se SCVS atende às necessidades da intervenção, conforme padrão PE-2SUB-00680.",
       "pad": "PE-2SUB-00885 - SELEÇÃO DE FERRAMENTAS DE ANM PARA INTERVENÇÕES"
@@ -166,7 +166,7 @@
     null,
     null
   ],
-  "NOVO 020": [
+  "ABAN 212": [
     {
       "rec": "Se possível efetuar preparação em paralelo à intervenção anterior; Confirmar compatibilidade entre ferramentas de WO, conforme padrão PE-2SUB-00885. Confirmar se SCVS atende às necessidades da intervenção, conforme padrão PE-2SUB-00680.",
       "pad": "PE-2SUB-00885 - SELEÇÃO DE FERRAMENTAS DE ANM PARA INTERVENÇÕES"
@@ -280,16 +280,6 @@
       "rec": "Fundear TCAP temporariamente em locação indicada pelo NOAA após análise do mapa faciológico na área;\nAntes de fundear, realizar imageamento da área (mínimo de 15 x 15 m), em frames de 2 x 2 m;\nFilmar operação de fundeio;\n    -  Vídeo da operação de assentamento mostrando a visão do fundo e imageamento antes do fundeio.\nOs vídeos devem ter registro de coordenadas;\nOs vídeos devem ser enviados para as chaves: NOAA1 e xxx.",
       "pad": ""
     },
-    null
-  ],
-  "NOVO 021": [
-    null,
-    null,
-    {
-      "rec": "",
-      "pad": "PE-2POC-00552: MOBILIZAÇÃO E OPERAÇÃO DE ROV EM SONDAS MARÍTIMAS;\nPE-2SUB-00201: RECOLHIMENTO E POSICIONAMENTO GEODÉSICO DE \"TRANSPONDERS\""
-    },
-    null,
     null
   ],
   "ABAN 022": [
@@ -3243,7 +3233,7 @@
     },
     null
   ],
-  "NOVO 015": [
+  "ABAN 246": [
     {
       "rec": "Prever operações de FT, WL e arame.\n\nInstalar placa de funções no carretel umbilical hidráulico.",
       "pad": ""
@@ -3254,7 +3244,7 @@
     },
     null
   ],
-  "NOVO 016": [
+  "ABAN 247": [
     {
       "rec": "Prever operações de FT, WL e arame.\n\nInstalar placa de funções no carretel umbilical hidráulico.",
       "pad": ""
@@ -3285,68 +3275,6 @@
       "rec": "Mover sonda nos quatro quadrantes, aplicando ciclos de tração, caso a ANM não desassente.",
       "pad": ""
     },
-    null,
-    null,
-    null,
-    null,
-    null,
-    null
-  ],
-  "ABAN 211": [
-    null,
-    {
-      "rec": "Bombear ao menos 50 bbl de diesel abaixo da ANM. \n\nRecalcar fluido do anular após retorno de líquido em superfície, somente para o caso TPT inoperante (impossibilidade de identificar previamente o aumento de hidrostática no riser de completação).",
-      "pad": ""
-    },
-    null,
-    null,
-    null,
-    null,
-    null,
-    null,
-    null,
-    null,
-    null,
-    null,
-    null,
-    {
-      "rec": "Obs: Montagem de ITF: pacote a ser adicionado na sequência.",
-      "pad": ""
-    }
-  ],
-  "ABAN 212": [
-    {
-      "rec": "Se possível efetuar preparação em paralelo à intervenção anterior; Confirmar compatibilidade entre ferramentas de WO, conforme padrão PE-2SUB-00885. Confirmar se SCVS atende às necessidades da intervenção, conforme padrão PE-2SUB-00680.",
-      "pad": "PE-2SUB-00885 - SELEÇÃO DE FERRAMENTAS DE ANM PARA INTERVENÇÕES"
-    },
-    {
-      "rec": "Avaliar necessidade de utilização de flex joint (adicionais 5h de preparação do conj.)",
-      "pad": "PE-2SUB-00680 - USO DOS SISTEMAS DE COMPLETAÇÃO (RISER E DPR) - VEDAÇÃO DE GÁS E OPERAÇÕES COM H2S"
-    },
-    {
-      "rec": "Avaliar necessidade de permitir acesso do HCR para linha de ventiliação dos Ax's, DHSV's e para anular do poço. Avaliar necessidade de preparação de instrumentação adicional.",
-      "pad": ""
-    },
-    {
-      "rec": "Preparação em steps poderá variar conforme altura útil do moon pool.",
-      "pad": ""
-    },
-    {
-      "rec": "Avaliar individualização das gavetas da FIBOP e/ou TRT conforme necessidade para a intervenção e disponibilidades de linhas do umbilical",
-      "pad": ""
-    },
-    null,
-    null,
-    null,
-    null,
-    null,
-    null,
-    null,
-    {
-      "rec": "Avaliar possibilidade de descida por seção; Avaliar necessidade de instalar um clamp a cada junta de DPR ou a cada seção.\nAvaliar necessidade de montagem do anel tensionador (adicionar 4h). Obs: para operação com DPR, usualmente só é utilizado caso o compensador apresente baixa confiabilidade / capacidade, conforme padrão PE-2POC-00097.",
-      "pad": "PE-2POC-01056 - UTILIZAÇÃO DE ANEL TENSIONADOR ROTATIVO NAS OPERAÇÕES DE INSTALAÇÃO, WORKOVER E RETIRADA DE EQUIPAMENTOS SUBMARINOS.\nPE-2POC-00097 - PONTOS IMPORTANTES E BOAS PRÁTICAS EM INTERVENÇÕES DE WORKOVER"
-    },
-    null,
     null,
     null,
     null,
@@ -3647,8 +3575,7 @@
     {
       "rec": "",
       "pad": "N-2757 – Recomendações práticas de segurança para projetos de completação e intervenção em poços marítimos. PE-1PBR-00048 – Segurança de poço nas operações de light workover. PE-1PBR-00486 – Aplicação da metodologia de Hold Point para verificação de integridade e conformidade técnica na etapa de execução de poços. PE-2SUB-00754 – Controle da capacidade de corte das gavetas cisalhantes de ferramentas de ANM. PE-1PBR-00710 – Diretrizes de segurança em operações com equipamentos de pressão de superfície."
-    }
-,
+    },
     {
       "rec": "",
       "pad": "N-2757 – Recomendações práticas de segurança para projetos de completação e intervenção em poços marítimos. PE-1PBR-00048 – Segurança de poço nas operações de light workover. PE-1PBR-00486 – Aplicação da metodologia de Hold Point para verificação de integridade e conformidade técnica na etapa de execução de poços. PE-2SUB-00754 – Controle da capacidade de corte das gavetas cisalhantes de ferramentas de ANM. PE-1PBR-00710 – Diretrizes de segurança em operações com equipamentos de pressão de superfície."

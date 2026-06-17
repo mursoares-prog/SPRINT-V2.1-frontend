@@ -83,7 +83,7 @@ const SEC_DESCIDA: LSec = {
   id: 'desc', label: 'DESCIDA DO WO', phase: 'Fase 1A', color: 'blue',
   always: [
     { id: 'ABAN 011', name: 'Descida do conjunto de WO (DPR/HCR)' },
-    { id: 'NOVO 015', name: 'Montagem do SFT (DP Generalista)' },
+    { id: 'ABAN 246', name: 'Montagem do SFT (DP Generalista)' },
     { id: 'ABAN 014', name: 'Flush do DPR/HCR' },
   ],
   decisions: [
@@ -264,7 +264,7 @@ const SEC_TMF: LSec = {
         { label: 'Sim',
           packages: [
             { id: 'ABAN 213', name: 'Desassentamento parcial WO (plug anular TMF)' },
-            { id: 'NOVO 002', name: 'Instalação plug no TMF (bore anular)' },
+            { id: 'ABAN 250', name: 'Instalação plug no TMF (bore anular)' },
             { id: 'ABAN 024', name: 'Teste interface — bore produção' },
             { id: 'ABAN 027', name: 'Teste interface — bore anular' },
           ],
@@ -273,7 +273,7 @@ const SEC_TMF: LSec = {
             answers: [
               { label: 'Não', active: true },
               { label: 'Sim / Conting.', packages: [
-                { id: 'NOVO 001', name: 'Instalação plug no TMF (bore produção)' },
+                { id: 'ABAN 249', name: 'Instalação plug no TMF (bore produção)' },
               ]},
             ],
           }],
@@ -281,7 +281,7 @@ const SEC_TMF: LSec = {
         { label: 'Contingência',
           packages: [
             { id: 'ABAN 213', name: 'Desassentamento parcial WO (plug anular TMF)' },
-            { id: 'NOVO 002', name: 'Instalação plug no TMF (bore anular)' },
+            { id: 'ABAN 250', name: 'Instalação plug no TMF (bore anular)' },
             { id: 'ABAN 024', name: 'Teste interface — bore produção' },
             { id: 'ABAN 027', name: 'Teste interface — bore anular' },
           ],
@@ -652,13 +652,13 @@ const SEC_BOP_INSTALA: LSec = {
           { id: 'ABAN 228', name: 'Teste de BOP — test plug' },
         ]},
         { label: 'Ponteira ORMAN', packages: [
-          { id: 'NOVO 011', name: 'Teste de BOP — ponteira ORMAN (FS2)' },
+          { id: 'ABAN 254', name: 'Teste de BOP — ponteira ORMAN (FS2)' },
         ]},
         { label: 'Coluna flutuada', packages: [
           { id: 'ABAN 229', name: 'Teste de BOP — coluna flutuada (FS2)' },
         ]},
         { label: 'FETH no TH', packages: [
-          { id: 'NOVO 012', name: 'Teste de BOP c/ FETH apoiada no TH (FS2)' },
+          { id: 'ABAN 241', name: 'Teste de BOP c/ FETH apoiada no TH (FS2)' },
         ], note: 'Emitido após a descida da FETH'},
       ],
     },
@@ -678,7 +678,7 @@ const SEC_FETH_COP: LSec = {
         { label: 'Não', active: true },
         { label: 'Sim / Conting.', packages: [
           { id: 'ABAN 186', name: 'Descida de THRT (modo BOP)' },
-          { id: 'NOVO 009', name: 'Free point (investigação de prisão)' },
+          { id: 'ABAN 251', name: 'Free point (investigação de prisão)' },
           { id: 'ABAN 113', name: 'Corte de coluna (cortador mecânico)' },
           { id: 'ABAN 190', name: 'Retirada de TH + COP/COI com THRT (modo BOP)' },
         ]},
@@ -699,7 +699,7 @@ const SEC_RCMA_F2: LSec = {
       answers: [
         { label: 'Não', active: true },
         { label: 'Sim / Conting.', packages: [
-          { id: 'NOVO 010', name: 'Corte de coluna a mar aberto' },
+          { id: 'ABAN 252', name: 'Corte de coluna a mar aberto' },
         ]},
       ],
     },
@@ -910,7 +910,7 @@ const DP_TO_ANC: Record<string, string> = {
   'ABAN 215': 'ABAN 209',  // fluido inibido pré-conexão DPR/HCR → Riser Dual Bore
   'ABAN 216': 'ABAN 217',  // fluido inibido pós-conexão DPR/HCR → Riser Dual Bore
   'ABAN 221': 'ABAN 220',  // teste influxo N2 (plug) DPR → Riser Dual Bore
-  'NOVO 015': 'NOVO 016',  // montagem SFT → montagem Terminal Head
+  'ABAN 246': 'ABAN 247',  // montagem SFT → montagem Terminal Head
 }
 
 const _swapId = (id: string, rig: 'ANC' | 'DP') => (rig === 'ANC' ? DP_TO_ANC[id] ?? id : id)
