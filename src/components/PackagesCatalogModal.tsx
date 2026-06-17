@@ -75,7 +75,12 @@ export function PackagesCatalogModal({ onClose }: { onClose: () => void }) {
 
   useEffect(() => {
     if (!isApiConfigured()) return
-    getMergedPackageLines().then(setActiveLines).catch(() => {})
+    // Mescla por cima do bundle local: o servidor tem precedência por pacote
+    // (overrides/edições/customizados), mas pacotes ausentes no dump do backend
+    // continuam expansíveis pelas linhas locais.
+    getMergedPackageLines()
+      .then(server => setActiveLines(prev => ({ ...prev, ...server })))
+      .catch(() => {})
   }, [])
 
   const { abanList } = useMemo(() => {
