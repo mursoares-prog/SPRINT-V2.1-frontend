@@ -104,7 +104,7 @@ export const PACKAGES: Record<string, Package> = {
 
   // ── Limpeza / Amortecimento ───────────────────────────────────────────────
   'ABAN 061': { id: 'ABAN 061', name: 'Limpeza e Amortecimento - COP (bullheading diesel + FCBA)', category: 'Limpeza/Amortecimento', technology: 'none', applicableRig: ALL, applicableOp: ALL_OP },
-  'ABAN 062': { id: 'ABAN 062', name: 'Limpeza e Amortecimento - COP (bullheading MEG + FCBA)', category: 'Limpeza/Amortecimento', technology: 'none', applicableRig: ALL, applicableOp: ALL_OP },
+  'ABAN 062': { id: 'ABAN 062', name: 'Limpeza e Amortecimento - COP (bullheading FCBA)', category: 'Limpeza/Amortecimento', technology: 'none', applicableRig: ALL, applicableOp: ALL_OP },
   'ABAN 063': { id: 'ABAN 063', name: 'Limpeza e Amortecimento - Anular A (Despressurização total + bullheading FCBA)', category: 'Limpeza/Amortecimento', technology: 'none', applicableRig: ALL, applicableOp: ALL_OP },
   'ABAN 064': { id: 'ABAN 064', name: 'Limpeza e Amortecimento - Anular A (Steps despressurização + preenchimento de Anular A com diesel ("top kill"))', category: 'Limpeza/Amortecimento', technology: 'none', applicableRig: ALL, applicableOp: ALL_OP },
   'ABAN 065': { id: 'ABAN 065', name: 'Limpeza e Amortecimento - Anular A (Steps despressurização + preenchimento de Anular A com MEG/FCBA ("top kill"))', category: 'Limpeza/Amortecimento', technology: 'none', applicableRig: ALL, applicableOp: ALL_OP },
@@ -482,7 +482,7 @@ export function getPackage(id: string): Package | undefined {
 
 export const FLUID_VARIANT: Record<string, { label: string; alts: string[]; heading?: string }> = {
   'ABAN 061': { label: 'diesel + FCBA', alts: ['ABAN 062'] },
-  'ABAN 062': { label: 'MEG + FCBA',   alts: ['ABAN 061'] },
+  'ABAN 062': { label: 'FCBA',         alts: ['ABAN 061'] },
   'ABAN 064': { label: 'diesel',        alts: ['ABAN 065'] },
   'ABAN 065': { label: 'MEG/FCBA',     alts: ['ABAN 064'] },
   // Ferramenta de intervenção BOP: FETH ↔ THRT

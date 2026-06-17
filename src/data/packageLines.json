@@ -3779,7 +3779,7 @@
     ],
     "ABAN 062": [
         {
-            "text": "Amortecer COP com MEG + FCBA {{amortFcbaDensidade=X,X}} ppg por bullheading via B4\" > COP > Formação (2x o volume da COP), à máxima vazão possível, limitando a pressão de cabeça a {{pressaoCabecaLimite=XXXX}} psi.",
+            "text": "Amortecer COP com FCBA {{amortFcbaDensidade=X,X}} ppg por bullheading via DPR/B4\" > COP > Formação (2x o volume da COP), à máxima vazão possível, limitando a pressão de cabeça a {{pressaoCabecaLimite=XXXX}} psi.",
             "duration": 9,
             "bop": null,
             "compensando": true,
@@ -3793,7 +3793,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Ao final do bombeio, confirmar que não há pressão em superfície e que \neventual HC presente na coluna foi recalcado para formação.",
+            "text": "Ao final do bombeio, confirmar que não há pressão em superfície e que eventual HC presente na coluna foi recalcado para formação.",
             "duration": 0.5,
             "bop": null,
             "compensando": true,
@@ -3807,7 +3807,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Cenário de UEP indisponível: Amortecer / efetuar a limpeza do poço com alinhamento para sonda após a instalação de STV. Tratar resíduo oleoso na WTU. Avaliar embarque de contentores para desembarque de óleo.",
+            "text": "(Contingência) Cenário de baixa injetividade e de UEP indisponível: Amortecer / efetuar a limpeza do poço com alinhamento para sonda após a instalação de eCSB. Tratar resíduo oleoso na WTU. Avaliar embarque de contentores para desembarque de óleo.",
             "duration": 0,
             "bop": null,
             "compensando": true,
@@ -3821,7 +3821,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "(Contingência) Cenário de baixa injetividade: Amortecer / efetuar a limpeza do poço com alinhamento para UEP após a instalação de STV. Circuito preferencial (se comunicação COP x anular): B4\" > COP > furos > anular > FLGL > UEP.",
+            "text": "(Contingência) Cenário de baixa injetividade: Amortecer / efetuar a limpeza do poço com alinhamento para UEP após a instalação de eCSB. Circuito preferencial (se comunicação COP x anular): DPR/B4\" > COP > furos > anular > FLGL > UEP.",
             "duration": 0,
             "bop": null,
             "compensando": true,
