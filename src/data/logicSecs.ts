@@ -244,7 +244,7 @@ const SEC_FLOWLINES: LSec = {
                 { id: 'ABAN 067', name: 'Limpeza de linha — DPR/Bore 4" > XO > FLGL' },
               ]},
               { label: 'N₂ lift', packages: [
-                { id: 'ABAN 239', name: 'Limpeza de Flowline(s) — N₂ Lift' },
+                { id: 'ABAN 254', name: 'Limpeza de Flowline(s) — N₂ Lift' },
               ]},
             ],
           },
@@ -652,7 +652,7 @@ const SEC_BOP_INSTALA: LSec = {
           { id: 'ABAN 228', name: 'Teste de BOP — test plug' },
         ]},
         { label: 'Ponteira ORMAN', packages: [
-          { id: 'ABAN 254', name: 'Teste de BOP — ponteira ORMAN (FS2)' },
+          { id: 'ABAN 240', name: 'Teste de BOP — ponteira ORMAN (FS2)' },
         ]},
         { label: 'Coluna flutuada', packages: [
           { id: 'ABAN 229', name: 'Teste de BOP — coluna flutuada (FS2)' },

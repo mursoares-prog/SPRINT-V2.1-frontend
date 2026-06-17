@@ -311,7 +311,7 @@ export function generateSchedule(inputs: WizardInputs): ScheduleItem[] {
       }
 
       if (method === 'n2_lift') {
-        addItem(items, 'ABAN 239', step.phase, percentile)
+        addItem(items, 'ABAN 254', step.phase, percentile)
       } else {
         if (lines.includes('flpo')) addItem(items, 'ABAN 066', step.phase, percentile)
         if (lines.includes('flgl')) addItem(items, 'ABAN 067', step.phase, percentile)
@@ -1158,7 +1158,7 @@ export function generateSchedule(inputs: WizardInputs): ScheduleItem[] {
       if (isFS2NonRCMA && inputs.bopTestMethod === 'feth_on_th') {
         // teste deslocado para após a FETH — BOP_TEST_FETH_INJECT cuida disso
       } else if (isFS2NonRCMA && inputs.bopTestMethod === 'ponteira_orman') {
-        addItem(items, 'ABAN 254', step.phase, percentile)
+        addItem(items, 'ABAN 240', step.phase, percentile)
       } else if (isFS2NonRCMA && inputs.bopTestMethod === 'coluna_flutuada') {
         addItem(items, 'ABAN 229', step.phase, percentile)
       } else {

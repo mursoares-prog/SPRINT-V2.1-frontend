@@ -125,7 +125,7 @@ export const PACKAGES: Record<string, Package> = {
   'ABAN 075': { id: 'ABAN 075', name: 'Limpeza e Amortecimento - Bore 2" > XO > COP/COI > Anular A > PXO > FLPO', category: 'Limpeza de linha', technology: 'none', applicableRig: ALL, applicableOp: ALL_OP },
   'ABAN 076': { id: 'ABAN 076', name: 'Limpeza e Amortecimento - Bore 2" > Anular A > COP/COI > FLPO', category: 'Limpeza de linha', technology: 'none', applicableRig: ALL, applicableOp: ALL_OP },
   'ABAN 077': { id: 'ABAN 077', name: 'Limpeza e Amortecimento - Bore 2" > Anular A > COP/COI > PXO > FLGL', category: 'Limpeza de linha', technology: 'none', applicableRig: ALL, applicableOp: ALL_OP },
-  'ABAN 239': { id: 'ABAN 239', name: 'Limpeza de Flowline(s) - N2 Lift', category: 'Limpeza de linha', technology: 'none', applicableRig: ALL, applicableOp: ALL_OP },
+  'ABAN 254': { id: 'ABAN 254', name: 'Limpeza de Flowline(s) - N2 Lift', category: 'Limpeza de linha', technology: 'none', applicableRig: ALL, applicableOp: ALL_OP },
 
   // ── Bombeio Direto ───────────────────────────────────────────────────────
   'ABAN 078': { id: 'ABAN 078', name: 'Bombeio direto - obturação de reservatório com tampões de combate a perda', category: 'Bombeio Direto', technology: 'none', applicableRig: ALL, applicableOp: ALL_OP },
@@ -281,7 +281,7 @@ export const PACKAGES: Record<string, Package> = {
   'ABAN 203': { id: 'ABAN 203', name: 'BOP - Preparação e retirada', category: 'BOP', technology: 'bop', applicableRig: ALL, applicableOp: ALL_OP, isDismountOp: true },
   'ABAN 228': { id: 'ABAN 228', name: 'Teste do BOP com Test Plug', category: 'BOP', technology: 'bop', applicableRig: ALL, applicableOp: ALL_OP },
   'ABAN 229': { id: 'ABAN 229', name: 'Teste do BOP com coluna flutuada', category: 'BOP', technology: 'bop', applicableRig: ALL, applicableOp: ALL_OP },
-  'ABAN 254': { id: 'ABAN 254', name: 'Teste do BOP com sub jateador e ponteira de borracha', category: 'BOP', technology: 'bop', applicableRig: ALL, applicableOp: ALL_OP },
+  'ABAN 240': { id: 'ABAN 240', name: 'Teste do BOP com sub jateador e ponteira de borracha', category: 'BOP', technology: 'bop', applicableRig: ALL, applicableOp: ALL_OP },
   'ABAN 241': { id: 'ABAN 241', name: 'Teste do BOP com FETH (manobra combo)', category: 'BOP', technology: 'bop', applicableRig: ALL, applicableOp: ALL_OP },
   'ABAN 230': { id: 'ABAN 230', name: 'Efetuar teste de influxo do CSB permanente', category: 'Coluna de Trabalho', technology: 'workstring', applicableRig: ALL, applicableOp: ALL_OP },
   'ABAN 231': { id: 'ABAN 231', name: 'Coluna de trabalho - Complemento/Correção de cimentação com PWC', category: 'Coluna de Trabalho', technology: 'workstring', applicableRig: ALL, applicableOp: ALL_OP },
@@ -422,7 +422,7 @@ export const PACKAGE_DURATIONS: Record<string, { P50: number; P90: number }> = {
   'ABAN 226': { P50: 0.22, P90: 0.26 },
   'ABAN 227': { P50: 0.50, P90: 0.75 },
   'ABAN 228': { P50: 1.33, P90: 1.36 },
-  'ABAN 254': { P50: 4.06, P90: 4.50 },  // teste BOP c/ sub jateador e ponteira de borracha — estimado (ajustar)
+  'ABAN 240': { P50: 4.06, P90: 4.50 },  // teste BOP c/ sub jateador e ponteira de borracha — estimado (ajustar)
   'ABAN 241': { P50: 0.29, P90: 0.35 },  // teste BOP c/ FETH (manobra combo) — estimado (ajustar)
   'ABAN 230': { P50: 0.23, P90: 0.25 },
   'ABAN 231': { P50: 1.0,  P90: 1.3  },
@@ -432,7 +432,7 @@ export const PACKAGE_DURATIONS: Record<string, { P50: number; P90: number }> = {
   'ABAN 234': { P50: 0.71, P90: 0.76 },
   'ABAN 237': { P50: 0.50, P90: 0.65 },
   'ABAN 238': { P50: 0.45, P90: 0.60 },
-  'ABAN 239': { P50: 0.50, P90: 0.70 },
+  'ABAN 254': { P50: 0.50, P90: 0.70 },
   'ABAN 148': { P50: 0.30, P90: 0.40 },
   'ABAN 161': { P50: 0.30, P90: 0.40 },
   'ABAN 242': { P50: 0.20, P90: 0.28 },

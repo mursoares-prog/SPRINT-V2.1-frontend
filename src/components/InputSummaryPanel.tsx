@@ -1495,7 +1495,7 @@ const showRemoveANM = isTT || isFS1Mec
 
             {isFS2 && !isRCMA && (
               <Row label="Teste do BOP"
-                tooltip="Método de teste de pressão do BOP (Test Plug → ABAN 228; Ponteira ORMAN → ABAN 254; Coluna flutuada → ABAN 229; FETH sobre TH → ABAN 241 após descida da FETH)"
+                tooltip="Método de teste de pressão do BOP (Test Plug → ABAN 228; Ponteira ORMAN → ABAN 240; Coluna flutuada → ABAN 229; FETH sobre TH → ABAN 241 após descida da FETH)"
                 value={
                   inputs.bopTestMethod === 'ponteira_orman' ? 'Ponteira de borracha' :
                   inputs.bopTestMethod === 'coluna_flutuada' ? 'Coluna flutuada (sem TH)' :
