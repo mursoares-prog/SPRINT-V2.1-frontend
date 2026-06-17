@@ -7993,7 +7993,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Descer  BHA de recuperação do camisão com stroker até 10 m acima do nipple da DHSV a xxx\".",
+            "text": "Descer  BHA de recuperação do camisão com stroker até 10 m acima do nipple da DHSV a {{prof=xxx}}\".",
             "duration": 2,
             "bop": null,
             "compensando": true,
@@ -11753,7 +11753,7 @@
     ],
     "ABAN 136": [
         {
-            "text": "Mobilizar e montar BHA de Flexitubo com pescador JDC 2 1/2\" (STV RNQN)/JDC 3\" (STV CL ou RB) de STV 2,75\". Inserir BHA no BOP-FT, acoplar injetor e testar estanqueidade com FCBA inibido/diesel/MEG com 300 psi / XXX psi / 5 min.",
+            "text": "Mobilizar e montar BHA de Flexitubo com pescador JDC 2 1/2\" (STV RNQN)/JDC 3\" (STV CL ou RB) de STV 2,75\". Inserir BHA no BOP-FT, acoplar injetor e testar estanqueidade com FCBA inibido/diesel/MEG com 300 psi / {{pressaoProva=XXX}} psi / 5 min.",
             "duration": 6,
             "bop": null,
             "compensando": true,
@@ -11839,7 +11839,7 @@
     ],
     "ABAN 137": [
         {
-            "text": "Mobilizar e montar BHA de FT com pescador hidráulico JDC 3\". Inserir BHA no BOP-FT, acoplar injetor e testar estanqueidade com FCBA inibido/diesel/MEG com 300 psi / XXX psi / 5 min.",
+            "text": "Mobilizar e montar BHA de FT com pescador hidráulico JDC 3\". Inserir BHA no BOP-FT, acoplar injetor e testar estanqueidade com FCBA inibido/diesel/MEG com 300 psi / {{pressaoProva=XXX}} psi / 5 min.",
             "duration": 6,
             "bop": null,
             "compensando": true,
@@ -11925,7 +11925,7 @@
     ],
     "ABAN 138": [
         {
-            "text": "Mobilizar e montar BHA de FT com pescador hidráulico JDC 3\".  Inserir BHA no BOP-FT, acoplar injetor e testar estanqueidade com FCBA inibido/diesel/MEG com 300 psi / XXX psi / 5 min.",
+            "text": "Mobilizar e montar BHA de FT com pescador hidráulico JDC 3\".  Inserir BHA no BOP-FT, acoplar injetor e testar estanqueidade com FCBA inibido/diesel/MEG com 300 psi / {{pressaoProva=XXX}} psi / 5 min.",
             "duration": 5,
             "bop": null,
             "compensando": true,
@@ -12009,7 +12009,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Mobilizar e montar BHA de FT com pescador hidráulico GS 3\" + Destravador M ou M-1 2,75\". Inserir BHA no BOP-FT, acoplar injetor e testar estanqueidade com FCBA inibido/diesel/MEG com 300 psi / XXX psi / 5 min.",
+            "text": "Mobilizar e montar BHA de FT com pescador hidráulico GS 3\" + Destravador M ou M-1 2,75\". Inserir BHA no BOP-FT, acoplar injetor e testar estanqueidade com FCBA inibido/diesel/MEG com 300 psi / {{pressaoProva=XXX}} psi / 5 min.",
             "duration": 3.5,
             "bop": null,
             "compensando": true,
@@ -12095,7 +12095,7 @@
     ],
     "ABAN 139": [
         {
-            "text": "Mobilizar e montar BHA de FT com pescador hidráulico JDC 3\". Inserir BHA no BOP-FT, acoplar injetor e testar estanqueidade com FCBA inibido/diesel/MEG com 300 psi / XXX psi / 5 min.",
+            "text": "Mobilizar e montar BHA de FT com pescador hidráulico JDC 3\". Inserir BHA no BOP-FT, acoplar injetor e testar estanqueidade com FCBA inibido/diesel/MEG com 300 psi / {{pressaoProva=XXX}} psi / 5 min.",
             "duration": 5,
             "bop": null,
             "compensando": true,
@@ -12179,7 +12179,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Mobilizar e montar BHA de FT com pescador hidráulico GS 3\" + Destravador M ou M-1 2,81\" (FMH 2,81\") /  Pescador JDC 3\" + Destr. B 3.1/2\" (FSG 2,81\" ou FWG 2,81\"). Inserir BHA no BOP-FT, acoplar injetor e testar estanqueidade com FCBA inibido/diesel/MEG com 300 psi / XXX psi / 5 min.",
+            "text": "Mobilizar e montar BHA de FT com pescador hidráulico GS 3\" + Destravador M ou M-1 2,81\" (FMH 2,81\") /  Pescador JDC 3\" + Destr. B 3.1/2\" (FSG 2,81\" ou FWG 2,81\"). Inserir BHA no BOP-FT, acoplar injetor e testar estanqueidade com FCBA inibido/diesel/MEG com 300 psi / {{pressaoProva=XXX}} psi / 5 min.",
             "duration": 3.5,
             "bop": null,
             "compensando": true,
@@ -12265,7 +12265,7 @@
     ],
     "ABAN 140": [
         {
-            "text": "Mobilizar e montar BHA de FT com pescador hidráulico JDC 3\". Inserir BHA no BOP-FT, acoplar injetor e testar estanqueidade com FCBA inibido/diesel/MEG com 300 psi / XXX psi / 5 min.",
+            "text": "Mobilizar e montar BHA de FT com pescador hidráulico JDC 3\". Inserir BHA no BOP-FT, acoplar injetor e testar estanqueidade com FCBA inibido/diesel/MEG com 300 psi / {{pressaoProva=XXX}} psi / 5 min.",
             "duration": 6,
             "bop": null,
             "compensando": true,
@@ -12349,7 +12349,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Mobilizar e montar BHA de FT com pescador hidráulico PRS 4\". Inserir BHA no BOP-FT, acoplar injetor e testar estanqueidade com FCBA inibido/diesel/MEG com 300 psi / XXX psi / 5 min.",
+            "text": "Mobilizar e montar BHA de FT com pescador hidráulico PRS 4\". Inserir BHA no BOP-FT, acoplar injetor e testar estanqueidade com FCBA inibido/diesel/MEG com 300 psi / {{pressaoProva=XXX}} psi / 5 min.",
             "duration": 6,
             "bop": null,
             "compensando": true,
@@ -12435,7 +12435,7 @@
     ],
     "ABAN 141": [
         {
-            "text": "Mobilizar e montar BHA de FT com pescador hidráulico GS 2 1/2\". Inserir BHA no BOP-FT, acoplar injetor e testar estanqueidade com FCBA inibido/diesel/MEG com 300 psi / XXX psi / 5 min.",
+            "text": "Mobilizar e montar BHA de FT com pescador hidráulico GS 2 1/2\". Inserir BHA no BOP-FT, acoplar injetor e testar estanqueidade com FCBA inibido/diesel/MEG com 300 psi / {{pressaoProva=XXX}} psi / 5 min.",
             "duration": 6,
             "bop": null,
             "compensando": true,
@@ -12521,7 +12521,7 @@
     ],
     "ABAN 142": [
         {
-            "text": "Mobilizar e montar BHA de FT com pescador hidráulico GS 2 1/2\". Inserir BHA no BOP-FT, acoplar injetor e testar estanqueidade com FCBA inibido/diesel/MEG com 300 psi / XXX psi / 5 min.",
+            "text": "Mobilizar e montar BHA de FT com pescador hidráulico GS 2 1/2\". Inserir BHA no BOP-FT, acoplar injetor e testar estanqueidade com FCBA inibido/diesel/MEG com 300 psi / {{pressaoProva=XXX}} psi / 5 min.",
             "duration": 6,
             "bop": null,
             "compensando": true,
@@ -12693,7 +12693,7 @@
     ],
     "ABAN 144": [
         {
-            "text": "Mobilizar e montar BHA de FT com ferramenta BO dupla xxx\".  Inserir BHA no BOP-FT, acoplar injetor e testar estanqueidade com FCBA inibido/diesel/MEG com 300 psi / XXX psi / 5 min.",
+            "text": "Mobilizar e montar BHA de FT com ferramenta BO dupla {{ferramentaBoDuplaDiam=xxx}}\".  Inserir BHA no BOP-FT, acoplar injetor e testar estanqueidade com FCBA inibido/diesel/MEG com 300 psi / {{pressaoProva=XXX}} psi / 5 min.",
             "duration": 5,
             "bop": null,
             "compensando": true,
@@ -12765,7 +12765,7 @@
     ],
     "ABAN 145": [
         {
-            "text": "Mobilizar e montar BHA de FT com ferramenta BO dupla xxx\". Inserir BHA no BOP-FT, acoplar injetor e testar estanqueidade com FCBA inibido/diesel/MEG com 300 psi / XXX psi / 5 min.",
+            "text": "Mobilizar e montar BHA de FT com ferramenta BO dupla {{ferramentaBoDuplaDiam=xxx}}\". Inserir BHA no BOP-FT, acoplar injetor e testar estanqueidade com FCBA inibido/diesel/MEG com 300 psi / {{pressaoProva=XXX}} psi / 5 min.",
             "duration": 3,
             "bop": null,
             "compensando": true,
@@ -13383,7 +13383,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Mobilizar e montar BHA de FT, conectando o mesmo ao BHA de wireline. Inserir BHA no BOP-FT, acoplar injetor e testar estanqueidade com FCBA inibido/diesel/MEG com 300 psi / XXX psi / 5 min.",
+            "text": "Mobilizar e montar BHA de FT, conectando o mesmo ao BHA de wireline. Inserir BHA no BOP-FT, acoplar injetor e testar estanqueidade com FCBA inibido/diesel/MEG com 300 psi / {{canhao=XXX}} psi / 5 min.",
             "duration": 4,
             "bop": null,
             "compensando": true,
@@ -13469,7 +13469,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Mobilizar e montar BHA de FT, conectando o mesmo ao BHA de wireline. Inserir BHA no BOP-FT, acoplar injetor e testar estanqueidade com FCBA inibido/diesel/MEG com 300 psi / XXX psi / 5 min.",
+            "text": "Mobilizar e montar BHA de FT, conectando o mesmo ao BHA de wireline. Inserir BHA no BOP-FT, acoplar injetor e testar estanqueidade com FCBA inibido/diesel/MEG com 300 psi / {{canhao=XXX}} psi / 5 min.",
             "duration": 4,
             "bop": null,
             "compensando": true,
@@ -13755,7 +13755,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Descer FT até o elemento de base da cimentação a XXX m.",
+            "text": "Descer FT até o elemento de base da cimentação a {{prof=XXX}} m.",
             "duration": 9,
             "bop": null,
             "compensando": true,
@@ -16121,7 +16121,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Jatear topo da BSR com tampão viscoso, utilizando FCBA xx\" via interior da coluna e booster line.",
+            "text": "Jatear topo da BSR com tampão viscoso, utilizando FCBA {{fcbaCorteDens=xx}}\" via interior da coluna e booster line.",
             "duration": 2,
             "bop": null,
             "compensando": null,
@@ -20907,7 +20907,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Condicionar intervalo XXXX- XXXX m com broca X\" e raspador Y\".",
+            "text": "Condicionar intervalo {{condicIntervaloTopo=XXXX}}- {{condicIntervaloBase=XXXX}} m com broca X\" e raspador Y\".",
             "duration": 6,
             "bop": null,
             "compensando": null,
@@ -21309,7 +21309,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Verificar topo do tampão de bismuto c/ BHA de perfilagem/cabo elétrico. (topo a xxx m)",
+            "text": "Verificar topo do tampão de bismuto c/ BHA de perfilagem/cabo elétrico. (topo a {{prof=xxx}} m)",
             "duration": 0.5,
             "bop": null,
             "compensando": true,
