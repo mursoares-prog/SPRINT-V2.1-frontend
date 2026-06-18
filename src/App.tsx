@@ -16,7 +16,7 @@ import { isApiConfigured, getMergedPackageLines, getBaseOverrides, getBasePackag
 import { getSession, clearSession, isAdmin } from './utils/auth'
 import { setPackageLines } from './data/packageLinesStore'
 import { applyDetailOverrides, applyPackageOverrides } from './data/lineDetailsStore'
-import { setExtraPackages, metaToPackage } from './data/packages'
+import { setExtraPackages, metaToPackage, PACKAGES } from './data/packages'
 import { ServerProjectsModal } from './components/ServerProjectsModal'
 
 function SemisubIcon({ size = 24, className = '' }: { size?: number; className?: string }) {
@@ -297,7 +297,7 @@ function Home() {
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 w-full max-w-lg">
           {[
             { icon: <FileText size={18} />, title: 'Escopos suportados', value: '11 modalidades' },
-            { icon: <Settings2 size={18} />, title: 'Pacotes ABAN', value: '236+ operações' },
+            { icon: <Settings2 size={18} />, title: 'Pacotes ABAN', value: `${Object.keys(PACKAGES).length} operações` },
             { icon: <SemisubIcon size={18} />, title: 'Tipos de sonda', value: 'ANC + DP' },
           ].map(card => (
             <div key={card.title} className="bg-slate-100 dark:bg-slate-800 rounded-xl p-4 border border-slate-200 dark:border-slate-700 shadow-sm text-center">
