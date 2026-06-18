@@ -478,6 +478,9 @@ type Action =
   | { type: 'UNDO' }
   | { type: 'REDO' }
   | { type: 'RESTORE_STATE'; snapshot: FineTuningItem[] }
+  | { type: 'UNDO_INPUTS' }
+  | { type: 'REDO_INPUTS' }
+  | { type: 'RESTORE_INPUTS'; inputs: WizardInputs; schedule: ScheduleItem[] }
 
 const initial: AppState = {
   view: 'home',
@@ -525,6 +528,7 @@ function reducer(state: AppState, action: Action): AppState {
     case 'UPDATE_INPUTS': return { ...state, inputs: { ...state.inputs, ...action.inputs } }
     case 'SET_SCHEDULE': return { ...state, schedule: action.schedule, view: 'schedule' }
     case 'UPDATE_SCHEDULE': return { ...state, schedule: action.schedule }
+    case 'RESTORE_INPUTS': return { ...state, inputs: action.inputs, schedule: action.schedule }
     case 'UPDATE_ITEM_DURATION': return {
       ...state,
       schedule: state.schedule.map(item =>
@@ -941,11 +945,15 @@ function reducer(state: AppState, action: Action): AppState {
   }
 }
 
+type InputsSnapshot = { inputs: WizardInputs; schedule: ScheduleItem[] }
+
 const Ctx = createContext<{
   state: AppState
   dispatch: (action: Action) => void
   canUndo: boolean
   canRedo: boolean
+  canUndoInputs: boolean
+  canRedoInputs: boolean
 } | null>(null)
 
 export function AppProvider({ children }: { children: ReactNode }) {
@@ -954,6 +962,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const redoRef = useRef<FineTuningItem[][]>([])
   const [canUndo, setCanUndo] = useState(false)
   const [canRedo, setCanRedo] = useState(false)
+  const inputsHistoryRef = useRef<InputsSnapshot[]>([])
+  const inputsRedoRef = useRef<InputsSnapshot[]>([])
+  const [canUndoInputs, setCanUndoInputs] = useState(false)
+  const [canRedoInputs, setCanRedoInputs] = useState(false)
 
   const appDispatch = (action: Action) => {
     if (action.type === 'UNDO') {
@@ -978,20 +990,48 @@ export function AppProvider({ children }: { children: ReactNode }) {
       dispatch({ type: 'RESTORE_STATE', snapshot: next })
       return
     }
+    if (action.type === 'UNDO_INPUTS') {
+      const h = inputsHistoryRef.current
+      if (h.length === 0) return
+      const prev = h[h.length - 1]
+      inputsHistoryRef.current = h.slice(0, -1)
+      inputsRedoRef.current = [...inputsRedoRef.current.slice(-19), { inputs: state.inputs as WizardInputs, schedule: state.schedule }]
+      setCanUndoInputs(inputsHistoryRef.current.length > 0)
+      setCanRedoInputs(true)
+      dispatch({ type: 'RESTORE_INPUTS', inputs: prev.inputs, schedule: prev.schedule })
+      return
+    }
+    if (action.type === 'REDO_INPUTS') {
+      const r = inputsRedoRef.current
+      if (r.length === 0) return
+      const next = r[r.length - 1]
+      inputsRedoRef.current = r.slice(0, -1)
+      inputsHistoryRef.current = [...inputsHistoryRef.current.slice(-19), { inputs: state.inputs as WizardInputs, schedule: state.schedule }]
+      setCanRedoInputs(inputsRedoRef.current.length > 0)
+      setCanUndoInputs(true)
+      dispatch({ type: 'RESTORE_INPUTS', inputs: next.inputs, schedule: next.schedule })
+      return
+    }
     if (UNDOABLE_ACTIONS.has(action.type)) {
       historyRef.current = [...historyRef.current.slice(-19), state.fineTuningItems]
       redoRef.current = []  // nova edição invalida a pilha de refazer
       setCanUndo(true)
       setCanRedo(false)
     }
+    if (action.type === 'UPDATE_INPUTS' || action.type === 'UPDATE_ITEM_DURATION') {
+      inputsHistoryRef.current = [...inputsHistoryRef.current.slice(-49), { inputs: state.inputs as WizardInputs, schedule: state.schedule }]
+      inputsRedoRef.current = []
+      setCanUndoInputs(true)
+      setCanRedoInputs(false)
+    }
     dispatch(action)
   }
 
-  return <Ctx.Provider value={{ state, dispatch: appDispatch, canUndo, canRedo }}>{children}</Ctx.Provider>
+  return <Ctx.Provider value={{ state, dispatch: appDispatch, canUndo, canRedo, canUndoInputs, canRedoInputs }}>{children}</Ctx.Provider>
 }
 
 export function useApp() {
   const ctx = useContext(Ctx)
   if (!ctx) throw new Error('useApp must be used inside AppProvider')
-  return ctx  // { state, dispatch, canUndo, canRedo }
+  return ctx  // { state, dispatch, canUndo, canRedo, canUndoInputs, canRedoInputs }
 }
