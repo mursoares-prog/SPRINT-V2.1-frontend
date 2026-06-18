@@ -2,9 +2,8 @@ import { useState, useEffect, useRef } from 'react'
 import React from 'react'
 import { useApp } from '../context/AppContext'
 import type { ScheduleItem, WizardInputs } from '../types'
-import { getPackage, getDuration, PACKAGE_ALTERNATES, FLUID_VARIANT, PACKAGES } from '../data/packages'
-import { recomputeTransitions } from '../engines/sequenceEngine'
-import { Save, Sliders } from 'lucide-react'
+import { PACKAGES } from '../data/packages'
+import { Save, Sliders, Undo2, Redo2 } from 'lucide-react'
 import { buildProjectFile, downloadProject } from '../utils/projectFile'
 import { CloudSaveButton } from './CloudSaveButton'
 
@@ -13,11 +12,6 @@ const TRACKED_MOUNT_TECHS = ['wireline', 'electric', 'ct'] as const
 const MOUNT_TECH_LABELS: Record<string, string> = { wireline: 'Arame', electric: 'Perfil', ct: 'FT' }
 const CONTING_TEXT = 'text-[#7d1935] dark:text-rose-400'
 
-const CSB_MECH_PKGS = new Set([
-  'ABAN 038', 'ABAN 039', 'ABAN 040', 'ABAN 041', 'ABAN 042',
-  'ABAN 127', 'ABAN 128', 'ABAN 129', 'ABAN 130', 'ABAN 131',
-  'ABAN 237',
-])
 
 const PHASE_COLORS: Record<string, { bg: string; text: string; bar: string; stripe: string }> = {
   'Mobilização':    { bg: 'bg-slate-100 dark:bg-slate-800',   text: 'text-slate-600 dark:text-slate-300',  bar: 'bg-slate-400',  stripe: '#94a3b8' },
@@ -41,7 +35,7 @@ const TECH_BADGE: Record<string, TechBadgeEntry> = {
 
 
 export function ScheduleView() {
-  const { state, dispatch } = useApp()
+  const { state, dispatch, canUndoInputs, canRedoInputs } = useApp()
   const { schedule } = state
 
   const total = schedule.reduce((a, i) => a + i.duration, 0)
@@ -49,49 +43,6 @@ export function ScheduleView() {
   const showHours = state.showHours
   const unit = showHours ? 'h' : 'd'
   const fmt = (d: number) => showHours ? (d * 24).toFixed(1) : d.toFixed(2)
-
-  const handleSwap = (uid: string, newPkgId: string) => {
-    const newPkg = getPackage(newPkgId)
-    if (!newPkg) return
-    const updated = state.schedule.map(item =>
-      item.uid === uid ? {
-        ...item,
-        packageId: newPkgId,
-        packageName: newPkg.name,
-        technology: newPkg.technology,
-        duration: getDuration(newPkgId, pct),
-      } : item
-    )
-    const recomputed = recomputeTransitions(
-      updated,
-      state.inputs.rigType as 'ANC' | 'DP',
-      state.inputs.operationType as 'Generalista' | 'LWO',
-      pct,
-      state.inputs.scopeId,
-    )
-    dispatch({ type: 'UPDATE_SCHEDULE', schedule: recomputed })
-
-    // Sync CSB inputs when swapping an eCSB mecânico element
-    const swappedItem = state.schedule.find(s => s.uid === uid)
-    if (swappedItem && FLUID_VARIANT[swappedItem.packageId]?.heading === 'Trocar eCSB mecânico') {
-      const itemIdx = state.schedule.findIndex(s => s.uid === uid)
-      const priorCsbCount = state.schedule.slice(0, itemIdx).filter(s => CSB_MECH_PKGS.has(s.packageId)).length
-      const isTae = newPkgId === 'ABAN 237'
-      const isSTV = ['ABAN 038', 'ABAN 039', 'ABAN 130', 'ABAN 131'].includes(newPkgId)
-      if (state.inputs.scopeId === 'FS1_Mec') {
-        if (priorCsbCount >= 1) {
-          dispatch({ type: 'UPDATE_INPUTS', inputs: { fs1CsbSecondary: isTae ? 'tae' : 'plug_th' } })
-        } else {
-          dispatch({ type: 'UPDATE_INPUTS', inputs: {
-            fs1CsbPrimary: isTae ? 'tae' : isSTV ? 'stdv' : 'plug',
-            fs1CsbAlreadyInstalled: false,
-          } })
-        }
-      } else {
-        dispatch({ type: 'UPDATE_INPUTS', inputs: { csbPrimary: isTae ? 'tae' : isSTV ? 'stdv' : 'plug' } })
-      }
-    }
-  }
 
   const handleSave = () => {
     const wn = state.wellName || 'projeto'
@@ -113,6 +64,20 @@ export function ScheduleView() {
             </div>
           </div>
           <div className="flex gap-2 shrink-0 items-center">
+            <button
+              onClick={() => dispatch({ type: 'UNDO_INPUTS' })}
+              disabled={!canUndoInputs}
+              title="Desfazer (Ctrl+Z)"
+              className="flex items-center gap-1 h-8 px-2.5 rounded-lg text-xs font-semibold transition-colors border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:border-slate-300 dark:hover:border-slate-500 bg-slate-100 dark:bg-slate-800 disabled:opacity-30 disabled:cursor-not-allowed">
+              <Undo2 size={13} /> Desfazer
+            </button>
+            <button
+              onClick={() => dispatch({ type: 'REDO_INPUTS' })}
+              disabled={!canRedoInputs}
+              title="Refazer (Ctrl+Y)"
+              className="flex items-center gap-1 h-8 px-2.5 rounded-lg text-xs font-semibold transition-colors border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:border-slate-300 dark:hover:border-slate-500 bg-slate-100 dark:bg-slate-800 disabled:opacity-30 disabled:cursor-not-allowed">
+              <Redo2 size={13} /> Refazer
+            </button>
             <button
               onClick={handleSave}
               title="Salvar projeto como arquivo"
@@ -143,8 +108,7 @@ export function ScheduleView() {
 
       <div className="flex flex-1 min-h-0 gap-3 overflow-hidden">
         <PackageList items={schedule} showHours={showHours}
-          onDurationChange={(uid, dur) => dispatch({ type: 'UPDATE_ITEM_DURATION', uid, duration: dur })}
-          onSwap={handleSwap} />
+          onDurationChange={(uid, dur) => dispatch({ type: 'UPDATE_ITEM_DURATION', uid, duration: dur })} />
         <ScheduleStatsPanel items={schedule} showHours={showHours} />
       </div>
     </div>
@@ -318,20 +282,15 @@ function ScheduleStatsPanel({ items, showHours }: { items: ScheduleItem[]; showH
   )
 }
 
-function PackageList({ items, showHours, onDurationChange, onSwap }: {
+function PackageList({ items, showHours, onDurationChange }: {
   items: ScheduleItem[]
   showHours: boolean
   onDurationChange: (uid: string, dur: number) => void
-  onSwap: (uid: string, newPkgId: string) => void
 }) {
   const unit = showHours ? 'h' : 'd'
   const fmt = (d: number) => showHours ? (d * 24).toFixed(1) : d.toFixed(2)
-  const [swappingUid, setSwappingUid] = useState<string | null>(null)
-  const [fluidUid, setFluidUid] = useState<string | null>(null)
   const [collapsedPhases, setCollapsedPhases] = useState<Set<string>>(new Set())
   const [highlightedUids, setHighlightedUids] = useState<Set<string>>(new Set())
-  const pickerRef = useRef<HTMLDivElement>(null)
-  const fluidPickerRef = useRef<HTMLDivElement>(null)
   const prevItemsRef = useRef<ScheduleItem[]>(items)
   const containerRef = useRef<HTMLDivElement>(null)
 
@@ -429,24 +388,6 @@ function PackageList({ items, showHours, onDurationChange, onSwap }: {
     return () => document.removeEventListener('keydown', onKeyDown)
   }, [])
 
-  useEffect(() => {
-    if (!swappingUid) return
-    const onDown = (e: MouseEvent) => {
-      if (pickerRef.current && !pickerRef.current.contains(e.target as Node)) setSwappingUid(null)
-    }
-    document.addEventListener('mousedown', onDown)
-    return () => document.removeEventListener('mousedown', onDown)
-  }, [swappingUid])
-
-  useEffect(() => {
-    if (!fluidUid) return
-    const onDown = (e: MouseEvent) => {
-      if (fluidPickerRef.current && !fluidPickerRef.current.contains(e.target as Node)) setFluidUid(null)
-    }
-    document.addEventListener('mousedown', onDown)
-    return () => document.removeEventListener('mousedown', onDown)
-  }, [fluidUid])
-
   type Section = { phase: string; sectionKey: string; items: ScheduleItem[] }
   const sections: Section[] = []
   {
@@ -505,8 +446,6 @@ function PackageList({ items, showHours, onDurationChange, onSwap }: {
                     rowNum++
                     const rn = rowNum
                     const tech = TECH_BADGE[item.technology]
-                    const alts = PACKAGE_ALTERNATES[item.packageId] ?? []
-                    const isSwapping = swappingUid === item.uid
                     return (
                       <React.Fragment key={item.uid}>
                         <tr data-uid={item.uid} className={`border-b border-slate-100 dark:border-slate-800 transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/60
@@ -515,38 +454,11 @@ function PackageList({ items, showHours, onDurationChange, onSwap }: {
                           <td className="py-2 px-3">
                             <span className={`font-mono text-xs font-medium ${item.isContingency ? 'text-[#7d1935] dark:text-rose-400' : 'text-[#0c2340] dark:text-blue-400'}`}>{item.packageId}</span>
                           </td>
-                          <td className="py-2 px-2 text-center relative">
+                          <td className="py-2 px-2 text-center">
                             {tech.label && (
-                              <div className="inline-block relative" ref={isSwapping ? pickerRef : undefined}>
-                                <button
-                                  onClick={() => alts.length > 0 && setSwappingUid(prev => prev === item.uid ? null : item.uid)}
-                                  title={alts.length > 0 ? 'Clique para trocar tecnologia' : undefined}
-                                  className={`text-xs px-1.5 py-0.5 rounded font-bold leading-none
-                                    ${tech.bg} ${tech.text}
-                                    ${alts.length > 0 ? 'cursor-pointer hover:opacity-80' : 'cursor-default'}`}>
-                                  {tech.label}
-                                </button>
-                                {isSwapping && alts.length > 0 && (
-                                  <div className="absolute z-30 left-0 top-8 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg py-1 min-w-[220px]">
-                                    <p className="text-xs text-slate-600 dark:text-slate-500 px-3 py-1 font-semibold uppercase tracking-wider border-b border-slate-100 dark:border-slate-700 mb-1">
-                                      Trocar por
-                                    </p>
-                                    {alts.map(altId => {
-                                      const altPkg = getPackage(altId)
-                                      if (!altPkg) return null
-                                      const altBadge = TECH_BADGE[altPkg.technology]
-                                      return (
-                                        <button key={altId}
-                                          onClick={() => { onSwap(item.uid, altId); setSwappingUid(null) }}
-                                          className="w-full flex items-center gap-2 px-3 py-1.5 hover:bg-slate-50 dark:hover:bg-slate-700 text-left">
-                                          <span className={`text-xs px-1.5 py-0.5 rounded font-bold shrink-0 ${altBadge.bg} ${altBadge.text}`}>{altBadge.label}</span>
-                                          <span className="text-xs text-slate-600 dark:text-slate-300 leading-tight">{altPkg.name}</span>
-                                        </button>
-                                      )
-                                    })}
-                                  </div>
-                                )}
-                              </div>
+                              <span className={`text-xs px-1.5 py-0.5 rounded font-bold leading-none ${tech.bg} ${tech.text}`}>
+                                {tech.label}
+                              </span>
                             )}
                           </td>
                           <td className="py-2 px-2 text-center">
@@ -557,46 +469,7 @@ function PackageList({ items, showHours, onDurationChange, onSwap }: {
                             )}
                           </td>
                           <td className={`py-2 px-3 text-sm ${item.isContingency ? 'text-[#7d1935] dark:text-rose-400' : 'text-[#0c2340] dark:text-blue-400'}`}>
-                            {(() => {
-                              const fv = FLUID_VARIANT[item.packageId]
-                              if (!fv) return item.packageName
-                              const fi = item.packageName.indexOf(fv.label)
-                              if (fi < 0) return item.packageName
-                              const before = item.packageName.slice(0, fi)
-                              const after  = item.packageName.slice(fi + fv.label.length)
-                              const isFluid = fluidUid === item.uid
-                              return (
-                                <>
-                                  {before}
-                                  <span className="relative inline-block" ref={isFluid ? fluidPickerRef : undefined}>
-                                    <button
-                                      onClick={() => setFluidUid(prev => prev === item.uid ? null : item.uid)}
-                                      className="underline decoration-dotted underline-offset-2 text-teal-700 dark:text-teal-400 font-medium hover:text-teal-900 dark:hover:text-teal-300 transition-colors cursor-pointer">
-                                      {fv.label}
-                                    </button>
-                                    {isFluid && (
-                                      <div className="absolute z-30 left-0 top-5 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg py-1 min-w-[180px]">
-                                        <p className="text-xs text-slate-600 dark:text-slate-500 px-3 py-1 font-semibold uppercase tracking-wider border-b border-slate-100 dark:border-slate-700 mb-1">
-                                          {fv.heading ?? 'Trocar fluido'}
-                                        </p>
-                                        {fv.alts.map(altId => {
-                                          const altFv = FLUID_VARIANT[altId]
-                                          if (!altFv) return null
-                                          return (
-                                            <button key={altId}
-                                              onClick={() => { onSwap(item.uid, altId); setFluidUid(null) }}
-                                              className="w-full px-3 py-1.5 hover:bg-slate-50 dark:hover:bg-slate-700 text-left text-xs text-slate-600 dark:text-slate-300">
-                                              {altFv.label}
-                                            </button>
-                                          )
-                                        })}
-                                      </div>
-                                    )}
-                                  </span>
-                                  {after}
-                                </>
-                              )
-                            })()}
+                            {item.packageName}
                           </td>
                           <td className="py-2 px-3 text-right w-20">
                             {item.isContingency
