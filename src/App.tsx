@@ -507,7 +507,7 @@ function Main({ onLogout }: { onLogout: () => void }) {
           onBeforeStepNav={handleBeforeStepNav}
           onLogout={onLogout}
         />
-        {showAdmin && isAdmin() && <AdminView onClose={() => setShowAdmin(false)} />}
+        {showAdmin && <AdminView onClose={() => setShowAdmin(false)} />}
         {showPackages && <PackagesCatalogModal onClose={() => setShowPackages(false)} />}
         {showFlowchart && <FlowchartModal onClose={() => setShowFlowchart(false)} />}
 

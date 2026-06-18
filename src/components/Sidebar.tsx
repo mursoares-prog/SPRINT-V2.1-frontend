@@ -1,6 +1,5 @@
 import { Check, Moon, Sun, Settings, LogOut, Network } from 'lucide-react'
 import { useApp } from '../context/AppContext'
-import { isAdmin } from '../utils/auth'
 
 function LegoIcon({ size = 24, className = '' }: { size?: number; className?: string }) {
   return (
@@ -50,7 +49,6 @@ export function Sidebar({ isDark, onToggleDark, onOpenConfig, onOpenPackages, on
   onLogout?: () => void
 }) {
   const { state, dispatch } = useApp()
-  const admin = isAdmin()
   const activeStep = viewToStep(state.view)
   const hasSchedule = state.schedule.length > 0
   const hasFt = state.fineTuningItems.length > 0
@@ -138,17 +136,15 @@ export function Sidebar({ isDark, onToggleDark, onOpenConfig, onOpenPackages, on
             onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = '#64748b' }}>
             <Network size={19} />
           </button>
-        {admin && (
-          <button
-            onClick={() => onOpenConfig?.()}
-            title="Configurações"
-            className="w-10 h-10 rounded-xl flex items-center justify-center transition-colors"
-            style={{ color: '#64748b' }}
-            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = '#94a3b8' }}
-            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = '#64748b' }}>
-            <Settings size={19} />
-          </button>
-        )}
+        <button
+          onClick={() => onOpenConfig?.()}
+          title="Configurações"
+          className="w-10 h-10 rounded-xl flex items-center justify-center transition-colors"
+          style={{ color: '#64748b' }}
+          onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = '#94a3b8' }}
+          onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = '#64748b' }}>
+          <Settings size={19} />
+        </button>
         <button
           onClick={onToggleDark}
           title={isDark ? 'Tema claro' : 'Tema escuro'}
