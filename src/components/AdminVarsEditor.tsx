@@ -380,7 +380,7 @@ export function AdminVarsEditor({ query, serverBase, pkgOverrides, legacyOverrid
             </div>
             <div className="p-3 overflow-y-auto scrollbar-custom space-y-2">
               {PLACEHOLDER_CATALOG.map(g => {
-                const fs = g.fields.filter(f => fields.includes(f.token))
+                const fs = fields.length > 0 ? g.fields.filter(f => fields.includes(f.token)) : g.fields
                 if (!fs.length) return null
                 return (
                   <div key={g.title}>
