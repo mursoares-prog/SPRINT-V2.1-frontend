@@ -45,7 +45,7 @@ const GROUPED_KEY = '__GROUPED__'
 const DEFAULT_SCOPE = 'FSU_TT_FT'
 
 export function FlowchartModal({ onClose }: { onClose: () => void }) {
-  const [scopeId, setScopeId] = useState(DEFAULT_SCOPE)
+  const [scopeId, setScopeId] = useState(GROUPED_KEY)
 
   const isComplete = scopeId === COMPLETE_KEY
   const isGrouped = scopeId === GROUPED_KEY

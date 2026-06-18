@@ -102,8 +102,10 @@ const DESCIDA_DP: SequenceStep[] = [
 
 // Marcador: engine injeta hidrato na ANM (ABAN 165/169 produção, ABAN 166/170 anular) após teste funcional
 const ANM_HYDRATE_INJECT: SequenceStep = { packageId: 'ANM_HYDRATE_INJECT', phase: 'Fase 1A' }
-// Marcador: engine injeta contingências de abertura/fechamento de válvulas da ANM (após teste funcional)
+// Marcador: engine injeta jateamento com FT (ABAN 125) após testes funcionais da ANM
 const ANM_VALVE_INJECT: SequenceStep = { packageId: 'ANM_VALVE_INJECT', phase: 'Fase 1A' }
+// Marcador: engine injeta abertura de válvula da ANM com FT (ABAN 143/124) após testes de bloco da ANM
+const ANM_FORCE_INJECT: SequenceStep = { packageId: 'ANM_FORCE_INJECT', phase: 'Fase 1A' }
 
 // Marcador: engine injeta fluido inibido pós-conexão (ABAN 217/216) após a reentrada na ANM (ABAN 023),
 // quando a TCap foi disposta em superfície com fluido inibido pós-conexão.
@@ -118,14 +120,16 @@ const CONEXAO_ANM: SequenceStep[] = [
   POST_ANM_FLUID_INJECT,
   { packageId: 'ABAN 024', phase: 'Fase 1A' },
   { packageId: 'ABAN 025', phase: 'Fase 1A' },
+  PLUG_STEP,
   { packageId: 'ABAN 218', phase: 'Fase 1A' },
   ANM_HYDRATE_INJECT,
   ANM_VALVE_INJECT,
   { packageId: 'ABAN 028', phase: 'Fase 1A' },
   { packageId: 'ABAN 029', phase: 'Fase 1A' },
+  ANM_FORCE_INJECT,
   { packageId: 'ABAN 030', phase: 'Fase 1A', condition: 'dhsv_no_sleeve' },
-  // ANULAR_A_STEP e LIMPEZA_INJECT movidos para ARAME_GABARIT (após PLUG_STEP)
-  // para garantir que despressurização e amortecimento só ocorram após remoção dos plugs do TMF/TH
+  // ANULAR_A_STEP e LIMPEZA_INJECT em ARAME_GABARIT (após CONEXAO_ANM),
+  // garantindo que despressurização e amortecimento só ocorram após as operações de conexão.
 ]
 
 // Limpeza de flowlines (engine injeta os pacotes corretos conforme linhas e método)
@@ -136,7 +140,6 @@ const FLOWLINE_DP: SequenceStep[] = [ FLOWLINE_STEP ]
 const ARAME_MOUNT_ANC: SequenceStep[] = []
 const ARAME_MOUNT_DP:  SequenceStep[] = []
 const ARAME_GABARIT: SequenceStep[] = [
-  PLUG_STEP,
   ANULAR_A_STEP,
   { packageId: 'LIMPEZA_INJECT', phase: 'Fase 1A' },
   { packageId: 'DHSV_TEST_INJECT', phase: 'Fase 1A' },

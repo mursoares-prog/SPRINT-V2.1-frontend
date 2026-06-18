@@ -123,7 +123,9 @@ export interface WizardInputs {
   includeCcapBackup?: boolean
   anmHydrate?: YesContingencyNo
   anmHydrateBlocks?: ('producao' | 'anular')[]
-  anmValveContingency?: ('hydrate' | 'jateamento' | 'gabarit_ft')[]
+  anmValveContingency?: ('hydrate' | 'jateamento')[]
+  anmForceOpen?: YesContingencyNo
+  anmForceMethod?: ('hammer' | 'motor_broca')[]
   anmValveHydrateBlocks?: ('producao' | 'anular')[]
   hasTmfPlug?: boolean
   tmfPlugBores?: TmfPlugBore[]
@@ -153,12 +155,14 @@ export interface WizardInputs {
   fs1PerfProfunda?: 'yes' | 'no'
   fs1PerfRasa?: 'yes' | 'no'
   fs1CsbSecondary?: Fs1CsbSecondary
+  fs1CsbSecondaryMode?: YesContingencyNo
   rcmaCsbPrincipal?: RcmaCsbPrincipal
   rcmaCementPkgs?: RcmaCementPkg[]
   tubingPerfMethod?: TubingPerfMethod
   riserFluid?: RiserFluid
   tcapDisposition?: TcapDisposition
   tcapRemovalMethod?: 'workstring' | 'rov'
+  killWellFase1A?: YesContingencyNo
   anularAMinPressure?: AnularAPressure
   anularFillFluid?: AnularFillFluid
   csbPrimary?: CsbPrimary
@@ -177,6 +181,7 @@ export interface WizardInputs {
   bopCorrectionMethod?: 'convencional' | 'pwc'
   bopPwcPreLog?: boolean
   bopPwcValidation?: 'params' | 'perfil'
+  ccapRemovalMethod?: 'workstring' | 'cable'
   contingencyCcapWorkstring?: YesContingencyNo
   contingencyTcapHydrate?: YesContingencyNo
   contingencyFejat?: YesContingencyNo

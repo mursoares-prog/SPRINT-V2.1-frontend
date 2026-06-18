@@ -100,8 +100,8 @@ export function PackagesCatalogModal({ onClose }: { onClose: () => void }) {
   }, [query])
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-start pl-4 bg-black/40 backdrop-blur-sm">
-      <div className="relative flex flex-col bg-slate-100 dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-[26rem] max-h-[90vh] overflow-hidden">
+    <div className="fixed inset-0 z-50 flex items-center justify-start pl-4 pointer-events-none">
+      <div className="pointer-events-auto relative flex flex-col bg-slate-100 dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-[40rem] max-h-[90vh] overflow-hidden ring-1 ring-slate-300/60 dark:ring-slate-700/60">
 
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200 dark:border-slate-700 shrink-0">

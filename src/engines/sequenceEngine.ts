@@ -104,7 +104,11 @@ export function generateSchedule(inputs: WizardInputs): ScheduleItem[] {
     if (step.packageId === 'POST_MOB_INJECT') {
       const hasCC = equipments.includes('corrosion_cap')
       if (hasCC) {
-        const ccapPkg = operationType === 'LWO' ? 'ABAN 009' : 'ABAN 008'
+        const ccapMethod = inputs.ccapRemovalMethod ?? (operationType === 'LWO' ? 'cable' : 'workstring')
+        const ccapPkg = ccapMethod === 'cable' ? 'ABAN 009' : 'ABAN 008'
+        const ccapContingReason = ccapMethod === 'cable'
+          ? 'Contingência: retirada de CCAP a cabo'
+          : 'Contingência: retirada de CCAP com coluna de trabalho (garatéia)'
         if (inputs.corrosionCapBeforeIntervention === false) {
           // CCAP retirada durante a intervenção (não pela embarcação de apoio)
           addItem(items, ccapPkg, 'Fase 0', percentile)
@@ -120,9 +124,7 @@ export function generateSchedule(inputs: WizardInputs): ScheduleItem[] {
             const ccapConting = isConting(inputs.contingencyCcapWorkstring)
             addItem(items, ccapPkg, 'Fase 0', percentile, {
               isContingency: ccapConting,
-              contingencyReason: ccapConting
-                ? (operationType === 'LWO' ? 'Contingência: retirada de CCAP a cabo' : 'Contingência: retirada de CCAP com coluna de trabalho (garatéia)')
-                : undefined,
+              contingencyReason: ccapConting ? ccapContingReason : undefined,
             })
           }
         } else {
@@ -131,9 +133,7 @@ export function generateSchedule(inputs: WizardInputs): ScheduleItem[] {
             const ccapConting = isConting(inputs.contingencyCcapWorkstring)
             addItem(items, ccapPkg, 'Fase 0', percentile, {
               isContingency: ccapConting,
-              contingencyReason: ccapConting
-                ? (operationType === 'LWO' ? 'Contingência: retirada de CCAP a cabo' : 'Contingência: retirada de CCAP com coluna de trabalho (garatéia)')
-                : undefined,
+              contingencyReason: ccapConting ? ccapContingReason : undefined,
             })
           }
         }
@@ -199,18 +199,23 @@ export function generateSchedule(inputs: WizardInputs): ScheduleItem[] {
       continue
     }
 
-    // ─── Contingências abertura/fechamento de válvulas da ANM ────────
-    // Se há plug no bore de produção do TMF, as contingências só podem ser feitas após a
-    // remoção do plug — o ponto de injeção é deslocado para dentro do PLUG_INJECT handler.
+    // ─── Jateamento FT para abertura de válvulas da ANM ─────────────
     if (step.packageId === 'ANM_VALVE_INJECT') {
-      const hasProdBorePlug = inputs.hasTmfPlug &&
-        (inputs.tmfPlugBores ?? []).includes('production')
-      if (!hasProdBorePlug) {
-        const conts = inputs.anmValveContingency ?? []
-        if (conts.includes('jateamento'))
-          addItem(items, 'ABAN 125', step.phase, percentile, { isContingency: true, contingencyReason: 'Contingência: jateamento com flexitubo para abertura de válvulas da ANM' })
-        if (conts.includes('gabarit_ft'))
-          addItem(items, 'ABAN 124', step.phase, percentile, { isContingency: true, contingencyReason: 'Contingência: gabaritagem com motor de fundo e broca para abertura de válvulas da ANM' })
+      const conts = inputs.anmValveContingency ?? []
+      if (conts.includes('jateamento'))
+        addItem(items, 'ABAN 125', step.phase, percentile, { isContingency: true, contingencyReason: 'Contingência: jateamento com flexitubo para abertura de válvulas da ANM' })
+      continue
+    }
+
+    // ─── Abertura de válvula da ANM com FT (após testes de bloco) ────
+    if (step.packageId === 'ANM_FORCE_INJECT') {
+      if (yesOrConting(inputs.anmForceOpen)) {
+        const forceConting = isConting(inputs.anmForceOpen)
+        const methods = inputs.anmForceMethod ?? []
+        if (methods.includes('hammer'))
+          addItem(items, 'ABAN 143', step.phase, percentile, { isContingency: forceConting, contingencyReason: forceConting ? 'Contingência: abertura de válvula da ANM com martelete (FT)' : undefined })
+        if (methods.includes('motor_broca'))
+          addItem(items, 'ABAN 124', step.phase, percentile, { isContingency: forceConting, contingencyReason: forceConting ? 'Contingência: gabaritagem com motor de fundo e broca para abertura de válvulas da ANM' : undefined })
       }
       continue
     }
@@ -344,6 +349,8 @@ export function generateSchedule(inputs: WizardInputs): ScheduleItem[] {
 
     // ─── Limpeza/Amortecimento COP: diesel / diesel+FCBA / MEG+FCBA ─
     if (step.packageId === 'LIMPEZA_INJECT') {
+      // Poço já isolado: não amortecer na Fase 1A
+      if (inputs.killWellFase1A === 'no') continue
       // STDV mantida instalada (BDC/ANC): skip do amortecimento de coluna pós-canhoneio
       if (postPerfProcessed && scopeId === 'FSU_TT_BDC' && rigType === 'ANC' && inputs.stdvDispositionAfterTest === 'keep') {
         continue
@@ -354,7 +361,10 @@ export function generateSchedule(inputs: WizardInputs): ScheduleItem[] {
         : inputs.initialFillFluid === 'inhibited' ? 'ABAN 062'
         : inputs.initialFillFluid === 'diesel' ? 'ABAN 219'
         : 'ABAN 061'
-      addItem(items, pkg, step.phase, percentile)
+      const killConting = inputs.killWellFase1A === 'contingency'
+      addItem(items, pkg, step.phase, percentile, killConting
+        ? { isContingency: true, contingencyReason: 'Contingência: amortecimento da COP/COI' }
+        : {})
       continue
     }
 
@@ -368,10 +378,21 @@ export function generateSchedule(inputs: WizardInputs): ScheduleItem[] {
 
     // ─── Anular A: despressurização + preenchimento (063/064/065 mutuamente exclusivos) ─
     if (step.packageId === 'ANULAR_A_INJECT') {
+      // Poço já isolado (não amortecer): no lugar da despressurização do anular A,
+      // confirma a estanqueidade do poço (ABAN 226).
+      if (inputs.killWellFase1A === 'no') {
+        addItem(items, 'ABAN 226', step.phase, percentile)
+        continue
+      }
+      const killConting = inputs.killWellFase1A === 'contingency'
+      // Amortecimento contingencial: testar estanqueidade antes (firme); só amortecer se reprovar.
+      if (killConting) addItem(items, 'ABAN 226', step.phase, percentile)
       const pkg = inputs.anularAMinPressure === 'nonzero'
         ? (inputs.anularFluid === 'diesel' ? 'ABAN 064' : 'ABAN 065')
         : 'ABAN 063'
-      addItem(items, pkg, step.phase, percentile)
+      addItem(items, pkg, step.phase, percentile, killConting
+        ? { isContingency: true, contingencyReason: 'Contingência: despressurização/preenchimento do anular A' }
+        : {})
       continue
     }
 
@@ -390,6 +411,11 @@ export function generateSchedule(inputs: WizardInputs): ScheduleItem[] {
     if (step.packageId === 'PERF_INJECT') {
       const eff: OperationMode = bopActive ? 'through_casing' : baseMode
       const amortPkg = 'ABAN 255'  // amortecimento de Anular A pós-canhoneio (bullheading FCBA)
+      // Amortecimento da Fase 1A: 'no' = poço já isolado (não amortecer); 'contingency' = só contingência
+      const killNo = inputs.killWellFase1A === 'no'
+      const killAmortOpts = inputs.killWellFase1A === 'contingency'
+        ? { isContingency: true as const, contingencyReason: 'Contingência: amortecimento do anular A pós-canhoneio' }
+        : {}
       // Fase 1 (FS1_Mec / Conv / RCMA): canhoneio profundo da coluna, controlado por fs1PerfProfunda.
       // A tecnologia segue tubingPerfMethod — a cabo: tubing puncher (ABAN 101); a arame: eFire
       // (ABAN 045); flexitubo: tubing puncher FT (ABAN 154). O canhoneio raso é feito depois, antes
@@ -410,7 +436,7 @@ export function generateSchedule(inputs: WizardInputs): ScheduleItem[] {
             currentTech = perfTech
           }
           addItem(items, perfPkg, step.phase, percentile)
-          addItem(items, amortPkg, step.phase, percentile)
+          if (!killNo) addItem(items, amortPkg, step.phase, percentile, killAmortOpts)
         }
         postPerfProcessed = true
         continue
@@ -419,7 +445,7 @@ export function generateSchedule(inputs: WizardInputs): ScheduleItem[] {
       const skipAmort = scopeId === 'FSU_TT_BDC' && rigType === 'ANC' && inputs.stdvDispositionAfterTest === 'keep'
       if (inputs.tubingPerfMethod === 'wireline') {
         addItem(items, 'ABAN 045', step.phase, percentile)
-        if (!skipAmort) addItem(items, amortPkg, step.phase, percentile)
+        if (!skipAmort && !killNo) addItem(items, amortPkg, step.phase, percentile, killAmortOpts)
       } else {
         // cabo elétrico (ABAN 101) ou flexitubo (ABAN 154), com transição da tecnologia ativa
         const perfTech: Technology = inputs.tubingPerfMethod === 'ct' ? 'ct' : 'electric'
@@ -434,7 +460,7 @@ export function generateSchedule(inputs: WizardInputs): ScheduleItem[] {
           currentTech = perfTech
         }
         addItem(items, perfPkg, step.phase, percentile)
-        if (!skipAmort) addItem(items, amortPkg, step.phase, percentile)
+        if (!skipAmort && !killNo) addItem(items, amortPkg, step.phase, percentile, killAmortOpts)
       }
       postPerfProcessed = true
       continue
@@ -707,6 +733,9 @@ export function generateSchedule(inputs: WizardInputs): ScheduleItem[] {
       // RCMA fase única com CSB principal = fluido eCSB: não prever CSB secundário (sem canhoneio, sem plug/TAE)
       const isRCMAFluidPrincipal = inputs.scopeId === 'FSU_Conv_RCMA' && inputs.rcmaCsbPrincipal === 'fluid_csb'
       if (isRCMAFluidPrincipal) continue
+      // Não previsto: pula canhoneio raso e instalação de CSB 2
+      if (inputs.fs1CsbSecondaryMode === 'no') continue
+      const csb2Conting = inputs.fs1CsbSecondaryMode === 'contingency'
       const csb2 = inputs.fs1CsbSecondary ?? 'plug_th'
       const effMode: OperationMode = bopActive ? 'through_casing' : baseMode
 
@@ -742,10 +771,10 @@ export function generateSchedule(inputs: WizardInputs): ScheduleItem[] {
       }
       if (csb2 === 'tae') {
         trans2('electric')
-        addItem(items, 'ABAN 237', step.phase, percentile)
+        addItem(items, 'ABAN 237', step.phase, percentile, csb2Conting ? { isContingency: true, contingencyReason: 'Contingência: instalação de TAE como CSB 2' } : undefined)
       } else {  // plug_th
         trans2('wireline')
-        addItem(items, 'ABAN 042', step.phase, percentile)
+        addItem(items, 'ABAN 042', step.phase, percentile, csb2Conting ? { isContingency: true, contingencyReason: 'Contingência: instalação de plug TH como CSB 2' } : undefined)
       }
       continue
     }
@@ -986,8 +1015,6 @@ export function generateSchedule(inputs: WizardInputs): ScheduleItem[] {
             if (wireMnt) addItem(items, wireMnt, step.phase, percentile, { autoInserted: true })
             currentTech = 'wireline'
           }
-          // Teste de bloco do anular da ANM adiado: executado após retirada do plug anular
-          addItem(items, 'ABAN 029', step.phase, percentile)
         }
 
         // Bore de PRODUÇÃO após troca para o bore de produção
@@ -997,17 +1024,7 @@ export function generateSchedule(inputs: WizardInputs): ScheduleItem[] {
             if (m === 'stroker') addItem(items, 'ABAN 088', step.phase, percentile, { isContingency: true, contingencyReason: 'Contingência: retirada de plug do TMF (produção) com stroker' })
             if (m === 'ft')      addItem(items, 'ABAN 123', step.phase, percentile, { isContingency: true, contingencyReason: 'Contingência: retirada de plug do TMF (produção) com flexitubo' })
           }
-          // Teste de bloco de produção da ANM adiado: executado após retirada do plug de produção
-          addItem(items, 'ABAN 028', step.phase, percentile)
         }
-      }
-      // Plug de produção do TMF removido — injeta contingências de válvulas da ANM que foram adiadas
-      if (inputs.hasTmfPlug && (inputs.tmfPlugBores ?? []).includes('production')) {
-        const conts = inputs.anmValveContingency ?? []
-        if (conts.includes('jateamento'))
-          addItem(items, 'ABAN 125', step.phase, percentile, { isContingency: true, contingencyReason: 'Contingência: jateamento com flexitubo para abertura de válvulas da ANM' })
-        if (conts.includes('gabarit_ft'))
-          addItem(items, 'ABAN 124', step.phase, percentile, { isContingency: true, contingencyReason: 'Contingência: gabaritagem com motor de fundo e broca para abertura de válvulas da ANM' })
       }
       if (inputs.hasThPlug) {
         addItem(items, 'ABAN 052', step.phase, percentile)
@@ -1153,13 +1170,13 @@ export function generateSchedule(inputs: WizardInputs): ScheduleItem[] {
     }
 
     // ─── Teste do BOP após descida do BOP (todos exceto feth_on_th) ─
+    // Marcador presente apenas em escopos com BOP (FSU/FS2 Conv-BOP e Sup); RCMA usa FIBAP.
     if (step.packageId === 'BOP_TEST_INJECT') {
-      const isFS2NonRCMA = (inputs.scopeId?.startsWith('FS2') ?? false) && inputs.scopeId !== 'FS2_Conv_RCMA'
-      if (isFS2NonRCMA && inputs.bopTestMethod === 'feth_on_th') {
+      if (inputs.bopTestMethod === 'feth_on_th') {
         // teste deslocado para após a FETH — BOP_TEST_FETH_INJECT cuida disso
-      } else if (isFS2NonRCMA && inputs.bopTestMethod === 'ponteira_orman') {
+      } else if (inputs.bopTestMethod === 'ponteira_orman') {
         addItem(items, 'ABAN 240', step.phase, percentile)
-      } else if (isFS2NonRCMA && inputs.bopTestMethod === 'coluna_flutuada') {
+      } else if (inputs.bopTestMethod === 'coluna_flutuada') {
         addItem(items, 'ABAN 229', step.phase, percentile)
       } else {
         addItem(items, 'ABAN 228', step.phase, percentile)
@@ -1169,8 +1186,7 @@ export function generateSchedule(inputs: WizardInputs): ScheduleItem[] {
 
     // ─── Teste do BOP com FETH apoiada no TH (após descida da FETH) ─
     if (step.packageId === 'BOP_TEST_FETH_INJECT') {
-      const isFS2NonRCMA = (inputs.scopeId?.startsWith('FS2') ?? false) && inputs.scopeId !== 'FS2_Conv_RCMA'
-      if (isFS2NonRCMA && inputs.bopTestMethod === 'feth_on_th') {
+      if (inputs.bopTestMethod === 'feth_on_th') {
         addItem(items, 'ABAN 241', step.phase, percentile)
       }
       continue
@@ -1284,13 +1300,6 @@ export function generateSchedule(inputs: WizardInputs): ScheduleItem[] {
       if (effectivePkgId === 'ABAN 024' && tmfBores.includes('production')) effectivePkgId = 'ABAN 026'
       if (effectivePkgId === 'ABAN 025' && tmfBores.includes('annular'))    effectivePkgId = 'ABAN 027'
     }
-    // Teste de bloco da ANM adiado: executado após retirada do plug (injetado em PLUG_INJECT)
-    if (inputs.hasTmfPlug) {
-      const tmfBores = inputs.tmfPlugBores ?? []
-      if (effectivePkgId === 'ABAN 028' && tmfBores.includes('production')) continue
-      if (effectivePkgId === 'ABAN 029' && tmfBores.includes('annular'))    continue
-    }
-
     // ABAN 211 (prep CWO+TRT Fase 0, com TCap): suprimido quando não há TCap a retirar pelo WO.
     if (effectivePkgId === 'ABAN 211' &&
         (!equipments.includes('tree_cap') || inputs.tcapRemovalMethod === 'rov')) continue
@@ -1352,13 +1361,16 @@ export function generateSchedule(inputs: WizardInputs): ScheduleItem[] {
   const baseItems = items.filter(i => !i.autoInserted)
   const rebuiltItems = applyTransitions(baseItems, rigType, operationType, percentile, baseMode)
 
-  // Fase 0 vai até o desassentamento da TCap (inclusive) e abrange a dissociação de hidrato no
+  // Fase 0 vai até a retirada da TCap (inclusive) e abrange a dissociação de hidrato no
   // conector da TCap (ABAN 177), que ocorre logo após o desassentamento mas ainda integra a Fase 0.
   // Se não há TCap, reclassifica todos os itens Fase 0 para a fase inicial do escopo.
   // NB: esta reclassificação de fase é a fonte de verdade da owFase dos pacotes de mobilização
   // (DMM). A owFase deles NÃO é fixa no JSON — é derivada desta fase em AppContext (deriveOwFase
   // + FASE_TO_OW): com TCap → Fase 0/AP.0; sem TCap → Fase 1A/AP.1A; FS2 → Fase 2/AP.2.
-  const tcapUnseatingIds = new Set(['ABAN 020', 'ABAN 021', 'ABAN 022', 'ABAN 177'])
+  // A âncora cobre as duas formas de retirar a TCap, mantendo o mesmo critério da emissão do prep
+  // (211 por coluna / 010 por ROV): retirada por coluna termina em 020 (fundeio) ou 021/022
+  // (desassentamento/superfície); retirada por ROV é o próprio 010 (Fase 0, pós-mobilização).
+  const tcapUnseatingIds = new Set(['ABAN 010', 'ABAN 020', 'ABAN 021', 'ABAN 022', 'ABAN 177'])
   const lastTcapIdx = rebuiltItems.reduce((acc, item, i) =>
     tcapUnseatingIds.has(item.packageId) ? i : acc, -1)
 

@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom'
 import { X } from 'lucide-react'
 import { useApp } from '../context/AppContext'
 import { generateSchedule } from '../engines/sequenceEngine'
-import type { WizardInputs, SubseaEquipment, FlowlineLine, ScopeId, YesContingencyNo, TmfPlugBore, IsolationPlugType, IsolationCorrMethod, FishingElement, FishingMethod, VglAction, GaugeTech, InvestigationLog, RcmaCsbPrincipal, RcmaCementPkg } from '../types'
+import type { WizardInputs, FlowlineLine, ScopeId, YesContingencyNo, TmfPlugBore, IsolationPlugType, IsolationCorrMethod, FishingElement, FishingMethod, VglAction, GaugeTech, InvestigationLog, RcmaCsbPrincipal, RcmaCementPkg, TcapSurfaceFluid } from '../types'
 
 const FISHING_ELEMENT_LABELS: Record<FishingElement, string> = {
   camisao: 'Camisão', stv_r: 'STV nipple R 2,75"', stv_f: 'STV nipple F 2,81"',
@@ -76,16 +76,6 @@ const SCOPE_SHORT: Record<ScopeId, string> = {
   FS2_Sup_PWC:   'FS2 PWC',
 }
 
-const EQUIP_LABEL: Record<SubseaEquipment, string> = {
-  corrosion_cap:  'CCAP',
-  tree_cap:       'TCap',
-  mini_tree_cap:  'Mini TCap',
-  anm_vertical:   'ANM',
-  anm_horizontal: 'ANM H',
-  bap:            'BAP',
-  wellhead:       'Cabeça',
-}
-
 const LWO_SCOPES = new Set<ScopeId>(['FSU_TT_FT', 'FSU_TT_BDC', 'FSU_Conv_RCMA', 'FS1_Mec', 'FS2_Conv_RCMA'])
 
 const ALL_SCOPE_OPTS: { value: ScopeId; label: string }[] = [
@@ -115,12 +105,6 @@ export function InputSummaryPanel({ onClose }: { onClose?: () => void }) {
       dispatch({ type: 'UPDATE_SCHEDULE', schedule })
     } catch { /* invalid/incomplete state */ }
     if (autoClose) setEditing(null)
-  }
-
-  const toggleEquip = (e: SubseaEquipment) => {
-    const curr = inputs.subseaEquipments ?? []
-    const updated = curr.includes(e) ? curr.filter(x => x !== e) : [...curr, e]
-    apply({ subseaEquipments: updated }, false)
   }
 
   const toggleLine = (line: FlowlineLine) => {
@@ -171,21 +155,12 @@ export function InputSummaryPanel({ onClose }: { onClose?: () => void }) {
 const showRemoveANM = isTT || isFS1Mec
 
   const isLWIV = inputs.operationType === 'LWO'
-  const ccapRetLabel   = isLWIV ? 'CCAP — ret. a cabo' : 'CCAP — ret. c/ coluna'
-  const ccapRetTooltip = isLWIV
-    ? 'Prever retirada contingencial da CCAP a cabo (ABAN 009), caso a remoção por meios normais não seja possível'
-    : 'Prever retirada contingencial da CCAP com coluna de trabalho e garatéia (ABAN 008), caso a remoção por meios normais não seja possível'
+  const ccapEffectiveMethod = inputs.ccapRemovalMethod ?? (isLWIV ? 'cable' : 'workstring')
 
   const scopeOpts = ALL_SCOPE_OPTS.filter(o => !isLWO || LWO_SCOPES.has(o.value))
-  const equipOpts: { value: SubseaEquipment; label: string }[] = isFS2
-    ? [{ value: 'corrosion_cap', label: 'CCAP' }]
-    : [
-        { value: 'corrosion_cap', label: 'CCAP' },
-        { value: 'tree_cap',      label: 'Tree Cap Conv.' },
-      ]
 
   return (
-    <aside className={`${onClose ? 'flex-1' : 'w-80 shrink-0'} border-r border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-900 flex flex-col overflow-hidden`}>
+    <aside className={`${onClose ? 'flex-1' : 'w-96 shrink-0'} border-r border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-900 flex flex-col overflow-hidden`}>
       <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between shrink-0">
         <span className="text-xs font-bold text-slate-700 dark:text-slate-400 uppercase tracking-widest">Painel de Abandono</span>
         {onClose && (
@@ -252,17 +227,6 @@ const showRemoveANM = isTT || isFS1Mec
         {/* ── Fase 0 — Mobilização (só existe quando há TCap, Fase Única / Fase 1) ── */}
         {inputs.rigType && inputs.scopeId && !isFS2 && hasTC && (
           <Section label="Fase 0" accent="border-amber-400 dark:border-amber-600">
-            <Row label="Equipamentos Submarinos"
-              tooltip="Equipamentos subsea presentes no poço antes do início da intervenção"
-              value={(inputs.subseaEquipments ?? []).map(e => EQUIP_LABEL[e]).join(', ') || 'Nenhum'}
-              isEditing={isEd('equip')} onEdit={() => edit('equip')}>
-              <InlineCheckboxes
-                options={equipOpts}
-                values={inputs.subseaEquipments ?? []}
-                onToggle={v => toggleEquip(v as SubseaEquipment)}
-              />
-            </Row>
-
             {inputs.rigType === 'DP' && (
               <Row label="Transponder"
                 tooltip="Modo de instalação do transponder acústico: por COT (com garateia) ou por ROV"
@@ -289,18 +253,70 @@ const showRemoveANM = isTT || isFS1Mec
               </Row>
             )}
 
-            <Row label={inputs.rigType === 'DP' ? 'Fluido no DPR/HCR' : 'Fluido no riser dual bore'}
-              tooltip="Fluido de posicionamento no riser de WO após a descida do conjunto (N₂ ou fluido inibido)"
-              value={inputs.riserFluid === 'n2' ? 'N₂' : inputs.riserFluid === 'inhibited' ? 'Inibido' : '—'}
-              isEditing={isEd('riserFluid')} onEdit={() => edit('riserFluid')}>
+            <Row label="Retirar CCAP?"
+              tooltip="Existe CCAP (Corrosion Cap) instalada no poço que precisa ser retirada no início da intervenção?"
+              value={ync(inputs.contingencyCcapWorkstring)}
+              isEditing={isEd('equipCCAP')} onEdit={() => edit('equipCCAP')}>
               <InlineRadio
-                options={[{ value: 'n2', label: 'N₂' }, { value: 'inhibited', label: 'Inibido' }]}
-                value={inputs.riserFluid ?? ''}
-                onChange={v => apply({ riserFluid: v as WizardInputs['riserFluid'] })}
+                options={YNC_OPTIONS}
+                value={inputs.contingencyCcapWorkstring ?? ''}
+                onChange={v => {
+                  const curr = inputs.subseaEquipments ?? []
+                  const isYes = v === 'yes' || v === 'contingency'
+                  apply({
+                    contingencyCcapWorkstring: v as YesContingencyNo,
+                    subseaEquipments: isYes
+                      ? (curr.includes('corrosion_cap') ? curr : [...curr, 'corrosion_cap'])
+                      : curr.filter(x => x !== 'corrosion_cap'),
+                    ...(!isYes && { ccapRemovalMethod: undefined }),
+                  })
+                }}
+              />
+            </Row>
+
+            {hasCC && (
+              <Row label="Método CCAP"
+                tooltip="Método de retirada da CCAP: com coluna de trabalho e garatéia (ABAN 008) ou a cabo (ABAN 009)"
+                value={ccapEffectiveMethod === 'cable' ? 'Cabo' : 'Coluna'}
+                isEditing={isEd('ccapMethod')} onEdit={() => edit('ccapMethod')}>
+                <InlineRadio
+                  options={[{ value: 'workstring', label: 'Coluna' }, { value: 'cable', label: 'Cabo' }]}
+                  value={ccapEffectiveMethod}
+                  onChange={v => apply({ ccapRemovalMethod: v as 'workstring' | 'cable' })}
+                />
+              </Row>
+            )}
+
+            <Row label="Retirar Tree Cap?"
+              tooltip="Existe Tree Cap convencional instalado no poço que precisa ser retirado no início da intervenção?"
+              value={hasTC ? 'Sim' : 'Não'}
+              isEditing={isEd('equipTC')} onEdit={() => edit('equipTC')}>
+              <InlineRadio
+                options={[{ value: 'yes', label: 'Sim' }, { value: 'no', label: 'Não' }]}
+                value={hasTC ? 'yes' : 'no'}
+                onChange={v => {
+                  const curr = inputs.subseaEquipments ?? []
+                  apply({ subseaEquipments: v === 'yes'
+                    ? (curr.includes('tree_cap') ? curr : [...curr, 'tree_cap'])
+                    : curr.filter(x => x !== 'tree_cap') }, false)
+                }}
               />
             </Row>
 
             {hasTC && (
+              <Row label="Método Tree Cap"
+                tooltip="Método de retirada da TCap: pela coluna de WO (desce TRT+CWO, desassenta e fundeia/sobe — ABAN 211) ou diretamente pelo ROV durante a mobilização (ABAN 010)"
+                value={inputs.tcapRemovalMethod === 'rov' ? 'ROV' : inputs.tcapRemovalMethod === 'workstring' ? 'TRT' : '—'}
+                isEditing={isEd('tcapMethod')} onEdit={() => edit('tcapMethod')}>
+                <InlineRadio
+                  options={[{ value: 'workstring', label: 'TRT' }, { value: 'rov', label: 'ROV' }]}
+                  value={inputs.tcapRemovalMethod ?? ''}
+                  onChange={v => apply({ tcapRemovalMethod: v as WizardInputs['tcapRemovalMethod'] })}
+                />
+              </Row>
+            )}
+
+            {hasTC && inputs.tcapRemovalMethod !== 'rov' && (
               <Row label="Destino TCap"
                 tooltip="Destino da TCap após desassentamento: fundear no leito marinho ou retirar até a superfície?"
                 value={inputs.tcapDisposition === 'bottom' ? 'Fundeio' : inputs.tcapDisposition === 'surface' ? 'Superfície' : '—'}
@@ -313,29 +329,35 @@ const showRemoveANM = isTT || isFS1Mec
               </Row>
             )}
 
-            {hasCC && (
-              <Row label={ccapRetLabel}
-                tooltip={ccapRetTooltip}
-                value={ync(inputs.contingencyCcapWorkstring)}
-                isEditing={isEd('ccapWS')} onEdit={() => edit('ccapWS')}>
+            {hasTC && inputs.tcapRemovalMethod !== 'rov' && inputs.tcapDisposition === 'surface' && (
+              <Row label="Fluido DPR/HCR c/ TCap na sup."
+                tooltip="Fluido posicionado no DPR/HCR após subida da TCap à superfície: N₂ (desalagamento), fluido inibido pré-conexão (ABAN 215/209) ou fluido inibido pós-conexão (ABAN 216/217 — após reconexão)"
+                value={inputs.tcapSurfaceFluid === 'inhibited_pre' ? 'Inibido pré-conex.' : inputs.tcapSurfaceFluid === 'inhibited_post' ? 'Inibido pós-conex.' : 'N₂'}
+                isEditing={isEd('tcapSurfFluid')} onEdit={() => edit('tcapSurfFluid')}>
                 <InlineRadio
-                  options={YNC_OPTIONS}
-                  value={inputs.contingencyCcapWorkstring ?? ''}
-                  onChange={v => apply({ contingencyCcapWorkstring: v as YesContingencyNo })}
+                  options={[
+                    { value: 'n2',            label: 'N₂ (desalagamento)' },
+                    { value: 'inhibited_pre',  label: 'Inibido pré-conexão (ABAN 215/209)' },
+                    { value: 'inhibited_post', label: 'Inibido pós-conexão (ABAN 216/217)' },
+                  ]}
+                  value={inputs.tcapSurfaceFluid ?? 'n2'}
+                  onChange={v => apply({ tcapSurfaceFluid: v as TcapSurfaceFluid })}
                 />
               </Row>
             )}
 
-            <Row label="TCap — hidrato conector"
-              tooltip="Prever dissociação de hidrato no conector da TCap com jateamento de água aquecida (ABAN 177), após desassentamento"
-              value={ync(inputs.contingencyTcapHydrate)}
-              isEditing={isEd('tcapHyd')} onEdit={() => edit('tcapHyd')}>
-              <InlineRadio
-                options={YNC_OPTIONS}
-                value={inputs.contingencyTcapHydrate ?? ''}
-                onChange={v => apply({ contingencyTcapHydrate: v as YesContingencyNo })}
-              />
-            </Row>
+            {inputs.tcapRemovalMethod !== 'rov' && (
+              <Row label="Hidrato conector Tree Cap?"
+                tooltip="Prever dissociação de hidrato no conector da TCap com jateamento de água aquecida (ABAN 177), após desassentamento"
+                value={ync(inputs.contingencyTcapHydrate)}
+                isEditing={isEd('tcapHyd')} onEdit={() => edit('tcapHyd')}>
+                <InlineRadio
+                  options={YNC_OPTIONS}
+                  value={inputs.contingencyTcapHydrate ?? ''}
+                  onChange={v => apply({ contingencyTcapHydrate: v as YesContingencyNo })}
+                />
+              </Row>
+            )}
           </Section>
         )}
 
@@ -345,17 +367,6 @@ const showRemoveANM = isTT || isFS1Mec
             {/* Sem TCap: mobilização é Fase 1A, itens ficam aqui */}
             {!hasTC && (
               <>
-                <Row label="Equipamentos Submarinos"
-                  tooltip="Equipamentos subsea presentes no poço antes do início da intervenção"
-                  value={(inputs.subseaEquipments ?? []).map(e => EQUIP_LABEL[e]).join(', ') || 'Nenhum'}
-                  isEditing={isEd('equip')} onEdit={() => edit('equip')}>
-                  <InlineCheckboxes
-                    options={equipOpts}
-                    values={inputs.subseaEquipments ?? []}
-                    onToggle={v => toggleEquip(v as SubseaEquipment)}
-                  />
-                </Row>
-
                 {inputs.rigType === 'DP' && (
                   <Row label="Transponder"
                     tooltip="Modo de instalação do transponder acústico: por COT (com garateia) ou por ROV"
@@ -382,33 +393,54 @@ const showRemoveANM = isTT || isFS1Mec
                   </Row>
                 )}
 
-                <Row label={inputs.rigType === 'DP' ? 'Fluido no DPR/HCR' : 'Fluido no riser dual bore'}
-                  tooltip="Fluido de posicionamento no riser de WO após a descida do conjunto (N₂ ou fluido inibido)"
-                  value={inputs.riserFluid === 'n2' ? 'N₂' : inputs.riserFluid === 'inhibited' ? 'Inibido' : '—'}
-                  isEditing={isEd('riserFluid')} onEdit={() => edit('riserFluid')}>
+                <Row label="Retirar CCAP?"
+                  tooltip="Existe CCAP (Corrosion Cap) instalada no poço que precisa ser retirada no início da intervenção?"
+                  value={ync(inputs.contingencyCcapWorkstring)}
+                  isEditing={isEd('equipCCAP')} onEdit={() => edit('equipCCAP')}>
                   <InlineRadio
-                    options={[{ value: 'n2', label: 'N₂' }, { value: 'inhibited', label: 'Inibido' }]}
-                    value={inputs.riserFluid ?? ''}
-                    onChange={v => apply({ riserFluid: v as WizardInputs['riserFluid'] })}
+                    options={YNC_OPTIONS}
+                    value={inputs.contingencyCcapWorkstring ?? ''}
+                    onChange={v => {
+                      const curr = inputs.subseaEquipments ?? []
+                      const isYes = v === 'yes' || v === 'contingency'
+                      apply({
+                        contingencyCcapWorkstring: v as YesContingencyNo,
+                        subseaEquipments: isYes
+                          ? (curr.includes('corrosion_cap') ? curr : [...curr, 'corrosion_cap'])
+                          : curr.filter(x => x !== 'corrosion_cap'),
+                        ...(!isYes && { ccapRemovalMethod: undefined }),
+                      })
+                    }}
                   />
                 </Row>
 
                 {hasCC && (
-                  <Row label={ccapRetLabel}
-                    tooltip={ccapRetTooltip}
-                    value={ync(inputs.contingencyCcapWorkstring)}
-                    isEditing={isEd('ccapWS')} onEdit={() => edit('ccapWS')}>
+                  <Row label="Método CCAP"
+                    tooltip="Método de retirada da CCAP: com coluna de trabalho e garatéia (ABAN 008) ou a cabo (ABAN 009)"
+                    value={ccapEffectiveMethod === 'cable' ? 'Cabo' : 'Coluna'}
+                    isEditing={isEd('ccapMethod')} onEdit={() => edit('ccapMethod')}>
                     <InlineRadio
-                      options={YNC_OPTIONS}
-                      value={inputs.contingencyCcapWorkstring ?? ''}
-                      onChange={v => apply({ contingencyCcapWorkstring: v as YesContingencyNo })}
+                      options={[{ value: 'workstring', label: 'Coluna' }, { value: 'cable', label: 'Cabo' }]}
+                      value={ccapEffectiveMethod}
+                      onChange={v => apply({ ccapRemovalMethod: v as 'workstring' | 'cable' })}
                     />
                   </Row>
                 )}
               </>
             )}
 
-            <Row label="Plug TMF exist."
+            <Row label={inputs.rigType === 'DP' ? 'Fluido no DPR/HCR' : 'Fluido no riser dual bore'}
+              tooltip="Fluido de posicionamento no riser de WO após a descida do conjunto (N₂ ou fluido inibido)"
+              value={inputs.riserFluid === 'n2' ? 'N₂' : inputs.riserFluid === 'inhibited' ? 'Inibido' : '—'}
+              isEditing={isEd('riserFluid')} onEdit={() => edit('riserFluid')}>
+              <InlineRadio
+                options={[{ value: 'n2', label: 'N₂' }, { value: 'inhibited', label: 'Inibido' }]}
+                value={inputs.riserFluid ?? ''}
+                onChange={v => apply({ riserFluid: v as WizardInputs['riserFluid'] })}
+              />
+            </Row>
+
+            <Row label="Retirar plug do TMF?"
               tooltip="Existe plug instalado no TMF (Tree Manifold — topo da ANM) que precisa ser recuperado no início da intervenção?"
               value={inputs.hasTmfPlug === true ? 'Sim' : inputs.hasTmfPlug === false ? 'Não' : '—'}
               isEditing={isEd('hasTmfPlug')} onEdit={() => edit('hasTmfPlug')}>
@@ -480,7 +512,7 @@ const showRemoveANM = isTT || isFS1Mec
               </Row>
             )}
 
-            <Row label="Plug TH exist."
+            <Row label="Retirar plug do TH?"
               tooltip="Existe plug instalado no TH (Tubing Hanger) que precisa ser recuperado no início da intervenção?"
               value={inputs.hasThPlug === true ? 'Sim' : inputs.hasThPlug === false ? 'Não' : '—'}
               isEditing={isEd('hasThPlug')} onEdit={() => edit('hasThPlug')}>
@@ -514,7 +546,7 @@ const showRemoveANM = isTT || isFS1Mec
             )}
 
             <Row label="Hidrato na ANM?"
-              tooltip="Prever contingências de hidrato na ANM após teste funcional: dissociação direta (ABAN 165/166/169/170), jateamento FT (ABAN 125) ou gabaritagem FT (ABAN 124)"
+              tooltip="Prever contingências de hidrato na ANM após teste funcional: dissociação direta (ABAN 165/166/169/170) ou jateamento FT (ABAN 125)"
               value={ync(inputs.anmHydrate)}
               isEditing={isEd('anmValve')} onEdit={() => edit('anmValve')}>
               <div className="space-y-2">
@@ -524,7 +556,7 @@ const showRemoveANM = isTT || isFS1Mec
                   onChange={v => apply({
                     anmHydrate: v as YesContingencyNo,
                     anmValveContingency: v === 'no' ? undefined : inputs.anmValveContingency,
-                  })}
+                  }, v === 'no')}
                 />
                 {(inputs.anmHydrate === 'yes' || inputs.anmHydrate === 'contingency') && (
                   <div className="ml-2 border-l-2 border-gray-200 pl-2">
@@ -532,12 +564,11 @@ const showRemoveANM = isTT || isFS1Mec
                       options={[
                         { value: 'hydrate',    label: 'Dissociação de hidrato' },
                         { value: 'jateamento', label: 'Jateamento com FT (ABAN 125)' },
-                        { value: 'gabarit_ft', label: 'Gabaritagem FT c/ motor e broca' },
                       ]}
                       values={inputs.anmValveContingency ?? []}
                       onToggle={v => {
                         const curr = inputs.anmValveContingency ?? []
-                        const key = v as 'hydrate' | 'jateamento' | 'gabarit_ft'
+                        const key = v as 'hydrate' | 'jateamento'
                         const next = curr.includes(key) ? curr.filter(x => x !== key) : [...curr, key]
                         apply({ anmValveContingency: next.length ? next : undefined }, false)
                       }}
@@ -545,6 +576,50 @@ const showRemoveANM = isTT || isFS1Mec
                   </div>
                 )}
               </div>
+            </Row>
+
+            <Row label="Abrir válvula da ANM com FT?"
+              tooltip="Prever operação de abertura de válvula da ANM via flexitubo: com martelete (ABAN 143) ou motor de fundo e broca (ABAN 124)"
+              value={ync(inputs.anmForceOpen)}
+              isEditing={isEd('anmForce')} onEdit={() => edit('anmForce')}>
+              <div className="space-y-2">
+                <InlineRadio
+                  options={YNC_OPTIONS}
+                  value={inputs.anmForceOpen ?? ''}
+                  onChange={v => apply({
+                    anmForceOpen: v as YesContingencyNo,
+                    anmForceMethod: v === 'no' ? undefined : inputs.anmForceMethod,
+                  }, v === 'no')}
+                />
+                {(inputs.anmForceOpen === 'yes' || inputs.anmForceOpen === 'contingency') && (
+                  <div className="ml-2 border-l-2 border-gray-200 pl-2">
+                    <InlineCheckboxes
+                      options={[
+                        { value: 'hammer',     label: 'Martelete (ABAN 143)' },
+                        { value: 'motor_broca', label: 'Motor de fundo e broca (ABAN 124)' },
+                      ]}
+                      values={inputs.anmForceMethod ?? []}
+                      onToggle={v => {
+                        const curr = inputs.anmForceMethod ?? []
+                        const key = v as 'hammer' | 'motor_broca'
+                        const next = curr.includes(key) ? curr.filter(x => x !== key) : [...curr, key]
+                        apply({ anmForceMethod: next.length ? next : undefined }, false)
+                      }}
+                    />
+                  </div>
+                )}
+              </div>
+            </Row>
+
+            <Row label="Amortecer?"
+              tooltip="Amortecimento do poço na Fase 1A (COP/COI ABAN 061/062/219, anular A ABAN 063/064/065 e anular A pós-canhoneio ABAN 255). 'Não' = poço já isolado: dispensa amortecimento e confirma a estanqueidade do poço (ABAN 226) no lugar da despressurização do anular A. 'Contingência' = testa a estanqueidade antes (ABAN 226) e prevê o amortecimento apenas como contingência."
+              value={ync(inputs.killWellFase1A ?? 'yes')}
+              isEditing={isEd('killWellFase1A')} onEdit={() => edit('killWellFase1A')}>
+              <InlineRadio
+                options={YNC_OPTIONS}
+                value={inputs.killWellFase1A ?? 'yes'}
+                onChange={v => apply({ killWellFase1A: v as YesContingencyNo })}
+              />
             </Row>
 
             <Row label="E.O. anular A"
@@ -692,7 +767,7 @@ const showRemoveANM = isTT || isFS1Mec
                     gaugeTech: v as GaugeTech,
                     gaugeContingency: v === 'no' ? undefined : inputs.gaugeContingency,
                     gaugeCamisaoAcoplado: v === 'wireline' ? inputs.gaugeCamisaoAcoplado : undefined,
-                  })}
+                  }, v === 'no')}
                 />
                 {inputs.gaugeTech === 'wireline' && (
                   <div className="ml-2 border-l-2 border-gray-200 pl-2">
@@ -717,7 +792,7 @@ const showRemoveANM = isTT || isFS1Mec
               </div>
             </Row>
 
-            <Row label="Gabaritagem c/ FT"
+            <Row label="Gabaritar com FT/MF+broca?"
               tooltip="Prever contingência de gabaritagem com motor de fundo e broca via flexitubo (ABAN 124), após gabaritagem convencional por arame"
               value={ync(inputs.contingencyGabaritFT)}
               isEditing={isEd('gabaritFT')} onEdit={() => edit('gabaritFT')}>
@@ -928,10 +1003,10 @@ const showRemoveANM = isTT || isFS1Mec
 
             <Row label="Perfuração da COP/COI"
               tooltip={usesFs1Barrier && !rcmaFluidCsb
-                ? 'Canhoneio da coluna: perfuração profunda antes da rasa (tubing puncher). "Não perfurar" remove o pacote do cronograma.'
+                ? 'Canhoneio profundo da coluna (tubing puncher). "Não perfurar" remove o pacote do cronograma.'
                 : 'Método de canhoneio da COP/COI para comunicação com a formação (tubing puncher a cabo ou arame DSL)'}
               value={usesFs1Barrier && !rcmaFluidCsb
-                ? `${inputs.tubingPerfMethod === 'wireline' ? 'Arame' : inputs.tubingPerfMethod === 'ct' ? 'FT' : 'Cabo'} · Prof. ${inputs.fs1PerfProfunda === 'no' ? 'não' : 'sim'} · Rasa ${inputs.fs1PerfRasa === 'no' ? 'não' : 'sim'}`
+                ? `${inputs.tubingPerfMethod === 'wireline' ? 'Arame' : inputs.tubingPerfMethod === 'ct' ? 'FT' : 'Cabo'} · Prof. ${inputs.fs1PerfProfunda === 'no' ? 'não' : 'sim'}`
                 : inputs.tubingPerfMethod === 'electric' ? 'Perfilagem' : inputs.tubingPerfMethod === 'wireline' ? 'Arame' : '—'}
               isEditing={isEd('perfMethod')} onEdit={() => edit('perfMethod')}>
               {usesFs1Barrier && !rcmaFluidCsb ? (
@@ -950,14 +1025,6 @@ const showRemoveANM = isTT || isFS1Mec
                       options={[{ value: 'yes', label: 'Perfurar' }, { value: 'no', label: 'Não perfurar' }]}
                       value={inputs.fs1PerfProfunda ?? ''}
                       onChange={v => apply({ fs1PerfProfunda: v as 'yes' | 'no' }, false)}
-                    />
-                  </div>
-                  <div>
-                    <p className="text-[10px] text-gray-400">Rasa — {inputs.tubingPerfMethod === 'wireline' ? 'eFire (ABAN 045)' : inputs.tubingPerfMethod === 'ct' ? 'tubing puncher FT (ABAN 154)' : 'tubing puncher (ABAN 101)'}</p>
-                    <InlineRadio
-                      options={[{ value: 'yes', label: 'Perfurar' }, { value: 'no', label: 'Não perfurar' }]}
-                      value={inputs.fs1PerfRasa ?? ''}
-                      onChange={v => apply({ fs1PerfRasa: v as 'yes' | 'no' })}
                     />
                   </div>
                 </div>
@@ -984,7 +1051,7 @@ const showRemoveANM = isTT || isFS1Mec
                     { value: 'replace', label: 'Substituir' },
                   ]}
                   value={inputs.vglAction ?? ''}
-                  onChange={v => apply({ vglAction: v ? v as VglAction : undefined, vglContingency: v ? inputs.vglContingency : undefined, vglFishingMethod: v ? (inputs.vglFishingMethod ?? 'wireline') : undefined, vglInstallStv: v ? inputs.vglInstallStv : undefined, vglRemoveStv: v ? inputs.vglRemoveStv : undefined })}
+                  onChange={v => apply({ vglAction: v ? v as VglAction : undefined, vglContingency: v ? inputs.vglContingency : undefined, vglFishingMethod: v ? (inputs.vglFishingMethod ?? 'wireline') : undefined, vglInstallStv: v ? inputs.vglInstallStv : undefined, vglRemoveStv: v ? inputs.vglRemoveStv : undefined }, !v)}
                 />
                 {inputs.vglAction && (
                   <>
@@ -1041,7 +1108,7 @@ const showRemoveANM = isTT || isFS1Mec
                       installTmfPlugEndProd: v === 'fluid_csb' ? undefined : inputs.installTmfPlugEndProd,
                       installTmfPlugEndAnul: v === 'fluid_csb' ? undefined : inputs.installTmfPlugEndAnul,
                       fs1CsbSecondary: v === 'fluid_csb' ? undefined : inputs.fs1CsbSecondary,
-                    })}
+                    }, v !== 'cement_plug')}
                   />
                   {inputs.rcmaCsbPrincipal === 'cement_plug' && (
                     <div className="ml-2 border-l-2 border-gray-200 pl-2 space-y-1">
@@ -1089,7 +1156,7 @@ const showRemoveANM = isTT || isFS1Mec
                         onChange={v => apply({
                           fs1CsbAlreadyInstalled: v === 'yes',
                           fs1CsbPrimary: v === 'yes' ? undefined : inputs.fs1CsbPrimary,
-                        })}
+                        }, v === 'yes')}
                       />
                       {inputs.fs1CsbAlreadyInstalled === false && (
                         <div className="ml-2 border-l-2 border-gray-200 pl-2">
@@ -1177,15 +1244,49 @@ const showRemoveANM = isTT || isFS1Mec
             )}
 
             {usesFs1Barrier && !rcmaFluidCsb && (
-              <Row label="CSB secundário"
-                tooltip="Elemento do CSB secundário (CSB 2)"
-                value={inputs.fs1CsbSecondary === 'plug_th' ? 'Plug TH' : inputs.fs1CsbSecondary === 'tae' ? 'TAE' : '—'}
-                isEditing={isEd('fs1Csb2')} onEdit={() => edit('fs1Csb2')}>
+              <Row label="Perfuração rasa da COP/COI"
+                tooltip="Canhoneio raso da coluna antes da instalação do CSB 2. Usa a mesma tecnologia selecionada na perfuração profunda."
+                value={inputs.fs1PerfRasa === 'no' ? 'Não perfurar' : 'Perfurar'}
+                isEditing={isEd('perfRasa')} onEdit={() => edit('perfRasa')}>
                 <InlineRadio
-                  options={[{ value: 'plug_th', label: 'Plug TH' }, { value: 'tae', label: 'TAE' }]}
-                  value={inputs.fs1CsbSecondary ?? ''}
-                  onChange={v => apply({ fs1CsbSecondary: v as WizardInputs['fs1CsbSecondary'] })}
+                  options={[{ value: 'yes', label: 'Perfurar' }, { value: 'no', label: 'Não perfurar' }]}
+                  value={inputs.fs1PerfRasa ?? 'yes'}
+                  onChange={v => apply({ fs1PerfRasa: v as 'yes' | 'no' })}
                 />
+              </Row>
+            )}
+
+            {usesFs1Barrier && !rcmaFluidCsb && (
+              <Row label="CSB secundário"
+                tooltip="CSB 2: plug TH (ABAN 042) ou TAE (ABAN 237). Selecione Não para omitir o CSB 2 do cronograma."
+                value={
+                  inputs.fs1CsbSecondaryMode === 'no' ? 'Não'
+                  : inputs.fs1CsbSecondaryMode === 'contingency'
+                    ? `Conting. (${inputs.fs1CsbSecondary === 'tae' ? 'TAE' : 'Plug TH'})`
+                    : inputs.fs1CsbSecondary
+                      ? (inputs.fs1CsbSecondary === 'tae' ? 'TAE' : 'Plug TH')
+                      : '—'
+                }
+                isEditing={isEd('fs1Csb2')} onEdit={() => edit('fs1Csb2')}>
+                <div className="space-y-2">
+                  <InlineRadio
+                    options={YNC_OPTIONS}
+                    value={inputs.fs1CsbSecondaryMode ?? ''}
+                    onChange={v => apply({
+                      fs1CsbSecondaryMode: v as YesContingencyNo,
+                      fs1CsbSecondary: v === 'no' ? undefined : (inputs.fs1CsbSecondary ?? 'plug_th'),
+                    }, v === 'no')}
+                  />
+                  {(inputs.fs1CsbSecondaryMode === 'yes' || inputs.fs1CsbSecondaryMode === 'contingency') && (
+                    <div className="ml-2 border-l-2 border-gray-200 pl-2">
+                      <InlineRadio
+                        options={[{ value: 'plug_th', label: 'Plug TH (ABAN 042)' }, { value: 'tae', label: 'TAE (ABAN 237)' }]}
+                        value={inputs.fs1CsbSecondary ?? 'plug_th'}
+                        onChange={v => apply({ fs1CsbSecondary: v as WizardInputs['fs1CsbSecondary'] }, false)}
+                      />
+                    </div>
+                  )}
+                </div>
               </Row>
             )}
 
@@ -1431,16 +1532,6 @@ const showRemoveANM = isTT || isFS1Mec
             {/* FS2: mobilização é Fase 2, equip e CCAP ficam aqui */}
             {isFS2 && (
               <>
-                <Row label="Equipamentos Submarinos"
-                  tooltip="Equipamentos subsea presentes no poço antes do início da intervenção"
-                  value={(inputs.subseaEquipments ?? []).map(e => EQUIP_LABEL[e]).join(', ') || 'Nenhum'}
-                  isEditing={isEd('equip')} onEdit={() => edit('equip')}>
-                  <InlineCheckboxes
-                    options={equipOpts}
-                    values={inputs.subseaEquipments ?? []}
-                    onToggle={v => toggleEquip(v as SubseaEquipment)}
-                  />
-                </Row>
                 {inputs.rigType === 'DP' && (
                   <Row label="Transponder"
                     tooltip="Modo de instalação do transponder acústico: por COT (com garateia) ou por ROV"
@@ -1465,22 +1556,43 @@ const showRemoveANM = isTT || isFS1Mec
                     />
                   </Row>
                 )}
+                <Row label="Retirar CCAP?"
+                  tooltip="Existe CCAP (Corrosion Cap) instalada no poço que precisa ser retirada no início da intervenção?"
+                  value={ync(inputs.contingencyCcapWorkstring)}
+                  isEditing={isEd('equipCCAP')} onEdit={() => edit('equipCCAP')}>
+                  <InlineRadio
+                    options={YNC_OPTIONS}
+                    value={inputs.contingencyCcapWorkstring ?? ''}
+                    onChange={v => {
+                      const curr = inputs.subseaEquipments ?? []
+                      const isYes = v === 'yes' || v === 'contingency'
+                      apply({
+                        contingencyCcapWorkstring: v as YesContingencyNo,
+                        subseaEquipments: isYes
+                          ? (curr.includes('corrosion_cap') ? curr : [...curr, 'corrosion_cap'])
+                          : curr.filter(x => x !== 'corrosion_cap'),
+                        ...(!isYes && { ccapRemovalMethod: undefined }),
+                      })
+                    }}
+                  />
+                </Row>
+
                 {hasCC && (
-                  <Row label={ccapRetLabel}
-                    tooltip={ccapRetTooltip}
-                    value={ync(inputs.contingencyCcapWorkstring)}
-                    isEditing={isEd('ccapWS')} onEdit={() => edit('ccapWS')}>
+                  <Row label="Método CCAP"
+                    tooltip="Método de retirada da CCAP: com coluna de trabalho e garatéia (ABAN 008) ou a cabo (ABAN 009)"
+                    value={ccapEffectiveMethod === 'cable' ? 'Cabo' : 'Coluna'}
+                    isEditing={isEd('ccapMethod')} onEdit={() => edit('ccapMethod')}>
                     <InlineRadio
-                      options={YNC_OPTIONS}
-                      value={inputs.contingencyCcapWorkstring ?? ''}
-                      onChange={v => apply({ contingencyCcapWorkstring: v as YesContingencyNo })}
+                      options={[{ value: 'workstring', label: 'Coluna' }, { value: 'cable', label: 'Cabo' }]}
+                      value={ccapEffectiveMethod}
+                      onChange={v => apply({ ccapRemovalMethod: v as 'workstring' | 'cable' })}
                     />
                   </Row>
                 )}
               </>
             )}
 
-            {hasBop && (
+            {hasBop && !isRCMA && (
               <Row label="BOP — limpeza c/ FEJAT"
                 tooltip="Prever jateamento do housing com FEJAT (ABAN 227) antes da preparação e descida do BOP"
                 value={ync(inputs.contingencyFejat)}
@@ -1493,7 +1605,7 @@ const showRemoveANM = isTT || isFS1Mec
               </Row>
             )}
 
-            {isFS2 && !isRCMA && (
+            {hasBop && !isRCMA && (
               <Row label="Teste do BOP"
                 tooltip="Método de teste de pressão do BOP (Test Plug → ABAN 228; Ponteira ORMAN → ABAN 240; Coluna flutuada → ABAN 229; FETH sobre TH → ABAN 241 após descida da FETH)"
                 value={
@@ -1515,7 +1627,7 @@ const showRemoveANM = isTT || isFS1Mec
               </Row>
             )}
 
-            {isFS2 && (
+            {hasBopCement && (
               <Row label="Corte de COP/COI"
                 tooltip="Prever contingência de corte de COP/COI caso o TH não desassente. Inclui retirada da FETH e descida de cortador de coluna."
                 value={ync(inputs.fs2CopCutContingency)}
@@ -1527,7 +1639,7 @@ const showRemoveANM = isTT || isFS1Mec
                     onChange={v => apply({
                       fs2CopCutContingency: v as YesContingencyNo,
                       fs2CopCutMethod: v ? (inputs.fs2CopCutMethod ?? 'electric') : undefined,
-                    })}
+                    }, v === 'no')}
                   />
                   {(inputs.fs2CopCutContingency === 'yes' || inputs.fs2CopCutContingency === 'contingency') && (
                     <div className="ml-2 border-l-2 border-gray-200 pl-2">
@@ -1570,7 +1682,7 @@ const showRemoveANM = isTT || isFS1Mec
                     onChange={v => apply({
                       supIntermTailFishing: v as YesContingencyNo,
                       supIntermTailMethod: (v === 'yes' || v === 'contingency') ? (inputs.supIntermTailMethod ?? 'overshot') : undefined,
-                    })}
+                    }, v === 'no')}
                   />
                   {(inputs.supIntermTailFishing === 'yes' || inputs.supIntermTailFishing === 'contingency') && (
                     <div className="ml-2 border-l-2 border-gray-200 pl-2">
