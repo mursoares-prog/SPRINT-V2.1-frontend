@@ -294,31 +294,18 @@ function Home() {
           <p className="text-xs text-red-500 font-semibold -mt-4">{openError}</p>
         )}
 
-        <div className="flex flex-col gap-3 w-full max-w-lg">
-          <div className="grid grid-cols-2 gap-3">
-            {[
-              { icon: <Settings2 size={18} />, title: 'Pacotes ABAN', value: `${Object.keys(PACKAGES).length}` },
-              { icon: <SemisubIcon size={18} />, title: 'Tipos de sonda', value: 'ANC + DP' },
-            ].map(card => (
-              <div key={card.title} className="bg-slate-100 dark:bg-slate-800 rounded-xl p-4 border border-slate-200 dark:border-slate-700 shadow-sm text-center">
-                <div className="text-[#d97706] flex justify-center mb-2">{card.icon}</div>
-                <p className="text-lg font-bold text-[#0c2340] dark:text-white">{card.value}</p>
-                <p className="text-xs text-slate-700 dark:text-slate-400 mt-0.5">{card.title}</p>
-              </div>
-            ))}
-          </div>
-          <div className="bg-slate-100 dark:bg-slate-800 rounded-xl p-4 border border-slate-200 dark:border-slate-700 shadow-sm">
-            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-500 mb-2.5 flex items-center gap-1.5">
-              <FileText size={12} /> Escopos suportados
-            </p>
-            <div className="flex flex-wrap gap-1.5">
-              {[...new Set(Object.values(SCOPE_LABEL))].map(label => (
-                <span key={label} className="text-xs px-2 py-0.5 rounded-full bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 font-medium">
-                  {label}
-                </span>
-              ))}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 w-full max-w-lg">
+          {[
+            { icon: <FileText size={18} />, title: 'Escopos', value: '11' },
+            { icon: <Settings2 size={18} />, title: 'Pacotes ABAN', value: `${Object.keys(PACKAGES).length}` },
+            { icon: <SemisubIcon size={18} />, title: 'Tipos de sonda', value: 'ANC + DP' },
+          ].map(card => (
+            <div key={card.title} className="bg-slate-100 dark:bg-slate-800 rounded-xl p-4 border border-slate-200 dark:border-slate-700 shadow-sm text-center">
+              <div className="text-[#d97706] flex justify-center mb-2">{card.icon}</div>
+              <p className="text-lg font-bold text-[#0c2340] dark:text-white">{card.value}</p>
+              <p className="text-xs text-slate-700 dark:text-slate-400 mt-0.5">{card.title}</p>
             </div>
-          </div>
+          ))}
         </div>
 
         {session && (
