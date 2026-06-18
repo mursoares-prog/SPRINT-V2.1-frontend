@@ -303,7 +303,7 @@ function Home() {
             <div key={card.title} className="bg-slate-100 dark:bg-slate-800 rounded-xl p-4 border border-slate-200 dark:border-slate-700 shadow-sm text-center">
               <div className="text-[#d97706] flex justify-center mb-2">{card.icon}</div>
               <p className="text-lg font-bold text-[#0c2340] dark:text-white">{card.value}</p>
-              <p className="text-xs text-slate-700 dark:text-slate-400 mt-0.5">{card.title}</p>
+              <p className="text-xs font-bold text-[#0c2340] dark:text-white mt-0.5">{card.title}</p>
             </div>
           ))}
         </div>
