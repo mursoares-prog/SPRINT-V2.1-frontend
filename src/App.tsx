@@ -509,7 +509,7 @@ function Main({ onLogout }: { onLogout: () => void }) {
         />
         {showAdmin && isAdmin() && <AdminView onClose={() => setShowAdmin(false)} />}
         {showPackages && <PackagesCatalogModal onClose={() => setShowPackages(false)} />}
-        {showFlowchart && isAdmin() && <FlowchartModal onClose={() => setShowFlowchart(false)} />}
+        {showFlowchart && <FlowchartModal onClose={() => setShowFlowchart(false)} />}
 
         {state.view === 'schedule' && (
           <div className="flex">

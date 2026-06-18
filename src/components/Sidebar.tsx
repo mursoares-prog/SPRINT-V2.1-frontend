@@ -129,8 +129,7 @@ export function Sidebar({ isDark, onToggleDark, onOpenConfig, onOpenPackages, on
           onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = '#64748b' }}>
           <LegoIcon size={19} />
         </button>
-        {admin && (
-          <button
+        <button
             onClick={() => onOpenFlowchart?.()}
             title="Fluxograma"
             className="w-10 h-10 rounded-xl flex items-center justify-center transition-colors"
@@ -139,7 +138,6 @@ export function Sidebar({ isDark, onToggleDark, onOpenConfig, onOpenPackages, on
             onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = '#64748b' }}>
             <Network size={19} />
           </button>
-        )}
         {admin && (
           <button
             onClick={() => onOpenConfig?.()}
