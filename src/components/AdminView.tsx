@@ -86,7 +86,7 @@ export function AdminView({ onClose }: { onClose: () => void }) {
 
   useEffect(() => {
     void reload()
-    if (isAdmin() && isApiConfigured()) getBaseFields().then(setFields).catch(() => {})
+    if (isApiConfigured()) getBaseFields().then(setFields).catch(() => {})
   }, [reload])
 
   const log = serverLog ?? LOG
