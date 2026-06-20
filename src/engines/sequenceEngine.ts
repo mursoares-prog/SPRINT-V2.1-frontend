@@ -62,7 +62,7 @@ function addItem(
   })
 }
 
-function applyTimeline(items: ScheduleItem[]): ScheduleItem[] {
+export function applyTimeline(items: ScheduleItem[]): ScheduleItem[] {
   let day = 0
   return items.map(item => {
     const start = day
@@ -1421,7 +1421,7 @@ function makeAutoItem(packageId: string, phase: Phase, percentile: Percentile, i
  *   4. Operações sem requisito de equipamento (technology === 'none') NÃO forçam desmontagem —
  *      o equipamento permanece montado caso vá ser usado novamente em seguida.
  */
-function applyTransitions(
+export function applyTransitions(
   base: ScheduleItem[],
   rigType: 'ANC' | 'DP',
   operationType: 'Generalista' | 'LWO',

@@ -190,6 +190,17 @@ export function resetPackageLines(pkgId: string, authHeaders: Record<string, str
   )
 }
 
+/** Importa um batch de pacotes do sistema externo (formato ProjectFacts enriquecido). */
+export function importPackages(
+  packages: Array<{ pkgId: string; name: string; category: string; technology: string; lines: BaseLine[] }>,
+  authHeaders: Record<string, string>,
+) {
+  return req<{ imported: number; packages: Array<{ pkgId: string; tipo: string; lines: number }> }>(
+    '/api/base/import',
+    { method: 'POST', headers: authHeaders, body: JSON.stringify({ packages }) },
+  )
+}
+
 /** Cria um pacote customizado (em branco ou duplicando linhas). */
 export function createPackage(meta: { name: string; category: string; technology: string }, lines: BaseLine[], authHeaders: Record<string, string>) {
   return req<CustomPackageMeta & { lines: BaseLine[] }>(
@@ -210,6 +221,48 @@ export function updatePackageMeta(pkgId: string, patch: Partial<{ name: string; 
 export function deletePackage(pkgId: string, authHeaders: Record<string, string>) {
   return req<{ pkgId: string; deleted: boolean }>(
     `/api/base/packages/${encodeURIComponent(pkgId)}`,
+    { method: 'DELETE', headers: authHeaders },
+  )
+}
+
+// ─── Logic Scope API ─────────────────────────────────────────────────────────
+
+export interface LogicScopeMeta {
+  scopeId: string
+  isCustom: boolean
+  label: string | null
+  sectionCount: number
+  author: string | null
+  updatedAt: string
+}
+
+export function getLogicScopes() {
+  return req<LogicScopeMeta[]>('/api/logic/scopes')
+}
+
+export function getLogicScope(scopeId: string) {
+  return req<{ scopeId: string; isCustom: boolean; label: string | null; sections: unknown[] }>(
+    `/api/logic/scopes/${encodeURIComponent(scopeId)}`,
+  )
+}
+
+export function saveLogicScope(scopeId: string, sections: unknown[], authHeaders: Record<string, string>) {
+  return req<{ scopeId: string; isCustom: boolean; sectionCount: number }>(
+    `/api/logic/scopes/${encodeURIComponent(scopeId)}`,
+    { method: 'PUT', headers: authHeaders, body: JSON.stringify({ sections }) },
+  )
+}
+
+export function createLogicScope(meta: { scopeId: string; label: string; sections?: unknown[] }, authHeaders: Record<string, string>) {
+  return req<{ scopeId: string; isCustom: boolean; label: string; sectionCount: number }>(
+    '/api/logic/scopes',
+    { method: 'POST', headers: authHeaders, body: JSON.stringify(meta) },
+  )
+}
+
+export function deleteLogicScope(scopeId: string, authHeaders: Record<string, string>) {
+  return req<{ scopeId: string; deleted: boolean; wasCustom: boolean }>(
+    `/api/logic/scopes/${encodeURIComponent(scopeId)}`,
     { method: 'DELETE', headers: authHeaders },
   )
 }

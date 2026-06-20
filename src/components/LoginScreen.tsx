@@ -53,10 +53,10 @@ export function LoginScreen({ onLogin }: { onLogin: (session: Session) => void }
           </div>
           <h1 style={{ fontFamily: "'Barlow Condensed', sans-serif" }}
             className="text-4xl font-bold tracking-[0.15em] text-[#0c2340] dark:text-white uppercase">
-            SPRINT ABAN
+            SPRINT
           </h1>
           <p className="text-xs font-semibold tracking-[0.2em] text-[#d97706] uppercase">
-            Sistema de Planejamento de Abandono
+            Sistema de Planejamento de Abandono e Workover
           </p>
         </div>
 

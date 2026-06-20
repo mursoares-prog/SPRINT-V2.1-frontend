@@ -8,15 +8,16 @@ import { AdminView } from './components/AdminView'
 import { PackagesCatalogModal } from './components/PackagesCatalogModal'
 import { FlowchartModal } from './components/FlowchartModal'
 import { InputSummaryPanel } from './components/InputSummaryPanel'
-import { generateSchedule } from './engines/sequenceEngine'
+import { generateSchedule } from './engines/scheduleRouter'
 import type { ScopeId, WizardInputs, IsolationConfig } from './types'
 import { ArrowRight, FileText, Settings2, FolderOpen, AlertTriangle, Server } from 'lucide-react'
 import { loadProjectFromFile } from './utils/projectFile'
-import { isApiConfigured, getMergedPackageLines, getBaseOverrides, getBasePackageOverrides, getCustomPackages } from './utils/api'
+import { isApiConfigured, getMergedPackageLines, getBaseOverrides, getBasePackageOverrides, getCustomPackages, getLogicScopes, getLogicScope } from './utils/api'
 import { getSession, clearSession } from './utils/auth'
 import { setPackageLines } from './data/packageLinesStore'
 import { applyDetailOverrides, applyPackageOverrides } from './data/lineDetailsStore'
 import { setExtraPackages, metaToPackage, PACKAGES } from './data/packages'
+import { setLogicOverrides, setCustomScopesMeta, getCustomScopesMeta } from './data/logicOverrideStore'
 import { ServerProjectsModal } from './components/ServerProjectsModal'
 
 function SemisubIcon({ size = 24, className = '' }: { size?: number; className?: string }) {
@@ -183,15 +184,22 @@ function Home() {
   const [selecting, setSelecting] = useState(false)
   const [askingWell, setAskingWell] = useState(false)
   const [wellName,    setWellName]    = useState('')
-  const [rigType,     setRigType]     = useState<'ANC' | 'DP' | ''>('')
+  const [interventionType, setInterventionType] = useState<'abandono' | 'workover' | ''>('')
+  const [rigType,     setRigType]     = useState<'ANC' | 'DP' | 'PA' | 'SPH' | ''>('')
   const [opType,      setOpType]      = useState<'Generalista' | 'LWO'>('Generalista')
   const [phaseFilter, setPhaseFilter] = useState<'fase_unica' | 'fase_1' | 'fase_2' | ''>('')
   const [scopeId,     setScopeId]     = useState<ScopeId | ''>('')
   const [openError,   setOpenError]   = useState<string | null>(null)
   const [showServer,  setShowServer]  = useState(false)
+  const [customScopes, setCustomScopesState] = useState<{ scopeId: string; label: string }[]>(getCustomScopesMeta)
+
+  // Re-lê quando a tela de seleção abre (boot pode ter terminado depois do render inicial).
+  useEffect(() => {
+    if (selecting) setCustomScopesState(getCustomScopesMeta())
+  }, [selecting])
 
   const reset = () => {
-    setRigType(''); setOpType('Generalista'); setPhaseFilter(''); setScopeId(''); setWellName('')
+    setInterventionType(''); setRigType(''); setOpType('Generalista'); setPhaseFilter(''); setScopeId(''); setWellName('')
   }
 
   const handleStartNew = () => {
@@ -200,9 +208,9 @@ function Home() {
     setSelecting(true)
   }
 
-  const handleRigChange = (v: 'ANC' | 'DP') => {
+  const handleRigChange = (v: 'ANC' | 'DP' | 'PA' | 'SPH') => {
     setRigType(v)
-    if (v === 'ANC') setOpType('Generalista')
+    if (v !== 'DP') setOpType('Generalista')
     setPhaseFilter(''); setScopeId('')
   }
   const handleOpChange = (v: 'Generalista' | 'LWO') => {
@@ -210,6 +218,9 @@ function Home() {
   }
   const handlePhaseChange = (v: typeof phaseFilter) => {
     setPhaseFilter(v); setScopeId('')
+  }
+  const handleInterventionChange = (v: 'abandono' | 'workover') => {
+    setInterventionType(v); setRigType(''); setOpType('Generalista'); setPhaseFilter(''); setScopeId('')
   }
 
   const handleGenerate = () => {
@@ -245,7 +256,7 @@ function Home() {
 
   const scopeMap = opType === 'LWO' ? SCOPE_BY_PHASE_LWO : SCOPE_BY_PHASE
   const scopeOptions = phaseFilter ? scopeMap[phaseFilter] ?? [] : []
-  const canGenerate = !!rigType && !!scopeId
+  const canGenerate = interventionType === 'abandono' && !!rigType && !!scopeId
 
   if (!selecting) {
     return (
@@ -257,14 +268,14 @@ function Home() {
             </div>
             <h1 style={{ fontFamily: "'Barlow Condensed', sans-serif" }}
               className="text-5xl font-bold tracking-[0.15em] text-[#0c2340] dark:text-white uppercase">
-              SPRINT ABAN
+              SPRINT
             </h1>
           </div>
           <p className="text-xs font-semibold tracking-[0.2em] text-[#d97706] uppercase mb-3">
-            Sistema de Planejamento Responsivo de Intervenções de Abandono
+            Sistema de Planejamento Responsivo de Intervenções
           </p>
           <p className="text-slate-700 dark:text-slate-400 max-w-sm mx-auto text-sm leading-relaxed text-center">
-            Geração automática de cronogramas para intervenções de abandono de poços submarinos.
+            Geração automatizada de cronogramas para intervenções de abandono e workover de poços submarinos.
           </p>
         </div>
 
@@ -365,19 +376,53 @@ function Home() {
 
         <div className="bg-slate-100 dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm p-7 space-y-6">
 
-          {/* Posicionamento */}
-          <SelGroup label="Tipo de posicionamento">
+          {/* Tipo de intervenção */}
+          <SelGroup label="Tipo de intervenção">
             <div className="flex gap-3">
-              {(['ANC', 'DP'] as const).map(v => (
-                <SelChip key={v} active={rigType === v} onClick={() => handleRigChange(v)}>
-                  {v === 'ANC' ? 'Ancorada (ANC)' : 'Posicionamento Dinâmico (DP)'}
-                </SelChip>
-              ))}
+              <SelChip active={interventionType === 'abandono'} onClick={() => handleInterventionChange('abandono')}>
+                Abandono
+              </SelChip>
+              <SelChip active={interventionType === 'workover'} onClick={() => handleInterventionChange('workover')}>
+                Workover
+              </SelChip>
             </div>
           </SelGroup>
 
-          {/* Tipo de sonda */}
-          {rigType === 'DP' && (
+          {/* Workover: em desenvolvimento */}
+          {interventionType === 'workover' && (
+            <div className="flex items-center justify-center py-6 rounded-xl border border-dashed border-slate-300 dark:border-slate-700">
+              <span className="text-xs font-bold tracking-widest text-slate-400 dark:text-slate-500 uppercase">Em desenvolvimento</span>
+            </div>
+          )}
+
+          {/* Posicionamento (somente Abandono) */}
+          {interventionType === 'abandono' && (
+            <SelGroup label="Tipo de posicionamento">
+              <div className="flex flex-wrap gap-3">
+                {(['ANC', 'DP'] as const).map(v => (
+                  <SelChip key={v} active={rigType === v} onClick={() => handleRigChange(v)}>
+                    {v === 'ANC' ? 'Ancorada (ANC)' : 'Posicionamento Dinâmico (DP)'}
+                  </SelChip>
+                ))}
+                <SelChip active={rigType === 'PA'} onClick={() => handleRigChange('PA')}>
+                  Auto Elevatória (PA)
+                </SelChip>
+                <SelChip active={rigType === 'SPH'} onClick={() => handleRigChange('SPH')}>
+                  Prod. Hidráulica (SPH)
+                </SelChip>
+              </div>
+            </SelGroup>
+          )}
+
+          {/* PA / SPH: em desenvolvimento */}
+          {interventionType === 'abandono' && (rigType === 'PA' || rigType === 'SPH') && (
+            <div className="flex items-center justify-center py-6 rounded-xl border border-dashed border-slate-300 dark:border-slate-700">
+              <span className="text-xs font-bold tracking-widest text-slate-400 dark:text-slate-500 uppercase">Em desenvolvimento</span>
+            </div>
+          )}
+
+          {/* Tipo de sonda (DP) */}
+          {interventionType === 'abandono' && rigType === 'DP' && (
             <SelGroup label="Tipo de sonda">
               <div className="flex flex-wrap gap-3">
                 {(['Generalista', 'LWO'] as const).map(v => (
@@ -390,7 +435,7 @@ function Home() {
           )}
 
           {/* Fase */}
-          {rigType && (
+          {interventionType === 'abandono' && (rigType === 'ANC' || rigType === 'DP') && (
             <SelGroup label="Fase da intervenção">
               <div className="flex flex-wrap gap-3">
                 {([
@@ -406,8 +451,8 @@ function Home() {
             </SelGroup>
           )}
 
-          {/* Escopo */}
-          {phaseFilter && scopeOptions.length > 0 && (
+          {/* Escopo bundle */}
+          {interventionType === 'abandono' && phaseFilter && scopeOptions.length > 0 && (
             <SelGroup label="Escopo previsto">
               <div className="space-y-2">
                 {scopeOptions.map(id => (
@@ -419,6 +464,25 @@ function Home() {
                     <input type="radio" name="scope" value={id} checked={scopeId === id}
                       onChange={() => setScopeId(id)} className="accent-[#0c2340]" />
                     <span className="text-sm text-slate-700 dark:text-slate-200">{SCOPE_LABEL[id]}</span>
+                  </label>
+                ))}
+              </div>
+            </SelGroup>
+          )}
+
+          {/* Escopos customizados (criados no Admin → Sequenciamento) */}
+          {interventionType === 'abandono' && (rigType === 'ANC' || rigType === 'DP') && customScopes.length > 0 && (
+            <SelGroup label="Escopos customizados">
+              <div className="space-y-2">
+                {customScopes.map(cs => (
+                  <label key={cs.scopeId}
+                    className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-colors
+                      ${scopeId === cs.scopeId
+                        ? 'border-[#d97706] bg-amber-50 dark:bg-amber-950/30 dark:border-amber-700'
+                        : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600'}`}>
+                    <input type="radio" name="scope" value={cs.scopeId} checked={scopeId === cs.scopeId}
+                      onChange={() => setScopeId(cs.scopeId)} className="accent-[#d97706]" />
+                    <span className="text-sm text-slate-700 dark:text-slate-200">{cs.label}</span>
                   </label>
                 ))}
               </div>
@@ -577,6 +641,19 @@ export default function App() {
     getCustomPackages().then(ms => setExtraPackages(
       Object.fromEntries(ms.map(m => [m.pkgId, metaToPackage(m)])),
     )).catch(() => {})
+    // Overrides de engine (LSec[]) → store para routing engine antiga/nova.
+    getLogicScopes().then(scopes => {
+      // Expõe escopos customizados ao picker do wizard.
+      setCustomScopesMeta(scopes.filter(s => s.isCustom).map(s => ({ scopeId: s.scopeId, label: s.label ?? s.scopeId })))
+      const active = scopes.filter(s => s.sectionCount > 0)
+      if (!active.length) return
+      Promise.all(active.map(s => getLogicScope(s.scopeId))).then(results => {
+        const map: Record<string, unknown[]> = {}
+        active.forEach((s, i) => { map[s.scopeId] = results[i].sections })
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        setLogicOverrides(map as any)
+      }).catch(() => {})
+    }).catch(() => {})
   }, [session])
 
   if (!session) {

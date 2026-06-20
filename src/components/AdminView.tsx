@@ -1,4 +1,4 @@
-import { X, Search, ShieldCheck, History, Table2, Pencil, Trash2, Plus, GitBranch } from 'lucide-react'
+import { X, Search, ShieldCheck, History, Table2, Pencil, Trash2, Plus, GitBranch, Upload, Workflow } from 'lucide-react'
 import { LOGIC_SECS, type LPkg, type LAns, type LDec, type LSec } from '../data/logicSecs'
 import { useState, useMemo, useEffect, useCallback } from 'react'
 import {
@@ -11,6 +11,8 @@ import { setExtraPackages, metaToPackage } from '../data/packages'
 import { setPackageLines } from '../data/packageLinesStore'
 import { applyDetailOverrides, applyPackageOverrides } from '../data/lineDetailsStore'
 import { AdminVarsEditor } from './AdminVarsEditor'
+import { ImportPackagesModal } from './ImportPackagesModal'
+import { LogicEditorPanel } from './LogicEditorPanel'
 import CHANGE_LOG from '../data/changeLog.json'
 
 // Chave dos overrides legados por linha (rec/pad de fallback no editor).
@@ -47,11 +49,12 @@ const TIPO_STYLE: Record<string, { label: string; cls: string; Icon: typeof Penc
   'metadado':       { label: 'Metadado',       cls: 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400',        Icon: Pencil },
 }
 
-type Tab = 'vars' | 'log' | 'logic'
+type Tab = 'vars' | 'log' | 'logic' | 'engine'
 
 export function AdminView({ onClose }: { onClose: () => void }) {
   const [tab, setTab] = useState<Tab>('vars')
   const [query, setQuery] = useState('')
+  const [showImport, setShowImport] = useState(false)
   // Base mesclada (bundled + overrides) e log: priorizam o servidor; caem no
   // bundle (packageLines/changeLog.json) quando não há backend ou a chamada falha.
   const [serverBase, setServerBase] = useState<PackageLines | null>(null)
@@ -106,8 +109,8 @@ export function AdminView({ onClose }: { onClose: () => void }) {
   }, [query, log])
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-start pl-4 bg-black/40 backdrop-blur-sm">
-      <div className="relative flex flex-col bg-slate-100 dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-[calc(95vw-1rem)] max-h-[90vh] overflow-hidden">
+    <div className={`fixed inset-0 z-50 flex items-center bg-black/40 backdrop-blur-sm ${tab === 'engine' ? 'p-0' : 'justify-start pl-4'}`}>
+      <div className={`relative flex flex-col bg-slate-100 dark:bg-slate-900 shadow-2xl overflow-hidden ${tab === 'engine' ? 'w-full h-full rounded-none' : 'rounded-2xl w-full max-w-[calc(95vw-1rem)] max-h-[90vh]'}`}>
 
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200 dark:border-slate-700 shrink-0">
@@ -138,10 +141,13 @@ export function AdminView({ onClose }: { onClose: () => void }) {
           <TabButton active={tab === 'logic'} onClick={() => setTab('logic')} Icon={GitBranch}>
             Teste de lógica
           </TabButton>
+          <TabButton active={tab === 'engine'} onClick={() => setTab('engine')} Icon={Workflow}>
+            Sequenciamento
+          </TabButton>
         </div>
 
         {/* Search */}
-        {tab !== 'logic' && <div className="px-5 py-3 border-b border-slate-100 dark:border-slate-800 shrink-0">
+        {tab !== 'logic' && tab !== 'engine' && <div className="px-5 py-3 border-b border-slate-100 dark:border-slate-800 shrink-0">
           <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800">
             <Search size={14} className="text-slate-600 shrink-0" />
             <input
@@ -167,12 +173,20 @@ export function AdminView({ onClose }: { onClose: () => void }) {
           <LogPanel entries={filteredLog} />
         ) : tab === 'logic' ? (
           <LogicTestPanel />
+        ) : tab === 'engine' ? (
+          <LogicEditorPanel canEdit={canEdit} />
         ) : (
           <>
             {canEdit && (
               <div className="m-3 flex items-center gap-2 rounded-lg border border-amber-200 dark:border-amber-900/50 bg-amber-50/70 dark:bg-amber-900/15 px-3 py-2 text-[11px] text-amber-800 dark:text-amber-300">
                 <Pencil size={13} className="shrink-0" />
-                <span>Modo admin: abra um pacote para editar suas linhas inline (texto/placeholders, duração, recomendações, padrões, ontologia), adicionar/excluir/reordenar e copiar/colar linhas. Use <strong>Novo pacote</strong> ou <strong>Duplicar</strong> para criar pacotes customizados.</span>
+                <span className="flex-1">Modo admin: abra um pacote para editar suas linhas inline (texto/placeholders, duração, recomendações, padrões, ontologia), adicionar/excluir/reordenar e copiar/colar linhas. Use <strong>Novo pacote</strong> ou <strong>Duplicar</strong> para criar pacotes customizados.</span>
+                <button
+                  onClick={() => setShowImport(true)}
+                  className="shrink-0 flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-[11px] font-semibold transition-colors">
+                  <Upload size={12} />
+                  Importar JSON
+                </button>
               </div>
             )}
             <AdminVarsEditor
@@ -190,9 +204,22 @@ export function AdminView({ onClose }: { onClose: () => void }) {
             ? `${filteredLog.length} de ${log.length} alteração(ões)`
             : tab === 'logic'
             ? 'Visualizador estático — FS1_Mec · DP Generalista'
+            : tab === 'engine'
+            ? 'Editor de engine — overrides e novos escopos customizados'
             : `${customMetas.length} pacote(s) customizado(s)`}
         </div>
       </div>
+
+      {showImport && (
+        <ImportPackagesModal
+          onClose={() => setShowImport(false)}
+          onDone={() => { setShowImport(false); void reload() }}
+          existingPkgIds={[
+            ...Object.keys(serverBase ?? {}),
+            ...customMetas.map(m => m.pkgId),
+          ]}
+        />
+      )}
     </div>
   )
 }

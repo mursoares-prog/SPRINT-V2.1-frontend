@@ -1,139 +1,315 @@
-﻿export type LPkg = { id: string; name: string }
-export interface LAns {
-  label: string; active?: boolean; note?: string
-  packages?: LPkg[]; sub?: LDec[]
+﻿export type LCondition =
+  | 'clean_flowlines' | 'remove_anm' | 'not_remove_anm' | 'no_pdi'
+  | 'stuck_risk' | 'dhsv_no_sleeve' | 'transponder_cot' | 'transponder_rov'
+
+export type LPkgPhase = 'Fase 0' | 'Fase 1A' | 'Fase 1B' | 'Fase 2' | 'Extra Abandono' | 'Mobilização' | 'Desmobilização'
+export type LTech = 'wireline' | 'ct' | 'electric' | 'workstring' | 'bop' | 'none'
+
+export type LPkg = {
+  id: string
+  name: string
+  // Campos opcionais para execução pela logicEngine:
+  phase?: LPkgPhase
+  isContingency?: boolean
+  contingencyReason?: string
+  technology?: LTech
+  transitionTechnology?: LTech
+  condition?: LCondition
 }
-export interface LDec { question: string; answers: LAns[] }
+
+export type LSeqEntry = { label: string; note?: string; packages?: LPkg[] }
+
+export interface LAns {
+  label: string
+  active?: boolean
+  note?: string
+  packages?: LPkg[]
+  sub?: LDec[]
+  seq?: LSeqEntry[]  // respostas sequenciais abaixo desta (sem decisão intermediária)
+  goto?: string      // texto da pergunta destino (link visual entre respostas e decisões)
+  // Mapeamento para WizardInputs (field + value → seleciona esta resposta):
+  field?: string
+  value?: unknown
+}
+
+export interface LDec {
+  question: string
+  answers: LAns[]
+  after?: LSeqEntry[]  // entradas sequenciais exibidas após a convergência das respostas
+}
+
 export interface LSec {
-  id: string; label: string; phase: string; color: 'gray'|'blue'|'amber'
-  always?: LPkg[]; decisions: LDec[]
+  id: string
+  label: string
+  phase: string
+  color: 'gray' | 'blue' | 'amber'
+  always?: LPkg[]
+  decisions: LDec[]
+  // Filtros de execução (ausentes = aplica para todos):
+  rigTypes?: ('ANC' | 'DP')[]
+  opTypes?: ('Generalista' | 'LWO')[]
+}
+
+// ── Canvas livre (formas e conexões livres) ──────────────────────────────────
+
+export type CanvasNodeType = 'start' | 'end' | 'decision' | 'process' | 'package' | 'note'
+
+export interface CanvasNode {
+  id: string
+  type: CanvasNodeType
+  x: number
+  y: number
+  label: string
+}
+
+export interface CanvasEdge {
+  id: string
+  from: string
+  to: string
+  label?: string
+  dashed?: boolean
+}
+
+export interface CanvasData {
+  nodes: CanvasNode[]
+  edges: CanvasEdge[]
 }
 
 // ── SEÇÕES COMPARTILHADAS (Fase 0 / 1A) ────────────────────────────────────
 
-// CCAP + TCap por ROV (POST_MOB na engine): comuns às duas sondas.
-const _MOB_POST: LDec[] = [
-  {
-    question: 'Cap de corrosão (CCAP)?',
-    answers: [
-      { label: 'Não', active: true },
-      { label: 'Sim', packages: [
-        { id: 'ABAN 008', name: 'Retirada de CCAP com coluna de trabalho (garatéia)' },
-      ]},
-    ],
-  },
-  {
-    question: 'Retirar TCap por ROV?',
-    answers: [
-      { label: 'Não', active: true },
-      { label: 'Sim', packages: [
-        { id: 'ABAN 010', name: 'Retirar de TCap com ROV' },
-      ]},
-    ],
-  },
+// CCAP: idêntico para DP e ANC.
+const _MOB_POST_CCAP: LDec = {
+  question: 'Cap de corrosão (CCAP)?',
+  answers: [
+    { label: 'Não', active: true },
+    { label: 'Sim', packages: [
+      { id: 'ABAN 008', name: 'Retirada de CCAP com coluna de trabalho (garatéia)' },
+    ]},
+  ],
+}
+
+// Hidrato na ANM: pacotes de dissociação diferem por rig (165/166 DP; 169/170 ANC).
+// Mantidos como constantes separadas pois 'mob' não passa por _mapSec em _secsForRig.
+const _CONEXAO_HIDRATO_DP: LDec = {
+  question: 'Hidrato na ANM?',
+  answers: [
+    { label: 'Sim', active: true, packages: [
+      { id: 'ABAN 165', name: 'Dissociação hidrato — prod. (DP)' },
+      { id: 'ABAN 166', name: 'Dissociação hidrato — anular (DP)' },
+    ], sub: [{
+      question: 'Contingência de válvula ANM?',
+      answers: [
+        { label: 'Nenhuma', active: true },
+        { label: 'Jateamento', packages: [{ id: 'ABAN 125', name: 'Flexitubo - Jateamento (SpinCat) + Gabaritagem' }] },
+        { label: 'Gabarit. FT', packages: [{ id: 'ABAN 124', name: 'Flexitubo - Gabaritagem' }] },
+      ],
+    }]},
+    { label: 'Não' },
+  ],
+}
+const _CONEXAO_HIDRATO_ANC: LDec = {
+  question: 'Hidrato na ANM?',
+  answers: [
+    { label: 'Sim', active: true, packages: [
+      { id: 'ABAN 169', name: 'Dissociação hidrato — prod. (ANC)' },
+      { id: 'ABAN 170', name: 'Dissociação hidrato — anular (ANC)' },
+    ], sub: [{
+      question: 'Contingência de válvula ANM?',
+      answers: [
+        { label: 'Nenhuma', active: true },
+        { label: 'Jateamento', packages: [{ id: 'ABAN 125', name: 'Flexitubo - Jateamento (SpinCat) + Gabaritagem' }] },
+        { label: 'Gabarit. FT', packages: [{ id: 'ABAN 124', name: 'Flexitubo - Gabaritagem' }] },
+      ],
+    }]},
+    { label: 'Não' },
+  ],
+}
+
+// Pacotes de descida WO por rig — usados na etapa sequencial e na re-descida pós-Superfície.
+const _DESCIDA_DP: LPkg[] = [
+  { id: 'ABAN 011', name: 'Descida do conjunto de WO (DPR/HCR)' },
+  { id: 'ABAN 246', name: 'Montagem do SFT (DP Generalista)' },
+  { id: 'ABAN 014', name: 'Flush do DPR/HCR' },
+]
+const _DESCIDA_ANC: LPkg[] = [
+  { id: 'ABAN 012', name: 'Descida do Conjunto de WO com Riser Dual Bore' },
+  { id: 'ABAN 247', name: 'Montagem do Terminal Head (ANC)' },
+  { id: 'ABAN 015', name: 'Flush Riser Dual Bore com agmar' },
 ]
 
-// Sonda DP (posicionamento dinâmico): transponder + DMM + calibração DP.
-// Espelha MOB_DP da engine (sequences.ts): recolhimento → DMM → lançamento → POST_MOB.
+// Descida WO como decisão sequencial standalone (sempre "Executar").
+// Posicionada ANTES do TCap para garantir que o WO está no fundo antes das ops de TCap.
+// Para Superfície: a re-descida após retirar a TCap é coberta pelo ..._DESCIDA_* no ramo.
+const _DESCIDA_DEC_DP: LDec = {
+  question: 'Descida do conjunto de WO?',
+  answers: [{ label: 'Executar', active: true, packages: _DESCIDA_DP }],
+}
+const _DESCIDA_DEC_ANC: LDec = {
+  question: 'Descida do conjunto de WO?',
+  answers: [{ label: 'Executar', active: true, packages: _DESCIDA_ANC }],
+}
+
+// Fluido de riser: decisão sequencial standalone (sem sub — segue para _REENTRADA_* abaixo).
+const _FLUIDO_DP: LDec = {
+  question: 'Fluido de riser inibido?',
+  answers: [
+    { label: 'Sim', active: true, packages: [{ id: 'ABAN 215', name: 'Posicionamento de fluido inibido no DPR/HCR' }] },
+    { label: 'N₂ / sem fluido', packages: [{ id: 'ABAN 016', name: 'Desalagamento DPR/HCR com Nitrogênio' }] },
+  ],
+}
+const _FLUIDO_ANC: LDec = {
+  question: 'Fluido de riser inibido?',
+  answers: [
+    { label: 'Sim', active: true, packages: [{ id: 'ABAN 209', name: 'Posicionamento de fluido inibido no Riser Dual Bore' }] },
+    { label: 'N₂ / sem fluido', packages: [{ id: 'ABAN 017', name: 'Desalagamento Riser Dual Bore com Nitrogênio' }] },
+  ],
+}
+
+// Reentrada + testes ANM: decisão sequencial standalone (sempre "Executar").
+// Idêntica para DP e ANC; _CONEXAO_HIDRATO_* vem como próxima decisão da seção.
+const _REENTRADA_DP: LDec = {
+  question: 'Reentrada e conexão na ANM?',
+  answers: [{ label: 'Executar', active: true, packages: [
+    { id: 'ABAN 023', name: 'Reentrada e conexão na ANM' },
+    { id: 'ABAN 024', name: 'Teste funcional — bloco produção' },
+    { id: 'ABAN 025', name: 'Teste funcional — bloco anular' },
+    { id: 'ABAN 218', name: 'Teste funcional — válvula anular' },
+  ]}],
+}
+const _REENTRADA_ANC: LDec = _REENTRADA_DP
+
+// TCap DP: ramos sem pacotes de descida (vêm da decisão sequencial _DESCIDA_DEC_DP antes).
+// Superfície tem re-descida (..  ._DESCIDA_DP) pois o WO sobe com a TCap e depois re-desce.
+// 211 só em Superfície (prep TRT). Fundeio e Não/N.A. seguem com WO já no fundo.
+const _MOB_TCAP_DP: LDec = {
+  question: 'Retirar TCap?',
+  answers: [
+    { label: 'Não / N.A.', active: true },
+    { label: 'Sim', sub: [{
+      question: 'Método de retirada da TCap?',
+      answers: [
+        { label: 'ROV', packages: [{ id: 'ABAN 010', name: 'Retirar TCap com ROV' }] },
+        { label: 'TRT', active: true, sub: [{
+          question: 'Destino da TCap?',
+          answers: [
+            { label: 'Fundeio', active: true, packages: [
+              { id: 'ABAN 018', name: 'Movimentação e conexão na Tcap' },
+              { id: 'ABAN 019', name: 'Ventilação de TCap' },
+              { id: 'ABAN 020', name: 'Desassentamento de TCap e fundeio no leito marinho' },
+            ] },
+            { label: 'Superfície', packages: [
+              { id: 'ABAN 211', name: 'Preparação do Conjunto de WO + TRT para retirada/fundeio da TCap' },
+              { id: 'ABAN 244', name: 'Descida do Conjunto de WO com DPR/HCR para retirada/fundeio da TCap' },
+              { id: 'ABAN 018', name: 'Movimentação e conexão na Tcap' },
+              { id: 'ABAN 019', name: 'Ventilação de TCap' },
+              { id: 'ABAN 021', name: 'Desassentamento de TCap e retirada até a superfície com DPR/HCR' },
+              ..._DESCIDA_DP,
+            ] },
+          ],
+        }]},
+      ],
+    }]},
+  ],
+}
+
+// TCap ANC: idem mas 245/022 em vez de 244/021, e _DESCIDA_ANC.
+const _MOB_TCAP_ANC: LDec = {
+  question: 'Retirar TCap?',
+  answers: [
+    { label: 'Não / N.A.', active: true },
+    { label: 'Sim', sub: [{
+      question: 'Método de retirada da TCap?',
+      answers: [
+        { label: 'ROV', packages: [{ id: 'ABAN 010', name: 'Retirar TCap com ROV' }] },
+        { label: 'TRT', active: true, sub: [{
+          question: 'Destino da TCap?',
+          answers: [
+            { label: 'Fundeio', active: true, packages: [
+              { id: 'ABAN 018', name: 'Movimentação e conexão na Tcap' },
+              { id: 'ABAN 019', name: 'Ventilação de TCap' },
+              { id: 'ABAN 020', name: 'Desassentamento de TCap e fundeio no leito marinho' },
+            ] },
+            { label: 'Superfície', packages: [
+              { id: 'ABAN 211', name: 'Preparação do Conjunto de WO + TRT para retirada/fundeio da TCap' },
+              { id: 'ABAN 245', name: 'Descida do Conjunto de WO com Riser Dual Bore para retirada/fundeio da TCap' },
+              { id: 'ABAN 018', name: 'Movimentação e conexão na Tcap' },
+              { id: 'ABAN 019', name: 'Ventilação de TCap' },
+              { id: 'ABAN 022', name: 'Desassentamento de TCap e retirada até a superfície com Riser Dual Bore' },
+              ..._DESCIDA_ANC,
+            ] },
+          ],
+        }]},
+      ],
+    }]},
+  ],
+}
+
+// Seção unificada MOBILIZAÇÃO + DESCIDA WO + CONEXÃO ANM (DP), exceto DHSV.
+// Ordem: Transponder → CCAP → Descida WO → TCap → Fluido → Reentrada → Hidrato.
 const SEC_MOB_DP: LSec = {
-  id: 'mob', label: 'MOBILIZAÇÃO (DP)', phase: 'Fase 0', color: 'gray',
+  id: 'mob', label: 'MOBILIZAÇÃO / DESCIDA / CONEXÃO (DP)', phase: 'Fase 0', color: 'gray',
   decisions: [
     {
       question: 'Modo do transponder?',
       answers: [
         { label: 'ROV', active: true, packages: [
           { id: 'ABAN 002', name: 'Recolhimento de transponder com ROV' },
-          { id: 'ABAN 007', name: 'Lançamento de transponder com ROV e calibração DP' },
-        ]},
+        ], sub: [{
+          question: 'DMM — equipamento subsea no fundo?',
+          answers: [
+            { label: 'Não', active: true, packages: [
+              { id: 'ABAN 003', name: 'DMM' },
+              { id: 'ABAN 007', name: 'Lançamento de transponder com ROV e calibração DP' },
+            ]},
+            { label: 'Sim — Fase 1', packages: [
+              { id: 'ABAN 004', name: 'DMM - Fase 1 / Stack-up SSUB no fundo' },
+              { id: 'ABAN 007', name: 'Lançamento de transponder com ROV e calibração DP' },
+            ]},
+            { label: 'Sim — Fase 2', packages: [
+              { id: 'ABAN 005', name: 'DMM - Fase 2 / BOP no fundo' },
+              { id: 'ABAN 007', name: 'Lançamento de transponder com ROV e calibração DP' },
+            ]},
+          ],
+        }]},
         { label: 'COT', packages: [
           { id: 'ABAN 001', name: 'Recolhimento de transponder com COT' },
-          { id: 'ABAN 006', name: 'Lançamento de transponder com COT e calibração DP' },
-        ]},
-      ],
-    },
-    {
-      question: 'DMM — equipamento subsea no fundo?',
-      answers: [
-        { label: 'Não', active: true, packages: [
-          { id: 'ABAN 003', name: 'DMM' },
-        ]},
-        { label: 'Sim — Fase 1', packages: [
-          { id: 'ABAN 004', name: 'DMM - Fase 1 / Stack-up SSUB no fundo' },
-        ]},
-        { label: 'Sim — Fase 2', packages: [
-          { id: 'ABAN 005', name: 'DMM - Fase 2 / BOP no fundo' },
-        ]},
-      ],
-    },
-    ..._MOB_POST,
-  ],
-}
-
-// Sonda ancorada (ANC): DMA, sem transponder/calibração DP.
-// Espelha MOB_ANC da engine (sequences.ts): ABAN 208 + POST_MOB.
-const SEC_MOB_ANC: LSec = {
-  id: 'mob', label: 'MOBILIZAÇÃO (ANC)', phase: 'Fase 0', color: 'gray',
-  always: [
-    { id: 'ABAN 208', name: 'DMA' },
-  ],
-  decisions: [..._MOB_POST],
-}
-
-const SEC_DESCIDA: LSec = {
-  id: 'desc', label: 'DESCIDA DO WO', phase: 'Fase 1A', color: 'blue',
-  always: [
-    { id: 'ABAN 011', name: 'Descida do conjunto de WO (DPR/HCR)' },
-    { id: 'ABAN 246', name: 'Montagem do SFT (DP Generalista)' },
-    { id: 'ABAN 014', name: 'Flush do DPR/HCR' },
-  ],
-  decisions: [
-    {
-      question: 'Fluido de riser inibido?',
-      answers: [
-        { label: 'Sim', active: true, packages: [
-          { id: 'ABAN 215', name: 'Posicionamento de fluido inibido no DPR/HCR' },
-        ]},
-        { label: 'N₂ / sem fluido', packages: [
-          { id: 'ABAN 016', name: 'Desalagamento DPR/HCR com Nitrogênio' },
-        ]},
-      ],
-    },
-  ],
-}
-
-const SEC_CONEXAO: LSec = {
-  id: 'conexao', label: 'CONEXÃO NA ANM', phase: 'Fase 1A', color: 'blue',
-  always: [
-    { id: 'ABAN 023', name: 'Reentrada e conexão na ANM' },
-    { id: 'ABAN 024', name: 'Teste funcional — bloco produção' },
-    { id: 'ABAN 025', name: 'Teste funcional — bloco anular' },
-    { id: 'ABAN 218', name: 'Teste funcional — válvula anular' },
-  ],
-  decisions: [
-    {
-      question: 'Hidrato na ANM?',
-      answers: [
-        { label: 'Sim', active: true,
-          packages: [
-            { id: 'ABAN 165', name: 'Dissociação hidrato — prod. (DP)' },
-            { id: 'ABAN 166', name: 'Dissociação hidrato — anular (DP)' },
+        ], sub: [{
+          question: 'DMM — equipamento subsea no fundo?',
+          answers: [
+            { label: 'Não', active: true, packages: [
+              { id: 'ABAN 003', name: 'DMM' },
+              { id: 'ABAN 006', name: 'Lançamento de transponder com COT e calibração DP' },
+            ]},
+            { label: 'Sim — Fase 1', packages: [
+              { id: 'ABAN 004', name: 'DMM - Fase 1 / Stack-up SSUB no fundo' },
+              { id: 'ABAN 006', name: 'Lançamento de transponder com COT e calibração DP' },
+            ]},
+            { label: 'Sim — Fase 2', packages: [
+              { id: 'ABAN 005', name: 'DMM - Fase 2 / BOP no fundo' },
+              { id: 'ABAN 006', name: 'Lançamento de transponder com COT e calibração DP' },
+            ]},
           ],
-          sub: [{
-            question: 'Contingência de válvula ANM?',
-            answers: [
-              { label: 'Nenhuma', active: true },
-              { label: 'Jateamento', packages: [
-                { id: 'ABAN 125', name: 'Flexitubo - Jateamento (SpinCat) + Gabaritagem' },
-              ]},
-              { label: 'Gabarit. FT', packages: [
-                { id: 'ABAN 124', name: 'Flexitubo - Gabaritagem' },
-              ]},
-            ],
-          }],
-        },
-        { label: 'Não' },
+        }]},
       ],
     },
+    _MOB_POST_CCAP, _DESCIDA_DEC_DP, _MOB_TCAP_DP, _FLUIDO_DP, _REENTRADA_DP, _CONEXAO_HIDRATO_DP,
+  ],
+}
+
+// Seção unificada MOBILIZAÇÃO + DESCIDA WO + CONEXÃO ANM (ANC), exceto DHSV.
+// DMA em always (sempre). Ordem: CCAP → Descida WO → TCap → Fluido → Reentrada → Hidrato.
+const SEC_MOB_ANC: LSec = {
+  id: 'mob', label: 'MOBILIZAÇÃO / DESCIDA / CONEXÃO (ANC)', phase: 'Fase 0', color: 'gray',
+  always: [{ id: 'ABAN 208', name: 'DMA' }],
+  decisions: [_MOB_POST_CCAP, _DESCIDA_DEC_ANC, _MOB_TCAP_ANC, _FLUIDO_ANC, _REENTRADA_ANC, _CONEXAO_HIDRATO_ANC],
+}
+
+
+// DHSV: controla inclusão de ABAN 030 (teste funcional DHSV por bullheading).
+// Reentrada ANM, testes funcionais e hidrato foram absorvidos em SEC_MOB_DP/ANC.
+const SEC_CONEXAO: LSec = {
+  id: 'conexao', label: 'DHSV / BLOCOS ANM', phase: 'Fase 1A', color: 'blue',
+  decisions: [
     {
       question: 'Instalação de camisão na DHSV?',
       answers: [
@@ -800,8 +976,220 @@ const SEC_BOP_RETIRA: LSec = {
 
 // ── MONTAGEM DOS ESCOPOS ────────────────────────────────────────────────────
 
-const F1_PREFIX: LSec[] = [SEC_MOB_DP, SEC_DESCIDA, SEC_CONEXAO, SEC_GAB]
+const F1_PREFIX: LSec[] = [SEC_MOB_DP, SEC_CONEXAO, SEC_GAB]
 const F1_SUFFIX: LSec[] = [SEC_FLOWLINES, SEC_TMF]
+
+// ── SEÇÕES DO FLUXO MIRO (MOB / DESCIDA / CONEXÃO ANM) ──────────────────────
+// Estrutura baseada no board "SPRINT" (Miro, junho/2026).
+// Transponder recolha/DMM/lançamento são decisões independentes (vs. aninhadas no SEC_MOB).
+// Não altera logicEngine.ts — aparece apenas no editor de lógica como bundle MOB_DESCIDA.
+
+const SEC_MIRO_TRANSPONDER_DMM: LSec = {
+  id: 'miro_transponder_dmm',
+  label: 'TRANSPONDERS / DMM',
+  phase: 'Mobilização',
+  color: 'gray',
+  decisions: [
+    {
+      question: 'Recolher transponders?',
+      answers: [
+        { label: 'Não', active: true },
+        { label: 'Sim', sub: [{
+          question: 'Como?',
+          answers: [
+            { label: 'ROV', active: true, packages: [
+              { id: 'ABAN 002', name: 'Recolhimento de transponder com ROV' },
+            ]},
+            { label: 'COT', packages: [
+              { id: 'ABAN 001', name: 'Recolhimento de transponder com COT' },
+            ]},
+          ],
+        }]},
+        { label: 'Contingência', sub: [{
+          question: 'Como?',
+          answers: [
+            { label: 'ROV', active: true, packages: [
+              { id: 'ABAN 002', name: 'Recolhimento de transponder com ROV' },
+            ]},
+            { label: 'COT', packages: [
+              { id: 'ABAN 001', name: 'Recolhimento de transponder com COT' },
+            ]},
+          ],
+        }]},
+      ],
+    },
+    {
+      question: 'DMM — equipamento subsea no fundo?',
+      answers: [
+        { label: 'Não', active: true, packages: [
+          { id: 'ABAN 003', name: 'DMM' },
+        ]},
+        { label: 'Sim — CWO no fundo', packages: [
+          { id: 'ABAN 004', name: 'DMM - Fase 1 / Stack-up SSUB no fundo' },
+        ]},
+        { label: 'Sim — BOP no fundo', packages: [
+          { id: 'ABAN 005', name: 'DMM - Fase 2 / BOP no fundo' },
+        ]},
+      ],
+    },
+    {
+      question: 'Lançar transponders?',
+      answers: [
+        { label: 'Não', active: true },
+        { label: 'Sim', sub: [{
+          question: 'Como?',
+          answers: [
+            { label: 'ROV', active: true, packages: [
+              { id: 'ABAN 007', name: 'Lançamento de transponder com ROV e calibração DP' },
+            ]},
+            { label: 'COT', packages: [
+              { id: 'ABAN 006', name: 'Lançamento de transponder com COT e calibração DP' },
+            ]},
+          ],
+        }]},
+        { label: 'Contingência', sub: [{
+          question: 'Como?',
+          answers: [
+            { label: 'ROV', active: true, packages: [
+              { id: 'ABAN 007', name: 'Lançamento de transponder com ROV e calibração DP' },
+            ]},
+            { label: 'COT', packages: [
+              { id: 'ABAN 006', name: 'Lançamento de transponder com COT e calibração DP' },
+            ]},
+          ],
+        }]},
+      ],
+    },
+  ],
+}
+
+const SEC_MIRO_CCAP_TCAP: LSec = {
+  id: 'miro_ccap_tcap',
+  label: 'CCAP / TCAP',
+  phase: 'Mobilização',
+  color: 'gray',
+  decisions: [
+    {
+      question: 'Retirar CCAP?',
+      answers: [
+        { label: 'Não', active: true },
+        { label: 'Sim', packages: [
+          { id: 'ABAN 008', name: 'Retirada de CCAP com coluna de trabalho (garatéia)' },
+        ]},
+        { label: 'Contingência', packages: [
+          { id: 'ABAN 008', name: 'Retirada de CCAP com coluna de trabalho (garatéia)' },
+        ]},
+      ],
+    },
+    {
+      question: 'Retirar TCap?',
+      answers: [
+        { label: 'Não / N.A.', active: true, packages: [
+          { id: 'ABAN 212', name: 'Preparação do Conjunto de WO + TRT (Reentrada na ANM)' },
+          { id: 'ABAN 011', name: 'Descida do conjunto de WO (DPR/HCR)' },
+        ]},
+        { label: 'Sim', sub: [{
+          question: 'Como?',
+          answers: [
+            { label: 'ROV', packages: [
+              { id: 'ABAN 010', name: 'Retirar TCap com ROV' },
+            ]},
+            { label: 'TRT', active: true,
+              packages: [
+                { id: 'ABAN 211', name: 'Preparação do Conjunto de WO + TRT para retirada/fundeio da TCap' },
+                { id: 'ABAN 244', name: 'Descida do Conjunto de WO com DPR/HCR para retirada/fundeio da TCap' },
+                { id: 'ABAN 018', name: 'Movimentação e conexão na Tcap' },
+                { id: 'ABAN 019', name: 'Ventilação de TCap' },
+              ],
+              sub: [{
+                question: 'Fundear TCap?',
+                answers: [
+                  { label: 'Fundeio', active: true, packages: [
+                    { id: 'ABAN 020', name: 'Desassentamento de TCap e fundeio no leito marinho' },
+                  ]},
+                  { label: 'Superfície', packages: [
+                    { id: 'ABAN 021', name: 'Desassentamento de TCap e retirada até a superfície com DPR/HCR' },
+                    { id: 'ABAN 011', name: 'Descida do conjunto de WO (DPR/HCR)' },
+                  ]},
+                ],
+              }]
+            },
+          ],
+        }]},
+      ],
+    },
+  ],
+}
+
+const SEC_MIRO_DESCIDA_CONEXAO: LSec = {
+  id: 'miro_descida_conexao',
+  label: 'DESCIDA / CONEXÃO ANM',
+  phase: 'Mobilização',
+  color: 'gray',
+  decisions: [
+    {
+      question: 'Montagem do arranjo de superfície e flush (agmar)?',
+      answers: [{ label: 'Executar', active: true, packages: [
+        { id: 'ABAN 246', name: 'Montagem do SFT (DP Generalista)' },
+        { id: 'ABAN 014', name: 'Flush do DPR/HCR com água do mar (agmar)' },
+      ]}],
+    },
+    {
+      question: 'Fluido no SCVS para reentrada?',
+      answers: [
+        { label: 'N₂', packages: [
+          { id: 'ABAN 016', name: 'Desalagamento DPR/HCR com Nitrogênio' },
+        ]},
+        { label: 'Fluido inibido', active: true, packages: [
+          { id: 'ABAN 215', name: 'Posicionamento de fluido inibido no DPR/HCR' },
+        ]},
+        { label: 'Água do mar' },
+      ],
+    },
+    {
+      question: 'Reentrada e conexão na ANM?',
+      answers: [
+        { label: 'Executar', active: true, packages: [
+          { id: 'ABAN 023', name: 'Reentrada e conexão na ANM' },
+          { id: 'ABAN 024', name: 'Teste funcional — bloco produção' },
+          { id: 'ABAN 025', name: 'Teste funcional — bloco anular' },
+          { id: 'ABAN 218', name: 'Teste funcional — válvula anular' },
+        ]},
+      ],
+    },
+    {
+      question: 'Posicionar fluido inibido no SCVS (após conexão)?',
+      answers: [
+        { label: 'Não', active: true },
+        { label: 'Sim', packages: [
+          { id: 'ABAN 215', name: 'Posicionamento de fluido inibido no DPR/HCR' },
+        ]},
+      ],
+    },
+    {
+      question: 'Testes funcionais ANM e estanqueidade?',
+      answers: [
+        { label: 'Executar', active: true, packages: [
+          { id: 'ABAN 028', name: 'Teste bloco produção da ANM' },
+          { id: 'ABAN 029', name: 'Teste bloco anular da ANM' },
+        ]},
+      ],
+    },
+  ],
+}
+
+// Seção unificada: Transponders/DMM + CCAP/TCap + Descida/Conexão ANM (DP)
+const SEC_MOB_REENTRADA_DP: LSec = {
+  id: 'mob_reentrada_dp',
+  label: 'MOBILIZAÇÃO E REENTRADA NA ANM (SONDA DP)',
+  phase: 'Mobilização',
+  color: 'gray',
+  decisions: [
+    ...SEC_MIRO_TRANSPONDER_DMM.decisions,
+    ...SEC_MIRO_CCAP_TCAP.decisions,
+    ...SEC_MIRO_DESCIDA_CONEXAO.decisions,
+  ],
+}
 
 export const LOGIC_BY_SCOPE: Record<string, LSec[]> = {
   FSU_TT_FT: [
@@ -859,6 +1247,7 @@ export const LOGIC_BY_SCOPE: Record<string, LSec[]> = {
     SEC_MOB_DP,
     SEC_BOP_INSTALA, SEC_FETH_COP, SEC_CAUDA, SEC_PACKER_FISHING, SEC_ISOLATION, SEC_BOP_RETIRA,
   ],
+  MOB_DESCIDA: [SEC_MOB_REENTRADA_DP],
 }
 
 // ── VISÃO COMPLETA ─────────────────────────────────────────────────────────

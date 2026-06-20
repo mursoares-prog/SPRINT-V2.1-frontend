@@ -2,7 +2,8 @@ import { useState, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { X } from 'lucide-react'
 import { useApp } from '../context/AppContext'
-import { generateSchedule } from '../engines/sequenceEngine'
+import { generateSchedule } from '../engines/scheduleRouter'
+import { getLogicOverride } from '../data/logicOverrideStore'
 import type { WizardInputs, FlowlineLine, ScopeId, YesContingencyNo, TmfPlugBore, IsolationPlugType, IsolationCorrMethod, FishingElement, FishingMethod, VglAction, GaugeTech, InvestigationLog, RcmaCsbPrincipal, RcmaCementPkg, TcapSurfaceFluid } from '../types'
 
 const FISHING_ELEMENT_LABELS: Record<FishingElement, string> = {
@@ -156,6 +157,11 @@ const showRemoveANM = isTT || isFS1Mec
 
   const isLWIV = inputs.operationType === 'LWO'
   const ccapEffectiveMethod = inputs.ccapRemovalMethod ?? (isLWIV ? 'cable' : 'workstring')
+  const isCustomScope = !!inputs.scopeId && !(inputs.scopeId in SCOPE_SHORT)
+  const customSecs = isCustomScope ? (getLogicOverride(inputs.scopeId!) ?? []) : null
+  const cSecIds = new Set(customSecs?.map(s => s.id) ?? [])
+  const hasSec = (...ids: string[]) => !isCustomScope || ids.some(id => cSecIds.has(id))
+  const hasSecPhase = (phase: string) => !isCustomScope || (customSecs?.some(s => s.phase === phase) ?? false)
 
   const scopeOpts = ALL_SCOPE_OPTS.filter(o => !isLWO || LWO_SCOPES.has(o.value))
 
@@ -204,7 +210,7 @@ const showRemoveANM = isTT || isFS1Mec
 
           <Row label="Escopo"
             tooltip="Sequência genérica de intervenção"
-            value={inputs.scopeId ? SCOPE_SHORT[inputs.scopeId] : '—'}
+            value={inputs.scopeId ? (SCOPE_SHORT[inputs.scopeId as ScopeId] ?? inputs.scopeId) : '—'}
             isEditing={isEd('scopeId')} onEdit={() => edit('scopeId')}>
             <InlineRadio
               options={scopeOpts}
@@ -225,7 +231,7 @@ const showRemoveANM = isTT || isFS1Mec
         </Section>
 
         {/* ── Fase 0 — Mobilização (só existe quando há TCap, Fase Única / Fase 1) ── */}
-        {inputs.rigType && inputs.scopeId && !isFS2 && hasTC && (
+        {inputs.rigType && inputs.scopeId && !isFS2 && hasTC && hasSecPhase('Fase 0') && (
           <Section label="Fase 0" accent="border-amber-400 dark:border-amber-600">
             {inputs.rigType === 'DP' && (
               <Row label="Transponder"
@@ -362,10 +368,10 @@ const showRemoveANM = isTT || isFS1Mec
         )}
 
         {/* ── Fase 1A — Operações de Abandono ── */}
-        {inputs.rigType && inputs.scopeId && !isFS2 && (
+        {inputs.rigType && inputs.scopeId && !isFS2 && hasSecPhase('Fase 1A') && (
           <Section label="Fase 1A" accent="border-sky-500 dark:border-sky-600">
             {/* Sem TCap: mobilização é Fase 1A, itens ficam aqui */}
-            {!hasTC && (
+            {!hasTC && hasSec('mob') && (
               <>
                 {inputs.rigType === 'DP' && (
                   <Row label="Transponder"
@@ -429,17 +435,20 @@ const showRemoveANM = isTT || isFS1Mec
               </>
             )}
 
-            <Row label={inputs.rigType === 'DP' ? 'Fluido no DPR/HCR' : 'Fluido no riser dual bore'}
-              tooltip="Fluido de posicionamento no riser de WO após a descida do conjunto (N₂ ou fluido inibido)"
-              value={inputs.riserFluid === 'n2' ? 'N₂' : inputs.riserFluid === 'inhibited' ? 'Inibido' : '—'}
-              isEditing={isEd('riserFluid')} onEdit={() => edit('riserFluid')}>
-              <InlineRadio
-                options={[{ value: 'n2', label: 'N₂' }, { value: 'inhibited', label: 'Inibido' }]}
-                value={inputs.riserFluid ?? ''}
-                onChange={v => apply({ riserFluid: v as WizardInputs['riserFluid'] })}
-              />
-            </Row>
+            {hasSec('mob', 'desc') && (
+              <Row label={inputs.rigType === 'DP' ? 'Fluido no DPR/HCR' : 'Fluido no riser dual bore'}
+                tooltip="Fluido de posicionamento no riser de WO após a descida do conjunto (N₂ ou fluido inibido)"
+                value={inputs.riserFluid === 'n2' ? 'N₂' : inputs.riserFluid === 'inhibited' ? 'Inibido' : '—'}
+                isEditing={isEd('riserFluid')} onEdit={() => edit('riserFluid')}>
+                <InlineRadio
+                  options={[{ value: 'n2', label: 'N₂' }, { value: 'inhibited', label: 'Inibido' }]}
+                  value={inputs.riserFluid ?? ''}
+                  onChange={v => apply({ riserFluid: v as WizardInputs['riserFluid'] })}
+                />
+              </Row>
+            )}
 
+            {hasSec('mob', 'conexao') && (<>
             <Row label="Retirar plug do TMF?"
               tooltip="Existe plug instalado no TMF (Tree Manifold — topo da ANM) que precisa ser recuperado no início da intervenção?"
               value={inputs.hasTmfPlug === true ? 'Sim' : inputs.hasTmfPlug === false ? 'Não' : '—'}
@@ -610,7 +619,9 @@ const showRemoveANM = isTT || isFS1Mec
                 )}
               </div>
             </Row>
+            </>)}
 
+            {hasSec('gab', 'limp') && (<>
             <Row label="Amortecer?"
               tooltip="Amortecimento do poço na Fase 1A (COP/COI ABAN 061/062/219, anular A ABAN 063/064/065 e anular A pós-canhoneio ABAN 255). 'Não' = poço já isolado: dispensa amortecimento e confirma a estanqueidade do poço (ABAN 226) no lugar da despressurização do anular A. 'Contingência' = testa a estanqueidade antes (ABAN 226) e prevê o amortecimento apenas como contingência."
               value={ync(inputs.killWellFase1A ?? 'yes')}
@@ -689,7 +700,9 @@ const showRemoveANM = isTT || isFS1Mec
                 </Row>
               )
             })()}
+            </>)}
 
+            {hasSec('gab') && (<>
             <Row label="Instalar camisão DHSV/BRV?"
               tooltip="Instalar camisão na DHSV ou BRV. Selecione Sim e/ou Contingência simultaneamente para prever instalação contingencial após teste da DHSV."
               value={
@@ -1000,7 +1013,9 @@ const showRemoveANM = isTT || isFS1Mec
                 })}
               </div>
             </Row>
+            </>)}
 
+            {hasSec('csb1', 'csb2', 'corte', 'csb1_fs1', 'csb2_fs1', 'corte_fs1', 'rcma_principal') && (
             <Row label="Perfuração da COP/COI"
               tooltip={usesFs1Barrier && !rcmaFluidCsb
                 ? 'Canhoneio profundo da coluna (tubing puncher). "Não perfurar" remove o pacote do cronograma.'
@@ -1036,7 +1051,9 @@ const showRemoveANM = isTT || isFS1Mec
                 />
               )}
             </Row>
+            )}
 
+            {hasSec('gab') && (
             <Row label="VGL — retirar ou substituir?"
               tooltip="Retirar remove o VGL existente; Substituir inclui também a instalação de novo VGL (ABAN 057)"
               value={inputs.vglAction
@@ -1088,6 +1105,7 @@ const showRemoveANM = isTT || isFS1Mec
                 )}
               </div>
             </Row>
+            )}
 
             {inputs.scopeId === 'FSU_Conv_RCMA' && (
               <Row label="CSB principal"
@@ -1364,7 +1382,7 @@ const showRemoveANM = isTT || isFS1Mec
               </Row>
             )}
 
-            {hasCement && !isFS1Mec && !isConvBOP && !isRCMA && (
+            {hasCement && !isFS1Mec && !isConvBOP && !isRCMA && (!isCustomScope || hasSec('bdc', 'csb1', 'csb2', 'csb1_fs1', 'csb2_fs1')) && (
               <Row label="Método cimento"
                 tooltip="Método de avaliação da qualidade do cimento colocado na barreira subsuperficial"
                 value={inputs.cementMethod === 'params' ? 'Parâmetros' : inputs.cementMethod === 'logging' ? 'Perfilagem' : inputs.cementMethod === 'perforation_test' ? 'Canh.+teste' : '—'}
@@ -1435,7 +1453,7 @@ const showRemoveANM = isTT || isFS1Mec
         )}
 
         {/* ── Extra Abandono — Limpeza de Flowlines ── */}
-        {inputs.rigType && inputs.scopeId && !isFS2 && (
+        {inputs.rigType && inputs.scopeId && !isFS2 && hasSec('flow') && (
           <Section label="Extra Abandono" accent="border-teal-500 dark:border-teal-600">
             <Row label="Hidrato na(s) flowline(s)?"
               tooltip="Prever dissociação de hidrato nas flowlines antes da limpeza das linhas (ABAN 167–176, conforme rig e presença de BRV)"
@@ -1507,7 +1525,7 @@ const showRemoveANM = isTT || isFS1Mec
         )}
 
         {/* ── Fase 1B — Retirada do WO ── */}
-        {inputs.rigType && inputs.scopeId && !isFS2 && showRemoveANM && (
+        {inputs.rigType && inputs.scopeId && !isFS2 && (showRemoveANM || (isCustomScope && (cSecIds.has('ret_conv') || cSecIds.has('ret')))) && (
           <Section label="Fase 1B" accent="border-cyan-500 dark:border-cyan-600">
             <Row label="Retirar ANM"
               tooltip="A ANM (Árvore de Natal Molhada) será retirada ao final da intervenção?"
@@ -1527,7 +1545,7 @@ const showRemoveANM = isTT || isFS1Mec
         )}
 
         {/* ── Fase 2 — BOP / Cimentação ── */}
-        {inputs.rigType && inputs.scopeId && hasBopCement && (
+        {inputs.rigType && inputs.scopeId && (hasBopCement || (isCustomScope && customSecs?.some(s => s.phase === 'Fase 2'))) && (
           <Section label="Fase 2" accent="border-violet-500 dark:border-violet-600">
             {/* FS2: mobilização é Fase 2, equip e CCAP ficam aqui */}
             {isFS2 && (

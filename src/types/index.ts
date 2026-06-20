@@ -5,7 +5,7 @@ export type Phase = 'Fase 0' | 'Fase 1A' | 'Fase 1B' | 'Fase 2' | 'Extra Abandon
 export type FlowlineLine = 'flpo' | 'flgl'
 export type FlowlineMethod = 'direct_pumping' | 'n2_lift'
 
-export type ScopeId =
+export type BundleScopeId =
   | 'FSU_TT_FT'
   | 'FSU_TT_BDC'
   | 'FSU_Conv_BOP'
@@ -17,6 +17,9 @@ export type ScopeId =
   | 'FS2_Conv_RCMA'
   | 'FS2_Sup_COP'
   | 'FS2_Sup_PWC'
+
+// eslint-disable-next-line @typescript-eslint/no-redundant-type-constituents
+export type ScopeId = BundleScopeId | (string & {})
 
 export type SubseaEquipment =
   | 'corrosion_cap'
