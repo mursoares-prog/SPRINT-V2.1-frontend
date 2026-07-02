@@ -664,6 +664,7 @@ export function LogicEditorPanel({ canEdit }: { canEdit: boolean }) {
     | { kind: 'ref_seq_pkg'; ref: DecRef; ansIdx: number; seqIdx: number }
     | { kind: 'ref_after_pkg'; ref: DecRef; ansIdx: number; afterIdx: number }
     | { kind: 'ref_dec_after_pkg'; ref: DecRef; afterIdx: number }
+    | { kind: 'ref_dec_pkg'; ref: DecRef }
     | null
   >(null)
 
@@ -1581,6 +1582,62 @@ export function LogicEditorPanel({ canEdit }: { canEdit: boolean }) {
         break
       }
 
+      case 'p_add_dec_pkg':
+        setPendingAdd({ kind: 'ref_dec_pkg', ref: action.ref })
+        return
+
+      case 'p_add_dec_pkg_direct': {
+        const dec = resolveRef(secs, action.ref); if (!dec) return
+        dec.packages = [...(dec.packages ?? []), { id: action.pkgId, name: action.pkgName }]
+        break
+      }
+
+      case 'p_remove_dec_pkg': {
+        const dec = resolveRef(secs, action.ref); if (!dec) return
+        dec.packages = (dec.packages ?? []).filter((_, i) => i !== action.pkgIdx)
+        if (!dec.packages.length) delete dec.packages
+        break
+      }
+
+      case 'p_move_dec_pkg': {
+        const dec = resolveRef(secs, action.ref); if (!dec) return
+        const pkgs = dec.packages ?? []; if (!pkgs.length) return
+        const target = action.dir === 'up' ? action.pkgIdx - 1 : action.pkgIdx + 1
+        if (target < 0 || target >= pkgs.length) return
+        ;[pkgs[action.pkgIdx], pkgs[target]] = [pkgs[target], pkgs[action.pkgIdx]]
+        dec.packages = pkgs
+        break
+      }
+
+      case 'p_clear_dec_pkgs': {
+        const dec = resolveRef(secs, action.ref); if (!dec) return
+        delete dec.packages
+        break
+      }
+
+      case 'p_clear_ans_pkgs': {
+        const dec = resolveRef(secs, action.ref); if (!dec) return
+        const ans = dec.answers[action.ansIdx]; if (!ans) return
+        delete ans.packages
+        break
+      }
+
+      case 'p_toggle_ans_pkg_contingency': {
+        const dec = resolveRef(secs, action.ref); if (!dec) return
+        const pkg = dec.answers[action.ansIdx]?.packages?.[action.pkgIdx]; if (!pkg) return
+        pkg.isContingency = !pkg.isContingency
+        if (!pkg.isContingency) delete pkg.isContingency
+        break
+      }
+
+      case 'p_toggle_dec_pkg_contingency': {
+        const dec = resolveRef(secs, action.ref); if (!dec) return
+        const pkg = dec.packages?.[action.pkgIdx]; if (!pkg) return
+        pkg.isContingency = !pkg.isContingency
+        if (!pkg.isContingency) delete pkg.isContingency
+        break
+      }
+
       case 'p_ins_ans': {
         const dec = resolveRef(secs, action.ref); if (!dec) return
         dec.answers.splice(action.atIdx, 0, { label: 'Nova resposta', packages: [] })
@@ -1643,6 +1700,9 @@ export function LogicEditorPanel({ canEdit }: { canEdit: boolean }) {
       const dec = resolveRef(secs, pendingAdd.ref); if (!dec) return
       const ae = dec.after?.[pendingAdd.afterIdx]; if (!ae) return
       ae.packages = [...(ae.packages ?? []), pkg]
+    } else if (pendingAdd.kind === 'ref_dec_pkg') {
+      const dec = resolveRef(secs, pendingAdd.ref); if (!dec) return
+      dec.packages = [...(dec.packages ?? []), pkg]
     } else {
       const ans = secs[pendingAdd.secIdx]?.decisions[pendingAdd.decIdx]?.answers[pendingAdd.ansIdx]; if (!ans) return
       ans.packages = [...(ans.packages ?? []), pkg]

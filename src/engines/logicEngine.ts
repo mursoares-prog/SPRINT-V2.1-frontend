@@ -29,14 +29,26 @@ const QUESTION_LABEL_RESOLVER: Record<string, (inp: WizardInputs) => string | st
   'Modo do transponder?':              inp => inp.transponderMode === 'cot' ? 'COT' : inp.transponderMode === 'rov' ? 'ROV' : null,
   'DMM — equipamento subsea no fundo?': inp => !inp.dmmWithEquipment ? 'Não' : 'Sim — Fase 1',
   'Cap de corrosão (CCAP)?':           inp => (inp.contingencyCcapWorkstring === 'yes' || inp.contingencyCcapWorkstring === 'contingency') ? 'Sim' : 'Não',
+  'Método de retirada da CCAP?':       inp => inp.ccapRemovalMethod === 'cable' ? 'Cabo' : 'Coluna de trabalho',
   'Retirar TCap?':                      inp => inp.tcapRemovalMethod ? 'Sim' : 'Não / N.A.',
   'Método de retirada da TCap?':        inp => inp.tcapRemovalMethod === 'rov' ? 'ROV' : 'TRT',
   'Destino da TCap?':                   inp => inp.tcapDisposition === 'surface' ? 'Superfície' : 'Fundeio',
+  'Hidrato no conector TCap?':          inp => (inp.contingencyTcapHydrate === 'yes' || inp.contingencyTcapHydrate === 'contingency') ? 'Sim / Conting.' : 'Não',
   // ── DESCIDA ─────────────────────────────────────────────────────────────────
   'Fluido de riser inibido?':          inp => inp.riserFluid === 'inhibited' ? 'Sim' : 'N₂ / sem fluido',
   // ── CONEXÃO ─────────────────────────────────────────────────────────────────
   'Hidrato na ANM?':                   inp => inp.anmHydrate === 'no' ? 'Não' : (inp.anmHydrate === 'yes' || inp.anmHydrate === 'contingency') ? 'Sim' : null,
   'Contingência de válvula ANM?':      inp => (inp.anmValveContingency ?? []).includes('jateamento') ? 'Jateamento' : 'Nenhuma',
+  'Abrir válvula da ANM com FT?': inp => {
+    if (!inp.anmForceOpen || inp.anmForceOpen === 'no') return 'Não'
+    const methods = inp.anmForceMethod ?? []
+    const hasHammer = methods.includes('hammer')
+    const hasMotor  = methods.includes('motor_broca')
+    if (hasHammer && hasMotor) return 'Ambos'
+    if (hasHammer)             return 'Martelete'
+    if (hasMotor)              return 'Motor + broca'
+    return 'Não'
+  },
   'Instalação de camisão na DHSV?': inp => {
     const v = inp.installCamisao ?? []
     if (v.includes('yes') && !v.includes('contingency')) return 'Sim'
@@ -45,19 +57,30 @@ const QUESTION_LABEL_RESOLVER: Record<string, (inp: WizardInputs) => string | st
   },
   // ── GAB / ANULAR ────────────────────────────────────────────────────────────
   'Plug no TH?':                       inp => inp.hasThPlug === true ? 'Sim' : 'Não',
+  'Gabaritar coluna?': inp => {
+    switch (inp.gaugeTech) {
+      case 'wireline': return 'Arame'
+      case 'electric': return 'Perfilagem'
+      case 'ct':       return 'Flexitubo'
+      default:         return 'Não'
+    }
+  },
   'Amortecimento COP — fluido?': inp => {
+    if (inp.killWellFase1A === 'no') return 'Não / N.A.'
     if (inp.initialFillFluid === 'diesel_fcba') return 'Diesel + FCBA'
     if (inp.initialFillFluid === 'inhibited')   return 'MEG + FCBA'
     if (inp.initialFillFluid === 'diesel')       return 'Diesel puro'
     return null
   },
   'Pressão no anular A?': inp => {
+    if (inp.killWellFase1A === 'no') return 'Não / N.A.'
     if (inp.anularAMinPressure === 'zero') return 'Zero'
     if (inp.anularAMinPressure === 'nonzero') {
       return (inp.anularFluid === 'diesel' || inp.anularFluid === 'diesel_fcba') ? 'Top kill — diesel' : 'Top kill — MEG'
     }
     return null
   },
+  'Fluido amort. anular A pós-canhoneio?': inp => (inp.amortAnularFluid && inp.killWellFase1A !== 'no') ? 'Incluir' : 'Não incluir',
   'Realizar Registro de Pressão?':      inp => (inp.investigationLogs ?? []).includes('registro_pressao') ? 'Sim' : 'Não',
   // ── FLOWLINES ───────────────────────────────────────────────────────────────
   'Limpar flowlines?':                 inp => inp.cleanFlowlines === true ? 'Sim' : inp.cleanFlowlines === false ? 'Não' : null,
@@ -138,10 +161,11 @@ const QUESTION_LABEL_RESOLVER: Record<string, (inp: WizardInputs) => string | st
     }
   },
   'Coluna presa — corte? (conting.)':  inp => (inp.fs2CopCutContingency === 'yes' || inp.fs2CopCutContingency === 'contingency') ? 'Sim / Conting.' : 'Não',
+  'Retirar plug 3,75" no TH (Fase 2)?': inp => (inp.fs2ThPlugRemoval === 'yes' || inp.fs2ThPlugRemoval === 'contingency') ? 'Sim' : 'Não',
   'Pescaria de packer?':               inp => (inp.fs2PackerFishing === 'yes' || inp.fs2PackerFishing === 'contingency') ? 'Sim / Conting.' : 'Não',
 }
 
-function resolveAnswer(dec: LDec, inputs: WizardInputs, key: string, isCustom: boolean): LAns | undefined {
+function resolveAnswer(dec: LDec, inputs: WizardInputs, key: string): LAns | undefined {
   const inp = inputs as unknown as Record<string, unknown>
 
   // 0. Check explicit user answer from custom logic UI (keyed by tree path — ver buildDecisionKey)
@@ -165,18 +189,17 @@ function resolveAnswer(dec: LDec, inputs: WizardInputs, key: string, isCustom: b
   })
   if (byField) return byField
 
-  // 2. Try question-based label resolver (covers all bundle decisions without field/value).
-  //    Em escopos custom o fluxo é definido por logicAnswers (passo 0) + o default `active`
-  //    salvo no fluxograma — o resolver (mapeia inputs do wizard de bundle) não se aplica.
-  if (!isCustom) {
-    const resolver = QUESTION_LABEL_RESOLVER[dec.question]
-    if (resolver) {
-      const label = resolver(inputs)
-      if (label !== null) {
-        const labels = Array.isArray(label) ? label : [label]
-        const byLabel = dec.answers.find(a => labels.includes(a.label))
-        if (byLabel) return byLabel
-      }
+  // 2. Try question-based label resolver (maps wizard bundle inputs → answer label).
+  //    Applies to all scopes: custom scopes use logicAnswers first (step 0), so the resolver
+  //    acts as a fallback that makes bundle-style inputs (transponder, DMM, etc.) drive custom
+  //    scope decisions when the user hasn't explicitly answered via LogicQuestionsPanel.
+  const resolver = QUESTION_LABEL_RESOLVER[dec.question]
+  if (resolver) {
+    const label = resolver(inputs)
+    if (label !== null) {
+      const labels = Array.isArray(label) ? label : [label]
+      const byLabel = dec.answers.find(a => labels.includes(a.label))
+      if (byLabel) return byLabel
     }
   }
 
@@ -254,17 +277,26 @@ function walkDecisions(
       const scoped = scopeAnswers.get(norm)
       ans = dec.answers.find(a => a.label === scoped) ?? dec.answers.find(a => a.active) ?? dec.answers[0]
     } else {
-      ans = resolveAnswer(dec, inputs, key, isCustom)
+      ans = resolveAnswer(dec, inputs, key)
       if (isCustom && ans && !scopeAnswers.has(norm)) scopeAnswers.set(norm, ans.label)
     }
+    // Pacotes sempre emitidos ao atingir esta decisão (independente da resposta)
+    for (const pkg of dec.packages ?? []) {
+      const pkgIsContingency = parentContingency || !!pkg.isContingency
+      emitPkg(pkg, fallbackPhase, percentile, items, inputs,
+        pkgIsContingency ? { reason: parentReason ?? 'Contingência' } : undefined)
+    }
     if (ans) {
-      // Em escopo custom, a resposta "Contingência" (ou marcada com a flag `contingency`)
-      // marca o ramo (e seus subníveis) como contingência, sem duplicar o bloco.
-      const contingency = parentContingency || (isCustom && (isContingencyLabel(ans.label) || !!ans.contingency))
+      // Em escopo custom, a resposta "Contingência" (label) marca o ramo como contingência.
+      // O flag ans.contingency marca apenas os pacotes DESTE chip como contingenciais (não propaga
+      // para sub-decisões). Pacotes individuais também podem ser contingenciais via pkg.isContingency.
+      const contingency = parentContingency || (isCustom && isContingencyLabel(ans.label))
+      const chipContingency = !!ans.contingency
       const reason = contingency ? (parentContingency ? parentReason : `Contingência: ${dec.question}`) : undefined
-      const ctx = contingency ? { reason: reason ?? 'Contingência' } : undefined
       for (const pkg of ans.packages ?? []) {
-        emitPkg(pkg, fallbackPhase, percentile, items, inputs, ctx)
+        const pkgIsContingency = contingency || chipContingency || !!pkg.isContingency
+        emitPkg(pkg, fallbackPhase, percentile, items, inputs,
+          pkgIsContingency ? { reason: reason ?? 'Contingência' } : undefined)
       }
       if (ans.sub?.length) {
         // O ramo segue pela resposta resolvida — o rótulo dela estende o caminho.

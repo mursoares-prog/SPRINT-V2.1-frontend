@@ -41,6 +41,7 @@ export interface LAns {
 export interface LDec {
   question: string
   answers: LAns[]
+  packages?: LPkg[]     // pacotes sempre emitidos ao se atingir esta decisão, independente da resposta
   after?: LSeqEntry[]   // entradas sequenciais exibidas após a convergência das respostas
   afterDec?: LDec[]     // perguntas (decisões) exibidas após a convergência, antes dos chips `after`
   reuseScope?: boolean  // "Já respondida no escopo": pergunta repetida que herda a resposta dada
@@ -73,9 +74,17 @@ const _MOB_POST_CCAP: LDec = {
   question: 'Cap de corrosão (CCAP)?',
   answers: [
     { label: 'Não', active: true },
-    { label: 'Sim', packages: [
-      { id: 'ABAN 008', name: 'Retirada de CCAP com coluna de trabalho (garatéia)' },
-    ]},
+    { label: 'Sim', sub: [{
+      question: 'Método de retirada da CCAP?',
+      answers: [
+        { label: 'Coluna de trabalho', active: true, packages: [
+          { id: 'ABAN 008', name: 'Retirada de CCAP com coluna de trabalho (garatéia)' },
+        ]},
+        { label: 'Cabo', packages: [
+          { id: 'ABAN 009', name: 'Retirada de CCAP a cabo' },
+        ]},
+      ],
+    }]},
   ],
 }
 
@@ -199,6 +208,15 @@ const _MOB_TCAP_DP: LDec = {
           ],
         }]},
       ],
+      afterDec: [{
+        question: 'Hidrato no conector TCap?',
+        answers: [
+          { label: 'Não', active: true },
+          { label: 'Sim / Conting.', packages: [
+            { id: 'ABAN 177', name: 'Jateamento de água aquecida no conector TCap' },
+          ]},
+        ],
+      }],
     }]},
   ],
 }
@@ -320,6 +338,22 @@ const SEC_CONEXAO: LSec = {
         ]},
       ],
     },
+    {
+      question: 'Abrir válvula da ANM com FT?',
+      answers: [
+        { label: 'Não', active: true },
+        { label: 'Martelete', packages: [
+          { id: 'ABAN 143', name: 'Flexitubo — Martelete para abertura de válvula ANM' },
+        ]},
+        { label: 'Motor + broca', packages: [
+          { id: 'ABAN 124', name: 'Flexitubo - Gabaritagem' },
+        ]},
+        { label: 'Ambos', packages: [
+          { id: 'ABAN 143', name: 'Flexitubo — Martelete para abertura de válvula ANM' },
+          { id: 'ABAN 124', name: 'Flexitubo - Gabaritagem' },
+        ]},
+      ],
+    },
   ],
 }
 
@@ -327,7 +361,6 @@ const SEC_GAB: LSec = {
   id: 'gab', label: 'GABARITAGEM / ANULAR', phase: 'Fase 1A', color: 'blue',
   always: [
     { id: 'ABAN 031A', name: 'Montagem de unidade de arame (DP Generalista)' },
-    { id: 'ABAN 036', name: 'Gabaritagem da coluna (arame)' },
   ],
   decisions: [
     {
@@ -337,6 +370,21 @@ const SEC_GAB: LSec = {
         { label: 'Sim', packages: [
           { id: 'ABAN 052', name: 'Retirada de plug 3,75" no TH' },
         ]},
+      ],
+    },
+    {
+      question: 'Gabaritar coluna?',
+      answers: [
+        { label: 'Arame', active: true, packages: [
+          { id: 'ABAN 036', name: 'Gabaritagem da coluna (arame)' },
+        ]},
+        { label: 'Perfilagem', packages: [
+          { id: 'ABAN 098', name: 'Perfilagem caliper — cabo elétrico' },
+        ]},
+        { label: 'Flexitubo', packages: [
+          { id: 'ABAN 124', name: 'Flexitubo - Gabaritagem' },
+        ]},
+        { label: 'Não' },
       ],
     },
     {
@@ -351,6 +399,7 @@ const SEC_GAB: LSec = {
         { label: 'Diesel puro', packages: [
           { id: 'ABAN 219', name: 'Preenchimento de anular A e coluna com diesel' },
         ]},
+        { label: 'Não / N.A.' },
       ],
     },
     {
@@ -365,7 +414,17 @@ const SEC_GAB: LSec = {
         { label: 'Top kill — MEG', packages: [
           { id: 'ABAN 065', name: 'Amort. anular A (steps depress. + top kill MEG/FCBA)' },
         ]},
+        { label: 'Não / N.A.' },
       ],
+      afterDec: [{
+        question: 'Fluido amort. anular A pós-canhoneio?',
+        answers: [
+          { label: 'Não incluir', active: true },
+          { label: 'Incluir', packages: [
+            { id: 'ABAN 255', name: 'Amortecimento do anular A pós-canhoneio (FCBA)' },
+          ]},
+        ],
+      }],
     },
     {
       question: 'Realizar Registro de Pressão?',
@@ -752,11 +811,16 @@ const SEC_CSB2_FS1: LSec = {
 
 const SEC_RET_CONV: LSec = {
   id: 'ret_conv', label: 'RETIRADA DO WO + ANM', phase: 'Fase 1B', color: 'blue',
-  always: [
-    { id: 'ABAN 178', name: 'Desassentamento de ANM e retirada (DPR/HCR)' },
-    { id: 'ABAN 180', name: 'Desmobilização de FIBOP/BOPW/TRT/ANM' },
-  ],
-  decisions: [],
+  decisions: [{
+    question: 'Retirar ANM?',
+    answers: [
+      { label: 'Sim', active: true, packages: [
+        { id: 'ABAN 178', name: 'Desassentamento de ANM e retirada (DPR/HCR)' },
+        { id: 'ABAN 180', name: 'Desmobilização de FIBOP/BOPW/TRT/ANM' },
+      ]},
+      { label: 'Não' },
+    ],
+  }],
 }
 
 // ── FSU_Conv_RCMA — CSB principal antes das barreiras FS1 ──────────────────
@@ -850,6 +914,15 @@ const SEC_FETH_COP: LSec = {
           { id: 'ABAN 190', name: 'Retirada de TH + COP/COI com THRT (modo BOP)' },
         ]},
       ],
+      afterDec: [{
+        question: 'Retirar plug 3,75" no TH (Fase 2)?',
+        answers: [
+          { label: 'Não', active: true },
+          { label: 'Sim', packages: [
+            { id: 'ABAN 052', name: 'Retirada de plug 3,75" no TH' },
+          ]},
+        ],
+      }],
     },
   ],
 }

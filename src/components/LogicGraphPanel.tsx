@@ -37,10 +37,10 @@ function toDisplayList(answers: LAns[]): DisplayAns[] {
 }
 
 // Types compatible with AdminView.tsx (structural typing)
-type LPkg = { id: string; name: string }
+type LPkg = { id: string; name: string; isContingency?: boolean }
 type LSeqEntry = { label: string; note?: string; packages?: LPkg[]; sub?: LDec[]; afterSub?: LDec[] }
 interface LAns { label: string; active?: boolean; note?: string; packages?: LPkg[]; sub?: LDec[]; afterSub?: LDec[]; seq?: LSeqEntry[]; after?: LSeqEntry[]; goto?: string; contingency?: boolean; _dirty?: boolean }
-interface LDec { question: string; answers: LAns[]; after?: LSeqEntry[]; afterDec?: LDec[]; reuseScope?: boolean; _dirty?: boolean }
+interface LDec { question: string; answers: LAns[]; packages?: LPkg[]; after?: LSeqEntry[]; afterDec?: LDec[]; reuseScope?: boolean; _dirty?: boolean }
 interface LSec { id: string; label: string; phase: string; color: 'gray'|'blue'|'amber'; always?: LPkg[]; decisions: LDec[]; ref?: { scopeId: string; label?: string } }
 // Complete-view decision tree (mirrors logicSecs.ts QNode structurally)
 type QLeaf = { kind: 'leaf'; scopeId: string; label: string; secs: LSec[] }
@@ -205,6 +205,17 @@ export type EditAction =
   | { type: 'p_ins_ans';            ref: DecRef; atIdx: number }
   | { type: 'add_dec_after_chip_sub'; secIdx: number; decIdx: number; afterIdx: number; isAfterSub?: boolean }
   | { type: 'remove_dec_after_chip_sub'; secIdx: number; decIdx: number; afterIdx: number; isAfterSub: boolean; subIdx: number }
+  // Decision-level packages (dec.packages) — chip PACOTES acima do diamante
+  | { type: 'p_add_dec_pkg';         ref: DecRef }
+  | { type: 'p_add_dec_pkg_direct';  ref: DecRef; pkgId: string; pkgName: string }
+  | { type: 'p_remove_dec_pkg';      ref: DecRef; pkgIdx: number }
+  | { type: 'p_move_dec_pkg';        ref: DecRef; pkgIdx: number; dir: 'up' | 'down' }
+  | { type: 'p_clear_dec_pkgs';      ref: DecRef }
+  // Per-package contingency toggle
+  | { type: 'p_toggle_ans_pkg_contingency'; ref: DecRef; ansIdx: number; pkgIdx: number }
+  | { type: 'p_toggle_dec_pkg_contingency'; ref: DecRef; pkgIdx: number }
+  // Delete entire packages chip from an answer
+  | { type: 'p_clear_ans_pkgs'; ref: DecRef; ansIdx: number }
 
 export interface LogicGraphProps { secs?: LSec[]; tree?: QNode; editCb?: (a: EditAction) => void; pickMode?: boolean; selRef?: DecRef | null }
 
@@ -393,6 +404,7 @@ const F_M = 10.5    // medium font (answer labels, notes)
 const F_L = 11      // large font (section header)
 const SEQ_GAP = 10  // gap: answer body bottom → seq entry top (arrow space)
 const AFTER_GAP = 22 // gap used for after-convergence entries (larger for breathing room)
+const DEC_PKG_GAP = 18 // gap between PACOTES chip bottom and diamond top (needs space for arrowhead)
 // Botões de ação — padronização de tamanho e distância (evita sobrepor linhas/bordas)
 const BTN_R = 8       // raio padrão dos botões de ação
 const BTN_GAP = 3     // distância padrão da borda do card / das linhas
@@ -433,9 +445,14 @@ function seqH(a: LAns): number {
 // Altura de uma sub-pergunta COMO É RENDERIZADA dentro do chip: diamante + respostas +
 // (se houver convergência) o vão do fan-in. NÃO inclui afterDec/after/botões de borda — que
 // só existem em decisões de topo —, evitando o espaço em branco que sobrava com dTotalH.
+// Height of the PACOTES chip rendered above a decision diamond (zero when no dec.packages).
+function dDecPkgH(d: LDec): number {
+  const n = d.packages?.length ?? 0
+  return n > 0 ? alwChipH(n) + DEC_PKG_GAP : 0
+}
 function dSubRenderedH(d: LDec): number {
   const convPad = d.answers.length > 1 ? (CR + 14) : 0
-  let h = DH + AV + Math.max(...d.answers.map(aH)) + convPad
+  let h = dDecPkgH(d) + DH + AV + Math.max(...d.answers.map(aH)) + convPad
   // Zona "após convergência" da sub-pergunta: blocos d.after (chips de pacotes).
   h += (d.after ?? []).reduce((acc, s) => acc + AFTER_GAP + seqEntryH(s), 0)
   return h
@@ -475,7 +492,7 @@ function aH(a: LAns): number { return LBLH + aBodyH(a) + seqH(a) + aSubH(a) + aA
 // que o próximo passo não sobreponha a linha de reconvergência.
 function afterDecH(ad: LDec): number {
   const convPad = ad.answers.length > 1 ? (CR + 14) : 0
-  return AFTER_GAP + DH + AV + Math.max(0, ...ad.answers.map(aH)) + convPad
+  return AFTER_GAP + dDecPkgH(ad) + DH + AV + Math.max(0, ...ad.answers.map(aH)) + convPad
 }
 function dAfterH(d: LDec): number {
   // For multi-answer decisions, reserve space for the fanIn arc (which lands at mergeY + CR + 4)
@@ -484,7 +501,7 @@ function dAfterH(d: LDec): number {
   const entries = (d.after ?? []).reduce((h, s) => h + AFTER_GAP + seqEntryH(s), 0)
   return convPad + afterDecs + entries
 }
-function dTotalH(d: LDec): number { return DH + AV + Math.max(...d.answers.map(aH)) + dAfterH(d) }
+function dTotalH(d: LDec): number { return dDecPkgH(d) + DH + AV + Math.max(...d.answers.map(aH)) + dAfterH(d) }
 function sAlwH(s: LSec): number {
   if (s.always?.length) return alwChipH(s.always.length) + ALWG
   // Chip "SEMPRE" vazio só aparece em modo edição quando a seção ainda não tem decisões.
@@ -522,7 +539,9 @@ function wrapDiamondText(text: string, maxChars = 30): [string, string?] {
 function drawPkgRow(
   leftX: number, topY: number, rowH: number, w: number,
   pkg: LPkg, p: PEntry, isHit: boolean,
-  onClick: ((e: React.MouseEvent) => void) | null, els: React.ReactNode[]
+  onClick: ((e: React.MouseEvent) => void) | null,
+  onFlagToggle: (() => void) | null,
+  els: React.ReactNode[]
 ): void {
   const full = pkgName(pkg)
   const maxChars = Math.floor((w - 16) / 4.8)
@@ -538,9 +557,13 @@ function drawPkgRow(
   const idY    = topY + (canWrap ? 10 : rowH * 0.38)
   const nameY  = topY + (canWrap ? 23 : rowH * 0.76)
   const name2Y = topY + 36
+  // Flag position: inline after the ID code (monospace ≈5.6px/char, max 50px for ID)
+  const flagX  = leftX + 8 + Math.min(pkg.id.length * 5.6 + 4, 54)
+  const flagY  = idY
 
   if (isHit) {
-    els.push(<rect key={K()} x={leftX + 4} y={topY + 1} width={w - 8} height={rowH - 2} rx={3} fill={HIT_STROKE} opacity={0.22} />)
+    els.push(<rect key={K()} x={leftX + 4} y={topY + 1} width={w - 8} height={rowH - 2} rx={3}
+      fill={HIT_STROKE} opacity={0.22} style={{ pointerEvents: 'none' }} />)
   }
   if (onClick) {
     els.push(
@@ -561,6 +584,37 @@ function drawPkgRow(
       </g>
     )
   }
+  // Flag: shown next to ID. Clickable overlay is rendered separately (after zone rect) for correct z-order.
+  // Here we only render the visual indicator for read-only mode when pkg.isContingency is already set.
+  if (!onFlagToggle && pkg.isContingency) {
+    els.push(
+      <text key={K()} x={flagX} y={flagY} fontSize={9} fill="#f97316">⚑</text>
+    )
+  }
+}
+
+// Render interactive ⚑ flag overlays for a package list.
+// MUST be called AFTER the zone-rect <g> so overlays sit on top (higher z-order in SVG).
+function pushPkgFlagOverlays(
+  leftX: number, bY: number, pkgs: LPkg[], p: PEntry,
+  onToggle: (pkgIdx: number) => void,
+  els: React.ReactNode[]
+) {
+  pkgs.forEach((pkg, i) => {
+    const capI = i
+    const flagX = leftX + 8 + Math.min(pkg.id.length * 5.6 + 4, 54)
+    const flagY = bY + i * PKG + 10  // idY: PKG=44≥40 so canWrap=true
+    els.push(
+      <g key={K()} onMouseDown={stopMD}
+         onClick={(e) => { e.stopPropagation(); onToggle(capI) }}
+         style={{ cursor: 'pointer' }}
+         {...tipAttrs(pkg.isContingency ? 'Pacote contingencial — clique para remover' : 'Marcar pacote como contingencial')}>
+        <rect x={flagX - 4} y={bY + i * PKG + 1} width={14} height={PKG - 2} rx={2} fill="transparent" />
+        <text x={flagX} y={flagY} fontSize={9} fill={pkg.isContingency ? '#f97316' : p.lblT}
+          opacity={pkg.isContingency ? 1 : 0.28}>⚑</text>
+      </g>
+    )
+  })
 }
 
 // Fan-out connector: trunk → curved 90° branches to each answer
@@ -770,12 +824,14 @@ function renderAnswer(
   const hasSub = !!(a.sub?.length)
   if (!hasSub && pkgs.length > 0) {
     pkgs.forEach((pkg, i) => {
-      drawPkgRow(x, bY + i * PKG, PKG, w, pkg, p, pkgHitIdx.has(i), null, els)
+      drawPkgRow(x, bY + i * PKG, PKG, w, pkg, p, pkgHitIdx.has(i), null, null, els)
     })
     if (canEdit) {
       const capRef = ref, capAi = ai
       els.push(
-        <g key={K()} onMouseDown={stopMD} onClick={(e) => openMenu(e, a.label, [], {
+        <g key={K()} onMouseDown={stopMD} onClick={(e) => openMenu(e, a.label, [
+          { label: 'Excluir chip de pacotes', glyph: '×', color: '#ef4444', danger: true, onClick: () => fire({ type: 'p_clear_ans_pkgs', ref, ansIdx: ai }) },
+        ], {
           getList: (s) => resolveRef(s, capRef)?.answers[capAi]?.packages ?? [],
           onAdd: () => fire({ type: 'p_add_pkg', ref, ansIdx: ai }),
           onMove: (idx, dir) => fire({ type: 'p_move_pkg', ref, ansIdx: ai, pkgIdx: idx, dir }),
@@ -784,6 +840,9 @@ function renderAnswer(
           <rect x={x + 4} y={bY - 2} width={w - 8} height={pkgs.length * PKG + 4} rx={3} fill="transparent" />
         </g>
       )
+      // Flag overlays rendered AFTER zone rect so they sit on top in SVG z-order
+      pushPkgFlagOverlays(x, bY, pkgs, p,
+        (pi) => fire({ type: 'p_toggle_ans_pkg_contingency', ref, ansIdx: ai, pkgIdx: pi }), els)
     }
   } else if (!a.note && !hasSub) {
     els.push(<text key={K()} x={x + 8} y={bY + NOTE_R * 0.8} fontSize={F_S} fontStyle="italic" fill={p.empty}>—</text>)
@@ -865,7 +924,7 @@ function renderAnswer(
       const seqHlKey = `chip:seq:${ref.secIdx}:${ref.decIdx}:${ref.sub.join(',')}:${ai}:${sei}`
       if (sePkgs.length > 0) {
         sePkgs.forEach((pkg, pi) => {
-          drawPkgRow(seX, seBY + pi * PKG, PKG, seW, pkg, p, hit(pkg.id) || hit(pkgName(pkg)), null, els)
+          drawPkgRow(seX, seBY + pi * PKG, PKG, seW, pkg, p, hit(pkg.id) || hit(pkgName(pkg)), null, null, els)
         })
         if (canEdit) {
           const capSei2 = sei, capRef = ref, capAi = ai, capSeLabel = se.label
@@ -897,17 +956,59 @@ function renderAnswer(
       const sub = subList[subDi]
       const sdW = DDW          // mesmo tamanho do diamante top-level
       const sdX = cx - sdW / 2
-      els.push(<line key={K()} x1={cx} y1={sY - SG + 4} x2={cx} y2={sY - 5} stroke={p.arr} strokeWidth={1.2} markerEnd={`url(#arr_${pc})`} />)
+
+      // PACOTES chip above sub-decision diamond
+      const subPkgChipH = dDecPkgH(sub)
+      if (subPkgChipH > 0) {
+        const schipW = AW - 8, schipX = cx - schipW / 2
+        const schipH = alwChipH(sub.packages!.length)
+        const schipCardY = sY
+        const subCapRef: DecRef = { ...ref, sub: [...ref.sub, ai, subDi] }
+        const subPkgHlKey = `chip:decpkg:${subCapRef.secIdx}:${subCapRef.decIdx}:${subCapRef.sub.join(',')}`
+        els.push(<line key={K()} x1={cx} y1={sY - SG + 4} x2={cx} y2={schipCardY - 5} stroke={p.arr} strokeWidth={1.2} markerEnd={`url(#arr_${pc})`} />)
+        els.push(<rect key={K()} x={schipX} y={schipCardY} width={schipW} height={schipH} rx={4} fill={p.ans} stroke={p.ansB} strokeWidth={1} />)
+        els.push(<rect key={K()} x={schipX} y={schipCardY} width={schipW} height={LBLH} rx={4} fill={p.lbl} />)
+        els.push(<rect key={K()} x={schipX} y={schipCardY + LBLH - 4} width={schipW} height={4} fill={p.lbl} />)
+        els.push(<text key={K()} x={schipX + 8} y={schipCardY + LBLH * 0.68} fontSize={F_M} fontWeight={700} fill={p.lblT} fontFamily="ui-sans-serif,system-ui,sans-serif" letterSpacing={0.8}>PACOTES</text>)
+        const sPkgBY = schipCardY + LBLH + BPAD
+        sub.packages!.forEach((pkg, pi) => {
+          drawPkgRow(schipX, sPkgBY + pi * PKG, PKG, schipW, pkg, p, hit(pkg.id) || hit(pkgName(pkg)), null, null, els)
+        })
+        if (canEdit) {
+          const capSubRef2 = subCapRef
+          els.push(
+            <g key={K()} onMouseDown={stopMD} onClick={(e) => openMenu(e, 'PACOTES', [
+              { label: 'Excluir chip de pacotes', glyph: '×', color: '#ef4444', danger: true, onClick: () => fire({ type: 'p_clear_dec_pkgs', ref: capSubRef2 }) },
+            ], {
+              getList: (s) => resolveRef(s, capSubRef2)?.packages ?? [],
+              onAdd: () => fire({ type: 'p_add_dec_pkg', ref: capSubRef2 }),
+              onMove: (idx, dir) => fire({ type: 'p_move_dec_pkg', ref: capSubRef2, pkgIdx: idx, dir }),
+              onRemove: (idx) => fire({ type: 'p_remove_dec_pkg', ref: capSubRef2, pkgIdx: idx }),
+            }, subPkgHlKey)} style={{ cursor: 'pointer' }} {...tipAttrs('Gerenciar pacotes da sub-pergunta')}>
+              <rect x={schipX + 4} y={schipCardY + 4} width={schipW - 8} height={LBLH - 8} rx={2} fill="transparent" />
+            </g>
+          )
+          pushPkgFlagOverlays(schipX, sPkgBY, sub.packages!, p,
+            (pi) => fire({ type: 'p_toggle_dec_pkg_contingency', ref: subCapRef, pkgIdx: pi }), els)
+        }
+        chipHighlight(subPkgHlKey, schipX, schipCardY, schipW, schipH, els)
+        els.push(<line key={K()} x1={cx} y1={schipCardY + schipH + 2} x2={cx} y2={sY + subPkgChipH - 5}
+          stroke={p.arr} strokeWidth={1.2} markerEnd={`url(#arr_${pc})`} />)
+      } else {
+        els.push(<line key={K()} x1={cx} y1={sY - SG + 4} x2={cx} y2={sY - 5} stroke={p.arr} strokeWidth={1.2} markerEnd={`url(#arr_${pc})`} />)
+      }
+
+      const actualSY = sY + subPkgChipH
       const subDirty = !!sub._dirty
       const isSubRigQ = RIG_TYPE_Q_RE.test(sub.question.trim())
       const subQd = isSubRigQ ? rigQDec() : qDec()
       els.push(
-        <polygon key={K()} points={`${cx},${sY} ${sdX + sdW},${sY + DH / 2} ${cx},${sY + DH} ${sdX},${sY + DH / 2}`}
+        <polygon key={K()} points={`${cx},${actualSY} ${sdX + sdW},${actualSY + DH / 2} ${cx},${actualSY + DH} ${sdX},${actualSY + DH / 2}`}
           fill={subDirty ? DIRTY_CARD : subQd.fill} stroke={subDirty ? DIRTY_STROKE : subQd.stroke} strokeWidth={subDirty ? 2 : (isSubRigQ ? 2 : 1.5)} />
       )
       // Mesma posição do ícone que no top-level (fonte e largura agora idênticas)
-      if (isSubRigQ) drawDerrickIcon(cx - 62, sY + DH / 2, subQd.text, els)
-      drawNoDefaultWarn(sub.answers, cx, sY, sdW, els)
+      if (isSubRigQ) drawDerrickIcon(cx - 62, actualSY + DH / 2, subQd.text, els)
+      drawNoDefaultWarn(sub.answers, cx, actualSY, sdW, els)
       const sdLines = wrapDiamondText(sub.question)  // mesmo maxChars (30) do top-level
       if (sdLines[1]) {
         els.push(
@@ -932,13 +1033,13 @@ function renderAnswer(
           <g key={K()} onMouseDown={stopMD}
              onClick={(e) => { e.stopPropagation(); fire({ type: 'p_remove_dec', ref: childRef }) }}
              style={{ cursor: 'pointer' }} {...tip('Remover pergunta')}>
-            <circle cx={sdX + sdW + 11} cy={sY + DH / 2} r={9} fill="#ef4444" opacity={0.9} />
-            <text x={sdX + sdW + 11} y={sY + DH / 2 + 3.5} fontSize={12} fontWeight={800} textAnchor="middle" fill="white">×</text>
+            <circle cx={sdX + sdW + 11} cy={actualSY + DH / 2} r={9} fill="#ef4444" opacity={0.9} />
+            <text x={sdX + sdW + 11} y={actualSY + DH / 2 + 3.5} fontSize={12} fontWeight={800} textAnchor="middle" fill="white">×</text>
           </g>
         )
         // ⟲ "já respondida no escopo" (só em sub-perguntas repetidas)
         if (_dupQuestions.has(sub.question.trim())) {
-          drawReuseToggle(sdX + sdW + 11, sY + DH / 2 + 26, !!sub.reuseScope,
+          drawReuseToggle(sdX + sdW + 11, actualSY + DH / 2 + 26, !!sub.reuseScope,
             () => fire({ type: 'p_toggle_reuse', ref: childRef }), els)
         }
         // Clique no diamante da sub-pergunta: em modo "clique na origem" seleciona a origem; caso contrário, abre sidebar.
@@ -950,6 +1051,7 @@ function renderAnswer(
             if (_pickMode) { fire({ type: 'pick_source', ref: childRef, question: capSubQ }); return }
             const subItems: MenuItem[] = [
               { label: 'Adicionar resposta', glyph: '➕', color: '#0ea5e9', onClick: () => fire({ type: 'p_add_ans', ref: childRef }) },
+              { label: 'Adicionar pacote à sub-pergunta', glyph: '📦', color: '#f97316', onClick: () => fire({ type: 'p_add_dec_pkg', ref: childRef }) },
               { label: 'Adicionar entrada após convergência', glyph: '⤵', color: '#7c3aed', onClick: () => fire({ type: 'p_dec_add_after', ref: childRef }) },
               { label: 'Inserir sub-pergunta acima', glyph: '↑', color: '#22d3ee', onClick: () => fire({ type: 'p_insert_sub_dec', ref, ansIdx: ai, subIdx: capSubDi }) },
               { label: 'Inserir sub-pergunta abaixo', glyph: '↓', color: '#22d3ee', onClick: () => fire({ type: 'p_insert_sub_dec', ref, ansIdx: ai, subIdx: capSubDi + 1 }) },
@@ -957,22 +1059,22 @@ function renderAnswer(
             ]
             openMenu(e, capSubQ, subItems, undefined, subHlKey, (v) => fire({ type: 'p_set_q', ref: childRef, value: v }))
           }} style={{ cursor: _pickMode ? 'copy' : 'pointer' }} {...tip(_pickMode ? 'Selecionar como origem' : 'Ações da pergunta')}>
-            <polygon points={`${cx},${sY} ${sdX + sdW - 14},${sY + DH / 2} ${cx},${sY + DH} ${sdX + 14},${sY + DH / 2}`}
+            <polygon points={`${cx},${actualSY} ${sdX + sdW - 14},${actualSY + DH / 2} ${cx},${actualSY + DH} ${sdX + 14},${actualSY + DH / 2}`}
               fill="transparent" />
           </g>
         )
         // Anel de destaque da sub-pergunta selecionada
         if (_hlKey === subHlKey) {
           els.push(<polygon key={K()}
-            points={`${cx},${sY - 3} ${sdX + sdW + 3},${sY + DH / 2} ${cx},${sY + DH + 3} ${sdX - 3},${sY + DH / 2}`}
+            points={`${cx},${actualSY - 3} ${sdX + sdW + 3},${actualSY + DH / 2} ${cx},${actualSY + DH + 3} ${sdX - 3},${actualSY + DH / 2}`}
             fill="rgba(251,191,36,0.12)" stroke="#fbbf24" strokeWidth={2.5} />)
         }
       }
       const subDisp = canEdit ? sub.answers.map(a => ({ ans: a } as DisplayAns)) : toDisplayList(sub.answers)
-      const saY = sY + DH + AV
+      const saY = actualSY + DH + AV
       const tW = subDisp.reduce((s, da, i) => s + aW(da.ans) + (i ? AG : 0), 0)
       let saX = cx - tW / 2
-      fanOut(cx, sY + DH, subDisp.map(d => d.ans), saX, saY, p.arr, `url(#arr_${pc})`, els)
+      fanOut(cx, actualSY + DH, subDisp.map(d => d.ans), saX, saY, p.arr, `url(#arr_${pc})`, els)
       saX = cx - tW / 2
       for (let subAi = 0; subAi < subDisp.length; subAi++) {
         const sda = subDisp[subAi]
@@ -1041,7 +1143,7 @@ function renderAnswer(
         const safBY = safCardY + LBLH + BPAD
         if (safPkgs.length) {
           safPkgs.forEach((pkg, pi) => {
-            drawPkgRow(safX, safBY + pi * PKG, PKG, safW, pkg, p, hit(pkg.id) || hit(pkgName(pkg)), null, els)
+            drawPkgRow(safX, safBY + pi * PKG, PKG, safW, pkg, p, hit(pkg.id) || hit(pkgName(pkg)), null, null, els)
           })
           if (canEdit) {
             const capSafi2 = safi, capChildRef = childRef, capSafLabel2 = saf.label
@@ -1085,7 +1187,7 @@ function renderAnswer(
       const pkgBY = chipCardY + LBLH + BPAD
       if (pkgs.length > 0) {
         pkgs.forEach((pkg, i) => {
-          drawPkgRow(chipX, pkgBY + i * PKG, PKG, chipW, pkg, p, pkgHitIdx.has(i), null, els)
+          drawPkgRow(chipX, pkgBY + i * PKG, PKG, chipW, pkg, p, pkgHitIdx.has(i), null, null, els)
         })
       } else {
         els.push(<text key={K()} x={chipX + 8} y={pkgBY + NOTE_R * 0.8} fontSize={F_S} fontStyle="italic" fill={p.empty}>—</text>)
@@ -1095,6 +1197,7 @@ function renderAnswer(
         const capRef2 = ref, capAi2 = ai, capSubLen = a.sub?.length ?? 0
         els.push(
           <g key={K()} onMouseDown={stopMD} onClick={(e) => openMenu(e, 'Pacotes', [
+            { label: 'Excluir chip de pacotes', glyph: '×', color: '#ef4444', danger: true, onClick: () => fire({ type: 'p_clear_ans_pkgs', ref, ansIdx: ai }) },
             { label: 'Inserir sub-pergunta acima dos pacotes', glyph: '↑', color: '#22d3ee',
               onClick: () => fire({ type: 'p_insert_sub_dec', ref, ansIdx: ai, subIdx: capSubLen }) },
             { label: 'Inserir sub-pergunta abaixo dos pacotes', glyph: '↓', color: '#22d3ee',
@@ -1108,6 +1211,10 @@ function renderAnswer(
             <rect x={chipX + 4} y={chipCardY + 4} width={chipW - 8} height={LBLH - 8} rx={2} fill="transparent" />
           </g>
         )
+        if (pkgs.length > 0) {
+          pushPkgFlagOverlays(chipX, pkgBY, pkgs, p,
+            (pi) => fire({ type: 'p_toggle_ans_pkg_contingency', ref, ansIdx: ai, pkgIdx: pi }), els)
+        }
       }
       chipHighlight(pkgChipHlKey, chipX, chipCardY, chipW, chipH, els)
       afterZoneY = chipCardY + chipH
@@ -1246,7 +1353,7 @@ function renderAnswer(
         const asSafBY = asSafCardY + LBLH + BPAD
         if (asSafPkgs.length) {
           asSafPkgs.forEach((pkg, pi) => {
-            drawPkgRow(asSafX, asSafBY + pi * PKG, PKG, asSafW, pkg, p, hit(pkg.id) || hit(pkgName(pkg)), null, els)
+            drawPkgRow(asSafX, asSafBY + pi * PKG, PKG, asSafW, pkg, p, hit(pkg.id) || hit(pkgName(pkg)), null, null, els)
           })
           if (canEdit) {
             const capAsSafi2 = asSafi, capAsChildRef2 = asChildRef, capAsSafLabel2 = asSaf.label
@@ -1308,7 +1415,7 @@ function renderAnswer(
       const afHlKey = `chip:af:${ref.secIdx}:${ref.decIdx}:${ref.sub.join(',')}:${ai}:${afi}`
       if (afPkgs.length) {
         afPkgs.forEach((pkg, pi) => {
-          drawPkgRow(afX, afBY + pi * PKG, PKG, afW, pkg, p, hit(pkg.id) || hit(pkgName(pkg)), null, els)
+          drawPkgRow(afX, afBY + pi * PKG, PKG, afW, pkg, p, hit(pkg.id) || hit(pkgName(pkg)), null, null, els)
         })
         if (canEdit) {
           const capAfi2 = afi, capRef3 = ref, capAi3 = ai, capAfLabel = af.label
@@ -1467,8 +1574,47 @@ function drawAfterDecision(
     ? `q:ae:${si}:${di}:${aeRef.afterIdx}:${aeRef.isAfterSub ? 'as' : 's'}:${aeRef.subIdx}`
     : `q:${si}:${di}:ad${adIdx}`
 
-  // Arrow from convergence trunk down to the diamond
-  els.push(<line key={K()} x1={cx} y1={topY} x2={cx} y2={dY - 5} stroke={p.arr} strokeWidth={1.4} markerEnd={`url(#arr_${pc})`} />)
+  // Arrow from convergence trunk down to chip or diamond
+  const adPkgChipH = dDecPkgH(ad)
+  if (adPkgChipH > 0) {
+    const achipW = AW - 8, achipX = cx - achipW / 2
+    const achipH = alwChipH(ad.packages!.length)
+    const achipCardY = topY + AFTER_GAP
+    const adPkgHlKey = aeRef
+      ? `chip:decpkg:ae:${si}:${di}:${aeRef.afterIdx}:${aeRef.subIdx}`
+      : `chip:decpkg:ad:${si}:${di}:${adIdx}`
+    const capAdRef: DecRef = ref
+    els.push(<line key={K()} x1={cx} y1={topY} x2={cx} y2={achipCardY - 5} stroke={p.arr} strokeWidth={1.4} markerEnd={`url(#arr_${pc})`} />)
+    els.push(<rect key={K()} x={achipX} y={achipCardY} width={achipW} height={achipH} rx={4} fill={p.ans} stroke={p.ansB} strokeWidth={1} />)
+    els.push(<rect key={K()} x={achipX} y={achipCardY} width={achipW} height={LBLH} rx={4} fill={p.lbl} />)
+    els.push(<rect key={K()} x={achipX} y={achipCardY + LBLH - 4} width={achipW} height={4} fill={p.lbl} />)
+    els.push(<text key={K()} x={achipX + 8} y={achipCardY + LBLH * 0.68} fontSize={F_M} fontWeight={700} fill={p.lblT} fontFamily="ui-sans-serif,system-ui,sans-serif" letterSpacing={0.8}>PACOTES</text>)
+    const adPkgBY = achipCardY + LBLH + BPAD
+    ad.packages!.forEach((pkg, pi) => {
+      drawPkgRow(achipX, adPkgBY + pi * PKG, PKG, achipW, pkg, p, hit(pkg.id) || hit(pkgName(pkg)), null, null, els)
+    })
+    if (edit) {
+      els.push(
+        <g key={K()} onMouseDown={stopMD} onClick={(e) => openMenu(e, 'PACOTES', [
+          { label: 'Excluir chip de pacotes', glyph: '×', color: '#ef4444', danger: true, onClick: () => _editCb!({ type: 'p_clear_dec_pkgs', ref: capAdRef }) },
+        ], {
+          getList: (s) => resolveRef(s, capAdRef)?.packages ?? [],
+          onAdd: () => _editCb!({ type: 'p_add_dec_pkg', ref: capAdRef }),
+          onMove: (idx, dir) => _editCb!({ type: 'p_move_dec_pkg', ref: capAdRef, pkgIdx: idx, dir }),
+          onRemove: (idx) => _editCb!({ type: 'p_remove_dec_pkg', ref: capAdRef, pkgIdx: idx }),
+        }, adPkgHlKey)} style={{ cursor: 'pointer' }} {...tipAttrs('Gerenciar pacotes da pergunta')}>
+          <rect x={achipX + 4} y={achipCardY + 4} width={achipW - 8} height={LBLH - 8} rx={2} fill="transparent" />
+        </g>
+      )
+      pushPkgFlagOverlays(achipX, adPkgBY, ad.packages!, p,
+        (pi) => _editCb!({ type: 'p_toggle_dec_pkg_contingency', ref: capAdRef, pkgIdx: pi }), els)
+    }
+    chipHighlight(adPkgHlKey, achipX, achipCardY, achipW, achipH, els)
+    els.push(<line key={K()} x1={cx} y1={achipCardY + achipH + 2} x2={cx} y2={dY - 5} stroke={p.arr} strokeWidth={1.2} markerEnd={`url(#arr_${pc})`} />)
+  } else {
+    // Arrow from convergence trunk down to the diamond
+    els.push(<line key={K()} x1={cx} y1={topY} x2={cx} y2={dY - 5} stroke={p.arr} strokeWidth={1.4} markerEnd={`url(#arr_${pc})`} />)
+  }
 
   // Diamond (cor de pergunta; destaque quando alterado/não salvo)
   const adDirty = !!ad._dirty
@@ -1502,6 +1648,7 @@ function drawAfterDecision(
         if (_pickMode) { _editCb!({ type: 'pick_source', ref, question: capAdQ }); return }
         const adItems: MenuItem[] = [
           { label: 'Adicionar resposta', glyph: '➕', color: '#0ea5e9', onClick: () => _editCb!({ type: 'p_add_ans', ref }) },
+          { label: 'Adicionar pacote à pergunta', glyph: '📦', color: '#f97316', onClick: () => _editCb!({ type: 'p_add_dec_pkg', ref }) },
           { label: 'Remover pergunta', glyph: '×', color: '#ef4444', danger: true, onClick: () => _editCb!({ type: 'p_remove_dec', ref }) },
         ]
         openMenu(e, capAdQ, adItems, undefined, adHlKey, (v) => _editCb!({ type: 'p_set_q', ref, value: v }))
@@ -1808,7 +1955,7 @@ function drawFlowColumn(secs: LSec[], colCX: number, topY: number, els: React.Re
       const alwHlKey = `chip:always:${si}`
       if (n > 0) {
         ;(sec.always ?? []).forEach((pkg, pi) => {
-          drawPkgRow(chipX, pkgBY + pi * PKG, PKG, chipW, pkg, p, hit(pkg.id) || hit(pkgName(pkg)), null, els)
+          drawPkgRow(chipX, pkgBY + pi * PKG, PKG, chipW, pkg, p, hit(pkg.id) || hit(pkgName(pkg)), null, null, els)
         })
         if (_editCb) {
           const capSi = si
@@ -1836,11 +1983,49 @@ function drawFlowColumn(secs: LSec[], colCX: number, topY: number, els: React.Re
       const dec = sec.decisions[di]
       if (di > 0) iY += DSQ
 
-      const dY = iY
+      // PACOTES chip above the diamond (dec.packages)
+      const decPkgChipH = dDecPkgH(dec)
+      if (decPkgChipH > 0) {
+        const chipW = AW - 8, chipX = CX - chipW / 2
+        const chipH = alwChipH(dec.packages!.length)
+        const chipCardY = iY
+        const pkgBY = chipCardY + LBLH + BPAD
+        const capRefForChip: DecRef = { secIdx: si, decIdx: di, sub: [] }
+        const decPkgHlKey = `chip:decpkg:${si}:${di}`
+        els.push(<rect key={K()} x={chipX} y={chipCardY} width={chipW} height={chipH} rx={4} fill={p.ans} stroke={p.ansB} strokeWidth={1} />)
+        els.push(<rect key={K()} x={chipX} y={chipCardY} width={chipW} height={LBLH} rx={4} fill={p.lbl} />)
+        els.push(<rect key={K()} x={chipX} y={chipCardY + LBLH - 4} width={chipW} height={4} fill={p.lbl} />)
+        els.push(<text key={K()} x={chipX + 8} y={chipCardY + LBLH * 0.68} fontSize={F_M} fontWeight={700} fill={p.lblT} fontFamily="ui-sans-serif,system-ui,sans-serif" letterSpacing={0.8}>PACOTES</text>)
+        dec.packages!.forEach((pkg, pi) => {
+          drawPkgRow(chipX, pkgBY + pi * PKG, PKG, chipW, pkg, p, hit(pkg.id) || hit(pkgName(pkg)), null, null, els)
+        })
+        if (_editCb) {
+          els.push(
+            <g key={K()} onMouseDown={stopMD} onClick={(e) => openMenu(e, 'PACOTES', [
+              { label: 'Excluir chip de pacotes', glyph: '×', color: '#ef4444', danger: true, onClick: () => _editCb!({ type: 'p_clear_dec_pkgs', ref: capRefForChip }) },
+            ], {
+              getList: (s) => resolveRef(s, capRefForChip)?.packages ?? [],
+              onAdd: () => _editCb!({ type: 'p_add_dec_pkg', ref: capRefForChip }),
+              onMove: (idx, dir) => _editCb!({ type: 'p_move_dec_pkg', ref: capRefForChip, pkgIdx: idx, dir }),
+              onRemove: (idx) => _editCb!({ type: 'p_remove_dec_pkg', ref: capRefForChip, pkgIdx: idx }),
+            }, decPkgHlKey)} style={{ cursor: 'pointer' }} {...tipAttrs('Gerenciar pacotes da pergunta')}>
+              <rect x={chipX + 4} y={chipCardY + 4} width={chipW - 8} height={LBLH - 8} rx={2} fill="transparent" />
+            </g>
+          )
+          pushPkgFlagOverlays(chipX, pkgBY, dec.packages!, p,
+            (pi) => _editCb!({ type: 'p_toggle_dec_pkg_contingency', ref: capRefForChip, pkgIdx: pi }), els)
+        }
+        chipHighlight(decPkgHlKey, chipX, chipCardY, chipW, chipH, els)
+        // Arrow from chip bottom to diamond top
+        els.push(<line key={K()} x1={CX} y1={chipCardY + chipH + 2} x2={CX} y2={iY + decPkgChipH - 5}
+          stroke={p.arr} strokeWidth={1.2} markerEnd={`url(#arr_${sec.color})`} />)
+      }
 
-      if (prevBotY < dY - 4) {
+      const dY = iY + decPkgChipH
+
+      if (prevBotY < (decPkgChipH > 0 ? iY : dY) - 4) {
         els.push(
-          <line key={K()} x1={CX} y1={prevBotY} x2={CX} y2={dY - 5}
+          <line key={K()} x1={CX} y1={prevBotY} x2={CX} y2={(decPkgChipH > 0 ? iY : dY) - 5}
             stroke={p.arr} strokeWidth={1.5} markerEnd={`url(#arr_${sec.color})`} />
         )
       }
@@ -1860,6 +2045,7 @@ function drawFlowColumn(secs: LSec[], colCX: number, topY: number, els: React.Re
             if (_pickMode) { _editCb!({ type: 'pick_source', ref, question: capQ }); return }
             const decItems: MenuItem[] = [
               { label: 'Adicionar resposta', glyph: '➕', color: '#0ea5e9', onClick: () => _editCb!({ type: 'p_add_ans', ref }) },
+              { label: 'Adicionar pacote à pergunta', glyph: '📦', color: '#f97316', onClick: () => _editCb!({ type: 'p_add_dec_pkg', ref }) },
               { label: 'Inserir pergunta acima', glyph: '↑', color: '#22d3ee', onClick: () => _editCb!({ type: 'add_decision', secIdx: capSi, afterDecIdx: capDi - 1 }) },
               { label: 'Inserir pergunta abaixo', glyph: '↓', color: '#22d3ee', onClick: () => _editCb!({ type: 'add_decision', secIdx: capSi, afterDecIdx: capDi }) },
               { label: 'Mover pergunta acima', glyph: '⬆', color: '#94a3b8', onClick: () => _editCb!({ type: 'move_decision', secIdx: capSi, decIdx: capDi, dir: 'up' }) },
@@ -2013,7 +2199,7 @@ function drawFlowColumn(secs: LSec[], colCX: number, topY: number, els: React.Re
         const aeBY = aeCardY + LBLH + BPAD
         if (aePkgs.length > 0) {
           aePkgs.forEach((pkg, pi) => {
-            drawPkgRow(aeX, aeBY + pi * PKG, PKG, aeW, pkg, p, hit(pkg.id) || hit(pkgName(pkg)), null, els)
+            drawPkgRow(aeX, aeBY + pi * PKG, PKG, aeW, pkg, p, hit(pkg.id) || hit(pkgName(pkg)), null, null, els)
           })
           if (_editCb) {
             const capSi = si, capDi = di, capAfi2 = afi, capAeLabel = ae.label
