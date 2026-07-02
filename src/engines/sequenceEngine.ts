@@ -81,6 +81,7 @@ export function generateSchedule(inputs: WizardInputs): ScheduleItem[] {
     || scopeId === 'FSU_Sup_COP' || scopeId === 'FSU_Sup_PWC'
   const rcmaFluidCsb = scopeId === 'FSU_Conv_RCMA' && inputs.rcmaCsbPrincipal === 'fluid_csb'
   const seq = SEQUENCES[scopeId]
+  if (!seq) return []
   const steps = rigType === 'ANC' ? seq.ANC : seq.DP
 
   const items: ScheduleItem[] = []

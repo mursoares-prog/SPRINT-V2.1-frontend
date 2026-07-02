@@ -17,7 +17,7 @@ export type LPkg = {
   condition?: LCondition
 }
 
-export type LSeqEntry = { label: string; note?: string; packages?: LPkg[] }
+export type LSeqEntry = { label: string; note?: string; packages?: LPkg[]; sub?: LDec[]; afterSub?: LDec[] }
 
 export interface LAns {
   label: string
@@ -26,16 +26,28 @@ export interface LAns {
   packages?: LPkg[]
   sub?: LDec[]
   seq?: LSeqEntry[]  // respostas sequenciais abaixo desta (sem decisão intermediária)
+  after?: LSeqEntry[]  // blocos (pacotes/sequenciais) emitidos APÓS a convergência da subárvore
+                       // desta resposta — renderizados no rodapé do chip, emitidos após `sub`.
   goto?: string      // texto da pergunta destino (link visual entre respostas e decisões)
+  contingency?: boolean  // marca esta resposta (e seu bloco) como variante de contingência,
+                         // evitando duplicar todo o bloco só para mudar firme→contingência
   // Mapeamento para WizardInputs (field + value → seleciona esta resposta):
   field?: string
   value?: unknown
+  // Transiente (UI): resposta alterada desde o último salvamento. Removido ao salvar.
+  _dirty?: boolean
 }
 
 export interface LDec {
   question: string
   answers: LAns[]
-  after?: LSeqEntry[]  // entradas sequenciais exibidas após a convergência das respostas
+  after?: LSeqEntry[]   // entradas sequenciais exibidas após a convergência das respostas
+  afterDec?: LDec[]     // perguntas (decisões) exibidas após a convergência, antes dos chips `after`
+  reuseScope?: boolean  // "Já respondida no escopo": pergunta repetida que herda a resposta dada
+                        // na 1ª ocorrência da MESMA pergunta no escopo. Não é exibida no passo 2
+                        // (não pergunta de novo), mas o ramo resolvido continua emitindo pacotes.
+  // Transiente (UI): pergunta alterada/criada desde o último salvamento. Removido ao salvar.
+  _dirty?: boolean
 }
 
 export interface LSec {
@@ -48,31 +60,10 @@ export interface LSec {
   // Filtros de execução (ausentes = aplica para todos):
   rigTypes?: ('ANC' | 'DP')[]
   opTypes?: ('Generalista' | 'LWO')[]
-}
-
-// ── Canvas livre (formas e conexões livres) ──────────────────────────────────
-
-export type CanvasNodeType = 'start' | 'end' | 'decision' | 'process' | 'package' | 'note'
-
-export interface CanvasNode {
-  id: string
-  type: CanvasNodeType
-  x: number
-  y: number
-  label: string
-}
-
-export interface CanvasEdge {
-  id: string
-  from: string
-  to: string
-  label?: string
-  dashed?: boolean
-}
-
-export interface CanvasData {
-  nodes: CanvasNode[]
-  edges: CanvasEdge[]
+  // Reuso vivo: quando presente, esta seção é um PLACEHOLDER que inclui as seções de
+  // outro escopo (resolvidas na geração/consumo, não copiadas). Edições no escopo de
+  // origem propagam automaticamente. `decisions` fica vazio; `label` é só rótulo do card.
+  ref?: { scopeId: string; label?: string }
 }
 
 // ── SEÇÕES COMPARTILHADAS (Fase 0 / 1A) ────────────────────────────────────
@@ -377,7 +368,7 @@ const SEC_GAB: LSec = {
       ],
     },
     {
-      question: 'Log de pressão anular?',
+      question: 'Realizar Registro de Pressão?',
       answers: [
         { label: 'Não', active: true },
         { label: 'Sim', packages: [
@@ -1191,6 +1182,18 @@ const SEC_MOB_REENTRADA_DP: LSec = {
   ],
 }
 
+// Seção para sonda ancorada: sem transponders/DMM (exclusivos de DP)
+const SEC_MOB_REENTRADA_ANC: LSec = {
+  id: 'mob_reentrada_anc',
+  label: 'MOBILIZAÇÃO E REENTRADA NA ANM (SONDA ANCORADA)',
+  phase: 'Mobilização',
+  color: 'gray',
+  decisions: [
+    ...SEC_MIRO_CCAP_TCAP.decisions,
+    ...SEC_MIRO_DESCIDA_CONEXAO.decisions,
+  ],
+}
+
 export const LOGIC_BY_SCOPE: Record<string, LSec[]> = {
   FSU_TT_FT: [
     ...F1_PREFIX,
@@ -1248,6 +1251,7 @@ export const LOGIC_BY_SCOPE: Record<string, LSec[]> = {
     SEC_BOP_INSTALA, SEC_FETH_COP, SEC_CAUDA, SEC_PACKER_FISHING, SEC_ISOLATION, SEC_BOP_RETIRA,
   ],
   MOB_DESCIDA: [SEC_MOB_REENTRADA_DP],
+  MOB_REENTRADA_ANC: [SEC_MOB_REENTRADA_ANC],
 }
 
 // ── VISÃO COMPLETA ─────────────────────────────────────────────────────────

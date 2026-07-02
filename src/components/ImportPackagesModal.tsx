@@ -36,7 +36,6 @@ const UNIT_RE = /\b\d+(?:[.,]\d+)?\s*(?:psi|lbf|ppg|bbl|scfm|kN|klbf)\b/gi
 const NUM_RE  = /\b[1-9]\d{2,}(?:[.,]\d+)?\b/g
 
 function detectCandidates(text: string): string[] {
-  const clean = text.replace(/\{\{[^}]+\}\}/g, '\x00'.repeat)
   // replace placeholder regions with same-length null bytes to preserve offsets
   const stripped = text.replace(/\{\{[^}]+\}\}/g, m => '\x00'.repeat(m.length))
   const seen = new Set<string>()
@@ -47,7 +46,6 @@ function detectCandidates(text: string): string[] {
       if (!seen.has(v)) { seen.add(v); results.push(v) }
     }
   }
-  void clean
   return results
 }
 

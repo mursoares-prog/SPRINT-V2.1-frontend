@@ -201,6 +201,7 @@ export interface WizardInputs {
   stdvDispositionAfterTest?: 'remove' | 'keep'
   contingencyTtFt?: boolean
   perforationTestContingency?: boolean
+  logicAnswers?: Record<string, string>
   startDate: string
   percentile: Percentile
 }

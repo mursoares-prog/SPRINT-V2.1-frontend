@@ -231,6 +231,8 @@ export interface LogicScopeMeta {
   scopeId: string
   isCustom: boolean
   label: string | null
+  fase: string | null
+  opTypes: string[] | null
   sectionCount: number
   author: string | null
   updatedAt: string
@@ -257,6 +259,17 @@ export function createLogicScope(meta: { scopeId: string; label: string; section
   return req<{ scopeId: string; isCustom: boolean; label: string; sectionCount: number }>(
     '/api/logic/scopes',
     { method: 'POST', headers: authHeaders, body: JSON.stringify(meta) },
+  )
+}
+
+export function saveLogicScopeMeta(
+  scopeId: string,
+  meta: { fase?: string | null; opTypes?: string[] | null; label?: string | null },
+  authHeaders: Record<string, string>,
+) {
+  return req<{ scopeId: string; fase: string | null; opTypes: string[] | null; label: string | null }>(
+    `/api/logic/scopes/${encodeURIComponent(scopeId)}/meta`,
+    { method: 'PATCH', headers: authHeaders, body: JSON.stringify(meta) },
   )
 }
 

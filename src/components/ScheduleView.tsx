@@ -3,7 +3,7 @@ import React from 'react'
 import { useApp } from '../context/AppContext'
 import type { ScheduleItem, WizardInputs } from '../types'
 import { PACKAGES } from '../data/packages'
-import { Save, Sliders, Undo2, Redo2 } from 'lucide-react'
+import { Save, Sliders, Undo2, Redo2, BarChart2 } from 'lucide-react'
 import { buildProjectFile, downloadProject } from '../utils/projectFile'
 import { CloudSaveButton } from './CloudSaveButton'
 
@@ -37,6 +37,7 @@ const TECH_BADGE: Record<string, TechBadgeEntry> = {
 export function ScheduleView() {
   const { state, dispatch, canUndoInputs, canRedoInputs } = useApp()
   const { schedule } = state
+  const [showStats, setShowStats] = useState(() => typeof window !== 'undefined' && window.innerWidth >= 1400)
 
   const total = schedule.reduce((a, i) => a + i.duration, 0)
   const pct: number = state.inputs.percentile ?? 75
@@ -69,20 +70,20 @@ export function ScheduleView() {
               disabled={!canUndoInputs}
               title="Desfazer (Ctrl+Z)"
               className="flex items-center gap-1 h-8 px-2.5 rounded-lg text-xs font-semibold transition-colors border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:border-slate-300 dark:hover:border-slate-500 bg-slate-100 dark:bg-slate-800 disabled:opacity-30 disabled:cursor-not-allowed">
-              <Undo2 size={13} /> Desfazer
+              <Undo2 size={13} /><span className="hidden md:inline">Desfazer</span>
             </button>
             <button
               onClick={() => dispatch({ type: 'REDO_INPUTS' })}
               disabled={!canRedoInputs}
               title="Refazer (Ctrl+Y)"
               className="flex items-center gap-1 h-8 px-2.5 rounded-lg text-xs font-semibold transition-colors border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:border-slate-300 dark:hover:border-slate-500 bg-slate-100 dark:bg-slate-800 disabled:opacity-30 disabled:cursor-not-allowed">
-              <Redo2 size={13} /> Refazer
+              <Redo2 size={13} /><span className="hidden md:inline">Refazer</span>
             </button>
             <button
               onClick={handleSave}
               title="Salvar projeto como arquivo"
               className="flex items-center gap-1.5 h-8 px-3 rounded-lg text-xs font-semibold transition-colors border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:border-slate-300 dark:hover:border-slate-500 bg-slate-100 dark:bg-slate-800">
-              <Save size={14} /> Salvar
+              <Save size={14} /><span className="hidden md:inline">Salvar</span>
             </button>
             <CloudSaveButton />
             <div className="flex h-8 rounded-lg overflow-hidden border border-slate-200 dark:border-slate-600">
@@ -98,10 +99,16 @@ export function ScheduleView() {
               </button>
             </div>
             <button
+              onClick={() => setShowStats(s => !s)}
+              title={showStats ? 'Ocultar painel de estatísticas' : 'Mostrar painel de estatísticas'}
+              className={`flex items-center h-8 px-2.5 rounded-lg text-xs font-semibold transition-colors border border-slate-200 dark:border-slate-600 bg-slate-100 dark:bg-slate-800 ${showStats ? 'text-[#0c2340] dark:text-sky-400 border-[#0c2340]/30 dark:border-sky-700' : 'text-slate-600 dark:text-slate-300 hover:border-slate-300 dark:hover:border-slate-500'}`}>
+              <BarChart2 size={14} />
+            </button>
+            <button
               onClick={() => dispatch({ type: 'ENTER_FINE_TUNING' })}
               className="flex items-center gap-1.5 h-8 px-4 rounded-lg text-sm font-semibold text-white transition-opacity hover:opacity-90"
               style={{ background: '#d97706' }}>
-              <Sliders size={14} /> Ir para Detalhamento do cronograma
+              <Sliders size={14} /><span className="hidden lg:inline">Ir para Detalhamento do cronograma</span><span className="lg:hidden">Detalhamento</span>
             </button>
           </div>
         </div>
@@ -109,7 +116,7 @@ export function ScheduleView() {
       <div className="flex flex-1 min-h-0 gap-3 overflow-hidden">
         <PackageList items={schedule} showHours={showHours}
           onDurationChange={(uid, dur) => dispatch({ type: 'UPDATE_ITEM_DURATION', uid, duration: dur })} />
-        <ScheduleStatsPanel items={schedule} showHours={showHours} />
+        {showStats && <ScheduleStatsPanel items={schedule} showHours={showHours} />}
       </div>
     </div>
   )

@@ -58,7 +58,7 @@ const QUESTION_LABEL_RESOLVER: Record<string, (inp: WizardInputs) => string | st
     }
     return null
   },
-  'Log de pressão anular?':            inp => (inp.investigationLogs ?? []).includes('registro_pressao') ? 'Sim' : 'Não',
+  'Realizar Registro de Pressão?':      inp => (inp.investigationLogs ?? []).includes('registro_pressao') ? 'Sim' : 'Não',
   // ── FLOWLINES ───────────────────────────────────────────────────────────────
   'Limpar flowlines?':                 inp => inp.cleanFlowlines === true ? 'Sim' : inp.cleanFlowlines === false ? 'Não' : null,
   'Hidrato nas flowlines?':            inp => (inp.flowlineHydrate === 'yes' || inp.flowlineHydrate === 'contingency') ? 'Sim / Conting.' : 'Não',
@@ -130,19 +130,26 @@ const QUESTION_LABEL_RESOLVER: Record<string, (inp: WizardInputs) => string | st
   // ── FASE 2 ──────────────────────────────────────────────────────────────────
   'Método de teste do BOP?': inp => {
     switch (inp.bopTestMethod) {
-      case 'test_plug': return 'Test plug'
-      case 'orman':     return 'Ponteira ORMAN'
-      case 'float':     return 'Coluna flutuada'
-      case 'feth_th':   return 'FETH no TH'
-      default:          return null
+      case 'test_plug':       return 'Test plug'
+      case 'ponteira_orman':  return 'Ponteira ORMAN'
+      case 'coluna_flutuada': return 'Coluna flutuada'
+      case 'feth_on_th':      return 'FETH no TH'
+      default:                return null
     }
   },
   'Coluna presa — corte? (conting.)':  inp => (inp.fs2CopCutContingency === 'yes' || inp.fs2CopCutContingency === 'contingency') ? 'Sim / Conting.' : 'Não',
   'Pescaria de packer?':               inp => (inp.fs2PackerFishing === 'yes' || inp.fs2PackerFishing === 'contingency') ? 'Sim / Conting.' : 'Não',
 }
 
-function resolveAnswer(dec: LDec, inputs: WizardInputs): LAns | undefined {
-  const inp = inputs as Record<string, unknown>
+function resolveAnswer(dec: LDec, inputs: WizardInputs, key: string, isCustom: boolean): LAns | undefined {
+  const inp = inputs as unknown as Record<string, unknown>
+
+  // 0. Check explicit user answer from custom logic UI (keyed by tree path — ver buildDecisionKey)
+  const userLabel = inputs.logicAnswers?.[key]
+  if (userLabel !== undefined) {
+    const byUser = dec.answers.find(a => a.label === userLabel)
+    if (byUser) return byUser
+  }
 
   // 1. Try explicit field/value on each answer (populated by admin editor or future enrichment)
   const byField = dec.answers.find(ans => {
@@ -158,19 +165,33 @@ function resolveAnswer(dec: LDec, inputs: WizardInputs): LAns | undefined {
   })
   if (byField) return byField
 
-  // 2. Try question-based label resolver (covers all bundle decisions without field/value)
-  const resolver = QUESTION_LABEL_RESOLVER[dec.question]
-  if (resolver) {
-    const label = resolver(inputs)
-    if (label !== null) {
-      const labels = Array.isArray(label) ? label : [label]
-      const byLabel = dec.answers.find(a => labels.includes(a.label))
-      if (byLabel) return byLabel
+  // 2. Try question-based label resolver (covers all bundle decisions without field/value).
+  //    Em escopos custom o fluxo é definido por logicAnswers (passo 0) + o default `active`
+  //    salvo no fluxograma — o resolver (mapeia inputs do wizard de bundle) não se aplica.
+  if (!isCustom) {
+    const resolver = QUESTION_LABEL_RESOLVER[dec.question]
+    if (resolver) {
+      const label = resolver(inputs)
+      if (label !== null) {
+        const labels = Array.isArray(label) ? label : [label]
+        const byLabel = dec.answers.find(a => labels.includes(a.label))
+        if (byLabel) return byLabel
+      }
     }
   }
 
-  // 3. Fall back to the answer marked active: true
-  return dec.answers.find(a => a.active)
+  // 3. Fall back to the answer marked active: true, then to the first answer
+  return dec.answers.find(a => a.active) ?? dec.answers[0]
+}
+
+// Respostas que classificam o ramo como contingência (fluxograma: Sim / Contingência / Não).
+// Só rótulos puramente contingenciais ("Contingência", "Contingencial", "Conting."); rótulos
+// combinados (ex.: "Sim / Contingência") representam execução firme com modo contingencial.
+function isContingencyLabel(label: string): boolean {
+  const l = label.toLowerCase()
+  if (!/conting/.test(l)) return false
+  if (/\bsim\b|\bn[ãa]o\b/.test(l)) return false
+  return true
 }
 
 function emitPkg(
@@ -178,11 +199,15 @@ function emitPkg(
   fallbackPhase: Phase,
   percentile: Percentile,
   items: ScheduleItem[],
+  inputs: WizardInputs,
+  branchContingency?: { reason: string },
 ): void {
-  if (!checkCondition(pkg.condition, {} as WizardInputs)) return
+  if (!checkCondition(pkg.condition, inputs)) return
   const pkgData = getPackage(pkg.id)
   if (!pkgData) return
   const phase: Phase = (pkg.phase as Phase | undefined) ?? fallbackPhase
+  // O ramo contingencial do fluxograma força a contingência; pkg.isContingency a mantém.
+  const isContingency = (pkg.isContingency ?? false) || !!branchContingency
   items.push({
     uid: nextUid(),
     packageId: pkg.id,
@@ -192,11 +217,18 @@ function emitPkg(
     transitionTechnology: pkg.transitionTechnology as Technology | undefined,
     phase,
     duration: getDuration(pkg.id, percentile),
-    isContingency: pkg.isContingency ?? false,
-    contingencyReason: pkg.contingencyReason,
+    isContingency,
+    contingencyReason: pkg.contingencyReason ?? branchContingency?.reason,
     startDay: 0,
     endDay: 0,
   })
+}
+
+// Chave estável de uma decisão = caminho na árvore (prefixo) + índice + texto da
+// pergunta. O índice/prefixo garantem unicidade mesmo entre perguntas homônimas
+// (ex.: vários "Como?" em ramos diferentes). DEVE casar com LogicQuestionsPanel.
+export function buildDecisionKey(pathPrefix: string, decIndex: number, question: string): string {
+  return `${pathPrefix}::${decIndex}::${question}`
 }
 
 function walkDecisions(
@@ -205,24 +237,65 @@ function walkDecisions(
   fallbackPhase: Phase,
   percentile: Percentile,
   items: ScheduleItem[],
+  pathPrefix: string,
+  isCustom: boolean,
+  scopeAnswers: Map<string, string>,
+  parentContingency = false,
+  parentReason?: string,
 ): void {
-  for (const dec of decisions) {
-    const ans = resolveAnswer(dec, inputs)
-    if (!ans) continue
-    for (const pkg of ans.packages ?? []) {
-      if (checkCondition(pkg.condition, inputs)) {
-        emitPkg(pkg, fallbackPhase, percentile, items)
+  decisions.forEach((dec, di) => {
+    const key = buildDecisionKey(pathPrefix, di, dec.question)
+    // "Já respondida no escopo": herda o rótulo já resolvido para a MESMA pergunta numa
+    // ocorrência anterior do escopo (registrado em scopeAnswers). Se ainda não houver
+    // âncora (ex.: marcada na 1ª ocorrência), cai no fluxo normal e vira a própria âncora.
+    const norm = dec.question.trim()
+    let ans: LAns | undefined
+    if (isCustom && dec.reuseScope && scopeAnswers.has(norm)) {
+      const scoped = scopeAnswers.get(norm)
+      ans = dec.answers.find(a => a.label === scoped) ?? dec.answers.find(a => a.active) ?? dec.answers[0]
+    } else {
+      ans = resolveAnswer(dec, inputs, key, isCustom)
+      if (isCustom && ans && !scopeAnswers.has(norm)) scopeAnswers.set(norm, ans.label)
+    }
+    if (ans) {
+      // Em escopo custom, a resposta "Contingência" (ou marcada com a flag `contingency`)
+      // marca o ramo (e seus subníveis) como contingência, sem duplicar o bloco.
+      const contingency = parentContingency || (isCustom && (isContingencyLabel(ans.label) || !!ans.contingency))
+      const reason = contingency ? (parentContingency ? parentReason : `Contingência: ${dec.question}`) : undefined
+      const ctx = contingency ? { reason: reason ?? 'Contingência' } : undefined
+      for (const pkg of ans.packages ?? []) {
+        emitPkg(pkg, fallbackPhase, percentile, items, inputs, ctx)
+      }
+      if (ans.sub?.length) {
+        // O ramo segue pela resposta resolvida — o rótulo dela estende o caminho.
+        walkDecisions(ans.sub, inputs, fallbackPhase, percentile, items, `${key}::${ans.label}`, isCustom, scopeAnswers, contingency, reason)
+      }
+      // Pacotes "após convergência" desta resposta — emitidos depois de toda a subárvore.
+      for (const entry of ans.after ?? []) {
+        for (const pkg of entry.packages ?? []) {
+          emitPkg(pkg, fallbackPhase, percentile, items, inputs, ctx)
+        }
       }
     }
-    if (ans.sub?.length) {
-      walkDecisions(ans.sub, inputs, fallbackPhase, percentile, items)
+    // Perguntas após a convergência (dec.afterDec): fluem independentemente da resposta
+    // escolhida acima — avaliadas após o ramo resolvido e antes dos chips `after`.
+    if (dec.afterDec?.length) {
+      walkDecisions(dec.afterDec, inputs, fallbackPhase, percentile, items, `${key}::after`, isCustom, scopeAnswers, parentContingency, parentReason)
     }
-  }
+    // Entradas sequenciais após a convergência das respostas (dec.after): fluem
+    // independentemente da resposta escolhida — emitidas após o ramo resolvido.
+    for (const entry of dec.after ?? []) {
+      for (const pkg of entry.packages ?? []) {
+        emitPkg(pkg, fallbackPhase, percentile, items, inputs)
+      }
+    }
+  })
 }
 
 export function generateScheduleFromLogic(
   inputs: WizardInputs,
   sections: LSec[],
+  isCustom = false,
 ): ScheduleItem[] {
   _uid = 0
   const { rigType, operationType, percentile } = inputs
@@ -234,14 +307,15 @@ export function generateScheduleFromLogic(
   })
 
   const items: ScheduleItem[] = []
+  // Respostas resolvidas por pergunta no escopo — alimenta as decisões `reuseScope`
+  // (perguntas repetidas marcadas como "Já respondida no escopo"). Compartilhado entre seções.
+  const scopeAnswers = new Map<string, string>()
   for (const sec of filtered) {
     const fallbackPhase = sec.phase as Phase
     for (const pkg of sec.always ?? []) {
-      if (checkCondition(pkg.condition, inputs)) {
-        emitPkg(pkg, fallbackPhase, percentile, items)
-      }
+      emitPkg(pkg, fallbackPhase, percentile, items, inputs)
     }
-    walkDecisions(sec.decisions, inputs, fallbackPhase, percentile, items)
+    walkDecisions(sec.decisions, inputs, fallbackPhase, percentile, items, sec.id, isCustom, scopeAnswers)
   }
 
   const base = items.filter(i => !i.autoInserted)

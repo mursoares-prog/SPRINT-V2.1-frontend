@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { AppProvider, useApp } from './context/AppContext'
 import { LoginScreen } from './components/LoginScreen'
 import { Sidebar } from './components/Sidebar'
@@ -17,7 +17,8 @@ import { getSession, clearSession } from './utils/auth'
 import { setPackageLines } from './data/packageLinesStore'
 import { applyDetailOverrides, applyPackageOverrides } from './data/lineDetailsStore'
 import { setExtraPackages, metaToPackage, PACKAGES } from './data/packages'
-import { setLogicOverrides, setCustomScopesMeta, getCustomScopesMeta } from './data/logicOverrideStore'
+import { setLogicOverrides, setCustomScopesMeta, getCustomScopesMeta, isBlockScope } from './data/logicOverrideStore'
+import { SCOPE_LABEL } from './data/scopeLabels'
 import { ServerProjectsModal } from './components/ServerProjectsModal'
 
 function SemisubIcon({ size = 24, className = '' }: { size?: number; className?: string }) {
@@ -54,20 +55,6 @@ const SCOPE_BY_PHASE_LWO: Record<string, ScopeId[]> = {
   fase_1:     ['FS1_Mec'],
   fase_2:     ['FS2_Conv_RCMA'],
 }
-export const SCOPE_LABEL: Record<ScopeId, string> = {
-  FSU_TT_FT:    'TT Flexitubo (TT-FT)',
-  FSU_TT_BDC:   'TT Bombeio Direto (TT-BDC)',
-  FSU_Conv_BOP:  'Convencional com BOP',
-  FSU_Conv_RCMA: 'Convencional com RCMA',
-  FSU_Sup_COP:   'Superconvencional (COP Interior/Inferior)',
-  FSU_Sup_PWC:   'Superconvencional (Recimentação/PWC)',
-  FS1_Mec:       'Tampões Mecânicos',
-  FS2_Conv_BOP:  'Convencional com BOP',
-  FS2_Conv_RCMA: 'Convencional com RCMA',
-  FS2_Sup_COP:   'Superconvencional (COP Interior/Inferior)',
-  FS2_Sup_PWC:   'Superconvencional (Recimentação/PWC)',
-}
-
 // ── Default inputs por escopo ─────────────────────────────────────────────────
 function getDefaultInputs(
   rigType: 'ANC' | 'DP',
@@ -191,12 +178,6 @@ function Home() {
   const [scopeId,     setScopeId]     = useState<ScopeId | ''>('')
   const [openError,   setOpenError]   = useState<string | null>(null)
   const [showServer,  setShowServer]  = useState(false)
-  const [customScopes, setCustomScopesState] = useState<{ scopeId: string; label: string }[]>(getCustomScopesMeta)
-
-  // Re-lê quando a tela de seleção abre (boot pode ter terminado depois do render inicial).
-  useEffect(() => {
-    if (selecting) setCustomScopesState(getCustomScopesMeta())
-  }, [selecting])
 
   const reset = () => {
     setInterventionType(''); setRigType(''); setOpType('Generalista'); setPhaseFilter(''); setScopeId(''); setWellName('')
@@ -225,6 +206,7 @@ function Home() {
 
   const handleGenerate = () => {
     if (!rigType || !scopeId) return
+    if (rigType !== 'ANC' && rigType !== 'DP') return   // PA/SPH ainda não têm fluxo de geração
     const defaults = getDefaultInputs(rigType, opType, scopeId)
     dispatch({ type: 'RESET' })
     dispatch({ type: 'SET_WELL_NAME', wellName: wellName.trim() })
@@ -256,6 +238,14 @@ function Home() {
 
   const scopeMap = opType === 'LWO' ? SCOPE_BY_PHASE_LWO : SCOPE_BY_PHASE
   const scopeOptions = phaseFilter ? scopeMap[phaseFilter] ?? [] : []
+  const filteredCustomScopes = useMemo(() => {
+    const all = selecting ? getCustomScopesMeta() : []
+    return all.filter(cs => {
+      if (cs.fase && phaseFilter && cs.fase !== phaseFilter) return false
+      if (cs.opTypes?.length && opType && !cs.opTypes.includes(opType)) return false
+      return true
+    })
+  }, [selecting, phaseFilter, opType])
   const canGenerate = interventionType === 'abandono' && !!rigType && !!scopeId
 
   if (!selecting) {
@@ -470,11 +460,11 @@ function Home() {
             </SelGroup>
           )}
 
-          {/* Escopos customizados (criados no Admin → Sequenciamento) */}
-          {interventionType === 'abandono' && (rigType === 'ANC' || rigType === 'DP') && customScopes.length > 0 && (
-            <SelGroup label="Escopos customizados">
+          {/* Escopos customizados — filtrados por fase e tipo de sonda quando configurados */}
+          {interventionType === 'abandono' && (rigType === 'ANC' || rigType === 'DP') && filteredCustomScopes.length > 0 && (
+            <SelGroup label="Fluxogramas customizados">
               <div className="space-y-2">
-                {customScopes.map(cs => (
+                {filteredCustomScopes.map(cs => (
                   <label key={cs.scopeId}
                     className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-colors
                       ${scopeId === cs.scopeId
@@ -482,7 +472,17 @@ function Home() {
                         : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600'}`}>
                     <input type="radio" name="scope" value={cs.scopeId} checked={scopeId === cs.scopeId}
                       onChange={() => setScopeId(cs.scopeId)} className="accent-[#d97706]" />
-                    <span className="text-sm text-slate-700 dark:text-slate-200">{cs.label}</span>
+                    <div className="flex flex-col min-w-0">
+                      <span className="text-sm text-slate-700 dark:text-slate-200">{cs.label}</span>
+                      {(cs.fase || cs.opTypes?.length) && (
+                        <span className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">
+                          {[
+                            cs.fase === 'fase_1' ? 'Fase 1' : cs.fase === 'fase_2' ? 'Fase 2' : cs.fase === 'fase_unica' ? 'Fase Única' : null,
+                            cs.opTypes?.join(' / '),
+                          ].filter(Boolean).join(' · ')}
+                        </span>
+                      )}
+                    </div>
                   </label>
                 ))}
               </div>
@@ -643,8 +643,9 @@ export default function App() {
     )).catch(() => {})
     // Overrides de engine (LSec[]) → store para routing engine antiga/nova.
     getLogicScopes().then(scopes => {
-      // Expõe escopos customizados ao picker do wizard.
-      setCustomScopesMeta(scopes.filter(s => s.isCustom).map(s => ({ scopeId: s.scopeId, label: s.label ?? s.scopeId })))
+      // Expõe escopos customizados ao picker do wizard (blocos de lógica são
+      // building-blocks, não escopos geráveis — ficam de fora).
+      setCustomScopesMeta(scopes.filter(s => s.isCustom && !isBlockScope(s.scopeId)).map(s => ({ scopeId: s.scopeId, label: s.label ?? s.scopeId, fase: s.fase, opTypes: s.opTypes })))
       const active = scopes.filter(s => s.sectionCount > 0)
       if (!active.length) return
       Promise.all(active.map(s => getLogicScope(s.scopeId))).then(results => {

@@ -1,9 +1,10 @@
 import { useState, useRef } from 'react'
 import { createPortal } from 'react-dom'
-import { X } from 'lucide-react'
+import { X, ChevronLeft, ChevronRight } from 'lucide-react'
 import { useApp } from '../context/AppContext'
 import { generateSchedule } from '../engines/scheduleRouter'
-import { getLogicOverride } from '../data/logicOverrideStore'
+import { resolveScopeSections, expandScopeRefs } from '../data/logicOverrideStore'
+import { LogicQuestionsPanel } from './LogicQuestionsPanel'
 import type { WizardInputs, FlowlineLine, ScopeId, YesContingencyNo, TmfPlugBore, IsolationPlugType, IsolationCorrMethod, FishingElement, FishingMethod, VglAction, GaugeTech, InvestigationLog, RcmaCsbPrincipal, RcmaCementPkg, TcapSurfaceFluid } from '../types'
 
 const FISHING_ELEMENT_LABELS: Record<FishingElement, string> = {
@@ -97,6 +98,7 @@ export function InputSummaryPanel({ onClose }: { onClose?: () => void }) {
   const { state, dispatch } = useApp()
   const { inputs } = state
   const [editing, setEditing] = useState<string | null>(null)
+  const [collapsed, setCollapsed] = useState(() => typeof window !== 'undefined' && window.innerWidth < 1400)
 
   const apply = (data: Partial<WizardInputs>, autoClose = true) => {
     const merged = { ...inputs, ...data } as WizardInputs
@@ -158,23 +160,49 @@ const showRemoveANM = isTT || isFS1Mec
   const isLWIV = inputs.operationType === 'LWO'
   const ccapEffectiveMethod = inputs.ccapRemovalMethod ?? (isLWIV ? 'cable' : 'workstring')
   const isCustomScope = !!inputs.scopeId && !(inputs.scopeId in SCOPE_SHORT)
-  const customSecs = isCustomScope ? (getLogicOverride(inputs.scopeId!) ?? []) : null
+  // Expande seções `ref` (reuso vivo) para que as perguntas/seções do fluxograma incluído
+  // (ex.: MOB_descida) também apareçam no passo 2 — mesma expansão usada na geração.
+  const customSecs = isCustomScope
+    ? expandScopeRefs(resolveScopeSections(inputs.scopeId!))
+    : null
   const cSecIds = new Set(customSecs?.map(s => s.id) ?? [])
   const hasSec = (...ids: string[]) => !isCustomScope || ids.some(id => cSecIds.has(id))
   const hasSecPhase = (phase: string) => !isCustomScope || (customSecs?.some(s => s.phase === phase) ?? false)
 
   const scopeOpts = ALL_SCOPE_OPTS.filter(o => !isLWO || LWO_SCOPES.has(o.value))
 
+  if (collapsed && !onClose) {
+    return (
+      <aside className="w-8 shrink-0 border-r border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-900 flex flex-col items-center overflow-hidden">
+        <button
+          onClick={() => setCollapsed(false)}
+          title="Expandir painel de abandono"
+          className="flex-1 flex items-center justify-center text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors w-full">
+          <ChevronRight size={14} />
+        </button>
+      </aside>
+    )
+  }
+
   return (
     <aside className={`${onClose ? 'flex-1' : 'w-96 shrink-0'} border-r border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-900 flex flex-col overflow-hidden`}>
       <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between shrink-0">
         <span className="text-xs font-bold text-slate-700 dark:text-slate-400 uppercase tracking-widest">Painel de Abandono</span>
-        {onClose && (
-          <button onClick={onClose}
-            className="p-1 rounded hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 hover:text-slate-700 dark:hover:text-slate-200 transition-colors">
-            <X size={16} />
-          </button>
-        )}
+        <div className="flex items-center gap-0.5">
+          {!onClose && (
+            <button onClick={() => setCollapsed(true)}
+              title="Recolher painel"
+              className="p-1 rounded hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-500 hover:text-slate-700 dark:hover:text-slate-200 transition-colors">
+              <ChevronLeft size={14} />
+            </button>
+          )}
+          {onClose && (
+            <button onClick={onClose}
+              className="p-1 rounded hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 hover:text-slate-700 dark:hover:text-slate-200 transition-colors">
+              <X size={16} />
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="flex-1 overflow-y-auto p-4 space-y-5 scrollbar-custom">
@@ -220,7 +248,7 @@ const showRemoveANM = isTT || isFS1Mec
                 const defIso = v === 'FS2_Sup_PWC'
                   ? { needsCorrection: true, corrMethod: 'pwc' as IsolationCorrMethod, pwcValidation: 'params' as const }
                   : { needsCorrection: false, plugType: 'bpp' as IsolationPlugType }
-                apply({ scopeId: v as ScopeId, ...(isNewFS2 && {
+                apply({ scopeId: v as ScopeId, logicAnswers: {}, ...(isNewFS2 && {
                   contingencyFejat: 'no', fs2CopCutContingency: 'no', fs2CopCutMethod: 'electric', fs2PackerFishing: 'no',
                   transponderMode: 'rov', dmmWithEquipment: false, isolationCount: 1, isolations: [defIso],
                   bopTestMethod: 'test_plug',
@@ -1838,6 +1866,24 @@ const showRemoveANM = isTT || isFS1Mec
           </Section>
         )}
 
+        {/* ── Perguntas da lógica customizada ── */}
+        {isCustomScope && inputs.rigType && inputs.scopeId && (() => {
+          const secs = (customSecs ?? []).filter(sec => {
+            if (sec.rigTypes?.length && !sec.rigTypes.includes(inputs.rigType!)) return false
+            if (sec.opTypes?.length && !sec.opTypes.includes(inputs.operationType!)) return false
+            return sec.decisions.length > 0
+          })
+          if (!secs.length) return null
+          return (
+            <LogicQuestionsPanel
+              sections={secs}
+              answers={inputs.logicAnswers ?? {}}
+              onAnswer={(key, label) => {
+                apply({ logicAnswers: { ...(inputs.logicAnswers ?? {}), [key]: label } }, false)
+              }}
+            />
+          )
+        })()}
 
       </div>
     </aside>

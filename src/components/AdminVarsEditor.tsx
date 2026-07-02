@@ -13,6 +13,7 @@ import {
 } from '../utils/api'
 import { authHeader } from '../utils/auth'
 import { PACKAGES } from '../data/packages'
+import { SCOPE_CATEGORIES, categoryOfPackage } from '../data/scopeCategories'
 import { PLACEHOLDER_CATALOG } from '../data/placeholderCatalog'
 import { owFases, owAtividades, owOperacoes, owEtapas } from '../utils/ontologyReview'
 import PACKAGE_LINES from '../data/packageLines.json'
@@ -63,6 +64,10 @@ export function AdminVarsEditor({ query, serverBase, pkgOverrides, legacyOverrid
   const taRefs = useRef<Record<string, HTMLTextAreaElement | null>>({})
   const pkgRefs = useRef<Record<string, HTMLDivElement | null>>({})
   const [scrollTarget, setScrollTarget] = useState<string | null>(null)
+  const [collapsedCats, setCollapsedCats] = useState<Set<string>>(new Set())
+  const toggleCat = (id: string) => setCollapsedCats(prev => {
+    const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n
+  })
 
   useEffect(() => {
     if (!scrollTarget) return
@@ -239,7 +244,20 @@ export function AdminVarsEditor({ query, serverBase, pkgOverrides, legacyOverrid
         </div>
       )}
 
-      {visible.map(pkgId => {
+      {SCOPE_CATEGORIES.map(cat => {
+        const items = visible.filter(id => categoryOfPackage(id) === cat.id)
+        const collapsed = collapsedCats.has(cat.id)
+        return (
+        <div key={cat.id} className="space-y-2">
+          <button onClick={() => toggleCat(cat.id)}
+            className="w-full flex items-center gap-1.5 pt-1 text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition-colors">
+            {collapsed ? <ChevronRight size={14} className="shrink-0" /> : <ChevronDown size={14} className="shrink-0" />}
+            <span className="text-[11px] font-bold uppercase tracking-wider">{cat.label}</span>
+            {items.length > 0 && <span className="text-[10px] text-slate-400 tabular-nums">{items.length}</span>}
+          </button>
+          {!collapsed && (items.length === 0 ? (
+            <p className="pl-6 text-[11px] text-slate-400 italic">vazio</p>
+          ) : items.map(pkgId => {
         const isCustom = customIds.has(pkgId)
         const isOpen = open.has(pkgId)
         const lines = drafts[pkgId] ?? []
@@ -366,6 +384,9 @@ export function AdminVarsEditor({ query, serverBase, pkgOverrides, legacyOverrid
               </div>
             )}
           </div>
+        )
+      }))}
+        </div>
         )
       })}
 

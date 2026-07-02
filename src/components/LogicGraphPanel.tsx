@@ -1,5 +1,6 @@
 import { useRef, useState, useCallback, useMemo, useEffect, useLayoutEffect, useReducer } from 'react'
 import { getPackage } from '../data/packages'
+import { resolveScopeSections, expandScopeRefs } from '../data/logicOverrideStore'
 
 // Original/canonical package name (falls back to the flowchart's own label)
 const pkgName = (p: LPkg): string => getPackage(p.id)?.name ?? p.name
@@ -37,49 +38,175 @@ function toDisplayList(answers: LAns[]): DisplayAns[] {
 
 // Types compatible with AdminView.tsx (structural typing)
 type LPkg = { id: string; name: string }
-type LSeqEntry = { label: string; note?: string; packages?: LPkg[] }
-interface LAns { label: string; active?: boolean; note?: string; packages?: LPkg[]; sub?: LDec[]; seq?: LSeqEntry[]; goto?: string }
-interface LDec { question: string; answers: LAns[]; after?: LSeqEntry[] }
-interface LSec { id: string; label: string; phase: string; color: 'gray'|'blue'|'amber'; always?: LPkg[]; decisions: LDec[] }
+type LSeqEntry = { label: string; note?: string; packages?: LPkg[]; sub?: LDec[]; afterSub?: LDec[] }
+interface LAns { label: string; active?: boolean; note?: string; packages?: LPkg[]; sub?: LDec[]; afterSub?: LDec[]; seq?: LSeqEntry[]; after?: LSeqEntry[]; goto?: string; contingency?: boolean; _dirty?: boolean }
+interface LDec { question: string; answers: LAns[]; after?: LSeqEntry[]; afterDec?: LDec[]; reuseScope?: boolean; _dirty?: boolean }
+interface LSec { id: string; label: string; phase: string; color: 'gray'|'blue'|'amber'; always?: LPkg[]; decisions: LDec[]; ref?: { scopeId: string; label?: string } }
 // Complete-view decision tree (mirrors logicSecs.ts QNode structurally)
 type QLeaf = { kind: 'leaf'; scopeId: string; label: string; secs: LSec[] }
 type QDecision = { kind: 'decision'; question: string; branches: { label: string; child: QNode }[] }
 type QChain = { kind: 'chain'; secs: LSec[]; child: QNode }
 type QNode = QDecision | QLeaf | QChain
 
+// Referência a uma decisão por caminho: raiz = sec.decisions[decIdx] (ou .afterDec[adIdx]
+// quando adIdx definido); `sub` navega a subárvore em pares [ansIdx, subIdx, …] (vazio = raiz).
+// Endereçamento usado por todas as ações de edição de nó → profundidade ilimitada.
+export type DecRef = { secIdx: number; decIdx: number; adIdx?: number; sub: number[]; aeRef?: { afterIdx: number; isAfterSub: boolean; subIdx: number } }
+
+function resolveRef(secs: LSec[], ref: DecRef): LDec | null {
+  const sec = secs[ref.secIdx]; if (!sec) return null
+  let dec: LDec | null = ref.adIdx !== undefined
+    ? (sec.decisions[ref.decIdx]?.afterDec?.[ref.adIdx] ?? null)
+    : (sec.decisions[ref.decIdx] ?? null)
+  if (!dec) return null
+  for (let i = 0; i + 1 < ref.sub.length; i += 2) {
+    const ansIdx = ref.sub[i], subIdx = ref.sub[i + 1]
+    dec = subIdx < 0
+      ? (dec.answers[ansIdx]?.afterSub?.[-(subIdx + 1)] ?? null)
+      : (dec.answers[ansIdx]?.sub?.[subIdx] ?? null)
+    if (!dec) return null
+  }
+  if (ref.aeRef) {
+    const ae = dec.after?.[ref.aeRef.afterIdx]; if (!ae) return null
+    const list = ref.aeRef.isAfterSub ? ae.afterSub : ae.sub
+    return list?.[ref.aeRef.subIdx] ?? null
+  }
+  return dec
+}
+
 // Edit actions fired when admin clicks on interactive elements
 export type EditAction =
+  // ── Ações por caminho (decisão = DecRef; resposta = DecRef + ansIdx). Qualquer profundidade.
+  | { type: 'p_edit_q';          ref: DecRef; current: string }
+  | { type: 'p_remove_dec';      ref: DecRef }
+  | { type: 'p_add_ans';         ref: DecRef; atStart?: boolean }
+  | { type: 'p_toggle_reuse';    ref: DecRef }
+  | { type: 'p_toggle_default';      ref: DecRef; ansIdx: number }
+  | { type: 'p_toggle_contingency';  ref: DecRef; ansIdx: number }
+  | { type: 'p_edit_ans';        ref: DecRef; ansIdx: number; current: string }
+  | { type: 'p_remove_ans';      ref: DecRef; ansIdx: number }
+  | { type: 'p_add_pkg';         ref: DecRef; ansIdx: number }
+  | { type: 'p_remove_pkg';      ref: DecRef; ansIdx: number; pkgIdx: number }
+  | { type: 'p_add_sub_dec';     ref: DecRef; ansIdx: number }
+  | { type: 'p_insert_sub_dec';  ref: DecRef; ansIdx: number; subIdx: number }
+| { type: 'p_add_seq';         ref: DecRef; ansIdx: number; atIdx?: number }
+  | { type: 'p_remove_seq';      ref: DecRef; ansIdx: number; seqIdx: number }
+  | { type: 'p_edit_seq_label';  ref: DecRef; ansIdx: number; seqIdx: number; current: string }
+  | { type: 'p_add_seq_pkg';     ref: DecRef; ansIdx: number; seqIdx: number }
+  | { type: 'p_remove_seq_pkg';  ref: DecRef; ansIdx: number; seqIdx: number; pkgIdx: number }
+  | { type: 'p_move_seq_pkg';   ref: DecRef; ansIdx: number; seqIdx: number; pkgIdx: number; dir: 'up' | 'down' }
+  // Blocos "após convergência" da resposta (a.after) — pacotes/sequenciais no rodapé do chip.
+  | { type: 'p_add_after';       ref: DecRef; ansIdx: number; atIdx?: number }
+  | { type: 'p_add_after_pkg';   ref: DecRef; ansIdx: number; afterIdx: number }
+  | { type: 'p_remove_after';    ref: DecRef; ansIdx: number; afterIdx: number }
+  | { type: 'p_edit_after_label';ref: DecRef; ansIdx: number; afterIdx: number; current: string }
+  | { type: 'p_remove_after_pkg';ref: DecRef; ansIdx: number; afterIdx: number; pkgIdx: number }
+  | { type: 'p_move_after_pkg';  ref: DecRef; ansIdx: number; afterIdx: number; pkgIdx: number; dir: 'up' | 'down' }
+  // Blocos "após convergência" de uma DECISÃO (dec.after, path-based) — pacotes que se aplicam
+  // após a convergência das respostas de uma (sub-)pergunta, em qualquer nível de aninhamento.
+  | { type: 'p_add_aftersub_dec';      ref: DecRef; ansIdx: number }
+  | { type: 'p_remove_aftersub_dec';   ref: DecRef; ansIdx: number; afterSubIdx: number }
+  | { type: 'p_dec_add_after';        ref: DecRef; atIdx?: number }
+  | { type: 'p_dec_add_after_pkg';    ref: DecRef; afterIdx: number }
+  | { type: 'p_dec_remove_after';     ref: DecRef; afterIdx: number }
+  | { type: 'p_dec_move_after';       ref: DecRef; afterIdx: number; dir: 'up' | 'down' }
+  | { type: 'p_dec_edit_after_label'; ref: DecRef; afterIdx: number; current: string }
+  | { type: 'p_dec_remove_after_pkg'; ref: DecRef; afterIdx: number; pkgIdx: number }
+  | { type: 'p_dec_move_after_pkg';   ref: DecRef; afterIdx: number; pkgIdx: number; dir: 'up' | 'down' }
   | { type: 'remove_pkg';       secIdx: number; decIdx: number; ansIdx: number; pkgIdx: number }
   | { type: 'remove_always';    secIdx: number; pkgIdx: number }
+  | { type: 'move_always';      secIdx: number; pkgIdx: number; dir: 'up' | 'down' }
   | { type: 'add_pkg';          secIdx: number; decIdx: number; ansIdx: number }
   | { type: 'add_always';       secIdx: number }
+  | { type: 'move_dec_after_pkg'; secIdx: number; decIdx: number; afterIdx: number; pkgIdx: number; dir: 'up' | 'down' }
   | { type: 'edit_question';    secIdx: number; decIdx: number; current: string }
   | { type: 'edit_answer';      secIdx: number; decIdx: number; ansIdx: number; current: string }
   | { type: 'toggle_default';   secIdx: number; decIdx: number; ansIdx: number }
+  | { type: 'toggle_contingency'; secIdx: number; decIdx: number; ansIdx: number }
   | { type: 'remove_answer';    secIdx: number; decIdx: number; ansIdx: number }
-  | { type: 'add_answer';       secIdx: number; decIdx: number }
+  | { type: 'add_answer';       secIdx: number; decIdx: number; atStart?: boolean }
   | { type: 'remove_decision';  secIdx: number; decIdx: number }
-  | { type: 'add_decision';     secIdx: number; afterDecIdx: number }
+  | { type: 'add_decision';       secIdx: number; afterDecIdx: number }
+  | { type: 'add_blank_decision'; secIdx: number; afterDecIdx: number }
+  // "Já respondida no escopo" — alterna LDec.reuseScope (pergunta repetida) em cada nível
+  | { type: 'toggle_reuse_scope';         secIdx: number; decIdx: number }
+  | { type: 'toggle_reuse_scope_sub';     secIdx: number; decIdx: number; ansIdx: number; subIdx: number }
+  | { type: 'toggle_reuse_scope_sub_sub'; secIdx: number; decIdx: number; ansIdx: number; subIdx: number; subAnsIdx: number; subSubIdx: number }
+  | { type: 'toggle_reuse_scope_after_dec'; secIdx: number; decIdx: number; adIdx: number }
   | { type: 'remove_section';   secIdx: number }
   | { type: 'edit_section_phase'; secIdx: number; current: string }
   | { type: 'edit_section_label'; secIdx: number; current: string }
   | { type: 'add_section';      afterSecIdx: number }
   | { type: 'move_section';     secIdx: number; dir: 'up' | 'down' }
-  | { type: 'set_goto';         secIdx: number; decIdx: number; ansIdx: number; current: string | undefined }
-  // Sequential answer actions (within an answer card)
+  // Mover/copiar em 2 cliques: 1º escolhe o DESTINO no menu do chip (transfer_target),
+  // 2º clica na pergunta de ORIGEM (pick_source). `ref`+`ansIdx` = a resposta destino.
+  | { type: 'transfer_target';  mode: 'move' | 'copy'; ref: DecRef; ansIdx: number }
+  | { type: 'transfer_target_sec'; mode: 'move' | 'copy'; secIdx: number }
+  | { type: 'pick_source';      ref: DecRef; question: string }
+// Sequential answer actions (within an answer card)
   | { type: 'add_seq';          secIdx: number; decIdx: number; ansIdx: number }
   | { type: 'remove_seq';       secIdx: number; decIdx: number; ansIdx: number; seqIdx: number }
   | { type: 'edit_seq_label';   secIdx: number; decIdx: number; ansIdx: number; seqIdx: number; current: string }
   | { type: 'add_seq_pkg';      secIdx: number; decIdx: number; ansIdx: number; seqIdx: number }
   | { type: 'remove_seq_pkg';   secIdx: number; decIdx: number; ansIdx: number; seqIdx: number; pkgIdx: number }
   // After-convergence sequential entries (after all answers of a decision merge)
-  | { type: 'add_dec_after';         secIdx: number; decIdx: number }
+  | { type: 'add_dec_after';         secIdx: number; decIdx: number; atIdx?: number }
+  | { type: 'add_dec_after_dec';     secIdx: number; decIdx: number; atIdx?: number }
+  // After-convergence DECISIONS (dec.afterDec[adIdx]) — perguntas após a convergência
+  | { type: 'remove_after_dec';        secIdx: number; decIdx: number; adIdx: number }
+  | { type: 'edit_after_dec_q';        secIdx: number; decIdx: number; adIdx: number; current: string }
+  | { type: 'add_after_dec_ans';       secIdx: number; decIdx: number; adIdx: number; atStart?: boolean }
+  | { type: 'remove_after_dec_ans';    secIdx: number; decIdx: number; adIdx: number; ansIdx: number }
+  | { type: 'edit_after_dec_ans';      secIdx: number; decIdx: number; adIdx: number; ansIdx: number; current: string }
+  | { type: 'toggle_after_dec_default';     secIdx: number; decIdx: number; adIdx: number; ansIdx: number }
+  | { type: 'toggle_after_dec_contingency'; secIdx: number; decIdx: number; adIdx: number; ansIdx: number }
+  | { type: 'add_after_dec_pkg';       secIdx: number; decIdx: number; adIdx: number; ansIdx: number }
+  | { type: 'remove_after_dec_pkg';    secIdx: number; decIdx: number; adIdx: number; ansIdx: number; pkgIdx: number }
   | { type: 'remove_dec_after';      secIdx: number; decIdx: number; afterIdx: number }
+  | { type: 'move_dec_after';        secIdx: number; decIdx: number; afterIdx: number; dir: 'up' | 'down' }
   | { type: 'edit_dec_after_label';  secIdx: number; decIdx: number; afterIdx: number; current: string }
   | { type: 'add_dec_after_pkg';     secIdx: number; decIdx: number; afterIdx: number }
   | { type: 'remove_dec_after_pkg';  secIdx: number; decIdx: number; afterIdx: number; pkgIdx: number }
+  // Sub-decision actions (LDec nested inside an LAns.sub[])
+  | { type: 'add_sub_dec';        secIdx: number; decIdx: number; ansIdx: number }
+  | { type: 'remove_sub_dec';     secIdx: number; decIdx: number; ansIdx: number; subIdx: number }
+  | { type: 'edit_sub_question';  secIdx: number; decIdx: number; ansIdx: number; subIdx: number; current: string }
+  | { type: 'add_sub_ans';        secIdx: number; decIdx: number; ansIdx: number; subIdx: number; atStart?: boolean }
+  | { type: 'remove_sub_ans';     secIdx: number; decIdx: number; ansIdx: number; subIdx: number; subAnsIdx: number }
+  | { type: 'edit_sub_answer';    secIdx: number; decIdx: number; ansIdx: number; subIdx: number; subAnsIdx: number; current: string }
+  | { type: 'add_sub_pkg';        secIdx: number; decIdx: number; ansIdx: number; subIdx: number; subAnsIdx: number }
+  | { type: 'remove_sub_pkg';     secIdx: number; decIdx: number; ansIdx: number; subIdx: number; subAnsIdx: number; pkgIdx: number }
+  | { type: 'toggle_sub_default'; secIdx: number; decIdx: number; ansIdx: number; subIdx: number; subAnsIdx: number }
+  | { type: 'toggle_sub_contingency'; secIdx: number; decIdx: number; ansIdx: number; subIdx: number; subAnsIdx: number }
+  // Sub-sub-decision actions (LDec nested inside a sub-answer)
+  | { type: 'add_sub_sub_dec';       secIdx: number; decIdx: number; ansIdx: number; subIdx: number; subAnsIdx: number }
+  | { type: 'remove_sub_sub_dec';    secIdx: number; decIdx: number; ansIdx: number; subIdx: number; subAnsIdx: number; subSubIdx: number }
+  | { type: 'edit_sub_sub_question'; secIdx: number; decIdx: number; ansIdx: number; subIdx: number; subAnsIdx: number; subSubIdx: number; current: string }
+  // Sub-sub-answer actions (LAns nested inside a sub-sub-decision)
+  | { type: 'add_sub_sub_ans';        secIdx: number; decIdx: number; ansIdx: number; subIdx: number; subAnsIdx: number; subSubIdx: number; atStart?: boolean }
+  | { type: 'toggle_sub_sub_default'; secIdx: number; decIdx: number; ansIdx: number; subIdx: number; subAnsIdx: number; subSubIdx: number; subSubAnsIdx: number }
+  | { type: 'toggle_sub_sub_contingency'; secIdx: number; decIdx: number; ansIdx: number; subIdx: number; subAnsIdx: number; subSubIdx: number; subSubAnsIdx: number }
+  | { type: 'edit_sub_sub_answer';    secIdx: number; decIdx: number; ansIdx: number; subIdx: number; subAnsIdx: number; subSubIdx: number; subSubAnsIdx: number; current: string }
+  | { type: 'remove_sub_sub_ans';     secIdx: number; decIdx: number; ansIdx: number; subIdx: number; subAnsIdx: number; subSubIdx: number; subSubAnsIdx: number }
+  | { type: 'add_sub_sub_pkg';        secIdx: number; decIdx: number; ansIdx: number; subIdx: number; subAnsIdx: number; subSubIdx: number; subSubAnsIdx: number }
+  | { type: 'remove_sub_sub_pkg';     secIdx: number; decIdx: number; ansIdx: number; subIdx: number; subAnsIdx: number; subSubIdx: number; subSubAnsIdx: number; pkgIdx: number }
+  // ── Ações diretas (sem modal) — usadas pelo SidePanel do FlowEditor ──────────
+  | { type: 'p_set_q';              ref: DecRef; value: string }
+  | { type: 'p_set_ans';            ref: DecRef; ansIdx: number; value: string }
+  | { type: 'p_set_section_label';  secIdx: number; value: string }
+  | { type: 'p_set_section_phase';  secIdx: number; phase: string; color: 'gray' | 'blue' | 'amber' }
+  | { type: 'p_set_dec_after_label'; ref: DecRef; afterIdx: number; value: string }
+  | { type: 'set_dec_after_label';   secIdx: number; decIdx: number; afterIdx: number; value: string }
+  | { type: 'move_decision';        secIdx: number; decIdx: number; dir: 'up' | 'down' }
+  | { type: 'copy_decision';        secIdx: number; decIdx: number }
+  | { type: 'p_move_ans';           ref: DecRef; ansIdx: number; dir: 'up' | 'down' }
+  | { type: 'p_move_pkg';           ref: DecRef; ansIdx: number; pkgIdx: number; dir: 'up' | 'down' }
+  | { type: 'p_add_pkg_direct';     ref: DecRef; ansIdx: number; pkgId: string; pkgName: string }
+  | { type: 'p_ins_ans';            ref: DecRef; atIdx: number }
+  | { type: 'add_dec_after_chip_sub'; secIdx: number; decIdx: number; afterIdx: number; isAfterSub?: boolean }
+  | { type: 'remove_dec_after_chip_sub'; secIdx: number; decIdx: number; afterIdx: number; isAfterSub: boolean; subIdx: number }
 
-export interface LogicGraphProps { secs?: LSec[]; tree?: QNode; editCb?: (a: EditAction) => void }
+export interface LogicGraphProps { secs?: LSec[]; tree?: QNode; editCb?: (a: EditAction) => void; pickMode?: boolean; selRef?: DecRef | null }
 
 // Color palettes (SVG hex values)
 type PC = 'gray'|'blue'|'amber'
@@ -103,38 +230,156 @@ const DARK_PAL: Record<PC, PEntry> = {
   amber: { hdr:'#78350f', hdrT:'#fef3c7', dec:'#92400e', decT:'#fef3c7', ans:'#1c1007', ansB:'#92400e', ansT:'#fde68a', act:'#b45309', actT:'#fef3c7', alw:'#1c1007', bg:'#0c0802', bgB:'#78350f', code:'#fbbf24', arr:'#d97706', bb:'#292010', bT:'#fcd34d', lbl:'#422006', lblT:'#fde68a', empty:'#b45309', noteT:'#f59e0b' },
 }
 
+// Cor dos diamantes de PERGUNTA (incl. sub-perguntas e perguntas após convergência) — âmbar
+// discreto, de baixo contraste, só para diferenciá-los dos demais campos sem chamar atenção.
+function qDec(): { fill: string; stroke: string; text: string } {
+  return _dark
+    ? { fill: '#5c3a13', stroke: '#92400e', text: '#fde9c8' }
+    : { fill: '#fde9c0', stroke: '#e7c896', text: '#7c4a13' }
+}
+
+// Perguntas de tipo de sonda ("Tipo de sonda?", "Tipo de sonda DP") — detectadas
+// automaticamente no fluxograma e destacadas com cor própria + ícone de torre.
+const RIG_TYPE_Q_RE = /^tipo de sonda/i
+function rigQDec(): { fill: string; stroke: string; text: string } {
+  // Fundo: cor da barra lateral (#0c2340) · borda: cinza claro · texto/ícone: laranja (#d97706)
+  return { fill: '#0c2340', stroke: '#64748b', text: '#d97706' }
+}
+
+// SemisubIcon em miniatura — mesmo ícone exibido na etapa 1 ao lado de "Tipo de sonda".
+// Centralizado em (bx, by); size=12px (viewBox 0 0 24 24 → scale 0.5).
+function drawDerrickIcon(bx: number, by: number, color: string, els: React.ReactNode[]): void {
+  const size = 12
+  const s = size / 24   // scale factor: 0.5
+  const sw = 1.3 / s    // strokeWidth compensado para que o traço apareça como ~1.3 px
+  els.push(
+    <g key={K()} transform={`translate(${bx - size / 2},${by - size / 2}) scale(${s})`}
+       fill="none" stroke={color} strokeWidth={sw} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M12 2 L9 8 L15 8 Z" />
+      <line x1="10.5" y1="5.5" x2="13.5" y2="5.5" />
+      <rect x="3" y="8" width="18" height="1.5" rx="0.4" />
+      <rect x="5.5" y="9.5" width="3.5" height="6" rx="0.4" />
+      <rect x="15" y="9.5" width="3.5" height="6" rx="0.4" />
+      <rect x="2.5" y="15.5" width="9" height="3.5" rx="1.75" />
+      <rect x="12.5" y="15.5" width="9" height="3.5" rx="1.75" />
+    </g>
+  )
+}
+
 // Module-level state for buildSvg (set before each call, used by renderAnswer)
 let _k = 0
 let _dark = false
 let _editCb: ((a: EditAction) => void) | null = null
 let _search = ''
-// Position tracking for goto arrows (keyed by question text / "si_di_ai")
+// Mover/copiar: modo "clique na origem" (após escolher o destino) e referência da origem
+// destacada (subárvore que será movida/copiada).
+let _pickMode = false
+let _selRef: DecRef | null = null
+// `ref` está dentro da subárvore de `sel` (ou é a própria raiz)? Usado p/ destacar a origem.
+function refUnder(ref: DecRef, sel: DecRef): boolean {
+  if (ref.secIdx !== sel.secIdx || ref.decIdx !== sel.decIdx || (ref.adIdx ?? -1) !== (sel.adIdx ?? -1)) return false
+  if (ref.sub.length < sel.sub.length) return false
+  return sel.sub.every((v, i) => ref.sub[i] === v)
+}
+// Textos de pergunta que aparecem em mais de uma decisão no escopo (qualquer nível).
+// Só nesses nós exibimos o toggle "Já respondida no escopo". Recalculado em buildSvg.
+let _dupQuestions = new Set<string>()
+// Tooltip callback — set by LogicGraphPanel component, called by action buttons
+let _tooltipCb: ((info: { text: string; x: number; y: number } | null) => void) | null = null
 const _decPos = new Map<string, { cx: number; topY: number }>()
-const _ansGotoPos = new Map<string, { rx: number; my: number }>()
 const K = () => String(_k++)
 const HIT_STROKE = '#d97706'
+// Destaque de "alterado e ainda não salvo" — tom azul escuro da coluna esquerda do app
+// (#0c2340), com borda azul viva para ressaltar contra o fundo escuro do fluxograma.
+const DIRTY_CARD = '#0c2340'
+const DIRTY_BAR = '#1e3a8a'
+const DIRTY_STROKE = '#3b82f6'
+// Destaque da origem selecionada para mover/copiar (subárvore a ser transferida).
+const SEL_STROKE = '#22c55e'
 const hit = (s: string): boolean => !!_search && !!s && s.toLowerCase().includes(_search)
 // Prevents the pan/zoom container's onMouseDown from treating a button-click as a drag start
 function stopMD(e: React.MouseEvent) { e.stopPropagation() }
 function pal(pc: PC): PEntry { return (_dark ? DARK_PAL : PAL)[pc] }
+// Hover tooltip helper — spread onto any interactive <g>. Replaces native SVG `title`
+// (which renders inconsistently) with the custom floating tooltip used across the canvas.
+function tipAttrs(text: string) {
+  return {
+    onMouseEnter: (e: React.MouseEvent) => _tooltipCb?.({ text, x: e.clientX, y: e.clientY }),
+    onMouseLeave: () => _tooltipCb?.(null),
+  }
+}
+
+// Floating action menu — a single "＋" per card opens a labeled list of actions,
+// replacing the dense row of cryptic icon buttons.
+export type MenuItem = { label: string; glyph?: string; color?: string; danger?: boolean; onClick: () => void }
+export type MenuPkgList = {
+  getList: (secs: LSec[]) => LPkg[]
+  onAdd: () => void
+  onMove: (idx: number, dir: 'up' | 'down') => void
+  onRemove: (idx: number) => void
+}
+// Resolved version passed to ClassicSidePanel (list already computed from current secs)
+type ResolvedPkgList = { list: LPkg[]; onAdd: () => void; onMove: (idx: number, dir: 'up' | 'down') => void; onRemove: (idx: number) => void }
+export type MenuState = { title?: string; items: MenuItem[]; pkgs?: MenuPkgList; pos?: { x: number; y: number }; hlKey?: string; onTitleChange?: (v: string) => void }
+let _menuCb: ((m: MenuState | null) => void) | null = null
+// Key of the currently-selected element — highlighted with amber ring in the SVG
+let _hlKey: string | null = null
+function openMenu(e: React.MouseEvent, title: string, items: MenuItem[], pkgs?: MenuPkgList, hlKey?: string, onTitleChange?: (v: string) => void) {
+  e.stopPropagation()
+  _menuCb?.({ title, items, pkgs, pos: { x: e.clientX, y: e.clientY }, hlKey, onTitleChange })
+}
+// Anel âmbar em volta de um chip rectangular selecionado (card aberto no menu flutuante)
+function chipHighlight(key: string, x: number, y: number, w: number, h: number, els: React.ReactNode[]) {
+  if (_hlKey !== key) return
+  els.push(<rect key={K()} x={x - 2} y={y - 2} width={w + 4} height={h + 4} rx={6} fill="rgba(251,191,36,0.10)" />)
+  els.push(<rect key={K()} x={x} y={y} width={w} height={h} rx={4} fill="none" stroke="#fbbf24" strokeWidth={2.5} opacity={0.9} />)
+}
+
+// Conta quantas vezes cada texto de pergunta aparece no escopo, em todos os níveis
+// (decisões de topo, sub, sub-sub e afterDec). Usado para detectar perguntas repetidas.
+function collectQuestionCounts(secs: LSec[]): Map<string, number> {
+  const counts = new Map<string, number>()
+  const bump = (q: string) => counts.set(q.trim(), (counts.get(q.trim()) ?? 0) + 1)
+  const walk = (decs: LDec[] | undefined) => {
+    for (const dec of decs ?? []) {
+      bump(dec.question)
+      for (const ans of dec.answers) { walk(ans.sub); walk(ans.afterSub) }
+      walk(dec.afterDec)
+    }
+  }
+  for (const sec of secs) walk(sec.decisions)
+  return counts
+}
+
+// Toggle "Já respondida no escopo" sobre uma decisão repetida (glifo ⟲).
+function drawReuseToggle(cx: number, cy: number, isOn: boolean, onClick: () => void, els: React.ReactNode[]) {
+  const col = isOn ? '#d97706' : '#94a3b8'
+  els.push(
+    <g key={K()} onMouseDown={stopMD} onClick={(e) => { e.stopPropagation(); onClick() }}
+       style={{ cursor: 'pointer' }}
+       {...tipAttrs(isOn
+         ? 'Já respondida no escopo — herda a resposta da 1ª ocorrência e não é perguntada de novo (clique para reverter)'
+         : 'Pergunta repetida — marcar como "já respondida no escopo" (não perguntar de novo no passo 2)')}>
+      <circle cx={cx} cy={cy} r={9} fill={isOn ? '#d97706' : 'transparent'} opacity={isOn ? 0.92 : 1} stroke={col} strokeWidth={1.2} />
+      <text x={cx} y={cy + 3.4} fontSize={11} fontWeight={800} textAnchor="middle" fill={isOn ? 'white' : col}>⟲</text>
+    </g>
+  )
+}
 
 // Layout constants
-const AW = 220      // answer card min width
+const AW = 290      // answer card min width
 const AG = 12       // gap between answer cards
-const PKG = 16      // px per package row
+const PKG = 44      // px per package row: ID (linha 1) + nome (linhas 2-3 com wrap)
 const NOTE_R = 13   // note row height
 const LBLH = 22     // label bar height
 const BPAD = 8      // body vertical padding
 const DH = 46       // decision diamond bounding-box height
-const DDW = 230     // standard diamond width (all diamonds same size)
-const AV = 56       // gap: decision bottom → answer top
-const SG = 38       // gap: answer body → sub-decision
-const DSQ = 70      // sequential decisions gap within section
+const DDW = 280     // standard diamond width (all diamonds same size)
+const AV = 60       // gap: decision bottom → answer top (folga p/ os botões ‹ › caberem livres)
+const SG = 28       // gap: answer body → sub-decision
+const DSQ = 24      // sequential decisions gap within section
 const SHH = 36      // section header height
-const ALWLH = 18    // always block label row height
-const ALWPH = 15    // always block per-pkg row
-const ALWBP = 8     // always block body padding
-const ALWG = 18     // gap below always block
+const ALWG = 18     // gap below SEMPRE chip
 const SPAD = 18     // section horizontal padding
 const SVPAD = 22    // section vertical padding
 const SGAP = 120    // gap between sections (arrow space)
@@ -146,13 +391,18 @@ const TLBLH = 18    // tree branch-label pill height
 const F_S = 9.5     // small font (packages)
 const F_M = 10.5    // medium font (answer labels, notes)
 const F_L = 11      // large font (section header)
-const GOTO_H = 13   // goto indicator row height
 const SEQ_GAP = 10  // gap: answer body bottom → seq entry top (arrow space)
+const AFTER_GAP = 22 // gap used for after-convergence entries (larger for breathing room)
+// Botões de ação — padronização de tamanho e distância (evita sobrepor linhas/bordas)
+const BTN_R = 8       // raio padrão dos botões de ação
+const BTN_GAP = 3     // distância padrão da borda do card / das linhas
+const BTN_INSET = BTN_R + BTN_GAP   // centro do botão a esta distância da borda inferior do card
 
 // Size helpers
 function aW(a: LAns): number {
-  if (!a.sub?.length) return AW
-  return Math.max(AW, ...a.sub.map(d => dW(d)))
+  const allSubs = [...(a.sub ?? []), ...(a.afterSub ?? [])]
+  if (!allSubs.length) return AW
+  return Math.max(AW, ...allSubs.map(d => dW(d)))
 }
 function dW(d: LDec): number {
   return d.answers.reduce((s, a, i) => s + aW(a) + (i ? AG : 0), 0)
@@ -160,48 +410,158 @@ function dW(d: LDec): number {
 function aBodyH(a: LAns): number {
   let h = BPAD
   if (a.note) h += NOTE_R + 2
-  const n = a.packages?.length ?? 0
-  h += n ? n * PKG + 2 : NOTE_R
-  if (a.goto) h += GOTO_H + 2   // goto indicator row
+  const hasSub = !!(a.sub?.length)
+  // When sub-questions exist, packages are shown in a separate chip above the first sub-question
+  const n = hasSub ? 0 : (a.packages?.length ?? 0)
+  if (n) h += n * PKG + 2
+  else if (!a.note && !hasSub) h += NOTE_R   // placeholder "—"
   h += BPAD
-  if (_editCb) h += 28  // two rows: (+ pacote / ⇢ link) + (+ sequencial)
   return h
 }
 function seqEntryH(s: LSeqEntry): number {
-  let h = LBLH + BPAD
+  const subH = (s.sub ?? []).reduce((acc, d) => acc + AFTER_GAP + dSubRenderedH(d), 0)
+  let chipH = LBLH + BPAD
   const n = s.packages?.length ?? 0
-  h += n ? n * PKG + 2 : NOTE_R
-  h += BPAD
-  if (_editCb) h += 14  // + pacote button for seq entry
-  return h
+  chipH += n ? n * PKG + 2 : NOTE_R
+  chipH += BPAD
+  const afterSubH = (s.afterSub ?? []).reduce((acc, d) => acc + AFTER_GAP + dSubRenderedH(d), 0)
+  return subH + chipH + afterSubH
 }
 function seqH(a: LAns): number {
   return (a.seq ?? []).reduce((h, s) => h + SEQ_GAP + seqEntryH(s), 0)
 }
-function aSubH(a: LAns): number {
-  return (a.sub ?? []).reduce((s, d) => s + SG + dTotalH(d), 0)
+// Altura de uma sub-pergunta COMO É RENDERIZADA dentro do chip: diamante + respostas +
+// (se houver convergência) o vão do fan-in. NÃO inclui afterDec/after/botões de borda — que
+// só existem em decisões de topo —, evitando o espaço em branco que sobrava com dTotalH.
+function dSubRenderedH(d: LDec): number {
+  const convPad = d.answers.length > 1 ? (CR + 14) : 0
+  let h = DH + AV + Math.max(...d.answers.map(aH)) + convPad
+  // Zona "após convergência" da sub-pergunta: blocos d.after (chips de pacotes).
+  h += (d.after ?? []).reduce((acc, s) => acc + AFTER_GAP + seqEntryH(s), 0)
+  return h
 }
-function aH(a: LAns): number { return LBLH + aBodyH(a) + seqH(a) + aSubH(a) }
+// Height of the package chip card rendered above sub-questions (when sub + packages coexist).
+function aPkgChipH(n: number): number {
+  let h = LBLH + BPAD
+  h += n > 0 ? n * PKG + 2 : NOTE_R
+  h += BPAD
+  return h
+}
+// Altura do chip "SEMPRE" — mesmo formato/altura dos demais chips (label bar + linhas de
+// pacote PKG ou, vazio, uma linha "—"). Idêntico ao padrão de seqEntryH.
+function alwChipH(n: number): number {
+  let h = LBLH + BPAD
+  h += n > 0 ? n * PKG + 2 : NOTE_R
+  h += BPAD
+  return h
+}
+function aSubH(a: LAns): number {
+  const n = a.packages?.length ?? 0
+  const showPkgChip = !!a.sub?.length && n > 0
+  const pkgSection = showPkgChip ? SG + aPkgChipH(n) : 0
+  return pkgSection + (a.sub ?? []).reduce((s, d) => s + SG + dSubRenderedH(d), 0)
+}
+// Zona "após convergência" no rodapé do chip: blocos a.after.
+function aAfterH(a: LAns): number {
+  return (a.after ?? []).reduce((acc, s) => acc + SEQ_GAP + seqEntryH(s), 0)
+}
+// Sub-perguntas APÓS o chip de Pacotes (ans.afterSub), dentro do card da resposta.
+function aAfterSubH(a: LAns): number {
+  return (a.afterSub ?? []).reduce((s, d) => s + SG + dSubRenderedH(d), 0)
+}
+function aH(a: LAns): number { return LBLH + aBodyH(a) + seqH(a) + aSubH(a) + aAfterSubH(a) + aAfterH(a) }
+// Height of one after-convergence decision (diamond + answer cards row + fanIn arc).
+// O convPad reserva o vão do arco de convergência (igual às decisões de topo), garantindo
+// que o próximo passo não sobreponha a linha de reconvergência.
+function afterDecH(ad: LDec): number {
+  const convPad = ad.answers.length > 1 ? (CR + 14) : 0
+  return AFTER_GAP + DH + AV + Math.max(0, ...ad.answers.map(aH)) + convPad
+}
 function dAfterH(d: LDec): number {
-  const entries = (d.after ?? []).reduce((h, s) => h + SEQ_GAP + seqEntryH(s), 0)
-  return entries + (_editCb ? SEQ_GAP + 16 : 0)  // space for "+ seq após convergência" button in edit mode
+  // For multi-answer decisions, reserve space for the fanIn arc (which lands at mergeY + CR + 4)
+  const convPad = d.answers.length > 1 ? (CR + 14) : 0
+  const afterDecs = (d.afterDec ?? []).reduce((h, ad) => h + afterDecH(ad), 0)
+  const entries = (d.after ?? []).reduce((h, s) => h + AFTER_GAP + seqEntryH(s), 0)
+  return convPad + afterDecs + entries
 }
 function dTotalH(d: LDec): number { return DH + AV + Math.max(...d.answers.map(aH)) + dAfterH(d) }
 function sAlwH(s: LSec): number {
-  if (!s.always?.length) return 0
-  return ALWLH + ALWBP + s.always.length * ALWPH + ALWG
+  if (s.always?.length) return alwChipH(s.always.length) + ALWG
+  // Chip "SEMPRE" vazio só aparece em modo edição quando a seção ainda não tem decisões.
+  if (_editCb && !s.decisions.length) return alwChipH(0) + ALWG
+  return 0
 }
+const REF_SEC_H = SHH + 60   // altura compacta do card de "fluxograma incluído"
 function sTotalH(s: LSec): number {
-  const editPad = _editCb ? 30 : 0  // space for "+ decisão" at section bottom
+  if (s.ref) return REF_SEC_H
+  const editPad = _editCb ? 30 : 0  // espaço para "+ decisão ao final"
   return SHH + SVPAD + sAlwH(s) + s.decisions.reduce((sum, d, i) => sum + dTotalH(d) + (i ? DSQ : 0), 0) + SVPAD + editPad
 }
 function sTotalW(s: LSec): number {
+  if (s.ref) return 440 + (_editCb ? 70 : 0)
   // When editing, add 70px on the right so the "× decisão" pill (60px + margin) fits
   return Math.max(300, ...s.decisions.map(dW)) + SPAD * 2 + (_editCb ? 70 : 0)
 }
 
 // Helpers
 function tr(s: string, n: number) { return s.length > n ? s.slice(0, n - 1) + '…' : s }
+
+// Quebra texto longo de diamante em no máximo 2 linhas, encontrando limite de palavra
+// próximo ao centro. Retorna [line1] ou [line1, line2].
+function wrapDiamondText(text: string, maxChars = 30): [string, string?] {
+  if (text.length <= maxChars) return [text]
+  const half = Math.ceil(text.length / 2)
+  let bp = text.lastIndexOf(' ', half + 5)
+  if (bp < half - 12 || bp <= 0) bp = text.indexOf(' ', half - 5)
+  if (bp <= 0 || bp >= text.length - 1) return [tr(text, maxChars * 2)]
+  return [tr(text.slice(0, bp).trim(), maxChars), tr(text.slice(bp + 1).trim(), maxChars)]
+}
+
+// Renderiza uma linha de pacote em 2 linhas: ID (monospace, negrito) acima + nome abaixo.
+// topY: Y do topo desta linha específica; rowH: altura total da linha (PKG).
+function drawPkgRow(
+  leftX: number, topY: number, rowH: number, w: number,
+  pkg: LPkg, p: PEntry, isHit: boolean,
+  onClick: ((e: React.MouseEvent) => void) | null, els: React.ReactNode[]
+): void {
+  const full = pkgName(pkg)
+  const maxChars = Math.floor((w - 16) / 4.8)
+  const canWrap = rowH >= 40
+  let nameLine1 = canWrap ? full : tr(full, maxChars)
+  let nameLine2: string | undefined
+  if (canWrap && full.length > maxChars) {
+    let bp = full.lastIndexOf(' ', maxChars)
+    if (bp < maxChars * 0.4) bp = maxChars
+    nameLine1 = full.slice(0, bp).trim()
+    nameLine2 = tr(full.slice(bp).trim(), maxChars)
+  }
+  const idY    = topY + (canWrap ? 10 : rowH * 0.38)
+  const nameY  = topY + (canWrap ? 23 : rowH * 0.76)
+  const name2Y = topY + 36
+
+  if (isHit) {
+    els.push(<rect key={K()} x={leftX + 4} y={topY + 1} width={w - 8} height={rowH - 2} rx={3} fill={HIT_STROKE} opacity={0.22} />)
+  }
+  if (onClick) {
+    els.push(
+      <g key={K()} onMouseDown={stopMD} onClick={(e) => { e.stopPropagation(); onClick(e) }} style={{ cursor: 'pointer' }}
+         {...tipAttrs(`${pkg.id} — clique para opções`)}>
+        <rect x={leftX + 4} y={topY + 1} width={w - 8} height={rowH - 2} rx={3} fill="transparent" />
+        <text x={leftX + 8} y={idY} fontSize={F_S} fontFamily="ui-monospace,monospace" fontWeight={600} fill={p.code}>{pkg.id}</text>
+        <text x={leftX + 8} y={nameY} fontSize={F_S - 0.5} fontFamily="ui-sans-serif,system-ui,sans-serif" fill={p.ansT} opacity={0.85}>{nameLine1}</text>
+        {nameLine2 && <text x={leftX + 8} y={name2Y} fontSize={F_S - 0.5} fontFamily="ui-sans-serif,system-ui,sans-serif" fill={p.ansT} opacity={0.72}>{nameLine2}</text>}
+      </g>
+    )
+  } else {
+    els.push(
+      <g key={K()}>
+        <text x={leftX + 8} y={idY} fontSize={F_S} fontFamily="ui-monospace,monospace" fontWeight={600} fill={p.code}>{pkg.id}<title>{`${pkg.id} — ${full}`}</title></text>
+        <text x={leftX + 8} y={nameY} fontSize={F_S - 0.5} fontFamily="ui-sans-serif,system-ui,sans-serif" fill={p.ansT} opacity={0.85}>{nameLine1}{!nameLine2 && <title>{full}</title>}</text>
+        {nameLine2 && <text x={leftX + 8} y={name2Y} fontSize={F_S - 0.5} fontFamily="ui-sans-serif,system-ui,sans-serif" fill={p.ansT} opacity={0.72}>{nameLine2}<title>{full}</title></text>}
+      </g>
+    )
+  }
+}
 
 // Fan-out connector: trunk → curved 90° branches to each answer
 function fanOut(
@@ -289,19 +649,26 @@ function fanIn(
   }
 }
 
-// Render one answer card (recursive for sub-decisions)
-// secIdx / decIdx / ansIdx are -1 when edit is not supported at this level
+// Render one answer card (recursive for sub-decisions).
+// `ref` é a decisão à qual esta resposta pertence; `ai` é o índice da resposta. As ações de
+// edição são endereçadas por caminho (ref + ai), então a profundidade é ilimitada.
 function renderAnswer(
   a: LAns, x: number, y: number, w: number, cx: number,
   pc: PC, els: React.ReactNode[],
-  secIdx = -1, decIdx = -1, ansIdx = -1,
+  ref: DecRef, ai: number,
   label2?: string,
 ): void {
   const p = pal(pc)
   const h = aH(a)
   const bodH = aBodyH(a)
   const act = !!a.active
-  const canEdit = _editCb !== null && secIdx >= 0 && decIdx >= 0 && ansIdx >= 0
+
+  const canEdit = _editCb !== null
+  const fire = (act2: EditAction) => _editCb!(act2)
+  const tip = (text: string) => ({
+    onMouseEnter: (e: React.MouseEvent) => _tooltipCb?.({ text, x: e.clientX, y: e.clientY }),
+    onMouseLeave: () => _tooltipCb?.(null),
+  })
 
   // Search highlight flags
   const labelHit = hit(a.label)
@@ -309,55 +676,87 @@ function renderAnswer(
   const pkgHitIdx = new Set(pkgs.map((pkg, i) => ({ pkg, i })).filter(({ pkg }) => hit(pkg.id) || hit(pkgName(pkg))).map(({ i }) => i))
   const cardHit = labelHit || pkgHitIdx.size > 0
 
-  // card background — uniform for all answers
-  els.push(<rect key={K()} x={x} y={y} width={w} height={h} rx={5} fill={p.ans} stroke={p.ansB} strokeWidth={1} />)
+  // card background — uniform for all answers (azul escuro quando alterado/não salvo)
+  const dirty = !!a._dirty
+  els.push(<rect key={K()} x={x} y={y} width={w} height={h} rx={5} fill={dirty ? DIRTY_CARD : p.ans} stroke={dirty ? DIRTY_STROKE : p.ansB} strokeWidth={dirty ? 1.6 : 1} />)
   // label bar
-  const lbg = labelHit ? HIT_STROKE : p.lbl
+  const lbg = labelHit ? HIT_STROKE : dirty ? DIRTY_BAR : p.lbl
   els.push(<rect key={K()} x={x} y={y} width={w} height={LBLH} rx={5} fill={lbg} />)
   els.push(<rect key={K()} x={x} y={y + LBLH - 5} width={w} height={5} fill={lbg} />)
-  if (label2) {
+  const cont = !!a.contingency
+  const contLabel = label2 ?? (cont ? 'Contingência' : undefined)
+  const lblTextX = canEdit ? x + 34 : x + 8
+  if (contLabel) {
     els.push(
-      <text key={K()} x={x + 8} y={y + LBLH * 0.68} fontSize={F_M} fontFamily="ui-sans-serif,system-ui,sans-serif">
-        <tspan fontWeight={700} fill={p.lblT}>{a.label} / </tspan>
-        <tspan fontWeight={600} fill="#d97706" fontSize={F_M - 0.5}>{label2}</tspan>
+      <text key={K()} x={lblTextX} y={y + LBLH * 0.68} fontSize={F_M} fontFamily="ui-sans-serif,system-ui,sans-serif">
+        <tspan fontWeight={700} fill={p.lblT}>{tr(a.label, canEdit ? 18 : 24)} / </tspan>
+        <tspan fontWeight={600} fill="#d97706" fontSize={F_M - 0.5}>{contLabel}</tspan>
       </text>
     )
   } else {
     els.push(
-      <text key={K()} x={canEdit ? x + 20 : x + 8} y={y + LBLH * 0.68} fontSize={F_M} fontWeight={700}
+      <text key={K()} x={lblTextX} y={y + LBLH * 0.68} fontSize={F_M} fontWeight={700}
         fill={p.lblT} fontFamily="ui-sans-serif,system-ui,sans-serif">
-        {tr(a.label, canEdit ? 20 : 28)}
+        {tr(a.label, canEdit ? 28 : 44)}
       </text>
     )
   }
   if (canEdit) {
     // ✦ toggle-default button (left of label)
-    const capSi = secIdx, capDi = decIdx, capAi = ansIdx
     els.push(
-      <g key={K()} onMouseDown={stopMD} onClick={(e) => { e.stopPropagation(); _editCb!({ type: 'toggle_default', secIdx: capSi, decIdx: capDi, ansIdx: capAi }) }}
-         style={{ cursor: 'pointer' }} title="Marcar como padrão">
+      <g key={K()} onMouseDown={stopMD} onClick={(e) => {
+        e.stopPropagation()
+        fire({ type: 'p_toggle_default', ref, ansIdx: ai })
+      }} style={{ cursor: 'pointer' }} {...tip('Marcar como padrão')}>
         <text x={x + 10} y={y + LBLH * 0.72} fontSize={11} textAnchor="middle"
           fill={act ? '#facc15' : p.lblT} opacity={act ? 1 : 0.35}>✦</text>
       </g>
     )
-    // Pencil area — click label text to edit
+    // ⚑ toggle-contingency button (right of ✦) — marca a resposta como variante de contingência
     els.push(
-      <g key={K()} onMouseDown={stopMD} onClick={(e) => { e.stopPropagation(); _editCb!({ type: 'edit_answer', secIdx: capSi, decIdx: capDi, ansIdx: capAi, current: a.label }) }}
-         style={{ cursor: 'text' }}>
-        <rect x={x + 18} y={y + 1} width={w - 30} height={LBLH - 2} rx={2} fill="transparent" />
+      <g key={K()} onMouseDown={stopMD} onClick={(e) => {
+        e.stopPropagation()
+        fire({ type: 'p_toggle_contingency', ref, ansIdx: ai })
+      }} style={{ cursor: 'pointer' }} {...tip('Duplicar à direita como variante de contingência')}>
+        <text x={x + 23} y={y + LBLH * 0.74} fontSize={11} textAnchor="middle"
+          fill={cont ? '#d97706' : p.lblT} opacity={cont ? 1 : 0.35}>⚑</text>
+      </g>
+    )
+    // Label bar click → opens sidebar with all answer actions
+    const ansMenuItems: MenuItem[] = [
+      { label: 'Adicionar pacote', glyph: '📦', color: '#0ea5e9', onClick: () => fire({ type: 'p_add_pkg', ref, ansIdx: ai }) },
+      { label: 'Inserir sub-pergunta acima', glyph: '↑', color: '#22d3ee', onClick: () => fire({ type: 'p_insert_sub_dec', ref, ansIdx: ai, subIdx: 0 }) },
+      { label: 'Inserir sub-pergunta abaixo', glyph: '↓', color: '#22d3ee', onClick: () => fire({ type: 'p_add_aftersub_dec', ref, ansIdx: ai }) },
+      { label: 'Adicionar resposta sequencial', glyph: '⤵', color: '#7c3aed', onClick: () => fire({ type: 'p_add_seq', ref, ansIdx: ai, atIdx: 0 }) },
+      { label: 'Adicionar entrada após convergência', glyph: '⤵', color: '#6366f1', onClick: () => fire({ type: 'p_dec_add_after', ref }) },
+      { label: 'Inserir resposta irmã acima', glyph: '↑', color: '#22d3ee', onClick: () => fire({ type: 'p_ins_ans', ref, atIdx: ai }) },
+      { label: 'Inserir resposta irmã abaixo', glyph: '↓', color: '#22d3ee', onClick: () => fire({ type: 'p_ins_ans', ref, atIdx: ai + 1 }) },
+      { label: 'Mover resposta acima', glyph: '⬆', color: '#94a3b8', onClick: () => fire({ type: 'p_move_ans', ref, ansIdx: ai, dir: 'up' }) },
+      { label: 'Mover resposta abaixo', glyph: '⬇', color: '#94a3b8', onClick: () => fire({ type: 'p_move_ans', ref, ansIdx: ai, dir: 'down' }) },
+      { label: 'Mover pergunta para cá', glyph: '⤿', color: '#a855f7', onClick: () => fire({ type: 'transfer_target', mode: 'move', ref, ansIdx: ai }) },
+      { label: 'Copiar pergunta para cá', glyph: '⧉', color: '#14b8a6', onClick: () => fire({ type: 'transfer_target', mode: 'copy', ref, ansIdx: ai }) },
+      { label: 'Remover resposta', glyph: '×', color: '#ef4444', danger: true, onClick: () => fire({ type: 'p_remove_ans', ref, ansIdx: ai }) },
+    ]
+    const capAnsHlKey = `a:${ref.secIdx}:${ref.decIdx}:${ref.sub.join(',')}:${ai}`
+    els.push(
+      <g key={K()} onMouseDown={stopMD} onClick={(e) => { e.stopPropagation(); openMenu(e, a.label, ansMenuItems, undefined, capAnsHlKey, (v) => fire({ type: 'p_set_ans', ref, ansIdx: ai, value: v })) }}
+         style={{ cursor: 'pointer' }} {...tip('Ações da resposta')}>
+        <rect x={x + 32} y={y + 1} width={w - 44} height={LBLH - 2} rx={2} fill="transparent" />
       </g>
     )
     // × remove answer button (right of label)
     els.push(
-      <g key={K()} onMouseDown={stopMD} onClick={(e) => { e.stopPropagation(); _editCb!({ type: 'remove_answer', secIdx: capSi, decIdx: capDi, ansIdx: capAi }) }}
-         style={{ cursor: 'pointer' }}>
+      <g key={K()} onMouseDown={stopMD} onClick={(e) => {
+        e.stopPropagation()
+        fire({ type: 'p_remove_ans', ref, ansIdx: ai })
+      }} style={{ cursor: 'pointer' }} {...tip('Remover resposta')}>
         <circle cx={x + w - 9} cy={y + LBLH / 2} r={6.5} fill="#ef4444" opacity={0.82} />
         <text x={x + w - 9} y={y + LBLH / 2 + 3.5} fontSize={10} fontWeight={800} textAnchor="middle" fill="white">×</text>
       </g>
     )
   }
 
-  // body content
+  // body content — abaixo da label bar
   let bY = y + LBLH + BPAD
   if (a.note) {
     els.push(
@@ -368,125 +767,57 @@ function renderAnswer(
     )
     bY += NOTE_R + 2
   }
-  if (pkgs.length > 0) {
+  const hasSub = !!(a.sub?.length)
+  if (!hasSub && pkgs.length > 0) {
     pkgs.forEach((pkg, i) => {
-      const py = bY + i * PKG + PKG * 0.8
-      const full = pkgName(pkg)
-      const kid = K()
-      if (pkgHitIdx.has(i)) {
-        els.push(<rect key={K()} x={x + 4} y={py - PKG * 0.85} width={w - 8} height={PKG} rx={3} fill={HIT_STROKE} opacity={0.22} />)
-      }
-      if (canEdit) {
-        // Entire pkg row is clickable (remove on click)
-        const si = secIdx, di = decIdx, ai = ansIdx, pi = i
-        els.push(
-          <g key={kid} onMouseDown={stopMD} onClick={(e) => { e.stopPropagation(); _editCb!({ type: 'remove_pkg', secIdx: si, decIdx: di, ansIdx: ai, pkgIdx: pi }) }}
-            style={{ cursor: 'pointer' }}>
-            <rect x={x + 4} y={py - PKG * 0.85} width={w - 8} height={PKG} rx={3} fill="transparent" />
-            <text x={x + 8} y={py} fontSize={F_S} fontFamily="ui-monospace,monospace" fontWeight={600} fill={p.code}>{pkg.id}<title>{`Clique para remover ${pkg.id}`}</title></text>
-            <text x={x + 8 + pkg.id.length * 5.8 + 6} y={py} fontSize={F_S} fontFamily="ui-sans-serif,system-ui,sans-serif" fill={p.ansT}>
-              {tr(full, Math.max(8, Math.floor((x + w - 10 - (x + 8 + pkg.id.length * 5.8 + 6)) / 5.2)))}<title>{full}</title>
-            </text>
-            <text x={x + w - 10} y={py} fontSize={10} fontWeight={700} textAnchor="middle" fill="#ef4444" opacity={0.7}>×</text>
-          </g>
-        )
-      } else {
-        els.push(<text key={kid} x={x + 8} y={py} fontSize={F_S} fontFamily="ui-monospace,monospace" fontWeight={600} fill={p.code}>{pkg.id}<title>{`${pkg.id} — ${full}`}</title></text>)
-        const nx = x + 8 + pkg.id.length * 5.8 + 6
-        const mc = Math.max(8, Math.floor((x + w - 10 - nx) / 5.2))
-        els.push(
-          <text key={K()} x={nx} y={py} fontSize={F_S} fontFamily="ui-sans-serif,system-ui,sans-serif" fill={p.ansT}>
-            {tr(full, mc)}<title>{full}</title>
-          </text>
-        )
-      }
+      drawPkgRow(x, bY + i * PKG, PKG, w, pkg, p, pkgHitIdx.has(i), null, els)
     })
-  } else if (!a.note) {
-    els.push(<text key={K()} x={x + 8} y={bY + NOTE_R * 0.8} fontSize={F_S} fontStyle="italic" fill={p.empty}>—</text>)
-  }
-  // goto indicator row (read-only and edit mode)
-  if (a.goto) {
-    const gotoY = y + LBLH + bodH - BPAD - (canEdit ? 28 : 0) - GOTO_H
-    els.push(
-      <rect key={K()} x={x + 4} y={gotoY} width={w - 8} height={GOTO_H} rx={3} fill="#d97706" opacity={0.1} />
-    )
-    els.push(
-      <text key={K()} x={x + 12} y={gotoY + GOTO_H * 0.75} fontSize={F_S} fontWeight={600}
-        fill="#d97706" fontFamily="ui-sans-serif,system-ui,sans-serif">
-        {`⇢ ${tr(a.goto, 28)}`}
-      </text>
-    )
     if (canEdit) {
-      const capSi = secIdx, capDi = decIdx, capAi = ansIdx, capGoto = a.goto
+      const capRef = ref, capAi = ai
       els.push(
-        <g key={K()} onMouseDown={stopMD}
-           onClick={(e) => { e.stopPropagation(); _editCb!({ type: 'set_goto', secIdx: capSi, decIdx: capDi, ansIdx: capAi, current: capGoto }) }}
-           style={{ cursor: 'pointer' }} title="Remover link">
-          <text x={x + w - 12} y={gotoY + GOTO_H * 0.75} fontSize={9} fontWeight={700} textAnchor="middle" fill="#ef4444" opacity={0.7}>×</text>
+        <g key={K()} onMouseDown={stopMD} onClick={(e) => openMenu(e, a.label, [], {
+          getList: (s) => resolveRef(s, capRef)?.answers[capAi]?.packages ?? [],
+          onAdd: () => fire({ type: 'p_add_pkg', ref, ansIdx: ai }),
+          onMove: (idx, dir) => fire({ type: 'p_move_pkg', ref, ansIdx: ai, pkgIdx: idx, dir }),
+          onRemove: (idx) => fire({ type: 'p_remove_pkg', ref, ansIdx: ai, pkgIdx: idx }),
+        })} style={{ cursor: 'pointer' }} {...tipAttrs('Gerenciar pacotes')}>
+          <rect x={x + 4} y={bY - 2} width={w - 8} height={pkgs.length * PKG + 4} rx={3} fill="transparent" />
         </g>
       )
     }
+  } else if (!a.note && !hasSub) {
+    els.push(<text key={K()} x={x + 8} y={bY + NOTE_R * 0.8} fontSize={F_S} fontStyle="italic" fill={p.empty}>—</text>)
   }
   // Card glow ring for search hit (rendered last, on top of content)
   if (cardHit) {
     els.push(<rect key={K()} x={x} y={y} width={w} height={h} rx={5} fill="none" stroke={HIT_STROKE} strokeWidth={2} opacity={0.9} />)
   }
-
-  // Record answer position for goto arrow routing (when answer is top-level in a section)
-  if (secIdx >= 0) {
-    _ansGotoPos.set(`${secIdx}_${decIdx}_${ansIdx}`, { rx: x + w, my: y + h / 2 })
+  // Destaque da origem selecionada (subárvore que será movida/copiada)
+  if (_selRef && refUnder(ref, _selRef)) {
+    els.push(<rect key={K()} x={x - 1} y={y - 1} width={w + 2} height={h + 2} rx={6} fill={SEL_STROKE} opacity={0.1} />)
+    els.push(<rect key={K()} x={x} y={y} width={w} height={h} rx={5} fill="none" stroke={SEL_STROKE} strokeWidth={2.2} opacity={0.95} />)
+  }
+  // Destaque da resposta cujo menu está aberto (janela flutuante)
+  const ansHlKey = `a:${ref.secIdx}:${ref.decIdx}:${ref.sub.join(',')}:${ai}`
+  if (_hlKey === ansHlKey) {
+    els.push(<rect key={K()} x={x - 2} y={y - 2} width={w + 4} height={h + 4} rx={7} fill="rgba(251,191,36,0.10)" />)
+    els.push(<rect key={K()} x={x} y={y} width={w} height={h} rx={5} fill="none" stroke="#fbbf24" strokeWidth={2.5} opacity={0.9} />)
   }
 
-  // Action buttons: row 1 (+ pacote | ⇢ link), row 2 (+ sequencial)
-  if (canEdit) {
-    const btn1Y = y + LBLH + bodH - 28 + 1   // first row baseline
-    const btn2Y = y + LBLH + bodH - 14 + 1   // second row baseline
-    const si = secIdx, di = decIdx, ai = ansIdx
-    const halfW = (w - 16) / 2
-    // + pacote (left, row 1)
-    els.push(
-      <g key={K()} onMouseDown={stopMD} onClick={(e) => { e.stopPropagation(); _editCb!({ type: 'add_pkg', secIdx: si, decIdx: di, ansIdx: ai }) }}
-        style={{ cursor: 'pointer' }}>
-        <rect x={x + 6} y={btn1Y - 7} width={halfW} height={13} rx={4} fill={p.code} opacity={0.12} />
-        <rect x={x + 6} y={btn1Y - 7} width={halfW} height={13} rx={4} fill="none" stroke={p.code} strokeWidth={0.8} strokeDasharray="3,2" opacity={0.4} />
-        <text x={x + 6 + halfW / 2} y={btn1Y + 2.5} fontSize={8.5} fontWeight={700} textAnchor="middle" fill={p.code} opacity={0.8}>+ pacote</text>
-      </g>
-    )
-    // ⇢ link (right, row 1)
-    const capSi = si, capDi = di, capAi = ai, capGoto = a.goto
-    const hasGoto = !!a.goto
-    els.push(
-      <g key={K()} onMouseDown={stopMD}
-         onClick={(e) => { e.stopPropagation(); _editCb!({ type: 'set_goto', secIdx: capSi, decIdx: capDi, ansIdx: capAi, current: capGoto }) }}
-         style={{ cursor: 'pointer' }} title={hasGoto ? 'Remover link' : 'Ligar a outra pergunta'}>
-        <rect x={x + 10 + halfW} y={btn1Y - 7} width={halfW} height={13} rx={4} fill={hasGoto ? '#d97706' : p.code} opacity={hasGoto ? 0.22 : 0.12} />
-        <rect x={x + 10 + halfW} y={btn1Y - 7} width={halfW} height={13} rx={4} fill="none" stroke={hasGoto ? '#d97706' : p.code} strokeWidth={0.8} strokeDasharray="3,2" opacity={hasGoto ? 0.7 : 0.4} />
-        <text x={x + 10 + halfW + halfW / 2} y={btn1Y + 2.5} fontSize={8.5} fontWeight={700} textAnchor="middle" fill={hasGoto ? '#d97706' : p.code} opacity={0.9}>⇢ link</text>
-      </g>
-    )
-    // + sequencial (full width, row 2)
-    const capSi2 = si, capDi2 = di, capAi2 = ai
-    els.push(
-      <g key={K()} onMouseDown={stopMD}
-         onClick={(e) => { e.stopPropagation(); _editCb!({ type: 'add_seq', secIdx: capSi2, decIdx: capDi2, ansIdx: capAi2 }) }}
-         style={{ cursor: 'pointer' }} title="Adicionar resposta sequencial abaixo">
-        <rect x={x + 6} y={btn2Y - 7} width={w - 12} height={13} rx={4} fill="#7c3aed" opacity={0.1} />
-        <rect x={x + 6} y={btn2Y - 7} width={w - 12} height={13} rx={4} fill="none" stroke="#7c3aed" strokeWidth={0.8} strokeDasharray="3,2" opacity={0.4} />
-        <text x={cx} y={btn2Y + 2.5} fontSize={8.5} fontWeight={700} textAnchor="middle" fill="#7c3aed" opacity={0.85}>+ sequencial</text>
-      </g>
-    )
-  }
-
-  // Sequential entries (rendered after main body, before sub-decisions)
+  // Sequential entries — renderizadas ABAIXO das perguntas aninhadas e do chip Pacotes
+  // (perguntas em cima). Posição por coordenada Y: começam após toda a zona de sub-perguntas
+  // (aSubH), independentemente da ordem em que são empilhadas no código.
   if (a.seq?.length || (canEdit && seqH(a) > 0)) {
-    const seqStart = y + LBLH + bodH
+    const seqStart = y + LBLH + bodH + aSubH(a) + aAfterSubH(a)
     let seqY = seqStart
     const seqList = a.seq ?? []
     for (let sei = 0; sei < seqList.length; sei++) {
       const se = seqList[sei]
       const seH = seqEntryH(se)
       const seCardY = seqY + SEQ_GAP
-      const seX = x + 4, seW = w - 8
+      // Chip compacto e centrado, idêntico ao chip "Pacotes" (largura fixa AW-8) — evita que
+      // a resposta sequencial estique até a largura total quando a resposta é larga (com sub-perguntas).
+      const seW = AW - 8, seX = cx - seW / 2
 
       // Arrow from body bottom (or previous seq) down to this card
       els.push(<line key={K()} x1={cx} y1={seqY} x2={cx} y2={seCardY - 4}
@@ -495,17 +826,17 @@ function renderAnswer(
       // Card background
       els.push(<rect key={K()} x={seX} y={seCardY} width={seW} height={seH} rx={4}
         fill={p.ans} stroke={p.ansB} strokeWidth={1} />)
-      // Label bar (using alw color to distinguish from main answer)
-      els.push(<rect key={K()} x={seX} y={seCardY} width={seW} height={LBLH} rx={4} fill={p.alw} />)
-      els.push(<rect key={K()} x={seX} y={seCardY + LBLH - 4} width={seW} height={4} fill={p.alw} />)
+      // Label bar — mesma cor dos demais chips secundários (p.alw, igual ao chip "Pacotes")
+      els.push(<rect key={K()} x={seX} y={seCardY} width={seW} height={LBLH} rx={4} fill={p.lbl} />)
+      els.push(<rect key={K()} x={seX} y={seCardY + LBLH - 4} width={seW} height={4} fill={p.lbl} />)
 
       if (canEdit) {
-        const capSi = secIdx, capDi = decIdx, capAi = ansIdx, capSei = sei
+        const capSei = sei
         // × remove seq entry
         els.push(
           <g key={K()} onMouseDown={stopMD}
-             onClick={(e) => { e.stopPropagation(); _editCb!({ type: 'remove_seq', secIdx: capSi, decIdx: capDi, ansIdx: capAi, seqIdx: capSei }) }}
-             style={{ cursor: 'pointer' }}>
+             onClick={(e) => { e.stopPropagation(); fire({ type: 'p_remove_seq', ref, ansIdx: ai, seqIdx: capSei }) }}
+             style={{ cursor: 'pointer' }} {...tipAttrs('Remover entrada sequencial')}>
             <circle cx={seX + seW - 9} cy={seCardY + LBLH / 2} r={6.5} fill="#ef4444" opacity={0.82} />
             <text x={seX + seW - 9} y={seCardY + LBLH / 2 + 3.5} fontSize={10} fontWeight={800} textAnchor="middle" fill="white">×</text>
           </g>
@@ -513,122 +844,795 @@ function renderAnswer(
         // Click label to edit
         els.push(
           <g key={K()} onMouseDown={stopMD}
-             onClick={(e) => { e.stopPropagation(); _editCb!({ type: 'edit_seq_label', secIdx: capSi, decIdx: capDi, ansIdx: capAi, seqIdx: capSei, current: se.label }) }}
+             onClick={(e) => { e.stopPropagation(); fire({ type: 'p_edit_seq_label', ref, ansIdx: ai, seqIdx: capSei, current: se.label }) }}
              style={{ cursor: 'text' }}>
-            <rect x={seX + 4} y={seCardY + 1} width={seW - 24} height={LBLH - 2} rx={2} fill="transparent" />
+            <rect x={seX + 8} y={seCardY + 1} width={seW - 28} height={LBLH - 2} rx={2} fill="transparent" />
           </g>
         )
       }
 
       // Label text
       els.push(
-        <text key={K()} x={seX + 8} y={seCardY + LBLH * 0.68} fontSize={F_M} fontWeight={600}
-          fill={p.hdr} fontFamily="ui-sans-serif,system-ui,sans-serif">
-          {tr(se.label, canEdit ? 20 : 26)}
+        <text key={K()} x={canEdit ? seX + 22 : seX + 8} y={seCardY + LBLH * 0.68} fontSize={F_M} fontWeight={600}
+          fill={p.lblT} fontFamily="ui-sans-serif,system-ui,sans-serif">
+          {tr(se.label, canEdit ? 24 : 44)}
         </text>
       )
 
       // Packages
       const sePkgs = se.packages ?? []
-      let seBY = seCardY + LBLH + BPAD
+      const seBY = seCardY + LBLH + BPAD
+      const seqHlKey = `chip:seq:${ref.secIdx}:${ref.decIdx}:${ref.sub.join(',')}:${ai}:${sei}`
       if (sePkgs.length > 0) {
         sePkgs.forEach((pkg, pi) => {
-          const py = seBY + pi * PKG + PKG * 0.8
-          const full = pkgName(pkg)
-          if (hit(pkg.id) || hit(full)) {
-            els.push(<rect key={K()} x={seX + 4} y={py - PKG * 0.85} width={seW - 8} height={PKG} rx={3} fill={HIT_STROKE} opacity={0.22} />)
-          }
-          if (canEdit) {
-            const capSi = secIdx, capDi = decIdx, capAi = ansIdx, capSei2 = sei, capPi = pi
-            els.push(
-              <g key={K()} onMouseDown={stopMD}
-                 onClick={(e) => { e.stopPropagation(); _editCb!({ type: 'remove_seq_pkg', secIdx: capSi, decIdx: capDi, ansIdx: capAi, seqIdx: capSei2, pkgIdx: capPi }) }}
-                 style={{ cursor: 'pointer' }}>
-                <rect x={seX + 4} y={py - PKG * 0.85} width={seW - 8} height={PKG} rx={3} fill="transparent" />
-                <text x={seX + 8} y={py} fontSize={F_S} fontFamily="ui-monospace,monospace" fontWeight={600} fill={p.code}>{pkg.id}</text>
-                <text x={seX + 8 + pkg.id.length * 5.8 + 6} y={py} fontSize={F_S} fontFamily="ui-sans-serif,system-ui,sans-serif" fill={p.ansT}>
-                  {tr(full, Math.max(8, Math.floor((seX + seW - 14 - (seX + 8 + pkg.id.length * 5.8 + 6)) / 5.2)))}
-                </text>
-                <text x={seX + seW - 10} y={py} fontSize={10} fontWeight={700} textAnchor="middle" fill="#ef4444" opacity={0.7}>×</text>
-              </g>
-            )
-          } else {
-            els.push(<text key={K()} x={seX + 8} y={py} fontSize={F_S} fontFamily="ui-monospace,monospace" fontWeight={600} fill={p.code}>{pkg.id}<title>{full}</title></text>)
-            const nx = seX + 8 + pkg.id.length * 5.8 + 6
-            els.push(<text key={K()} x={nx} y={py} fontSize={F_S} fontFamily="ui-sans-serif,system-ui,sans-serif" fill={p.ansT}>{tr(full, Math.max(8, Math.floor((seX + seW - 10 - nx) / 5.2)))}<title>{full}</title></text>)
-          }
+          drawPkgRow(seX, seBY + pi * PKG, PKG, seW, pkg, p, hit(pkg.id) || hit(pkgName(pkg)), null, els)
         })
+        if (canEdit) {
+          const capSei2 = sei, capRef = ref, capAi = ai, capSeLabel = se.label
+          els.push(
+            <g key={K()} onMouseDown={stopMD} onClick={(e) => openMenu(e, capSeLabel, [], {
+              getList: (s) => resolveRef(s, capRef)?.answers[capAi]?.seq?.[capSei2]?.packages ?? [],
+              onAdd: () => fire({ type: 'p_add_seq_pkg', ref, ansIdx: ai, seqIdx: capSei2 }),
+              onMove: (idx, dir) => fire({ type: 'p_move_seq_pkg', ref, ansIdx: ai, seqIdx: capSei2, pkgIdx: idx, dir }),
+              onRemove: (idx) => fire({ type: 'p_remove_seq_pkg', ref, ansIdx: ai, seqIdx: capSei2, pkgIdx: idx }),
+            }, seqHlKey)} style={{ cursor: 'pointer' }} {...tipAttrs('Gerenciar pacotes')}>
+              <rect x={seX + 4} y={seBY - 2} width={seW - 8} height={sePkgs.length * PKG + 4} rx={3} fill="transparent" />
+            </g>
+          )
+        }
       } else {
         els.push(<text key={K()} x={seX + 8} y={seBY + NOTE_R * 0.8} fontSize={F_S} fontStyle="italic" fill={p.empty}>—</text>)
       }
-
-      // + pacote button for this seq entry (edit mode)
-      if (canEdit) {
-        const seBtnY = seCardY + seH - 14 + 1
-        const capSi = secIdx, capDi = decIdx, capAi = ansIdx, capSei3 = sei
-        els.push(
-          <g key={K()} onMouseDown={stopMD}
-             onClick={(e) => { e.stopPropagation(); _editCb!({ type: 'add_seq_pkg', secIdx: capSi, decIdx: capDi, ansIdx: capAi, seqIdx: capSei3 }) }}
-             style={{ cursor: 'pointer' }}>
-            <rect x={seX + 6} y={seBtnY - 7} width={seW - 12} height={13} rx={4} fill={p.code} opacity={0.12} />
-            <rect x={seX + 6} y={seBtnY - 7} width={seW - 12} height={13} rx={4} fill="none" stroke={p.code} strokeWidth={0.8} strokeDasharray="3,2" opacity={0.4} />
-            <text x={seX + seW / 2} y={seBtnY + 2.5} fontSize={8.5} fontWeight={700} textAnchor="middle" fill={p.code} opacity={0.8}>+ pacote</text>
-          </g>
-        )
-      }
-
+      chipHighlight(seqHlKey, seX, seCardY, seW, seH, els)
       seqY = seCardY + seH
     }
   }
 
-  // sub-decisions nested below body content
+  // sub-decisions nested below body content — perguntas logo após o corpo (em cima)
+  let afterZoneY = y + LBLH + bodH
   if (a.sub?.length) {
-    let sY = y + LBLH + bodH + seqH(a) + SG
-    for (const sub of a.sub) {
-      const sdW = Math.min(DDW, w - 16)
+    let sY = afterZoneY + SG
+    const subList = a.sub
+    for (let subDi = 0; subDi < subList.length; subDi++) {
+      const sub = subList[subDi]
+      const sdW = DDW          // mesmo tamanho do diamante top-level
       const sdX = cx - sdW / 2
       els.push(<line key={K()} x1={cx} y1={sY - SG + 4} x2={cx} y2={sY - 5} stroke={p.arr} strokeWidth={1.2} markerEnd={`url(#arr_${pc})`} />)
+      const subDirty = !!sub._dirty
+      const isSubRigQ = RIG_TYPE_Q_RE.test(sub.question.trim())
+      const subQd = isSubRigQ ? rigQDec() : qDec()
       els.push(
         <polygon key={K()} points={`${cx},${sY} ${sdX + sdW},${sY + DH / 2} ${cx},${sY + DH} ${sdX},${sY + DH / 2}`}
-          fill={p.dec} stroke={p.hdr} strokeWidth={1.5} />
+          fill={subDirty ? DIRTY_CARD : subQd.fill} stroke={subDirty ? DIRTY_STROKE : subQd.stroke} strokeWidth={subDirty ? 2 : (isSubRigQ ? 2 : 1.5)} />
       )
-      els.push(
-        <text key={K()} x={cx} y={sY + DH / 2 + 4} fontSize={9} fontWeight={600} fill={p.decT} textAnchor="middle" fontFamily="ui-sans-serif,system-ui,sans-serif">
-          {tr(sub.question, 30)}
-        </text>
-      )
-      const subDisp = toDisplayList(sub.answers)
+      // Mesma posição do ícone que no top-level (fonte e largura agora idênticas)
+      if (isSubRigQ) drawDerrickIcon(cx - 62, sY + DH / 2, subQd.text, els)
+      drawNoDefaultWarn(sub.answers, cx, sY, sdW, els)
+      const sdLines = wrapDiamondText(sub.question)  // mesmo maxChars (30) do top-level
+      if (sdLines[1]) {
+        els.push(
+          <text key={K()} textAnchor="middle" fontFamily="ui-sans-serif,system-ui,sans-serif" fill={subQd.text} fontSize={F_M} fontWeight={600}>
+            <tspan x={cx} y={sY + DH / 2 - 2}>{sdLines[0]}</tspan>
+            <tspan x={cx} dy={12}>{sdLines[1]}</tspan>
+          </text>
+        )
+      } else {
+        els.push(
+          <text key={K()} x={cx} y={sY + DH / 2 + 4} fontSize={F_M} fontWeight={600} fill={subQd.text} textAnchor="middle" fontFamily="ui-sans-serif,system-ui,sans-serif">
+            {sdLines[0]}
+          </text>
+        )
+      }
+      // Referência da sub-decisão = decisão atual + passo [resposta atual, índice da sub].
+      const childRef: DecRef = { ...ref, sub: [...ref.sub, ai, subDi] }
+      if (canEdit) {
+        const capSubDi = subDi
+        // × remove sub-decision diamond
+        els.push(
+          <g key={K()} onMouseDown={stopMD}
+             onClick={(e) => { e.stopPropagation(); fire({ type: 'p_remove_dec', ref: childRef }) }}
+             style={{ cursor: 'pointer' }} {...tip('Remover pergunta')}>
+            <circle cx={sdX + sdW + 11} cy={sY + DH / 2} r={9} fill="#ef4444" opacity={0.9} />
+            <text x={sdX + sdW + 11} y={sY + DH / 2 + 3.5} fontSize={12} fontWeight={800} textAnchor="middle" fill="white">×</text>
+          </g>
+        )
+        // ⟲ "já respondida no escopo" (só em sub-perguntas repetidas)
+        if (_dupQuestions.has(sub.question.trim())) {
+          drawReuseToggle(sdX + sdW + 11, sY + DH / 2 + 26, !!sub.reuseScope,
+            () => fire({ type: 'p_toggle_reuse', ref: childRef }), els)
+        }
+        // Clique no diamante da sub-pergunta: em modo "clique na origem" seleciona a origem; caso contrário, abre sidebar.
+        const capSubQ = sub.question
+        const subHlKey = `q:${childRef.secIdx}:${childRef.decIdx}:${childRef.sub.join(',')}`
+        els.push(
+          <g key={K()} onMouseDown={stopMD} onClick={(e) => {
+            e.stopPropagation()
+            if (_pickMode) { fire({ type: 'pick_source', ref: childRef, question: capSubQ }); return }
+            const subItems: MenuItem[] = [
+              { label: 'Adicionar resposta', glyph: '➕', color: '#0ea5e9', onClick: () => fire({ type: 'p_add_ans', ref: childRef }) },
+              { label: 'Adicionar entrada após convergência', glyph: '⤵', color: '#7c3aed', onClick: () => fire({ type: 'p_dec_add_after', ref: childRef }) },
+              { label: 'Inserir sub-pergunta acima', glyph: '↑', color: '#22d3ee', onClick: () => fire({ type: 'p_insert_sub_dec', ref, ansIdx: ai, subIdx: capSubDi }) },
+              { label: 'Inserir sub-pergunta abaixo', glyph: '↓', color: '#22d3ee', onClick: () => fire({ type: 'p_insert_sub_dec', ref, ansIdx: ai, subIdx: capSubDi + 1 }) },
+              { label: 'Remover pergunta', glyph: '×', color: '#ef4444', danger: true, onClick: () => fire({ type: 'p_remove_dec', ref: childRef }) },
+            ]
+            openMenu(e, capSubQ, subItems, undefined, subHlKey, (v) => fire({ type: 'p_set_q', ref: childRef, value: v }))
+          }} style={{ cursor: _pickMode ? 'copy' : 'pointer' }} {...tip(_pickMode ? 'Selecionar como origem' : 'Ações da pergunta')}>
+            <polygon points={`${cx},${sY} ${sdX + sdW - 14},${sY + DH / 2} ${cx},${sY + DH} ${sdX + 14},${sY + DH / 2}`}
+              fill="transparent" />
+          </g>
+        )
+        // Anel de destaque da sub-pergunta selecionada
+        if (_hlKey === subHlKey) {
+          els.push(<polygon key={K()}
+            points={`${cx},${sY - 3} ${sdX + sdW + 3},${sY + DH / 2} ${cx},${sY + DH + 3} ${sdX - 3},${sY + DH / 2}`}
+            fill="rgba(251,191,36,0.12)" stroke="#fbbf24" strokeWidth={2.5} />)
+        }
+      }
+      const subDisp = canEdit ? sub.answers.map(a => ({ ans: a } as DisplayAns)) : toDisplayList(sub.answers)
       const saY = sY + DH + AV
       const tW = subDisp.reduce((s, da, i) => s + aW(da.ans) + (i ? AG : 0), 0)
       let saX = cx - tW / 2
       fanOut(cx, sY + DH, subDisp.map(d => d.ans), saX, saY, p.arr, `url(#arr_${pc})`, els)
       saX = cx - tW / 2
-      for (const sda of subDisp) {
+      for (let subAi = 0; subAi < subDisp.length; subAi++) {
+        const sda = subDisp[subAi]
         const saw = aW(sda.ans)
-        renderAnswer(sda.ans, saX, saY, saw, saX + saw / 2, pc, els, -1, -1, -1, sda.label2)
+        const subAnsIdx = canEdit ? subAi : sub.answers.indexOf(sda.ans)
+        renderAnswer(sda.ans, saX, saY, saw, saX + saw / 2, pc, els, childRef, subAnsIdx, sda.label2)
         saX += saw + AG
       }
-      sY += SG + dTotalH(sub)
+      // Convergência das respostas da sub-pergunta (fan-in) → linha contínua após a sub-árvore.
+      const subMaxAH = Math.max(...subDisp.map(d => aH(d.ans)))
+      const subMergeY = saY + subMaxAH
+      fanIn(subDisp.map(d => d.ans), cx - tW / 2, saY, subMergeY, cx, p.arr, els)
+      const subConvPad = subDisp.length > 1 ? (CR + 14) : 0
+      if (subConvPad > 0) {
+        els.push(<line key={K()} x1={cx} y1={subMergeY + CR + 4} x2={cx} y2={subMergeY + subConvPad - 1} stroke={p.arr} strokeWidth={1.5} />)
+      }
+      // ── Zona "após convergência" da SUB-PERGUNTA (sub.after): chips de pacotes que se aplicam
+      //    após a convergência das respostas desta sub-pergunta, + botão ＋ para adicionar. ──
+      let subAfterY = subMergeY + subConvPad
+      const subAfterList = sub.after ?? []
+      const safW = AW - 8, safX = cx - safW / 2
+      for (let safi = 0; safi < subAfterList.length; safi++) {
+        const saf = subAfterList[safi]
+        const safH = seqEntryH(saf)
+        const safCardY = subAfterY + AFTER_GAP
+        els.push(<line key={K()} x1={cx} y1={subAfterY} x2={cx} y2={safCardY - 4} stroke={p.arr} strokeWidth={1.2} markerEnd={`url(#arr_${pc})`} />)
+        els.push(<rect key={K()} x={safX} y={safCardY} width={safW} height={safH} rx={4} fill={p.ans} stroke={p.ansB} strokeWidth={1} />)
+        els.push(<rect key={K()} x={safX} y={safCardY} width={safW} height={LBLH} rx={4} fill={p.lbl} />)
+        els.push(<rect key={K()} x={safX} y={safCardY + LBLH - 4} width={safW} height={4} fill={p.lbl} />)
+        const safHlKey = `chip:saf:${childRef.secIdx}:${childRef.decIdx}:${childRef.sub.join(',')}:${safi}`
+        if (canEdit) {
+          const capSafi = safi, capSafLabel = saf.label, capChildRef2 = childRef
+          const safMenuItems: MenuItem[] = [
+            { label: 'Adicionar pacote', glyph: '📦', color: '#0ea5e9', onClick: () => fire({ type: 'p_dec_add_after_pkg', ref: capChildRef2, afterIdx: capSafi }) },
+            { label: 'Inserir bloco antes', glyph: '↑', color: '#22d3ee', onClick: () => fire({ type: 'p_dec_add_after', ref: childRef, atIdx: capSafi }) },
+            { label: 'Inserir bloco depois', glyph: '↓', color: '#22d3ee', onClick: () => fire({ type: 'p_dec_add_after', ref: childRef, atIdx: capSafi + 1 }) },
+            { label: 'Mover bloco acima', glyph: '⬆', color: '#94a3b8', onClick: () => fire({ type: 'p_dec_move_after', ref: childRef, afterIdx: capSafi, dir: 'up' }) },
+            { label: 'Mover bloco abaixo', glyph: '⬇', color: '#94a3b8', onClick: () => fire({ type: 'p_dec_move_after', ref: childRef, afterIdx: capSafi, dir: 'down' }) },
+            { label: 'Remover bloco', glyph: '×', color: '#ef4444', danger: true, onClick: () => fire({ type: 'p_dec_remove_after', ref: childRef, afterIdx: capSafi }) },
+          ]
+          els.push(
+            <g key={K()} onMouseDown={stopMD} onClick={(e) => { e.stopPropagation(); fire({ type: 'p_dec_add_after', ref: childRef, atIdx: capSafi }) }} style={{ cursor: 'pointer' }} {...tipAttrs('Inserir bloco após convergência antes deste')}>
+              <circle cx={safX + 10} cy={safCardY + LBLH / 2} r={6.5} fill={p.code} opacity={0.85} />
+              <text x={safX + 10} y={safCardY + LBLH / 2 + 3.5} fontSize={10} fontWeight={800} textAnchor="middle" fill="white">+</text>
+            </g>
+          )
+          els.push(
+            <g key={K()} onMouseDown={stopMD} onClick={(e) => { e.stopPropagation(); fire({ type: 'p_dec_remove_after', ref: childRef, afterIdx: capSafi }) }} style={{ cursor: 'pointer' }} {...tipAttrs('Remover bloco')}>
+              <circle cx={safX + safW - 9} cy={safCardY + LBLH / 2} r={6.5} fill="#ef4444" opacity={0.82} />
+              <text x={safX + safW - 9} y={safCardY + LBLH / 2 + 3.5} fontSize={10} fontWeight={800} textAnchor="middle" fill="white">×</text>
+            </g>
+          )
+          els.push(
+            <g key={K()} onMouseDown={stopMD} onClick={(e) => openMenu(e, capSafLabel || 'Após convergência', safMenuItems, {
+              getList: (s) => resolveRef(s, capChildRef2)?.after?.[capSafi]?.packages ?? [],
+              onAdd: () => fire({ type: 'p_dec_add_after_pkg', ref: capChildRef2, afterIdx: capSafi }),
+              onMove: (idx, dir) => fire({ type: 'p_dec_move_after_pkg', ref: capChildRef2, afterIdx: capSafi, pkgIdx: idx, dir }),
+              onRemove: (idx) => fire({ type: 'p_dec_remove_after_pkg', ref: capChildRef2, afterIdx: capSafi, pkgIdx: idx }),
+            }, safHlKey, (v) => fire({ type: 'p_set_dec_after_label', ref: childRef, afterIdx: capSafi, value: v }))} style={{ cursor: 'pointer' }} {...tipAttrs('Opções do bloco')}>
+              <rect x={safX + 22} y={safCardY + 1} width={safW - 42} height={LBLH - 2} rx={2} fill="transparent" />
+            </g>
+          )
+        }
+        els.push(<text key={K()} x={canEdit ? safX + 22 : safX + 8} y={safCardY + LBLH * 0.68} fontSize={F_M} fontWeight={600} fill={p.lblT} fontFamily="ui-sans-serif,system-ui,sans-serif">{tr(saf.label || 'Após convergência', canEdit ? 20 : 40)}</text>)
+        const safPkgs = saf.packages ?? []
+        const safBY = safCardY + LBLH + BPAD
+        if (safPkgs.length) {
+          safPkgs.forEach((pkg, pi) => {
+            drawPkgRow(safX, safBY + pi * PKG, PKG, safW, pkg, p, hit(pkg.id) || hit(pkgName(pkg)), null, els)
+          })
+          if (canEdit) {
+            const capSafi2 = safi, capChildRef = childRef, capSafLabel2 = saf.label
+            els.push(
+              <g key={K()} onMouseDown={stopMD} onClick={(e) => openMenu(e, capSafLabel2 || 'Após convergência', [], {
+                getList: (s) => resolveRef(s, capChildRef)?.after?.[capSafi2]?.packages ?? [],
+                onAdd: () => fire({ type: 'p_dec_add_after_pkg', ref: capChildRef, afterIdx: capSafi2 }),
+                onMove: (idx, dir) => fire({ type: 'p_dec_move_after_pkg', ref: capChildRef, afterIdx: capSafi2, pkgIdx: idx, dir }),
+                onRemove: (idx) => fire({ type: 'p_dec_remove_after_pkg', ref: capChildRef, afterIdx: capSafi2, pkgIdx: idx }),
+              }, safHlKey)} style={{ cursor: 'pointer' }} {...tipAttrs('Gerenciar pacotes')}>
+                <rect x={safX + 4} y={safBY - 2} width={safW - 8} height={Math.max(safPkgs.length * PKG, NOTE_R) + 4} rx={3} fill="transparent" />
+              </g>
+            )
+          }
+        } else {
+          els.push(<text key={K()} x={safX + 8} y={safBY + NOTE_R * 0.8} fontSize={F_S} fontStyle="italic" fill={p.empty}>—</text>)
+        }
+        chipHighlight(safHlKey, safX, safCardY, safW, safH, els)
+        subAfterY = safCardY + safH
+      }
+      sY = subAfterY + SG   // próximo diamante
+    }
+    afterZoneY = sY - SG
+    // Chip "Pacotes" APÓS as perguntas aninhadas: só exibido quando há pacotes (não mais auto-vazio).
+    if (pkgs.length > 0) {
+      const chipH = aPkgChipH(pkgs.length)
+      const chipCardY = afterZoneY + SG
+      const chipW = AW - 8, chipX = cx - chipW / 2
+      els.push(<line key={K()} x1={cx} y1={afterZoneY} x2={cx} y2={chipCardY - 4}
+        stroke={p.arr} strokeWidth={1.2} markerEnd={`url(#arr_${pc})`} />)
+      els.push(<rect key={K()} x={chipX} y={chipCardY} width={chipW} height={chipH} rx={4}
+        fill={p.ans} stroke={p.ansB} strokeWidth={1} />)
+      els.push(<rect key={K()} x={chipX} y={chipCardY} width={chipW} height={LBLH} rx={4} fill={p.lbl} />)
+      els.push(<rect key={K()} x={chipX} y={chipCardY + LBLH - 4} width={chipW} height={4} fill={p.lbl} />)
+      els.push(
+        <text key={K()} x={chipX + 8} y={chipCardY + LBLH * 0.68} fontSize={F_M} fontWeight={600}
+          fill={p.lblT} fontFamily="ui-sans-serif,system-ui,sans-serif">
+          Pacotes
+        </text>
+      )
+      const pkgBY = chipCardY + LBLH + BPAD
+      if (pkgs.length > 0) {
+        pkgs.forEach((pkg, i) => {
+          drawPkgRow(chipX, pkgBY + i * PKG, PKG, chipW, pkg, p, pkgHitIdx.has(i), null, els)
+        })
+      } else {
+        els.push(<text key={K()} x={chipX + 8} y={pkgBY + NOTE_R * 0.8} fontSize={F_S} fontStyle="italic" fill={p.empty}>—</text>)
+      }
+      const pkgChipHlKey = `chip:pkg:${ref.secIdx}:${ref.decIdx}:${ref.sub.join(',')}:${ai}`
+      if (canEdit) {
+        const capRef2 = ref, capAi2 = ai, capSubLen = a.sub?.length ?? 0
+        els.push(
+          <g key={K()} onMouseDown={stopMD} onClick={(e) => openMenu(e, 'Pacotes', [
+            { label: 'Inserir sub-pergunta acima dos pacotes', glyph: '↑', color: '#22d3ee',
+              onClick: () => fire({ type: 'p_insert_sub_dec', ref, ansIdx: ai, subIdx: capSubLen }) },
+            { label: 'Inserir sub-pergunta abaixo dos pacotes', glyph: '↓', color: '#22d3ee',
+              onClick: () => fire({ type: 'p_add_aftersub_dec', ref, ansIdx: ai }) },
+          ], {
+            getList: (s) => resolveRef(s, capRef2)?.answers[capAi2]?.packages ?? [],
+            onAdd: () => fire({ type: 'p_add_pkg', ref, ansIdx: ai }),
+            onMove: (idx, dir) => fire({ type: 'p_move_pkg', ref, ansIdx: ai, pkgIdx: idx, dir }),
+            onRemove: (idx) => fire({ type: 'p_remove_pkg', ref, ansIdx: ai, pkgIdx: idx }),
+          }, pkgChipHlKey)} style={{ cursor: 'pointer' }} {...tipAttrs('Gerenciar pacotes')}>
+            <rect x={chipX + 4} y={chipCardY + 4} width={chipW - 8} height={LBLH - 8} rx={2} fill="transparent" />
+          </g>
+        )
+      }
+      chipHighlight(pkgChipHlKey, chipX, chipCardY, chipW, chipH, els)
+      afterZoneY = chipCardY + chipH
+    }
+  }
+
+  // Sub-perguntas APÓS o chip de Pacotes (ans.afterSub) — mesma renderização de a.sub
+  // mas com índices negativos no childRef: afterSub[i] → subIdx = -(i+1).
+  // Renderizado fora do bloco a.sub para funcionar mesmo sem sub-perguntas.
+  {
+    const afterSubList = a.afterSub ?? []
+    for (let asDi = 0; asDi < afterSubList.length; asDi++) {
+      const asSub = afterSubList[asDi]
+      const asSY = afterZoneY + SG
+      els.push(<line key={K()} x1={cx} y1={afterZoneY} x2={cx} y2={asSY - 5} stroke={p.arr} strokeWidth={1.2} markerEnd={`url(#arr_${pc})`} />)
+      const asQd = RIG_TYPE_Q_RE.test(asSub.question.trim()) ? rigQDec() : qDec()
+      const asX = cx - DDW / 2
+      els.push(
+        <polygon key={K()} points={`${cx},${asSY} ${asX + DDW},${asSY + DH / 2} ${cx},${asSY + DH} ${asX},${asSY + DH / 2}`}
+          fill={asSub._dirty ? DIRTY_CARD : asQd.fill} stroke={asSub._dirty ? DIRTY_STROKE : asQd.stroke} strokeWidth={1.5} />
+      )
+      const asLines = wrapDiamondText(asSub.question)
+      if (asLines[1]) {
+        els.push(
+          <text key={K()} textAnchor="middle" fontFamily="ui-sans-serif,system-ui,sans-serif" fill={asQd.text} fontSize={F_M} fontWeight={600}>
+            <tspan x={cx} y={asSY + DH / 2 - 2}>{asLines[0]}</tspan>
+            <tspan x={cx} dy={12}>{asLines[1]}</tspan>
+          </text>
+        )
+      } else {
+        els.push(
+          <text key={K()} x={cx} y={asSY + DH / 2 + 4} fontSize={F_M} fontWeight={600} fill={asQd.text} textAnchor="middle" fontFamily="ui-sans-serif,system-ui,sans-serif">
+            {asLines[0]}
+          </text>
+        )
+      }
+      const asChildRef: DecRef = { ...ref, sub: [...ref.sub, ai, -(asDi + 1)] }
+      if (canEdit) {
+        const capAsQ = asSub.question, capAsDi = asDi
+        els.push(
+          <g key={K()} onMouseDown={stopMD}
+            onClick={(e) => { e.stopPropagation(); fire({ type: 'p_remove_aftersub_dec', ref, ansIdx: ai, afterSubIdx: capAsDi }) }}
+            style={{ cursor: 'pointer' }} {...tip('Remover pergunta')}>
+            <circle cx={asX + DDW + 11} cy={asSY + DH / 2} r={9} fill="#ef4444" opacity={0.9} />
+            <text x={asX + DDW + 11} y={asSY + DH / 2 + 3.5} fontSize={12} fontWeight={800} textAnchor="middle" fill="white">×</text>
+          </g>
+        )
+        const capAsHlKey = `q:${asChildRef.secIdx}:${asChildRef.decIdx}:${asChildRef.sub.join(',')}`
+        els.push(
+          <g key={K()} onMouseDown={stopMD} onClick={(e) => {
+            e.stopPropagation()
+            openMenu(e, capAsQ, [
+              { label: 'Adicionar resposta', glyph: '➕', color: '#0ea5e9', onClick: () => fire({ type: 'p_add_ans', ref: asChildRef }) },
+              { label: 'Adicionar entrada após convergência', glyph: '⤵', color: '#7c3aed', onClick: () => fire({ type: 'p_dec_add_after', ref: asChildRef }) },
+              { label: 'Remover pergunta', glyph: '×', color: '#ef4444', danger: true, onClick: () => fire({ type: 'p_remove_aftersub_dec', ref, ansIdx: ai, afterSubIdx: capAsDi }) },
+            ], undefined, capAsHlKey, (v) => fire({ type: 'p_set_q', ref: asChildRef, value: v }))
+          }} style={{ cursor: 'pointer' }} {...tip('Ações da pergunta')}>
+            <polygon points={`${cx},${asSY} ${asX + DDW - 14},${asSY + DH / 2} ${cx},${asSY + DH} ${asX + 14},${asSY + DH / 2}`} fill="transparent" />
+          </g>
+        )
+        // Anel de destaque
+        if (_hlKey === capAsHlKey) {
+          els.push(<polygon key={K()}
+            points={`${cx},${asSY - 3} ${asX + DDW + 3},${asSY + DH / 2} ${cx},${asSY + DH + 3} ${asX - 3},${asSY + DH / 2}`}
+            fill="rgba(251,191,36,0.12)" stroke="#fbbf24" strokeWidth={2.5} />)
+        }
+      }
+      const asDisp = canEdit ? asSub.answers.map(a => ({ ans: a } as DisplayAns)) : toDisplayList(asSub.answers)
+      const asAnsY = asSY + DH + AV
+      const asTW = asDisp.reduce((s, da, i) => s + aW(da.ans) + (i ? AG : 0), 0)
+      let asAX = cx - asTW / 2
+      fanOut(cx, asSY + DH, asDisp.map(d => d.ans), asAX, asAnsY, p.arr, `url(#arr_${pc})`, els)
+      asAX = cx - asTW / 2
+      for (let asAi = 0; asAi < asDisp.length; asAi++) {
+        const asDA = asDisp[asAi]
+        const asAW = aW(asDA.ans)
+        const asAnsIdx = canEdit ? asAi : asSub.answers.indexOf(asDA.ans)
+        renderAnswer(asDA.ans, asAX, asAnsY, asAW, asAX + asAW / 2, pc, els, asChildRef, asAnsIdx, asDA.label2)
+        asAX += asAW + AG
+      }
+      const asMaxAH = Math.max(...asDisp.map(d => aH(d.ans)))
+      const asMergeY = asAnsY + asMaxAH
+      fanIn(asDisp.map(d => d.ans), cx - asTW / 2, asAnsY, asMergeY, cx, p.arr, els)
+      const asConvPad = asDisp.length > 1 ? (CR + 14) : 0
+      if (asConvPad > 0) {
+        els.push(<line key={K()} x1={cx} y1={asMergeY + CR + 4} x2={cx} y2={asMergeY + asConvPad - 1} stroke={p.arr} strokeWidth={1.5} />)
+      }
+      afterZoneY = asMergeY + asConvPad
+      // ── Zona "após convergência" do afterSub (asSub.after): chips de pacotes ──
+      const asSubAfterList = asSub.after ?? []
+      const asSafW = AW - 8, asSafX = cx - asSafW / 2
+      for (let asSafi = 0; asSafi < asSubAfterList.length; asSafi++) {
+        const asSaf = asSubAfterList[asSafi]
+        const asSafH = seqEntryH(asSaf)
+        const asSafCardY = afterZoneY + AFTER_GAP
+        els.push(<line key={K()} x1={cx} y1={afterZoneY} x2={cx} y2={asSafCardY - 4} stroke={p.arr} strokeWidth={1.2} markerEnd={`url(#arr_${pc})`} />)
+        els.push(<rect key={K()} x={asSafX} y={asSafCardY} width={asSafW} height={asSafH} rx={4} fill={p.ans} stroke={p.ansB} strokeWidth={1} />)
+        els.push(<rect key={K()} x={asSafX} y={asSafCardY} width={asSafW} height={LBLH} rx={4} fill={p.lbl} />)
+        els.push(<rect key={K()} x={asSafX} y={asSafCardY + LBLH - 4} width={asSafW} height={4} fill={p.lbl} />)
+        const asSafHlKey = `chip:assaf:${asChildRef.secIdx}:${asChildRef.decIdx}:${asChildRef.sub.join(',')}:${asSafi}`
+        if (canEdit) {
+          const capAsSafi = asSafi, capAsSafLabel = asSaf.label, capAsChildRef3 = asChildRef
+          const asSafMenuItems: MenuItem[] = [
+            { label: 'Adicionar pacote', glyph: '📦', color: '#0ea5e9', onClick: () => fire({ type: 'p_dec_add_after_pkg', ref: capAsChildRef3, afterIdx: capAsSafi }) },
+            { label: 'Inserir bloco antes', glyph: '↑', color: '#22d3ee', onClick: () => fire({ type: 'p_dec_add_after', ref: asChildRef, atIdx: capAsSafi }) },
+            { label: 'Inserir bloco depois', glyph: '↓', color: '#22d3ee', onClick: () => fire({ type: 'p_dec_add_after', ref: asChildRef, atIdx: capAsSafi + 1 }) },
+            { label: 'Mover bloco acima', glyph: '⬆', color: '#94a3b8', onClick: () => fire({ type: 'p_dec_move_after', ref: asChildRef, afterIdx: capAsSafi, dir: 'up' }) },
+            { label: 'Mover bloco abaixo', glyph: '⬇', color: '#94a3b8', onClick: () => fire({ type: 'p_dec_move_after', ref: asChildRef, afterIdx: capAsSafi, dir: 'down' }) },
+            { label: 'Remover bloco', glyph: '×', color: '#ef4444', danger: true, onClick: () => fire({ type: 'p_dec_remove_after', ref: asChildRef, afterIdx: capAsSafi }) },
+          ]
+          els.push(
+            <g key={K()} onMouseDown={stopMD} onClick={(e) => { e.stopPropagation(); fire({ type: 'p_dec_add_after', ref: asChildRef, atIdx: capAsSafi }) }} style={{ cursor: 'pointer' }} {...tipAttrs('Inserir bloco após convergência antes deste')}>
+              <circle cx={asSafX + 10} cy={asSafCardY + LBLH / 2} r={6.5} fill={p.code} opacity={0.85} />
+              <text x={asSafX + 10} y={asSafCardY + LBLH / 2 + 3.5} fontSize={10} fontWeight={800} textAnchor="middle" fill="white">+</text>
+            </g>
+          )
+          els.push(
+            <g key={K()} onMouseDown={stopMD} onClick={(e) => { e.stopPropagation(); fire({ type: 'p_dec_remove_after', ref: asChildRef, afterIdx: capAsSafi }) }} style={{ cursor: 'pointer' }} {...tipAttrs('Remover bloco')}>
+              <circle cx={asSafX + asSafW - 9} cy={asSafCardY + LBLH / 2} r={6.5} fill="#ef4444" opacity={0.82} />
+              <text x={asSafX + asSafW - 9} y={asSafCardY + LBLH / 2 + 3.5} fontSize={10} fontWeight={800} textAnchor="middle" fill="white">×</text>
+            </g>
+          )
+          els.push(
+            <g key={K()} onMouseDown={stopMD} onClick={(e) => openMenu(e, capAsSafLabel || 'Após convergência', asSafMenuItems, {
+              getList: (s) => resolveRef(s, capAsChildRef3)?.after?.[capAsSafi]?.packages ?? [],
+              onAdd: () => fire({ type: 'p_dec_add_after_pkg', ref: capAsChildRef3, afterIdx: capAsSafi }),
+              onMove: (idx, dir) => fire({ type: 'p_dec_move_after_pkg', ref: capAsChildRef3, afterIdx: capAsSafi, pkgIdx: idx, dir }),
+              onRemove: (idx) => fire({ type: 'p_dec_remove_after_pkg', ref: capAsChildRef3, afterIdx: capAsSafi, pkgIdx: idx }),
+            }, asSafHlKey, (v) => fire({ type: 'p_set_dec_after_label', ref: asChildRef, afterIdx: capAsSafi, value: v }))} style={{ cursor: 'pointer' }} {...tipAttrs('Opções do bloco')}>
+              <rect x={asSafX + 22} y={asSafCardY + 1} width={asSafW - 42} height={LBLH - 2} rx={2} fill="transparent" />
+            </g>
+          )
+        }
+        els.push(<text key={K()} x={canEdit ? asSafX + 22 : asSafX + 8} y={asSafCardY + LBLH * 0.68} fontSize={F_M} fontWeight={600} fill={p.lblT} fontFamily="ui-sans-serif,system-ui,sans-serif">{tr(asSaf.label || 'Após convergência', canEdit ? 20 : 40)}</text>)
+        const asSafPkgs = asSaf.packages ?? []
+        const asSafBY = asSafCardY + LBLH + BPAD
+        if (asSafPkgs.length) {
+          asSafPkgs.forEach((pkg, pi) => {
+            drawPkgRow(asSafX, asSafBY + pi * PKG, PKG, asSafW, pkg, p, hit(pkg.id) || hit(pkgName(pkg)), null, els)
+          })
+          if (canEdit) {
+            const capAsSafi2 = asSafi, capAsChildRef2 = asChildRef, capAsSafLabel2 = asSaf.label
+            els.push(
+              <g key={K()} onMouseDown={stopMD} onClick={(e) => openMenu(e, capAsSafLabel2 || 'Após convergência', [], {
+                getList: (s) => resolveRef(s, capAsChildRef2)?.after?.[capAsSafi2]?.packages ?? [],
+                onAdd: () => fire({ type: 'p_dec_add_after_pkg', ref: capAsChildRef2, afterIdx: capAsSafi2 }),
+                onMove: (idx, dir) => fire({ type: 'p_dec_move_after_pkg', ref: capAsChildRef2, afterIdx: capAsSafi2, pkgIdx: idx, dir }),
+                onRemove: (idx) => fire({ type: 'p_dec_remove_after_pkg', ref: capAsChildRef2, afterIdx: capAsSafi2, pkgIdx: idx }),
+              }, asSafHlKey)} style={{ cursor: 'pointer' }} {...tipAttrs('Gerenciar pacotes')}>
+                <rect x={asSafX + 4} y={asSafBY - 2} width={asSafW - 8} height={Math.max(asSafPkgs.length * PKG, NOTE_R) + 4} rx={3} fill="transparent" />
+              </g>
+            )
+          }
+        } else {
+          els.push(<text key={K()} x={asSafX + 8} y={asSafBY + NOTE_R * 0.8} fontSize={F_S} fontStyle="italic" fill={p.empty}>—</text>)
+        }
+        chipHighlight(asSafHlKey, asSafX, asSafCardY, asSafW, asSafH, els)
+        afterZoneY = asSafCardY + asSafH
+      }
+    }
+  }
+  // Reserva o espaço das entradas sequenciais (renderizadas acima, abaixo do chip Pacotes):
+  // a zona "após convergência" deve começar abaixo delas.
+  afterZoneY += seqH(a)
+
+  // ── Zona "após convergência" (a.after): blocos de pacotes/sequenciais no rodapé do chip,
+  //    + botão ＋ com o menu de ações nesta posição (após toda a subárvore do chip). ──
+  {
+    const afterList = a.after ?? []
+    let afY = afterZoneY
+    for (let afi = 0; afi < afterList.length; afi++) {
+      const af = afterList[afi]
+      const afH = seqEntryH(af)
+      const afCardY = afY + SEQ_GAP
+      // Chip compacto e centrado (largura fixa AW-8), igual aos demais chips secundários.
+      const afW = AW - 8, afX = cx - afW / 2
+      els.push(<line key={K()} x1={cx} y1={afY} x2={cx} y2={afCardY - 4} stroke={p.arr} strokeWidth={1.2} markerEnd={`url(#arr_${pc})`} />)
+      els.push(<rect key={K()} x={afX} y={afCardY} width={afW} height={afH} rx={4} fill={p.ans} stroke={p.ansB} strokeWidth={1} />)
+      els.push(<rect key={K()} x={afX} y={afCardY} width={afW} height={LBLH} rx={4} fill={p.lbl} />)
+      els.push(<rect key={K()} x={afX} y={afCardY + LBLH - 4} width={afW} height={4} fill={p.lbl} />)
+      if (canEdit) {
+        const capAfi = afi
+        els.push(
+          <g key={K()} onMouseDown={stopMD} onClick={(e) => { e.stopPropagation(); fire({ type: 'p_remove_after', ref, ansIdx: ai, afterIdx: capAfi }) }} style={{ cursor: 'pointer' }} {...tipAttrs('Remover bloco')}>
+            <circle cx={afX + afW - 9} cy={afCardY + LBLH / 2} r={6.5} fill="#ef4444" opacity={0.82} />
+            <text x={afX + afW - 9} y={afCardY + LBLH / 2 + 3.5} fontSize={10} fontWeight={800} textAnchor="middle" fill="white">×</text>
+          </g>
+        )
+        els.push(
+          <g key={K()} onMouseDown={stopMD} onClick={(e) => { e.stopPropagation(); fire({ type: 'p_edit_after_label', ref, ansIdx: ai, afterIdx: capAfi, current: af.label }) }} style={{ cursor: 'text' }}>
+            <rect x={afX + 8} y={afCardY + 1} width={afW - 28} height={LBLH - 2} rx={2} fill="transparent" />
+          </g>
+        )
+      }
+      els.push(<text key={K()} x={afX + 8} y={afCardY + LBLH * 0.68} fontSize={F_M} fontWeight={600} fill={p.lblT} fontFamily="ui-sans-serif,system-ui,sans-serif">{tr(af.label || 'Após convergência', 40)}</text>)
+      const afPkgs = af.packages ?? []
+      const afBY = afCardY + LBLH + BPAD
+      const afHlKey = `chip:af:${ref.secIdx}:${ref.decIdx}:${ref.sub.join(',')}:${ai}:${afi}`
+      if (afPkgs.length) {
+        afPkgs.forEach((pkg, pi) => {
+          drawPkgRow(afX, afBY + pi * PKG, PKG, afW, pkg, p, hit(pkg.id) || hit(pkgName(pkg)), null, els)
+        })
+        if (canEdit) {
+          const capAfi2 = afi, capRef3 = ref, capAi3 = ai, capAfLabel = af.label
+          els.push(
+            <g key={K()} onMouseDown={stopMD} onClick={(e) => openMenu(e, capAfLabel || 'Após convergência', [], {
+              getList: (s) => resolveRef(s, capRef3)?.answers[capAi3]?.after?.[capAfi2]?.packages ?? [],
+              onAdd: () => fire({ type: 'p_add_after_pkg', ref, ansIdx: ai, afterIdx: capAfi2 }),
+              onMove: (idx, dir) => fire({ type: 'p_move_after_pkg', ref, ansIdx: ai, afterIdx: capAfi2, pkgIdx: idx, dir }),
+              onRemove: (idx) => fire({ type: 'p_remove_after_pkg', ref, ansIdx: ai, afterIdx: capAfi2, pkgIdx: idx }),
+            }, afHlKey)} style={{ cursor: 'pointer' }} {...tipAttrs('Gerenciar pacotes')}>
+              <rect x={afX + 4} y={afBY - 2} width={afW - 8} height={Math.max(afPkgs.length * PKG, NOTE_R) + 4} rx={3} fill="transparent" />
+            </g>
+          )
+        }
+      } else {
+        els.push(<text key={K()} x={afX + 8} y={afBY + NOTE_R * 0.8} fontSize={F_S} fontStyle="italic" fill={p.empty}>—</text>)
+      }
+      chipHighlight(afHlKey, afX, afCardY, afW, afH, els)
+      afY = afCardY + afH
     }
   }
 }
 
 // Draw a single decision diamond centered at (cx, topY)
-function drawDiamond(cx: number, topY: number, w: number, text: string, pc: PC, els: React.ReactNode[]): void {
-  const p = pal(pc)
+function drawDiamond(cx: number, topY: number, w: number, text: string, _pc: PC, els: React.ReactNode[], dirty = false): void {
   const x = cx - w / 2
+  const isRigQ = RIG_TYPE_Q_RE.test(text.trim())
+  const qd = isRigQ ? rigQDec() : qDec()
   const pts = `${cx},${topY} ${x + w},${topY + DH / 2} ${cx},${topY + DH} ${x},${topY + DH / 2}`
-  els.push(<polygon key={K()} points={pts} fill={p.dec} stroke={p.hdr} strokeWidth={1.5} />)
-  els.push(
-    <text key={K()} x={cx} y={topY + DH / 2 + 4} fontSize={F_M} fontWeight={600}
-      fill={p.decT} textAnchor="middle" fontFamily="ui-sans-serif,system-ui,sans-serif">
-      {tr(text, 36)}
-    </text>
-  )
+  els.push(<polygon key={K()} points={pts} fill={dirty ? DIRTY_CARD : qd.fill} stroke={dirty ? DIRTY_STROKE : qd.stroke} strokeWidth={dirty ? 2 : (isRigQ ? 2 : 1.5)} />)
+  if (isRigQ) drawDerrickIcon(cx - 62, topY + DH / 2, qd.text, els)
+  const dLines = wrapDiamondText(text)
+  if (dLines[1]) {
+    els.push(
+      <text key={K()} textAnchor="middle" fontFamily="ui-sans-serif,system-ui,sans-serif" fill={qd.text} fontSize={F_M} fontWeight={600}>
+        <tspan x={cx} y={topY + DH / 2 - 2}>{dLines[0]}</tspan>
+        <tspan x={cx} dy={12}>{dLines[1]}</tspan>
+      </text>
+    )
+  } else {
+    els.push(
+      <text key={K()} x={cx} y={topY + DH / 2 + 4} fontSize={F_M} fontWeight={600}
+        fill={qd.text} textAnchor="middle" fontFamily="ui-sans-serif,system-ui,sans-serif">
+        {dLines[0]}
+      </text>
+    )
+  }
   if (hit(text)) {
     els.push(<polygon key={K()} points={pts} fill="none" stroke={HIT_STROKE} strokeWidth={2.5} opacity={0.9} />)
   }
   _decPos.set(text, { cx, topY })
+}
+
+// Realça (modo edição) uma decisão sem resposta padrão (✦) — guia a montagem e evita
+// que o stage 2 caia num default não-intencional. Anel âmbar tracejado + badge ⚠.
+function drawNoDefaultWarn(answers: LAns[], cx: number, topY: number, w: number, els: React.ReactNode[]): void {
+  if (!_editCb || answers.some(a => a.active)) return
+  const x = cx - w / 2
+  const pts = `${cx},${topY} ${x + w},${topY + DH / 2} ${cx},${topY + DH} ${x},${topY + DH / 2}`
+  els.push(<polygon key={K()} points={pts} fill="none" stroke="#f59e0b" strokeWidth={1.6} strokeDasharray="4,2" opacity={0.85} />)
+  // Badge ancorado ao meio da aresta superior-esquerda do losango (fica sobre a borda real,
+  // não na quina vazia do bounding-box) — leitura clara de "pertence a esta pergunta".
+  const bx = cx - w / 4, by = topY + DH / 4
+  els.push(
+    <g key={K()} {...tipAttrs('Sem resposta padrão — marque uma resposta com ✦')}>
+      <circle cx={bx} cy={by} r={7} fill="#f59e0b" />
+      <text x={bx} y={by + 3.5} fontSize={10} fontWeight={800} textAnchor="middle" fill="#1c1007">!</text>
+    </g>
+  )
+}
+
+// Par de botões abaixo de uma pergunta: ‹ cria resposta à esquerda · › cria à direita.
+// Fundo sólido garante visibilidade sobre qualquer linha do fluxograma.
+function drawAddAnswerLR(cx: number, cy: number, color: string, onLeft: () => void, onRight: () => void, els: React.ReactNode[]): void {
+  if (!_editCb) return
+  const off = BTN_R + 6
+  const bgFill = _dark ? '#0c1523' : '#f0f4f8'
+  const mk = (gx: number, glyph: string, tipTxt: string, fn: () => void) => els.push(
+    <g key={K()} onMouseDown={stopMD} onClick={(e) => { e.stopPropagation(); fn() }} style={{ cursor: 'pointer' }} {...tipAttrs(tipTxt)}>
+      <circle cx={gx} cy={cy} r={BTN_R + 2} fill={bgFill} />
+      <circle cx={gx} cy={cy} r={BTN_R} fill={color} opacity={0.22} />
+      <circle cx={gx} cy={cy} r={BTN_R} fill="none" stroke={color} strokeWidth={1.3} opacity={0.8} />
+      <text x={gx} y={cy + 3.6} fontSize={12} fontWeight={800} textAnchor="middle" fill={color} opacity={0.95}>{glyph}</text>
+    </g>
+  )
+  mk(cx - off, '‹', 'Criar resposta à esquerda', onLeft)
+  mk(cx + off, '›', 'Criar resposta à direita', onRight)
+}
+
+// Botão "＋" unificado (mesmo visual do menu de ações dos cards) — usado em pontos
+// que têm uma única ação (chip pós-convergência, resposta da pergunta pós-convergência).
+function drawPlusButton(cx: number, cy: number, color: string, tipTxt: string, fn: () => void, els: React.ReactNode[]): void {
+  els.push(
+    <g key={K()} onMouseDown={stopMD} onClick={(e) => { e.stopPropagation(); fn() }} style={{ cursor: 'pointer' }} {...tipAttrs(tipTxt)}>
+      <circle cx={cx} cy={cy} r={BTN_R} fill={color} opacity={0.18} />
+      <circle cx={cx} cy={cy} r={BTN_R} fill="none" stroke={color} strokeWidth={1.2} opacity={0.65} />
+      <text x={cx} y={cy + 3.8} fontSize={12} fontWeight={700} textAnchor="middle" fill={color} opacity={0.95}>＋</text>
+    </g>
+  )
+}
+
+// Botão "＋" que abre um menu rotulado (mesmo visual do drawPlusButton). Se houver só
+// um item, dispara direto. Usado nos rodapés dos chips para "adicionar pacote / pergunta".
+function drawPlusMenu(cx: number, cy: number, color: string, title: string, tipTxt: string, items: MenuItem[], els: React.ReactNode[]): void {
+  els.push(
+    <g key={K()} onMouseDown={stopMD}
+       onClick={(e) => { e.stopPropagation(); if (items.length === 1) items[0].onClick(); else openMenu(e, title, items) }}
+       style={{ cursor: 'pointer' }} {...tipAttrs(tipTxt)}>
+      <circle cx={cx} cy={cy} r={BTN_R} fill={color} opacity={0.18} />
+      <circle cx={cx} cy={cy} r={BTN_R} fill="none" stroke={color} strokeWidth={1.2} opacity={0.65} />
+      <text x={cx} y={cy + 3.8} fontSize={12} fontWeight={700} textAnchor="middle" fill={color} opacity={0.95}>＋</text>
+    </g>
+  )
+}
+
+// Botão "＋" no vértice esquerdo de uma pergunta: insere uma nova pergunta
+// imediatamente acima (irmã) desta no fluxo. A ação específica do contexto vem em
+// `aboveAction` (decisão de topo, pergunta aninhada ou pergunta após convergência).
+function drawInsertMenu(
+  cx: number, cy: number, r: number, color: string,
+  aboveAction: EditAction, els: React.ReactNode[],
+): void {
+  const bgFill = _dark ? '#0c1523' : '#f0f4f8'
+  els.push(
+    <g key={K()} onMouseDown={stopMD}
+       onClick={(e) => { e.stopPropagation(); _editCb!(aboveAction) }}
+       style={{ cursor: 'pointer' }} {...tipAttrs('Inserir pergunta acima')}>
+      <circle cx={cx} cy={cy} r={r + 2} fill={bgFill} />
+      <circle cx={cx} cy={cy} r={r} fill={color} opacity={0.18} />
+      <circle cx={cx} cy={cy} r={r} fill="none" stroke={color} strokeWidth={1.1} opacity={0.6} />
+      <text x={cx} y={cy + 3.6} fontSize={r >= 9 ? 12 : 11} fontWeight={700} textAnchor="middle" fill={color} opacity={0.95}>＋</text>
+    </g>
+  )
+}
+
+// Draw one after-convergence DECISION (dec.afterDec[adIdx]): diamond + answer cards.
+// Single level (sem sub/seq/goto). Returns the Y of the bottom edge.
+function drawAfterDecision(
+  ad: LDec, cx: number, topY: number, pc: PC,
+  si: number, di: number, adIdx: number, els: React.ReactNode[],
+  aeRef?: { afterIdx: number; isAfterSub: boolean; subIdx: number },
+): number {
+  const p = pal(pc)
+  const edit = _editCb !== null
+  const tip = (text: string) => ({
+    onMouseEnter: (e: React.MouseEvent) => _tooltipCb?.({ text, x: e.clientX, y: e.clientY }),
+    onMouseLeave: () => _tooltipCb?.(null),
+  })
+  const dY = topY + AFTER_GAP
+  const dw = DDW   // mesma largura das demais perguntas (topo e sub) — consistência visual
+  const dx = cx - dw / 2
+  const ref: DecRef = aeRef
+    ? { secIdx: si, decIdx: di, sub: [], aeRef }
+    : { secIdx: si, decIdx: di, adIdx, sub: [] }
+  const adHlKey = aeRef
+    ? `q:ae:${si}:${di}:${aeRef.afterIdx}:${aeRef.isAfterSub ? 'as' : 's'}:${aeRef.subIdx}`
+    : `q:${si}:${di}:ad${adIdx}`
+
+  // Arrow from convergence trunk down to the diamond
+  els.push(<line key={K()} x1={cx} y1={topY} x2={cx} y2={dY - 5} stroke={p.arr} strokeWidth={1.4} markerEnd={`url(#arr_${pc})`} />)
+
+  // Diamond (cor de pergunta; destaque quando alterado/não salvo)
+  const adDirty = !!ad._dirty
+  const adQd = qDec()
+  els.push(<polygon key={K()} points={`${cx},${dY} ${dx + dw},${dY + DH / 2} ${cx},${dY + DH} ${dx},${dY + DH / 2}`} fill={adDirty ? DIRTY_CARD : adQd.fill} stroke={adDirty ? DIRTY_STROKE : adQd.stroke} strokeWidth={adDirty ? 2 : 1.5} />)
+  drawNoDefaultWarn(ad.answers, cx, dY, dw, els)
+  const adLines = wrapDiamondText(ad.question)
+  if (adLines[1]) {
+    els.push(
+      <text key={K()} textAnchor="middle" fontFamily="ui-sans-serif,system-ui,sans-serif" fill={adQd.text} fontSize={F_M} fontWeight={600}>
+        <tspan x={cx} y={dY + DH / 2 - 2}>{adLines[0]}</tspan>
+        <tspan x={cx} dy={12}>{adLines[1]}</tspan>
+      </text>
+    )
+  } else {
+    els.push(
+      <text key={K()} x={cx} y={dY + DH / 2 + 4} fontSize={F_M} fontWeight={600} fill={adQd.text} textAnchor="middle" fontFamily="ui-sans-serif,system-ui,sans-serif">
+        {adLines[0]}
+      </text>
+    )
+  }
+  if (hit(ad.question)) {
+    els.push(<polygon key={K()} points={`${cx},${dY} ${dx + dw},${dY + DH / 2} ${cx},${dY + DH} ${dx},${dY + DH / 2}`} fill="none" stroke={HIT_STROKE} strokeWidth={2.5} opacity={0.9} />)
+  }
+  if (edit) {
+    // Clique no diamante após-convergência: seleciona origem em pickMode; caso contrário, abre sidebar.
+    const capAdQ = ad.question
+    els.push(
+      <g key={K()} onMouseDown={stopMD} onClick={(e) => {
+        e.stopPropagation()
+        if (_pickMode) { _editCb!({ type: 'pick_source', ref, question: capAdQ }); return }
+        const adItems: MenuItem[] = [
+          { label: 'Adicionar resposta', glyph: '➕', color: '#0ea5e9', onClick: () => _editCb!({ type: 'p_add_ans', ref }) },
+          { label: 'Remover pergunta', glyph: '×', color: '#ef4444', danger: true, onClick: () => _editCb!({ type: 'p_remove_dec', ref }) },
+        ]
+        openMenu(e, capAdQ, adItems, undefined, adHlKey, (v) => _editCb!({ type: 'p_set_q', ref, value: v }))
+      }} style={{ cursor: _pickMode ? 'copy' : 'pointer' }} {...tip(_pickMode ? 'Selecionar como origem' : 'Ações da pergunta')}>
+        <polygon points={`${cx},${dY} ${cx + dw / 2 - 14},${dY + DH / 2} ${cx},${dY + DH} ${cx - dw / 2 + 14},${dY + DH / 2}`} fill="transparent" />
+      </g>
+    )
+    // Anel de destaque
+    if (_hlKey === adHlKey) {
+      const hw = dw / 2
+      els.push(<polygon key={K()}
+        points={`${cx},${dY - 3} ${cx + hw + 3},${dY + DH / 2} ${cx},${dY + DH + 3} ${cx - hw - 3},${dY + DH / 2}`}
+        fill="rgba(251,191,36,0.12)" stroke="#fbbf24" strokeWidth={2.5} />)
+    }
+    // remove decision
+    els.push(
+      <g key={K()} onMouseDown={stopMD} onClick={(e) => { e.stopPropagation(); _editCb!({ type: 'p_remove_dec', ref }) }}
+         style={{ cursor: 'pointer' }} {...tip('Remover pergunta')}>
+        <circle cx={dx + dw + 11} cy={dY + DH / 2} r={9} fill="#ef4444" opacity={0.9} />
+        <text x={dx + dw + 11} y={dY + DH / 2 + 3.5} fontSize={12} fontWeight={800} textAnchor="middle" fill="white">×</text>
+      </g>
+    )
+    // ⟲ "já respondida no escopo" (só em perguntas afterDec repetidas)
+    if (_dupQuestions.has(ad.question.trim())) {
+      drawReuseToggle(dx + dw + 11, dY + DH / 2 + 26, !!ad.reuseScope,
+        () => _editCb!({ type: 'p_toggle_reuse', ref }), els)
+    }
+  }
+
+  // Answers row
+  const disp = edit ? ad.answers.map(a => ({ ans: a } as DisplayAns)) : toDisplayList(ad.answers)
+  const ansY = dY + DH + AV
+  const totW = disp.reduce((s, da, i) => s + aW(da.ans) + (i ? AG : 0), 0)
+  let ax = cx - totW / 2
+  fanOut(cx, dY + DH, disp.map(d => d.ans), ax, ansY, p.arr, `url(#arr_${pc})`, els)
+  ax = cx - totW / 2
+  for (let ai = 0; ai < disp.length; ai++) {
+    const a = disp[ai].ans
+    const aw = aW(a)
+    const ax0 = ax
+    const ansIdx = edit ? ai : ad.answers.indexOf(a)
+    renderAnswer(a, ax0, ansY, aw, ax0 + aw / 2, pc, els, ref, ansIdx, disp[ai].label2)
+    ax += aw + AG
+  }
+  const maxAH = Math.max(0, ...disp.map(d => aH(d.ans)))
+  const mergeY = ansY + maxAH
+  // Fan-in: reconverge as respostas ao tronco central. Sem isto a linha de fluxo "quebrava"
+  // após uma pergunta de convergência com 2+ respostas (cards divergiam e nada os reunia
+  // de volta ao centro antes do próximo passo).
+  fanIn(disp.map(d => d.ans), cx - totW / 2, ansY, mergeY, cx, p.arr, els)
+  const convPad = disp.length > 1 ? (CR + 14) : 0
+  if (convPad > 0) {
+    const jY = mergeY + CR + 4   // Y onde o fanIn converge ao centro
+    els.push(<line key={K()} x1={cx} y1={jY} x2={cx} y2={mergeY + convPad - 1} stroke={p.arr} strokeWidth={1.5} />)
+  }
+  return mergeY + convPad
+}
+
+
+// Resumo do escopo referenciado por uma seção `ref` (rótulos das seções + nº de decisões),
+// já expandindo refs aninhadas, para o preview do card de inclusão.
+function refSourceInfo(scopeId: string): { labels: string[]; decisions: number } {
+  const expanded = expandScopeRefs(resolveScopeSections(scopeId))
+  let n = 0
+  const walk = (decs?: LDec[]) => {
+    for (const d of decs ?? []) { n++; for (const a of d.answers) walk(a.sub); walk(d.afterDec) }
+  }
+  for (const s of expanded) walk(s.decisions)
+  return { labels: expanded.map(s => s.label), decisions: n }
+}
+
+// Card compacto de "fluxograma incluído" (seção `ref`): mostra o escopo de origem e um
+// resumo, com controles de mover/remover no modo edição. O conteúdo NÃO é editável aqui —
+// edita-se no escopo de origem (vínculo vivo).
+function drawRefSection(sec: LSec, CX: number, Y: number, sw: number, si: number, total: number, els: React.ReactNode[]): void {
+  const sx = CX - sw / 2
+  const col = '#6366f1'
+  const info = sec.ref ? refSourceInfo(sec.ref.scopeId) : { labels: [], decisions: 0 }
+  const title = sec.ref?.label ?? sec.ref?.scopeId ?? sec.label
+
+  els.push(<rect key={K()} x={sx} y={Y} width={sw} height={REF_SEC_H} rx={10}
+    fill={_dark ? '#1e1b4b' : '#eef2ff'} stroke={col} strokeWidth={1.5} strokeDasharray="5,3" />)
+  els.push(<rect key={K()} x={sx} y={Y} width={sw} height={SHH} rx={10} fill={col} />)
+  els.push(<rect key={K()} x={sx} y={Y + SHH - 10} width={sw} height={10} fill={col} />)
+  els.push(
+    <text key={K()} x={sx + SPAD} y={Y + SHH * 0.63} fontSize={F_L} fontWeight={700}
+      fill="white" fontFamily="ui-sans-serif,system-ui,sans-serif" letterSpacing={0.6}>
+      {`🔗 ${tr('Fluxograma incluído: ' + title, _editCb ? 28 : 44)}`}
+    </text>
+  )
+  const bodyY = Y + SHH + 16
+  els.push(
+    <text key={K()} x={sx + SPAD} y={bodyY} fontSize={F_M} fill={_dark ? '#c7d2fe' : '#4338ca'}
+      fontFamily="ui-sans-serif,system-ui,sans-serif">
+      {tr(info.labels.join(' · ') || '(escopo vazio)', Math.floor((sw - SPAD * 2) / 5.6))}
+    </text>
+  )
+  els.push(
+    <text key={K()} x={sx + SPAD} y={bodyY + 18} fontSize={F_S} fill={_dark ? '#818cf8' : '#6366f1'}
+      fontFamily="ui-sans-serif,system-ui,sans-serif">
+      {`atualiza automaticamente · ${info.labels.length} seção(ões) · ${info.decisions} decisão(ões)`}
+    </text>
+  )
+  if (_editCb) {
+    const capSi = si
+    const cy = Y + SHH / 2
+    els.push(
+      <g key={K()} onMouseDown={stopMD}
+         onClick={(e) => { if (si > 0) { e.stopPropagation(); _editCb!({ type: 'move_section', secIdx: capSi, dir: 'up' }) } }}
+         style={{ cursor: si > 0 ? 'pointer' : 'default' }} {...tipAttrs('Mover para cima')}>
+        <circle cx={sx + sw - 116} cy={cy} r={8} fill={col} stroke="white" strokeWidth={0.7} opacity={si > 0 ? 0.85 : 0.3} />
+        <text x={sx + sw - 116} y={cy + 4} fontSize={11} fontWeight={700} textAnchor="middle" fill="white" opacity={si > 0 ? 1 : 0.35}>↑</text>
+      </g>
+    )
+    els.push(
+      <g key={K()} onMouseDown={stopMD}
+         onClick={(e) => { if (si < total - 1) { e.stopPropagation(); _editCb!({ type: 'move_section', secIdx: capSi, dir: 'down' }) } }}
+         style={{ cursor: si < total - 1 ? 'pointer' : 'default' }} {...tipAttrs('Mover para baixo')}>
+        <circle cx={sx + sw - 98} cy={cy} r={8} fill={col} stroke="white" strokeWidth={0.7} opacity={si < total - 1 ? 0.85 : 0.3} />
+        <text x={sx + sw - 98} y={cy + 4} fontSize={11} fontWeight={700} textAnchor="middle" fill="white" opacity={si < total - 1 ? 1 : 0.35}>↓</text>
+      </g>
+    )
+    els.push(
+      <g key={K()} onMouseDown={stopMD}
+         onClick={(e) => { e.stopPropagation(); _editCb!({ type: 'remove_section', secIdx: capSi }) }}
+         style={{ cursor: 'pointer' }} {...tipAttrs('Remover inclusão')}>
+        <circle cx={sx + sw - SPAD - 34} cy={cy} r={9} fill="#ef4444" opacity={0.88} />
+        <text x={sx + sw - SPAD - 34} y={cy + 3.5} fontSize={12} fontWeight={800} textAnchor="middle" fill="white">×</text>
+      </g>
+    )
+  }
 }
 
 // Draw a vertical flowchart (LSec[]) centered at colCX starting at topY.
@@ -636,6 +1640,21 @@ function drawDiamond(cx: number, topY: number, w: number, text: string, pc: PC, 
 function drawFlowColumn(secs: LSec[], colCX: number, topY: number, els: React.ReactNode[]): number {
   const CX = colCX
   let Y = topY
+
+  // "+ inserir seção acima" button above the first section (edit mode only)
+  if (_editCb && secs.length > 0) {
+    const btnCY = Y + 12
+    els.push(
+      <g key={K()} onMouseDown={stopMD}
+         onClick={(e) => { e.stopPropagation(); _editCb!({ type: 'add_section', afterSecIdx: -1 }) }}
+         style={{ cursor: 'pointer' }} {...tipAttrs('Inserir seção acima')}>
+        <circle cx={CX} cy={btnCY} r={12} fill="#0f172a" opacity={0.95} />
+        <circle cx={CX} cy={btnCY} r={12} fill="none" stroke="#60a5fa" strokeWidth={1.4} opacity={0.75} />
+        <text x={CX} y={btnCY + 4.5} fontSize={15} fontWeight={700} textAnchor="middle" fill="#60a5fa" opacity={0.95}>+</text>
+      </g>
+    )
+    Y += 32
+  }
 
   for (let si = 0; si < secs.length; si++) {
     const sec = secs[si]
@@ -656,13 +1675,20 @@ function drawFlowColumn(secs: LSec[], colCX: number, topY: number, els: React.Re
         els.push(
           <g key={K()} onMouseDown={stopMD}
              onClick={(e) => { e.stopPropagation(); _editCb!({ type: 'add_section', afterSecIdx: capSiPrev }) }}
-             style={{ cursor: 'pointer' }}>
-            <rect x={CX - 66} y={btnCY - 8} width={132} height={16} rx={8} fill="#1e293b" opacity={0.9} />
-            <rect x={CX - 66} y={btnCY - 8} width={132} height={16} rx={8} fill="none" stroke="#60a5fa" strokeWidth={0.8} strokeDasharray="3,2" opacity={0.5} />
-            <text x={CX} y={btnCY + 4} fontSize={8.5} fontWeight={700} textAnchor="middle" fill="#60a5fa" opacity={0.9}>＋ inserir seção aqui</text>
+             style={{ cursor: 'pointer' }} {...tipAttrs('Inserir seção aqui')}>
+            <circle cx={CX} cy={btnCY} r={12} fill="#0f172a" opacity={0.95} />
+            <circle cx={CX} cy={btnCY} r={12} fill="none" stroke="#60a5fa" strokeWidth={1.4} opacity={0.75} />
+            <text x={CX} y={btnCY + 4.5} fontSize={15} fontWeight={700} textAnchor="middle" fill="#60a5fa" opacity={0.95}>+</text>
           </g>
         )
       }
+    }
+
+    // Seção de inclusão (ref): card compacto read-only, sem cabeçalho/decisões normais.
+    if (sec.ref) {
+      drawRefSection(sec, CX, Y, sw, si, secs.length, els)
+      Y += sh + SGAP
+      continue
     }
 
     // Section background + header
@@ -675,11 +1701,14 @@ function drawFlowColumn(secs: LSec[], colCX: number, topY: number, els: React.Re
     const bl = sec.phase.length * 6.5 + 12
     // Edit mode: reserve 112px on right for × seção(68) + gap(4) + ↓(16) + gap(2) + ↑(16) + gap(6)
     const badgeX = sx + sw - SPAD - bl - (_editCb ? 112 : 0)
+    // Limite dinâmico: uso a largura disponível real entre o início do rótulo e o badge.
+    // Preserva espaço de 10px antes do badge. F_L≈11px × 0.62 ≈ 6.8px/char.
+    const maxLblChars = Math.max(14, Math.floor((badgeX - sx - SPAD - 10) / (F_L * 0.62)))
 
     els.push(
       <text key={K()} x={sx + SPAD} y={Y + SHH * 0.63} fontSize={F_L} fontWeight={700}
         fill={p.hdrT} fontFamily="ui-sans-serif,system-ui,sans-serif" letterSpacing={1.2}>
-        {tr(sec.label, _editCb ? 22 : 36)}
+        {tr(sec.label, maxLblChars)}
       </text>
     )
 
@@ -693,7 +1722,7 @@ function drawFlowColumn(secs: LSec[], colCX: number, topY: number, els: React.Re
       // Phase badge (clickable)
       els.push(
         <g key={K()} onMouseDown={stopMD} onClick={(e) => { e.stopPropagation(); _editCb!({ type: 'edit_section_phase', secIdx: capSi, current: capPhase }) }}
-           style={{ cursor: 'pointer' }} title="Editar fase">
+           style={{ cursor: 'pointer' }} {...tipAttrs('Editar fase')}>
           <rect x={badgeX} y={Y + 9} width={bl} height={17} rx={8} fill={p.bb} stroke="white" strokeWidth={1} strokeDasharray="3,2" opacity={0.9} />
           <text x={badgeX + bl / 2} y={Y + 21} fontSize={9} fontWeight={700}
             fill={p.bT} textAnchor="middle" fontFamily="ui-sans-serif,system-ui,sans-serif">
@@ -706,7 +1735,7 @@ function drawFlowColumn(secs: LSec[], colCX: number, topY: number, els: React.Re
       els.push(
         <g key={K()} onMouseDown={stopMD}
            onClick={(e) => { if (si > 0) { e.stopPropagation(); _editCb!({ type: 'move_section', secIdx: capSi, dir: 'up' }) } }}
-           style={{ cursor: si > 0 ? 'pointer' : 'default' }} title="Mover seção para cima">
+           style={{ cursor: si > 0 ? 'pointer' : 'default' }} {...tipAttrs('Mover seção para cima')}>
           <circle cx={movUpCX} cy={movBtnCY} r={8} fill={p.hdr} stroke="white" strokeWidth={0.7} opacity={si > 0 ? 0.85 : 0.3} />
           <text x={movUpCX} y={movBtnCY + 4} fontSize={11} fontWeight={700} textAnchor="middle" fill="white" opacity={si > 0 ? 1 : 0.35}>↑</text>
         </g>
@@ -716,24 +1745,35 @@ function drawFlowColumn(secs: LSec[], colCX: number, topY: number, els: React.Re
       els.push(
         <g key={K()} onMouseDown={stopMD}
            onClick={(e) => { if (si < totalSecs - 1) { e.stopPropagation(); _editCb!({ type: 'move_section', secIdx: capSi, dir: 'down' }) } }}
-           style={{ cursor: si < secs.length - 1 ? 'pointer' : 'default' }} title="Mover seção para baixo">
+           style={{ cursor: si < secs.length - 1 ? 'pointer' : 'default' }} {...tipAttrs('Mover seção para baixo')}>
           <circle cx={movDnCX} cy={movBtnCY} r={8} fill={p.hdr} stroke="white" strokeWidth={0.7} opacity={si < secs.length - 1 ? 0.85 : 0.3} />
           <text x={movDnCX} y={movBtnCY + 4} fontSize={11} fontWeight={700} textAnchor="middle" fill="white" opacity={si < secs.length - 1 ? 1 : 0.35}>↓</text>
         </g>
       )
-      // × Remover seção
+      // × remove section (circle button)
       els.push(
         <g key={K()} onMouseDown={stopMD} onClick={(e) => { e.stopPropagation(); _editCb!({ type: 'remove_section', secIdx: capSi }) }}
-           style={{ cursor: 'pointer' }}>
-          <rect x={sx + sw - SPAD - 68} y={Y + 9} width={68} height={17} rx={8} fill="#ef4444" opacity={0.85} />
-          <text x={sx + sw - SPAD - 34} y={Y + 21} fontSize={9} fontWeight={700} textAnchor="middle" fill="white">× seção</text>
+           style={{ cursor: 'pointer' }} {...tipAttrs('Remover seção')}>
+          <circle cx={sx + sw - SPAD - 34} cy={Y + SHH / 2} r={9} fill="#ef4444" opacity={0.88} />
+          <text x={sx + sw - SPAD - 34} y={Y + SHH / 2 + 3.5} fontSize={12} fontWeight={800} textAnchor="middle" fill="white">×</text>
         </g>
       )
-      // Transparent overlay on label text → edit section label
+      // Transparent overlay on label text → opens sidebar with section actions
+      const capLastDec = sec.decisions.length - 1
       els.push(
         <g key={K()} onMouseDown={stopMD}
-           onClick={(e) => { e.stopPropagation(); _editCb!({ type: 'edit_section_label', secIdx: capSi, current: capLbl }) }}
-           style={{ cursor: 'text' }} title="Clique para editar nome">
+           onClick={(e) => {
+             e.stopPropagation()
+             const secSideItems: MenuItem[] = [
+               { label: 'Adicionar decisão', glyph: '➕', color: p.code, onClick: () => _editCb!({ type: 'add_decision', secIdx: capSi, afterDecIdx: capLastDec }) },
+               { label: 'Nova seção acima', glyph: '↑', color: '#22d3ee', onClick: () => _editCb!({ type: 'add_section', afterSecIdx: capSi - 1 }) },
+               { label: 'Nova seção abaixo', glyph: '↓', color: '#22d3ee', onClick: () => _editCb!({ type: 'add_section', afterSecIdx: capSi }) },
+               { label: 'Mover pergunta para cá', glyph: '⤿', color: '#a855f7', onClick: () => _editCb!({ type: 'transfer_target_sec', mode: 'move', secIdx: capSi }) },
+               { label: 'Copiar pergunta para cá', glyph: '⧉', color: '#14b8a6', onClick: () => _editCb!({ type: 'transfer_target_sec', mode: 'copy', secIdx: capSi }) },
+             ]
+             openMenu(e, capLbl, secSideItems, undefined, undefined, (v) => _editCb!({ type: 'p_set_section_label', secIdx: capSi, value: v }))
+           }}
+           style={{ cursor: 'pointer' }} {...tipAttrs('Ações da seção')}>
           <rect x={sx + SPAD} y={Y + 4} width={Math.max(10, badgeX - sx - SPAD - 10)} height={SHH - 8} rx={3} fill="transparent" />
         </g>
       )
@@ -749,83 +1789,52 @@ function drawFlowColumn(secs: LSec[], colCX: number, topY: number, els: React.Re
 
     let iY = Y + SHH + SVPAD
 
-    // Always block
+    // Bloco "SEMPRE" — renderizado como um chip padrão (mesma largura AW-8 centrada e mesmas
+    // cores do chip "Pacotes": corpo p.ans, label bar p.alw, borda p.ansB, linhas de pacote PKG).
     if (sec.always?.length || (_editCb && !sec.decisions.length)) {
-      const alwBH = Math.max(ALWLH + ALWBP + ALWG, sAlwH(sec)) - ALWG
-      const awX = sx + SPAD, awW = sw - SPAD * 2
-      els.push(<rect key={K()} x={awX} y={iY} width={awW} height={alwBH} rx={6} fill={p.alw} stroke={p.bgB} strokeWidth={1} />)
+      const n = sec.always?.length ?? 0
+      const chipW = AW - 8, chipX = CX - chipW / 2
+      const chipH = alwChipH(n)
+      els.push(<rect key={K()} x={chipX} y={iY} width={chipW} height={chipH} rx={4} fill={p.ans} stroke={p.ansB} strokeWidth={1} />)
+      els.push(<rect key={K()} x={chipX} y={iY} width={chipW} height={LBLH} rx={4} fill={p.lbl} />)
+      els.push(<rect key={K()} x={chipX} y={iY + LBLH - 4} width={chipW} height={4} fill={p.lbl} />)
       els.push(
-        <text key={K()} x={awX + 10} y={iY + ALWLH * 0.75} fontSize={9} fontWeight={700}
-          fill={p.hdr} fontFamily="ui-sans-serif,system-ui,sans-serif" letterSpacing={1}>
+        <text key={K()} x={chipX + 8} y={iY + LBLH * 0.68} fontSize={F_M} fontWeight={700}
+          fill={p.lblT} fontFamily="ui-sans-serif,system-ui,sans-serif" letterSpacing={1}>
           SEMPRE
         </text>
-      );
-      (sec.always ?? []).forEach((pkg, pi) => {
-        const py = iY + ALWLH + ALWBP + pi * ALWPH + ALWPH * 0.82
-        const full = pkgName(pkg)
-        if (hit(pkg.id) || hit(full)) {
-          els.push(<rect key={K()} x={awX + 4} y={py - ALWPH * 0.85} width={awW - 8} height={ALWPH} rx={2} fill={HIT_STROKE} opacity={0.22} />)
-        }
+      )
+      const pkgBY = iY + LBLH + BPAD
+      const alwHlKey = `chip:always:${si}`
+      if (n > 0) {
+        ;(sec.always ?? []).forEach((pkg, pi) => {
+          drawPkgRow(chipX, pkgBY + pi * PKG, PKG, chipW, pkg, p, hit(pkg.id) || hit(pkgName(pkg)), null, els)
+        })
         if (_editCb) {
-          const capSi = si, capPi = pi
+          const capSi = si
           els.push(
-            <g key={K()} onMouseDown={stopMD} onClick={(e) => { e.stopPropagation(); _editCb!({ type: 'remove_always', secIdx: capSi, pkgIdx: capPi }) }}
-               style={{ cursor: 'pointer' }}>
-              <rect x={awX + 4} y={py - ALWPH * 0.85} width={awW - 8} height={ALWPH} rx={2} fill="transparent" />
-              <text x={awX + 10} y={py} fontSize={F_S} fontFamily="ui-monospace,monospace" fontWeight={600} fill={p.code}>{pkg.id}</text>
-              <text x={awX + 10 + pkg.id.length * 5.8 + 6} y={py} fontSize={F_S} fontFamily="ui-sans-serif,system-ui,sans-serif" fill={p.ansT}>
-                {tr(full, Math.max(10, Math.floor((awX + awW - 10 - (awX + 10 + pkg.id.length * 5.8 + 6)) / 5.2)))}
-              </text>
-              <text x={awX + awW - 8} y={py} fontSize={10} fontWeight={700} textAnchor="middle" fill="#ef4444" opacity={0.7}>×</text>
+            <g key={K()} onMouseDown={stopMD} onClick={(e) => openMenu(e, 'SEMPRE', [], {
+              getList: (s) => s[capSi]?.always ?? [],
+              onAdd: () => _editCb!({ type: 'add_always', secIdx: capSi }),
+              onMove: (idx, dir) => _editCb!({ type: 'move_always', secIdx: capSi, pkgIdx: idx, dir }),
+              onRemove: (idx) => _editCb!({ type: 'remove_always', secIdx: capSi, pkgIdx: idx }),
+            }, alwHlKey)} style={{ cursor: 'pointer' }} {...tipAttrs('Gerenciar pacotes SEMPRE')}>
+              <rect x={chipX + 4} y={iY + 4} width={chipW - 8} height={LBLH - 8} rx={2} fill="transparent" />
             </g>
           )
-        } else {
-          els.push(<text key={K()} x={awX + 10} y={py} fontSize={F_S} fontFamily="ui-monospace,monospace" fontWeight={600} fill={p.code}>{pkg.id}<title>{`${pkg.id} — ${full}`}</title></text>)
-          const nx = awX + 10 + pkg.id.length * 5.8 + 6
-          const mc = Math.max(10, Math.floor((awX + awW - 10 - nx) / 5.2))
-          els.push(
-            <text key={K()} x={nx} y={py} fontSize={F_S} fontFamily="ui-sans-serif,system-ui,sans-serif" fill={p.ansT}>
-              {tr(full, mc)}<title>{full}</title>
-            </text>
-          )
         }
-      })
-      // "+ pacote" for always block
-      if (_editCb) {
-        const btnY = iY + alwBH - 9
-        const capSi = si
-        els.push(
-          <g key={K()} onMouseDown={stopMD} onClick={(e) => { e.stopPropagation(); _editCb!({ type: 'add_always', secIdx: capSi }) }}
-             style={{ cursor: 'pointer' }}>
-            <rect x={awX + 6} y={btnY - 6} width={awW - 12} height={13} rx={4} fill={p.code} opacity={0.12} />
-            <rect x={awX + 6} y={btnY - 6} width={awW - 12} height={13} rx={4} fill="none" stroke={p.code} strokeWidth={0.8} strokeDasharray="3,2" opacity={0.4} />
-            <text x={awX + awW / 2} y={btnY + 3} fontSize={8.5} fontWeight={700} textAnchor="middle" fill={p.code} opacity={0.8}>+ pacote</text>
-          </g>
-        )
+      } else {
+        els.push(<text key={K()} x={chipX + 8} y={pkgBY + NOTE_R * 0.8} fontSize={F_S} fontStyle="italic" fill={p.empty}>—</text>)
       }
-      iY += (sec.always?.length ? sAlwH(sec) : ALWLH + ALWBP + ALWG + ALWG)
+      chipHighlight(alwHlKey, chipX, iY, chipW, chipH, els)
+      iY += sAlwH(sec)
     }
 
-    // Decisions
+    // Decisions — para inserir/editar clique no diamante para abrir o painel lateral.
     let prevBotY = iY
     for (let di = 0; di < sec.decisions.length; di++) {
       const dec = sec.decisions[di]
-      if (di > 0) {
-        // "+ decisão" button in the DSQ gap between decisions
-        if (_editCb) {
-          const midY = prevBotY + DSQ * 0.48
-          const capSi = si, capDi = di - 1
-          els.push(
-            <g key={K()} onMouseDown={stopMD} onClick={(e) => { e.stopPropagation(); _editCb!({ type: 'add_decision', secIdx: capSi, afterDecIdx: capDi }) }}
-               style={{ cursor: 'pointer' }}>
-              <rect x={CX - 46} y={midY - 8} width={92} height={15} rx={7} fill={p.code} opacity={0.12} />
-              <rect x={CX - 46} y={midY - 8} width={92} height={15} rx={7} fill="none" stroke={p.code} strokeWidth={0.7} strokeDasharray="3,2" opacity={0.35} />
-              <text x={CX} y={midY + 3.5} fontSize={8} fontWeight={700} textAnchor="middle" fill={p.code} opacity={0.75}>+ inserir decisão</text>
-            </g>
-          )
-        }
-        iY += DSQ
-      }
+      if (di > 0) iY += DSQ
 
       const dY = iY
 
@@ -836,37 +1845,54 @@ function drawFlowColumn(secs: LSec[], colCX: number, topY: number, els: React.Re
         )
       }
 
-      drawDiamond(CX, dY, DDW, dec.question, sec.color, els)
+      drawDiamond(CX, dY, DDW, dec.question, sec.color, els, !!dec._dirty)
+      drawNoDefaultWarn(dec.answers, CX, dY, DDW, els)
 
+      const ref: DecRef = { secIdx: si, decIdx: di, sub: [] }
       // Edit overlays on the diamond
       if (_editCb) {
         const capSi = si, capDi = di, capQ = dec.question
-        // Transparent click zone over diamond → edit question
+        const decHlKey = `q:${si}:${di}`
+        // Clique no diamante: em modo "clique na origem" seleciona a origem; caso contrário, abre sidebar.
         els.push(
-          <g key={K()} onMouseDown={stopMD} onClick={(e) => { e.stopPropagation(); _editCb!({ type: 'edit_question', secIdx: capSi, decIdx: capDi, current: capQ }) }}
-             style={{ cursor: 'text' }}>
+          <g key={K()} onMouseDown={stopMD} onClick={(e) => {
+            e.stopPropagation()
+            if (_pickMode) { _editCb!({ type: 'pick_source', ref, question: capQ }); return }
+            const decItems: MenuItem[] = [
+              { label: 'Adicionar resposta', glyph: '➕', color: '#0ea5e9', onClick: () => _editCb!({ type: 'p_add_ans', ref }) },
+              { label: 'Inserir pergunta acima', glyph: '↑', color: '#22d3ee', onClick: () => _editCb!({ type: 'add_decision', secIdx: capSi, afterDecIdx: capDi - 1 }) },
+              { label: 'Inserir pergunta abaixo', glyph: '↓', color: '#22d3ee', onClick: () => _editCb!({ type: 'add_decision', secIdx: capSi, afterDecIdx: capDi }) },
+              { label: 'Mover pergunta acima', glyph: '⬆', color: '#94a3b8', onClick: () => _editCb!({ type: 'move_decision', secIdx: capSi, decIdx: capDi, dir: 'up' }) },
+              { label: 'Mover pergunta abaixo', glyph: '⬇', color: '#94a3b8', onClick: () => _editCb!({ type: 'move_decision', secIdx: capSi, decIdx: capDi, dir: 'down' }) },
+              { label: 'Copiar pergunta', glyph: '⧉', color: '#14b8a6', onClick: () => _editCb!({ type: 'copy_decision', secIdx: capSi, decIdx: capDi }) },
+              { label: 'Remover pergunta', glyph: '×', color: '#ef4444', danger: true, onClick: () => _editCb!({ type: 'p_remove_dec', ref }) },
+            ]
+            openMenu(e, capQ, decItems, undefined, decHlKey, (v) => _editCb!({ type: 'p_set_q', ref, value: v }))
+          }} style={{ cursor: _pickMode ? 'copy' : 'pointer' }} {...tipAttrs(_pickMode ? 'Selecionar como origem' : 'Ações da pergunta')}>
             <polygon points={`${CX},${dY} ${CX+DDW/2-14},${dY+DH/2} ${CX},${dY+DH} ${CX-DDW/2+14},${dY+DH/2}`}
               fill="transparent" />
           </g>
         )
-        // × pill at the right vertex of the diamond — remove this decision block
+        // Anel de destaque da pergunta selecionada
+        if (_hlKey === decHlKey) {
+          const hw = DDW / 2 - 14
+          els.push(<polygon key={K()}
+            points={`${CX},${dY-3} ${CX+hw+3},${dY+DH/2} ${CX},${dY+DH+3} ${CX-hw-3},${dY+DH/2}`}
+            fill="rgba(251,191,36,0.12)" stroke="#fbbf24" strokeWidth={2.5} />)
+        }
+        // × remove decision (circle at right diamond vertex)
         els.push(
-          <g key={K()} onMouseDown={stopMD} onClick={(e) => { e.stopPropagation(); _editCb!({ type: 'remove_decision', secIdx: capSi, decIdx: capDi }) }}
-             style={{ cursor: 'pointer' }}>
-            <rect x={CX + DDW/2 + 4} y={dY + DH/2 - 9} width={60} height={18} rx={9} fill="#ef4444" opacity={0.92} />
-            <text x={CX + DDW/2 + 34} y={dY + DH/2 + 4.5} fontSize={9} fontWeight={700} textAnchor="middle" fill="white">× decisão</text>
+          <g key={K()} onMouseDown={stopMD} onClick={(e) => { e.stopPropagation(); _editCb!({ type: 'p_remove_dec', ref }) }}
+             style={{ cursor: 'pointer' }} {...tipAttrs('Remover decisão')}>
+            <circle cx={CX + DDW/2 + 11} cy={dY + DH/2} r={9} fill="#ef4444" opacity={0.9} />
+            <text x={CX + DDW/2 + 11} y={dY + DH/2 + 3.5} fontSize={12} fontWeight={800} textAnchor="middle" fill="white">×</text>
           </g>
         )
-        // "+ resposta" button in the AV gap (between diamond bottom and answer cards)
-        const addAnsY = dY + DH + AV * 0.55
-        els.push(
-          <g key={K()} onMouseDown={stopMD} onClick={(e) => { e.stopPropagation(); _editCb!({ type: 'add_answer', secIdx: capSi, decIdx: capDi }) }}
-             style={{ cursor: 'pointer' }}>
-            <rect x={CX - 42} y={addAnsY - 9} width={84} height={16} rx={8} fill={p.code} opacity={0.12} />
-            <rect x={CX - 42} y={addAnsY - 9} width={84} height={16} rx={8} fill="none" stroke={p.code} strokeWidth={0.7} strokeDasharray="3,2" opacity={0.4} />
-            <text x={CX} y={addAnsY + 3.5} fontSize={8.5} fontWeight={700} textAnchor="middle" fill={p.code} opacity={0.85}>+ resposta</text>
-          </g>
-        )
+        // ⟲ "já respondida no escopo" (só em perguntas repetidas)
+        if (_dupQuestions.has(capQ.trim())) {
+          drawReuseToggle(CX + DDW/2 + 11, dY + DH/2 + 26, !!dec.reuseScope,
+            () => _editCb!({ type: 'p_toggle_reuse', ref }), els)
+        }
       }
 
       const dispAnswers = _editCb ? dec.answers.map(a => ({ ans: a } as DisplayAns)) : toDisplayList(dec.answers)
@@ -874,13 +1900,12 @@ function drawFlowColumn(secs: LSec[], colCX: number, topY: number, els: React.Re
       const totAW = dispAnswers.reduce((s, da, i) => s + aW(da.ans) + (i ? AG : 0), 0)
       const firstAnsX = CX - totAW / 2
       fanOut(CX, dY + DH, dispAnswers.map(d => d.ans), firstAnsX, ansY, p.arr, `url(#arr_${sec.color})`, els)
-
       let ax = firstAnsX
       for (let dai = 0; dai < dispAnswers.length; dai++) {
         const da = dispAnswers[dai]
         const aw = aW(da.ans)
         const aiOrig = _editCb ? dai : dec.answers.indexOf(da.ans)
-        renderAnswer(da.ans, ax, ansY, aw, ax + aw / 2, sec.color, els, si, di, aiOrig, da.label2)
+        renderAnswer(da.ans, ax, ansY, aw, ax + aw / 2, sec.color, els, ref, aiOrig, da.label2)
         ax += aw + AG
       }
 
@@ -889,42 +1914,88 @@ function drawFlowColumn(secs: LSec[], colCX: number, topY: number, els: React.Re
       const mergeY = ansY + maxAH
       fanIn(dispAnswers.map(d => d.ans), firstAnsX, ansY, mergeY, CX, p.arr, els)
 
+      // For multi-answer decisions the fanIn arc lands at jY = mergeY + CR + 4.
+      // We offset afterY past that point and draw a stub trunk so the flow is continuous.
+      const convPad = dispAnswers.length > 1 ? (CR + 14) : 0
+      const jY = mergeY + CR + 4   // fanIn horizontal merge Y
+      if (convPad > 0) {
+        els.push(<line key={K()} x1={CX} y1={jY} x2={CX} y2={mergeY + convPad - 1}
+          stroke={p.arr} strokeWidth={1.5} />)
+      }
+
+      // After-convergence DECISIONS (dec.afterDec) — perguntas após convergência, antes dos chips
+      let afterY = mergeY + convPad   // starts BELOW fanIn arc endpoint
+      const decAfterDecs = dec.afterDec ?? []
+      for (let adi = 0; adi < decAfterDecs.length; adi++) {
+        afterY = drawAfterDecision(decAfterDecs[adi], CX, afterY, sec.color, si, di, adi, els)
+      }
+
       // After-convergence sequential entries (dec.after)
       const decAfterList = dec.after ?? []
-      let afterY = mergeY
 
       for (let afi = 0; afi < decAfterList.length; afi++) {
         const ae = decAfterList[afi]
         const aeH = seqEntryH(ae)
-        const aeCardY = afterY + SEQ_GAP
         const aeW = Math.min(DDW + 20, sTotalW(sec) - SPAD * 4)
         const aeX = CX - aeW / 2
+        const aeHlKey = `chip:ae:${si}:${di}:${afi}`
 
-        // Arrow from convergence/prev entry down to this card
-        els.push(<line key={K()} x1={CX} y1={afterY} x2={CX} y2={aeCardY - 4}
+        // Sub-questions BEFORE chip (ae.sub[])
+        const aeSubs = ae.sub ?? []
+        const aeAfterSubs = ae.afterSub ?? []
+        const aeSubH = aeSubs.reduce((acc, d) => acc + AFTER_GAP + dSubRenderedH(d), 0)
+        const aeAfterSubH = aeAfterSubs.reduce((acc, d) => acc + AFTER_GAP + dSubRenderedH(d), 0)
+        const aeChipH = aeH - aeSubH - aeAfterSubH
+
+        let subY = afterY
+        for (let si2 = 0; si2 < aeSubs.length; si2++) {
+          const capAeRef = { afterIdx: afi, isAfterSub: false as const, subIdx: si2 }
+          subY = drawAfterDecision(aeSubs[si2], CX, subY, sec.color, si, di, 0, els, capAeRef)
+        }
+
+        const aeCardY = subY + AFTER_GAP
+
+        // Arrow from subY (or afterY when no subs) down to this card
+        els.push(<line key={K()} x1={CX} y1={subY} x2={CX} y2={aeCardY - 4}
           stroke={p.arr} strokeWidth={1.5} markerEnd={`url(#arr_${sec.color})`} />)
 
         // Card background + label bar
-        els.push(<rect key={K()} x={aeX} y={aeCardY} width={aeW} height={aeH} rx={4}
+        els.push(<rect key={K()} x={aeX} y={aeCardY} width={aeW} height={aeChipH} rx={4}
           fill={p.ans} stroke={p.ansB} strokeWidth={1} />)
-        els.push(<rect key={K()} x={aeX} y={aeCardY} width={aeW} height={LBLH} rx={4} fill={p.alw} />)
-        els.push(<rect key={K()} x={aeX} y={aeCardY + LBLH - 4} width={aeW} height={4} fill={p.alw} />)
+        els.push(<rect key={K()} x={aeX} y={aeCardY} width={aeW} height={LBLH} rx={4} fill={p.lbl} />)
+        els.push(<rect key={K()} x={aeX} y={aeCardY + LBLH - 4} width={aeW} height={4} fill={p.lbl} />)
 
         if (_editCb) {
-          const capSi = si, capDi = di, capAfi = afi
+          const capSi = si, capDi = di, capAfi = afi, capAeLabel = ae.label
+          const aeMenuItems: MenuItem[] = [
+            { label: 'Adicionar pacote', glyph: '📦', color: '#0ea5e9', onClick: () => _editCb!({ type: 'add_dec_after_pkg', secIdx: capSi, decIdx: capDi, afterIdx: capAfi }) },
+            { label: 'Inserir sub-pergunta acima', glyph: '◇', color: '#7c3aed', onClick: () => _editCb!({ type: 'add_dec_after_chip_sub', secIdx: capSi, decIdx: capDi, afterIdx: capAfi }) },
+            { label: 'Inserir sub-pergunta abaixo', glyph: '◇', color: '#7c3aed', onClick: () => _editCb!({ type: 'add_dec_after_chip_sub', secIdx: capSi, decIdx: capDi, afterIdx: capAfi, isAfterSub: true }) },
+            { label: 'Inserir bloco antes', glyph: '↑', color: '#22d3ee', onClick: () => _editCb!({ type: 'add_dec_after', secIdx: capSi, decIdx: capDi, atIdx: capAfi }) },
+            { label: 'Inserir bloco depois', glyph: '↓', color: '#22d3ee', onClick: () => _editCb!({ type: 'add_dec_after', secIdx: capSi, decIdx: capDi, atIdx: capAfi + 1 }) },
+            { label: 'Inserir pergunta acima', glyph: '◇', color: '#7c3aed', onClick: () => _editCb!({ type: 'add_dec_after_dec', secIdx: capSi, decIdx: capDi }) },
+            { label: 'Mover bloco acima', glyph: '⬆', color: '#94a3b8', onClick: () => _editCb!({ type: 'move_dec_after', secIdx: capSi, decIdx: capDi, afterIdx: capAfi, dir: 'up' }) },
+            { label: 'Mover bloco abaixo', glyph: '⬇', color: '#94a3b8', onClick: () => _editCb!({ type: 'move_dec_after', secIdx: capSi, decIdx: capDi, afterIdx: capAfi, dir: 'down' }) },
+            { label: 'Remover bloco', glyph: '×', color: '#ef4444', danger: true, onClick: () => _editCb!({ type: 'remove_dec_after', secIdx: capSi, decIdx: capDi, afterIdx: capAfi }) },
+          ]
           els.push(
             <g key={K()} onMouseDown={stopMD}
                onClick={(e) => { e.stopPropagation(); _editCb!({ type: 'remove_dec_after', secIdx: capSi, decIdx: capDi, afterIdx: capAfi }) }}
-               style={{ cursor: 'pointer' }}>
+               style={{ cursor: 'pointer' }} {...tipAttrs('Remover bloco')}>
               <circle cx={aeX + aeW - 9} cy={aeCardY + LBLH / 2} r={6.5} fill="#ef4444" opacity={0.82} />
               <text x={aeX + aeW - 9} y={aeCardY + LBLH / 2 + 3.5} fontSize={10} fontWeight={800} textAnchor="middle" fill="white">×</text>
             </g>
           )
           els.push(
             <g key={K()} onMouseDown={stopMD}
-               onClick={(e) => { e.stopPropagation(); _editCb!({ type: 'edit_dec_after_label', secIdx: capSi, decIdx: capDi, afterIdx: capAfi, current: ae.label }) }}
-               style={{ cursor: 'text' }}>
-              <rect x={aeX + 4} y={aeCardY + 1} width={aeW - 24} height={LBLH - 2} rx={2} fill="transparent" />
+               onClick={(e) => openMenu(e, capAeLabel || 'Após convergência', aeMenuItems, {
+                 getList: (s) => s[capSi]?.decisions[capDi]?.after?.[capAfi]?.packages ?? [],
+                 onAdd: () => _editCb!({ type: 'add_dec_after_pkg', secIdx: capSi, decIdx: capDi, afterIdx: capAfi }),
+                 onMove: (idx, dir) => _editCb!({ type: 'move_dec_after_pkg', secIdx: capSi, decIdx: capDi, afterIdx: capAfi, pkgIdx: idx, dir }),
+                 onRemove: (idx) => _editCb!({ type: 'remove_dec_after_pkg', secIdx: capSi, decIdx: capDi, afterIdx: capAfi, pkgIdx: idx }),
+               }, aeHlKey, (v) => _editCb!({ type: 'set_dec_after_label', secIdx: capSi, decIdx: capDi, afterIdx: capAfi, value: v }))}
+               style={{ cursor: 'pointer' }} {...tipAttrs('Opções do bloco')}>
+              <rect x={aeX + 8} y={aeCardY + 1} width={aeW - 28} height={LBLH - 2} rx={2} fill="transparent" />
             </g>
           )
         }
@@ -932,94 +2003,47 @@ function drawFlowColumn(secs: LSec[], colCX: number, topY: number, els: React.Re
         // Label text
         els.push(
           <text key={K()} x={aeX + 8} y={aeCardY + LBLH * 0.68} fontSize={F_M} fontWeight={600}
-            fill={p.hdr} fontFamily="ui-sans-serif,system-ui,sans-serif">
-            {tr(ae.label, _editCb ? 20 : 28)}
+            fill={p.lblT} fontFamily="ui-sans-serif,system-ui,sans-serif">
+            {tr(ae.label, 48)}
           </text>
         )
 
         // Packages
         const aePkgs = ae.packages ?? []
-        let aeBY = aeCardY + LBLH + BPAD
+        const aeBY = aeCardY + LBLH + BPAD
         if (aePkgs.length > 0) {
           aePkgs.forEach((pkg, pi) => {
-            const py = aeBY + pi * PKG + PKG * 0.8
-            const full = pkgName(pkg)
-            if (hit(pkg.id) || hit(full)) {
-              els.push(<rect key={K()} x={aeX + 4} y={py - PKG * 0.85} width={aeW - 8} height={PKG} rx={3} fill={HIT_STROKE} opacity={0.22} />)
-            }
-            if (_editCb) {
-              const capSi = si, capDi = di, capAfi2 = afi, capPi = pi
-              els.push(
-                <g key={K()} onMouseDown={stopMD}
-                   onClick={(e) => { e.stopPropagation(); _editCb!({ type: 'remove_dec_after_pkg', secIdx: capSi, decIdx: capDi, afterIdx: capAfi2, pkgIdx: capPi }) }}
-                   style={{ cursor: 'pointer' }}>
-                  <rect x={aeX + 4} y={py - PKG * 0.85} width={aeW - 8} height={PKG} rx={3} fill="transparent" />
-                  <text x={aeX + 8} y={py} fontSize={F_S} fontFamily="ui-monospace,monospace" fontWeight={600} fill={p.code}>{pkg.id}</text>
-                  <text x={aeX + 8 + pkg.id.length * 5.8 + 6} y={py} fontSize={F_S} fontFamily="ui-sans-serif,system-ui,sans-serif" fill={p.ansT}>
-                    {tr(full, Math.max(8, Math.floor((aeX + aeW - 14 - (aeX + 8 + pkg.id.length * 5.8 + 6)) / 5.2)))}
-                  </text>
-                  <text x={aeX + aeW - 10} y={py} fontSize={10} fontWeight={700} textAnchor="middle" fill="#ef4444" opacity={0.7}>×</text>
-                </g>
-              )
-            } else {
-              els.push(<text key={K()} x={aeX + 8} y={py} fontSize={F_S} fontFamily="ui-monospace,monospace" fontWeight={600} fill={p.code}>{pkg.id}<title>{full}</title></text>)
-              const nx = aeX + 8 + pkg.id.length * 5.8 + 6
-              els.push(<text key={K()} x={nx} y={py} fontSize={F_S} fontFamily="ui-sans-serif,system-ui,sans-serif" fill={p.ansT}>{tr(full, Math.max(8, Math.floor((aeX + aeW - 10 - nx) / 5.2)))}<title>{full}</title></text>)
-            }
+            drawPkgRow(aeX, aeBY + pi * PKG, PKG, aeW, pkg, p, hit(pkg.id) || hit(pkgName(pkg)), null, els)
           })
+          if (_editCb) {
+            const capSi = si, capDi = di, capAfi2 = afi, capAeLabel = ae.label
+            els.push(
+              <g key={K()} onMouseDown={stopMD} onClick={(e) => openMenu(e, capAeLabel || 'Após convergência', [], {
+                getList: (s) => s[capSi]?.decisions[capDi]?.after?.[capAfi2]?.packages ?? [],
+                onAdd: () => _editCb!({ type: 'add_dec_after_pkg', secIdx: capSi, decIdx: capDi, afterIdx: capAfi2 }),
+                onMove: (idx, dir) => _editCb!({ type: 'move_dec_after_pkg', secIdx: capSi, decIdx: capDi, afterIdx: capAfi2, pkgIdx: idx, dir }),
+                onRemove: (idx) => _editCb!({ type: 'remove_dec_after_pkg', secIdx: capSi, decIdx: capDi, afterIdx: capAfi2, pkgIdx: idx }),
+              }, aeHlKey)} style={{ cursor: 'pointer' }} {...tipAttrs('Gerenciar pacotes')}>
+                <rect x={aeX + 4} y={aeBY - 2} width={aeW - 8} height={Math.max(aePkgs.length * PKG, NOTE_R) + 4} rx={3} fill="transparent" />
+              </g>
+            )
+          }
         } else {
           els.push(<text key={K()} x={aeX + 8} y={aeBY + NOTE_R * 0.8} fontSize={F_S} fontStyle="italic" fill={p.empty}>—</text>)
         }
+        chipHighlight(aeHlKey, aeX, aeCardY, aeW, aeChipH, els)
 
-        // + pacote button for after entry
-        if (_editCb) {
-          const aeBtnY = aeCardY + aeH - 14 + 1
-          const capSi = si, capDi = di, capAfi3 = afi
-          els.push(
-            <g key={K()} onMouseDown={stopMD}
-               onClick={(e) => { e.stopPropagation(); _editCb!({ type: 'add_dec_after_pkg', secIdx: capSi, decIdx: capDi, afterIdx: capAfi3 }) }}
-               style={{ cursor: 'pointer' }}>
-              <rect x={aeX + 6} y={aeBtnY - 7} width={aeW - 12} height={13} rx={4} fill={p.code} opacity={0.12} />
-              <rect x={aeX + 6} y={aeBtnY - 7} width={aeW - 12} height={13} rx={4} fill="none" stroke={p.code} strokeWidth={0.8} strokeDasharray="3,2" opacity={0.4} />
-              <text x={CX} y={aeBtnY + 2.5} fontSize={8.5} fontWeight={700} textAnchor="middle" fill={p.code} opacity={0.8}>+ pacote</text>
-            </g>
-          )
+        // Sub-questions AFTER chip (ae.afterSub[])
+        let afterSubY = aeCardY + aeChipH
+        for (let si2 = 0; si2 < aeAfterSubs.length; si2++) {
+          const capAeRef = { afterIdx: afi, isAfterSub: true as const, subIdx: si2 }
+          afterSubY = drawAfterDecision(aeAfterSubs[si2], CX, afterSubY, sec.color, si, di, 0, els, capAeRef)
         }
-
-        afterY = aeCardY + aeH
-      }
-
-      // "+ seq após convergência" button (edit mode only, below after entries)
-      if (_editCb) {
-        const addAftBtnY = afterY + SEQ_GAP / 2 + 4
-        const capSi = si, capDi = di
-        els.push(
-          <g key={K()} onMouseDown={stopMD}
-             onClick={(e) => { e.stopPropagation(); _editCb!({ type: 'add_dec_after', secIdx: capSi, decIdx: capDi }) }}
-             style={{ cursor: 'pointer' }}>
-            <rect x={CX - 68} y={addAftBtnY - 8} width={136} height={16} rx={8} fill="#7c3aed" opacity={0.12} />
-            <rect x={CX - 68} y={addAftBtnY - 8} width={136} height={16} rx={8} fill="none" stroke="#7c3aed" strokeWidth={0.8} strokeDasharray="3,2" opacity={0.42} />
-            <text x={CX} y={addAftBtnY + 4} fontSize={8.5} fontWeight={700} textAnchor="middle" fill="#7c3aed" opacity={0.85}>+ seq após convergência</text>
-          </g>
-        )
+        afterY = afterSubY
       }
 
       iY += dTotalH(dec)
-      prevBotY = iY
-    }
-
-    // "+ decisão" button at end of section
-    if (_editCb) {
-      const btnY = Y + sh - (sh > 0 ? SVPAD : 4) - 4
-      const capSi = si, capLast = sec.decisions.length - 1
-      els.push(
-        <g key={K()} onMouseDown={stopMD} onClick={(e) => { e.stopPropagation(); _editCb!({ type: 'add_decision', secIdx: capSi, afterDecIdx: capLast }) }}
-           style={{ cursor: 'pointer' }}>
-          <rect x={CX - 52} y={btnY - 8} width={104} height={16} rx={8} fill={p.code} opacity={0.14} />
-          <rect x={CX - 52} y={btnY - 8} width={104} height={16} rx={8} fill="none" stroke={p.code} strokeWidth={0.8} strokeDasharray="3,2" opacity={0.4} />
-          <text x={CX} y={btnY + 4} fontSize={8.5} fontWeight={700} textAnchor="middle" fill={p.code} opacity={0.85}>+ decisão ao final</text>
-        </g>
-      )
+      prevBotY = afterY
     }
 
     Y += sh + SGAP
@@ -1028,72 +2052,21 @@ function drawFlowColumn(secs: LSec[], colCX: number, topY: number, els: React.Re
   return Y - SGAP
 }
 
-// Draw dashed goto arrows after all sections are rendered
-function drawGotoArrows(secs: LSec[], els: React.ReactNode[]): void {
-  const STROKE = '#d97706'
-  for (let si = 0; si < secs.length; si++) {
-    for (let di = 0; di < secs[si].decisions.length; di++) {
-      for (let ai = 0; ai < secs[si].decisions[di].answers.length; ai++) {
-        const a = secs[si].decisions[di].answers[ai]
-        if (!a.goto) continue
-        const from = _ansGotoPos.get(`${si}_${di}_${ai}`)
-        const to = _decPos.get(a.goto)
-        if (!from || !to) continue
-        // Route: right from answer → vertical to diamond level → left to diamond right vertex
-        const sx = from.rx + 4
-        const sy = from.my
-        const dx = to.cx + DDW / 2 - 2
-        const dy = to.topY + DH / 2
-        const ox = Math.max(sx, dx) + 56  // off-screen x routing point
-        const d = `M${sx},${sy} H${ox} V${dy} H${dx}`
-        els.push(
-          <path key={K()} d={d} stroke={STROKE} strokeWidth={1.5} strokeDasharray="5,3"
-            fill="none" markerEnd="url(#arr_goto)" opacity={0.75} strokeLinejoin="round" />
-        )
-        // Label near the horizontal segment
-        const labelX = (sx + ox) / 2
-        els.push(
-          <text key={K()} x={labelX} y={sy - 3} fontSize={8} fontWeight={600} textAnchor="middle"
-            fill={STROKE} fontFamily="ui-sans-serif,system-ui,sans-serif" opacity={0.8}>
-            {tr(a.goto, 24)}
-          </text>
-        )
-      }
-    }
-  }
-}
-
 // Build full SVG content for a single flowchart (linear LSec[])
-function buildSvg(secs: LSec[], dark: boolean, editCb?: (a: EditAction) => void, search = ''): { el: React.ReactNode; svgW: number; svgH: number } {
+function buildSvg(secs: LSec[], dark: boolean, editCb?: (a: EditAction) => void, search = '', selRef: DecRef | null = null, pickMode = false, hlKey: string | null = null): { el: React.ReactNode; svgW: number; svgH: number } {
   _k = 0
   _dark = dark
   _editCb = editCb ?? null
   _search = search.toLowerCase().trim()
+  _selRef = selRef
+  _pickMode = pickMode
+  _hlKey = hlKey
+  _dupQuestions = new Set([...collectQuestionCounts(secs)].filter(([, n]) => n > 1).map(([q]) => q))
   _decPos.clear()
-  _ansGotoPos.clear()
   const els: React.ReactNode[] = []
   const maxW = Math.max(...secs.map(s => sTotalW(s)))
   const svgW = maxW + MRG * 2
   const bottom = drawFlowColumn(secs, svgW / 2, MRG, els)
-  drawGotoArrows(secs, els)
-  // "+ nova seção ao final" button below the last section (edit mode)
-  if (_editCb && secs.length > 0) {
-    const capLast = secs.length - 1
-    const btnCY = bottom + 34
-    els.push(
-      <g key={K()} onMouseDown={stopMD}
-         onClick={(e) => { e.stopPropagation(); _editCb!({ type: 'add_section', afterSecIdx: capLast }) }}
-         style={{ cursor: 'pointer' }}>
-        <rect x={svgW / 2 - 72} y={btnCY - 8} width={144} height={16} rx={8} fill="#1e293b" opacity={0.9} />
-        <rect x={svgW / 2 - 72} y={btnCY - 8} width={144} height={16} rx={8} fill="none" stroke="#60a5fa" strokeWidth={0.8} strokeDasharray="3,2" opacity={0.5} />
-        <text x={svgW / 2} y={btnCY + 4} fontSize={9} fontWeight={700} textAnchor="middle" fill="#60a5fa" opacity={0.9}>＋ nova seção ao final</text>
-      </g>
-    )
-    // _editCb intentionally NOT reset — onClick handlers reference it at call time
-    return { el: <>{els}</>, svgW, svgH: bottom + 58 + MRG }
-  }
-  // _editCb is intentionally NOT reset here — onClick handlers reference it at call time,
-  // and resetting it here would make all clicks silently fail after buildSvg returns.
   return { el: <>{els}</>, svgW, svgH: bottom + MRG }
 }
 
@@ -1238,7 +2211,98 @@ function vr(s: VS, a: VA): VS {
 }
 
 // Pan/zoom graph component
-export function LogicGraphPanel({ secs, tree, editCb }: LogicGraphProps) {
+function ClassicSidePanel({ title, items, pkgs, onClose, dark, pos, onTitleChange }: {
+  title?: string; items: MenuItem[]; pkgs?: ResolvedPkgList; onClose: () => void; dark: boolean; pos?: { x: number; y: number }; onTitleChange?: (v: string) => void
+}) {
+  const PANEL_W = 220
+  const PANEL_MAX_H = 420
+  const vw = typeof window !== 'undefined' ? window.innerWidth : 1200
+  const vh = typeof window !== 'undefined' ? window.innerHeight : 800
+  // Position panel to the opposite side of the click — prevents it from covering the selected element
+  const CANVAS_LEFT = 216
+  const left = pos
+    ? pos.x > vw / 2
+      ? Math.max(pos.x - PANEL_W - 40, CANVAS_LEFT)  // right half → panel to the left
+      : Math.min(pos.x + 40, vw - PANEL_W - 12)       // left half → panel to the right
+    : undefined
+  const top = pos ? Math.min(Math.max(pos.y - 20, 80), vh - PANEL_MAX_H - 12) : undefined
+  return (
+    <div
+      className="z-50 flex flex-col shadow-2xl rounded-xl overflow-hidden"
+      style={{
+        position: pos ? 'fixed' : 'absolute',
+        ...(pos ? { left, top, width: PANEL_W, maxHeight: PANEL_MAX_H } : { top: 0, right: 0, bottom: 0, width: 208 }),
+        background: dark ? '#0f172a' : '#1e293b',
+        border: '1px solid rgba(255,255,255,0.14)',
+      }}
+      onMouseDown={e => e.stopPropagation()}
+      onClick={e => e.stopPropagation()}
+    >
+      <div className="flex items-center gap-2 px-3 py-2 border-b border-white/10 min-h-[38px]">
+        {onTitleChange ? (
+          <input
+            className="flex-1 text-[11px] font-semibold text-slate-100 bg-white/10 rounded px-1.5 py-0.5 outline-none focus:ring-1 focus:ring-blue-400/60 min-w-0"
+            defaultValue={title ?? ''}
+            placeholder="Rótulo…"
+            onBlur={(e) => { onTitleChange(e.target.value); onClose() }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') { onTitleChange(e.currentTarget.value); onClose() }
+              if (e.key === 'Escape') onClose()
+            }}
+          />
+        ) : (
+          <span className="flex-1 text-[11px] font-semibold text-slate-300 truncate">{title ?? 'Ações'}</span>
+        )}
+        <button onClick={onClose}
+          className="flex items-center justify-center w-5 h-5 rounded text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
+          title="Fechar">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} className="w-3.5 h-3.5">
+            <path d="M18 6L6 18M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+      <div className="flex-1 overflow-y-auto py-1">
+        {items.map((it, i) => (
+          <button key={i} onClick={() => { it.onClick(); onClose() }}
+            className={`w-full flex items-center gap-2.5 px-3 py-2 text-left text-xs transition-colors hover:bg-white/10 ${it.danger ? 'text-rose-300' : 'text-slate-200'}`}>
+            <span className="w-4 text-center text-[13px] shrink-0" style={{ color: it.color }}>{it.glyph}</span>
+            <span>{it.label}</span>
+          </button>
+        ))}
+        {pkgs && (
+          <>
+            {items.length > 0 && <div className="border-t border-white/10 my-1" />}
+            <button onClick={() => pkgs.onAdd()}
+              className="w-full flex items-center gap-2.5 px-3 py-2 text-left text-xs transition-colors hover:bg-white/10 text-slate-200">
+              <span className="w-4 text-center text-[13px] shrink-0" style={{ color: '#3b82f6' }}>📦</span>
+              <span>Adicionar pacote</span>
+            </button>
+            {pkgs.list.length > 0 && <div className="border-t border-white/10 my-1" />}
+            {pkgs.list.map((pkg, i) => (
+              <div key={i} className="flex items-center gap-1 px-3 py-1.5 group">
+                <div className="flex-1 min-w-0">
+                  <div className="font-mono text-[9px] text-blue-400 leading-tight truncate">{pkg.id}</div>
+                  <div className="text-[10px] text-slate-300 leading-tight truncate">{pkgName(pkg)}</div>
+                </div>
+                <button onClick={() => pkgs.onMove(i, 'up')}
+                  className="flex items-center justify-center w-5 h-5 rounded text-slate-400 hover:text-white hover:bg-white/10 shrink-0 text-xs"
+                  title="Mover acima">↑</button>
+                <button onClick={() => pkgs.onMove(i, 'down')}
+                  className="flex items-center justify-center w-5 h-5 rounded text-slate-400 hover:text-white hover:bg-white/10 shrink-0 text-xs"
+                  title="Mover abaixo">↓</button>
+                <button onClick={() => pkgs.onRemove(i)}
+                  className="flex items-center justify-center w-5 h-5 rounded text-rose-400 hover:text-rose-300 hover:bg-white/10 shrink-0 text-xs"
+                  title="Remover">×</button>
+              </div>
+            ))}
+          </>
+        )}
+      </div>
+    </div>
+  )
+}
+
+export function LogicGraphPanel({ secs, tree, editCb, pickMode, selRef }: LogicGraphProps) {
   const dark = useDark()
   const [{ tx, ty, scale }, dispatch] = useReducer(vr, { tx: 20, ty: 20, scale: 0.6 })
   const [search, setSearch] = useState('')
@@ -1263,6 +2327,20 @@ export function LogicGraphPanel({ secs, tree, editCb }: LogicGraphProps) {
   // Keep module-level _editCb in sync so onClick handlers (which read it at call-time) always
   // have the current callback even between useMemo re-runs.
   useEffect(() => { _editCb = editCb ?? null }, [editCb])
+  // _pickMode é lido nos handlers de clique (em tempo de clique) → mantém sincronizado.
+  useEffect(() => { _pickMode = !!pickMode }, [pickMode])
+
+  const [btnTooltip, setBtnTooltip] = useState<{ text: string; x: number; y: number } | null>(null)
+  useEffect(() => {
+    _tooltipCb = setBtnTooltip
+    return () => { _tooltipCb = null }
+  }, [])
+
+  const [menu, setMenu] = useState<MenuState | null>(null)
+  useEffect(() => {
+    _menuCb = (m) => { setBtnTooltip(null); setMenu(m) }
+    return () => { _menuCb = null }
+  }, [])
 
   // Native wheel listener with passive:false so preventDefault actually works
   useEffect(() => {
@@ -1308,10 +2386,12 @@ export function LogicGraphPanel({ secs, tree, editCb }: LogicGraphProps) {
 
   const stopDrag = useCallback(() => { dragRef.current = null }, [])
 
+  const hlKey = menu?.hlKey ?? null
+
   const { el, svgW, svgH } = useMemo(
-    () => (tree ? buildTreeSvg(tree, dark, search) : buildSvg(secs ?? [], dark, editCb, search)),
+    () => (tree ? buildTreeSvg(tree, dark, search) : buildSvg(secs ?? [], dark, editCb, search, selRef ?? null, !!pickMode, hlKey)),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [secs, tree, dark, editCb, search]
+    [secs, tree, dark, editCb, search, selRef, pickMode, hlKey]
   )
 
   const bg = dark ? '#020617' : '#dde3ea'
@@ -1334,6 +2414,7 @@ export function LogicGraphPanel({ secs, tree, editCb }: LogicGraphProps) {
       style={{ background: bg, cursor: dragRef.current ? 'grabbing' : 'grab' }}
       onMouseDown={onMouseDown} onMouseMove={onMouseMove}
       onMouseUp={stopDrag} onMouseLeave={stopDrag}
+      onClick={() => setMenu(null)}
     >
       {/* Controls */}
       <div className="absolute top-3 left-3 z-10 flex gap-1.5 items-center pointer-events-none">
@@ -1386,6 +2467,36 @@ export function LogicGraphPanel({ secs, tree, editCb }: LogicGraphProps) {
         Arraste para mover · Scroll para zoom
       </div>
 
+      {/* Button tooltip overlay */}
+      {btnTooltip && (
+        <div
+          className="fixed z-50 pointer-events-none px-2 py-1 rounded text-[11px] font-medium shadow-lg"
+          style={{
+            left: btnTooltip.x + 12,
+            top: btnTooltip.y - 28,
+            background: dark ? '#1e293b' : '#1e293b',
+            color: '#f1f5f9',
+            border: '1px solid rgba(255,255,255,0.12)',
+            whiteSpace: 'nowrap',
+          }}
+        >
+          {btnTooltip.text}
+        </div>
+      )}
+
+      {/* Right sidebar — opens when clicking a card or diamond in edit mode */}
+      {menu && (
+        <ClassicSidePanel
+          title={menu.title}
+          items={menu.items}
+          pkgs={menu.pkgs ? { list: menu.pkgs.getList(secs), onAdd: menu.pkgs.onAdd, onMove: menu.pkgs.onMove, onRemove: menu.pkgs.onRemove } : undefined}
+          onClose={() => setMenu(null)}
+          dark={dark}
+          pos={menu.pos}
+          onTitleChange={menu.onTitleChange}
+        />
+      )}
+
       <svg width="100%" height="100%" style={{ display: 'block' }}>
         <defs>
           {(['gray', 'blue', 'amber'] as PC[]).map(c => (
@@ -1395,9 +2506,6 @@ export function LogicGraphPanel({ secs, tree, editCb }: LogicGraphProps) {
           ))}
           <marker id="arr_inter" markerWidth="5" markerHeight="4" refX="4.5" refY="2" orient="auto">
             <polygon points="0 0, 5 2, 0 4" fill={dark ? '#475569' : '#94a3b8'} />
-          </marker>
-          <marker id="arr_goto" markerWidth="5" markerHeight="4" refX="4.5" refY="2" orient="auto">
-            <polygon points="0 0, 5 2, 0 4" fill="#d97706" />
           </marker>
         </defs>
         <g transform={`translate(${tx},${ty}) scale(${scale})`} style={{ transformOrigin: '0 0' }}>

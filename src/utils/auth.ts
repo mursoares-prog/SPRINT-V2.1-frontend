@@ -15,11 +15,14 @@ const LEGACY = { user: 'teste', pass: 'teste123' }
 export async function login(username: string, password: string): Promise<Session> {
   if (isApiConfigured()) {
     try {
+      const controller = new AbortController()
+      const timer = setTimeout(() => controller.abort(), 8000)
       const res = await fetch(`${API_URL}/api/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username, password }),
-      })
+        signal: controller.signal,
+      }).finally(() => clearTimeout(timer))
       if (res.ok) {
         const body = await res.json()
         return persist({ token: body.token, role: body.role, username: body.username })
