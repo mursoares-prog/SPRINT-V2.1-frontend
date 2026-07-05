@@ -21,6 +21,7 @@ import {
   PiDownloadSimpleFill as Download,
   PiCaretLeftBold as ChevronLeft,
   PiCaretDownBold as ChevronDown,
+  PiCaretUpBold as ChevronUp,
   PiCaretRightBold as ChevronRight,
   PiQuestionFill as HelpCircle,
   PiPencilSimpleFill as Pencil,
@@ -36,7 +37,7 @@ import {
   PiListNumbersFill, PiArrowLineUp, PiArrowUUpLeftFill, PiCopySimpleFill, PiTrashFill,
 } from 'react-icons/pi'
 import type { IconType } from 'react-icons'
-import type { LSec, LDec, LAns, LPkg, LCondition } from '../data/logicSecs'
+import type { LSec, LDec, LAns, LPkg, LCondition, LSeqEntry } from '../data/logicSecs'
 import { LOGIC_BY_SCOPE } from '../data/logicSecs'
 import {
   getLogicScopes, getLogicScope, saveLogicScope, saveLogicScopeMeta,
@@ -674,12 +675,60 @@ function resolveRef(secs: LSec[], ref: DecRef): LDec | null {
 
 type PendingTransfer = {
   mode: 'move' | 'copy'
-  target: { ref: DecRef; ansIdx: number } | { secIdx: number }
+  target: { ref: DecRef; ansIdx: number } | { secIdx: number } | { decRef: DecRef; placement: 'below' | 'replace' }
+}
+
+// Localiza, POR IDENTIDADE, a lista de decisões que contém `dec`, em qualquer nível da
+// árvore: seções, afterDec, ans.sub/afterSub e entradas sequenciais/após-convergência
+// (ans.seq, ans.after, dec.after). Robusto a mudanças de índice — usado pelas ações
+// genéricas (mover/duplicar/inserir/transferir). `cleanup` apaga listas opcionais vazias.
+type DecListHit = { list: LDec[]; idx: number; cleanup: () => void }
+function findDecList(secs: LSec[], dec: LDec): DecListHit | null {
+  let found: DecListHit | null = null
+  const inList = (owner: { sub?: LDec[]; afterSub?: LDec[]; afterDec?: LDec[] } | LSec, key: 'sub' | 'afterSub' | 'afterDec' | 'decisions'): boolean => {
+    const list = (owner as Record<string, LDec[] | undefined>)[key]
+    if (!list) return false
+    const i = list.indexOf(dec)
+    if (i >= 0) {
+      found = {
+        list, idx: i,
+        cleanup: key === 'decisions' ? () => {} : () => { if (!list.length) delete (owner as Record<string, LDec[] | undefined>)[key] },
+      }
+      return true
+    }
+    return list.some(inDec)
+  }
+  const inSeq = (entries?: LSeqEntry[]): boolean =>
+    (entries ?? []).some(e => inList(e, 'sub') || inList(e, 'afterSub'))
+  const inDec = (d: LDec): boolean => {
+    for (const a of d.answers) {
+      if (inList(a, 'sub') || inList(a, 'afterSub')) return true
+      if (inSeq(a.seq) || inSeq(a.after)) return true
+    }
+    return inSeq(d.after) || inList(d, 'afterDec')
+  }
+  for (const sec of secs) if (inList(sec, 'decisions')) break
+  return found
+}
+
+// `target` está na subárvore de `root` (ou é o próprio)? Bloqueia ciclos ao mover uma
+// pergunta para dentro dela mesma (a origem sumiria junto com o destino).
+function decInSubtree(root: LDec, target: LDec): boolean {
+  if (root === target) return true
+  const inSeq = (es?: LSeqEntry[]): boolean =>
+    (es ?? []).some(e => [...(e.sub ?? []), ...(e.afterSub ?? [])].some(d => decInSubtree(d, target)))
+  for (const a of root.answers) {
+    if ([...(a.sub ?? []), ...(a.afterSub ?? [])].some(d => decInSubtree(d, target))) return true
+    if (inSeq(a.seq) || inSeq(a.after)) return true
+  }
+  return inSeq(root.after) || (root.afterDec ?? []).some(d => decInSubtree(d, target))
 }
 
 // ─── Grupos de escopos (organização em pastas, persistido em localStorage) ───
 type ScopeGroup = { id: string; name: string; parentId: string | null }
-type GroupStorage = { groups: ScopeGroup[]; memberships: Record<string, string | null>; _v?: number }
+// `order` guarda a posição (ordinal) preferida de cada escopo DENTRO do seu grupo/sub-grupo.
+// Materializado por grupo na 1ª reordenação; ausente → usa a ordem padrão (blocos primeiro).
+type GroupStorage = { groups: ScopeGroup[]; memberships: Record<string, string | null>; order?: Record<string, number>; _v?: number }
 const EMPTY_GS: GroupStorage = { groups: [], memberships: {} }
 
 // Grupos pré-existentes (ex-categorias hard-coded → agora grupos de usuário)
@@ -779,7 +828,9 @@ export function LogicEditorPanel({ canEdit }: { canEdit: boolean }) {
   } | null>(null)
 
   // Decision picker pending location
-  const [pendingDec, setPendingDec] = useState<{ secIdx: number; afterDecIdx: number } | null>(null)
+  // Inserção de pergunta via picker: no topo de uma seção ({secIdx, afterDecIdx}) ou em
+  // qualquer nível, relativa a uma pergunta existente ({ref, offset: 0=acima, 1=abaixo}).
+  const [pendingDec, setPendingDec] = useState<{ secIdx: number; afterDecIdx: number } | { ref: DecRef; offset: 0 | 1 } | null>(null)
 
   // Phase picker
   const [phasePick, setPhasePick] = useState<{ secIdx: number; current: string } | null>(null)
@@ -900,7 +951,12 @@ export function LogicEditorPanel({ canEdit }: { canEdit: boolean }) {
     })
   }
   const groupAssign = (scopeId: string, groupId: string | null) => {
-    saveGroups(prev => ({ ...prev, memberships: { ...prev.memberships, [scopeId]: groupId } }))
+    saveGroups(prev => {
+      // Limpa a ordem antiga: no novo grupo o escopo entra ao fim (sem posição herdada).
+      const order = { ...(prev.order ?? {}) }
+      delete order[scopeId]
+      return { ...prev, memberships: { ...prev.memberships, [scopeId]: groupId }, order }
+    })
     setMovingScopeId(null)
   }
   const groupReparent = (groupId: string, newParentId: string | null) => {
@@ -915,6 +971,40 @@ export function LogicEditorPanel({ canEdit }: { canEdit: boolean }) {
     setMovingGroupId(null)
   }
   const toggleGroupCollapse = (id: string) => setCollapsedGroups(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n })
+
+  // ── Ordenação dos escopos dentro de um grupo/sub-grupo ────────────────────
+  // Escopos de um grupo (memberships === groupId), na ordem de exibição: padrão
+  // (blocos primeiro, ordem de scopeList) e, por cima, a ordem preferida do usuário.
+  // `.sort` é estável: quando ambos não têm ordem explícita, mantém-se o padrão.
+  const membersOfGroup = (groupId: string | null) => {
+    const order = scopeGroups.order ?? {}
+    return scopeList
+      .filter(s => (scopeGroups.memberships[s.scopeId] ?? null) === groupId)
+      .sort((a, b) => (a.isBlock === b.isBlock ? 0 : a.isBlock ? -1 : 1))
+      .sort((a, b) => {
+        const oa = order[a.scopeId], ob = order[b.scopeId]
+        if (oa == null && ob == null) return 0
+        if (oa == null) return 1
+        if (ob == null) return -1
+        return oa - ob
+      })
+  }
+  // Move um escopo uma posição (dir = -1 acima, +1 abaixo) dentro do seu grupo.
+  // Materializa a ordem de todos os irmãos e troca os dois adjacentes.
+  const moveScopeInGroup = (scopeId: string, dir: -1 | 1) => {
+    const groupId = scopeGroups.memberships[scopeId] ?? null
+    const members = membersOfGroup(groupId)
+    const idx = members.findIndex(s => s.scopeId === scopeId)
+    const swap = idx + dir
+    if (idx < 0 || swap < 0 || swap >= members.length) return
+    saveGroups(prev => {
+      const order: Record<string, number> = { ...(prev.order ?? {}) }
+      members.forEach((s, i) => { order[s.scopeId] = i })
+      const a = members[idx].scopeId, b = members[swap].scopeId
+      ;[order[a], order[b]] = [order[b], order[a]]
+      return { ...prev, order }
+    })
+  }
 
   // ── Resize da sidebar por mouse (arrasta a borda direita) ─────────────────
   const startSidebarResize = (e: React.MouseEvent) => {
@@ -987,6 +1077,10 @@ export function LogicEditorPanel({ canEdit }: { canEdit: boolean }) {
   // ── Renderizadores da árvore de grupos (funções inline p/ acessar estado) ─
   const renderScopeItem = (s: { scopeId: string; label: string; isCustom: boolean; isBlock: boolean; deletable?: boolean }, depth: number) => {
     const currentGroup = scopeGroups.memberships[s.scopeId] ?? null
+    // Posição dentro do grupo (para reordenar). Só reordena quando está num grupo e há irmãos.
+    const siblings = currentGroup !== null ? membersOfGroup(currentGroup) : []
+    const pos = siblings.findIndex(x => x.scopeId === s.scopeId)
+    const canReorder = currentGroup !== null && siblings.length > 1
     const Icon = s.isBlock ? Puzzle : s.isCustom ? GitBranch : Layers
     const iconCls = s.isBlock || s.isCustom ? 'text-[#d97706]/70' : 'opacity-50'
     return (
@@ -1002,22 +1096,38 @@ export function LogicEditorPanel({ canEdit }: { canEdit: boolean }) {
               <span className="w-1.5 h-1.5 rounded-full bg-[#d97706] shrink-0" title="Override ativo" />
             )}
           </button>
-          {isAdmin() && (
-            <div className="flex items-center gap-0.5 pr-1.5 opacity-0 group-hover/item:opacity-100 transition-opacity">
-              <button onClick={() => setMovingScopeId(movingScopeId === s.scopeId ? null : s.scopeId)}
-                title="Mover para grupo"
-                className="flex items-center text-slate-600 hover:text-amber-400 transition-colors">
-                <PiFolderOpenFill size={11} />
-              </button>
-              {s.deletable && (
-                <button onClick={e => { e.stopPropagation(); void handleDeleteCustom(s.scopeId) }}
-                  title={s.isBlock ? 'Excluir bloco' : 'Excluir escopo'}
-                  className="flex items-center text-slate-600 hover:text-rose-400 transition-colors">
-                  <Trash2 size={10} />
+          <div className="flex items-center gap-0.5 pr-1.5 opacity-0 group-hover/item:opacity-100 transition-opacity">
+            {canReorder && (
+              <>
+                <button onClick={e => { e.stopPropagation(); if (pos > 0) moveScopeInGroup(s.scopeId, -1) }}
+                  disabled={pos <= 0} title="Mover para cima"
+                  className={`flex items-center transition-colors ${pos <= 0 ? 'text-slate-700 cursor-default' : 'text-slate-600 hover:text-amber-400'}`}>
+                  <ChevronUp size={11} />
                 </button>
-              )}
-            </div>
-          )}
+                <button onClick={e => { e.stopPropagation(); if (pos < siblings.length - 1) moveScopeInGroup(s.scopeId, 1) }}
+                  disabled={pos >= siblings.length - 1} title="Mover para baixo"
+                  className={`flex items-center transition-colors ${pos >= siblings.length - 1 ? 'text-slate-700 cursor-default' : 'text-slate-600 hover:text-amber-400'}`}>
+                  <ChevronDown size={11} />
+                </button>
+              </>
+            )}
+            {isAdmin() && (
+              <>
+                <button onClick={() => setMovingScopeId(movingScopeId === s.scopeId ? null : s.scopeId)}
+                  title="Mover para grupo"
+                  className="flex items-center text-slate-600 hover:text-amber-400 transition-colors">
+                  <PiFolderOpenFill size={11} />
+                </button>
+                {s.deletable && (
+                  <button onClick={e => { e.stopPropagation(); void handleDeleteCustom(s.scopeId) }}
+                    title={s.isBlock ? 'Excluir bloco' : 'Excluir escopo'}
+                    className="flex items-center text-slate-600 hover:text-rose-400 transition-colors">
+                    <Trash2 size={10} />
+                  </button>
+                )}
+              </>
+            )}
+          </div>
         </div>
         {movingScopeId === s.scopeId && (
           <div className="mx-2 mb-1" style={{ paddingLeft: `${depth * 10}px` }}>
@@ -1030,9 +1140,7 @@ export function LogicEditorPanel({ canEdit }: { canEdit: boolean }) {
 
   const renderScopeGroup = (group: ScopeGroup, depth: number): React.ReactNode => {
     const collapsed = collapsedGroups.has(group.id)
-    const childScopes = scopeList
-      .filter(s => (scopeGroups.memberships[s.scopeId] ?? null) === group.id)
-      .sort((a, b) => (a.isBlock === b.isBlock ? 0 : a.isBlock ? -1 : 1))
+    const childScopes = membersOfGroup(group.id)
     const childGroups = scopeGroups.groups.filter(g => g.parentId === group.id)
     const isEditing = editingGroupId?.id === group.id
     return (
@@ -1596,19 +1704,20 @@ export function LogicEditorPanel({ canEdit }: { canEdit: boolean }) {
         break
       }
 
-      case 'p_edit_seq_label': {
-        const { ref, ansIdx, seqIdx, current } = action
-        setTextEdit({
-          title: 'Editar rótulo da resposta sequencial',
-          initial: current,
-          onSave: (v) => {
-            const s2 = deepClone(sectionsRef.current) as LSec[]
-            const dec = resolveRef(s2, ref); if (!dec) return
-            const se = dec.answers[ansIdx]?.seq?.[seqIdx]; if (!se) return
-            se.label = v; commitSections(s2); setTextEdit(null)
-          },
-        })
-        return
+      case 'p_move_seq': {
+        const dec = resolveRef(secs, action.ref); if (!dec) return
+        const arr = dec.answers[action.ansIdx]?.seq; if (!arr) return
+        const t = action.dir === 'up' ? action.seqIdx - 1 : action.seqIdx + 1
+        if (t < 0 || t >= arr.length) return
+        ;[arr[action.seqIdx], arr[t]] = [arr[t], arr[action.seqIdx]]
+        break
+      }
+
+      case 'p_set_seq_label': {
+        const dec = resolveRef(secs, action.ref); if (!dec) return
+        const se = dec.answers[action.ansIdx]?.seq?.[action.seqIdx]; if (!se) return
+        se.label = action.value
+        break
       }
 
       case 'p_add_seq_pkg':
@@ -1655,19 +1764,20 @@ export function LogicEditorPanel({ canEdit }: { canEdit: boolean }) {
         break
       }
 
-      case 'p_edit_after_label': {
-        const { ref, ansIdx, afterIdx, current } = action
-        setTextEdit({
-          title: 'Editar rótulo após convergência',
-          initial: current,
-          onSave: (v) => {
-            const s2 = deepClone(sectionsRef.current) as LSec[]
-            const dec = resolveRef(s2, ref); if (!dec) return
-            const ae = dec.answers[ansIdx]?.after?.[afterIdx]; if (!ae) return
-            ae.label = v; commitSections(s2); setTextEdit(null)
-          },
-        })
-        return
+      case 'p_move_after': {
+        const dec = resolveRef(secs, action.ref); if (!dec) return
+        const arr = dec.answers[action.ansIdx]?.after; if (!arr) return
+        const t = action.dir === 'up' ? action.afterIdx - 1 : action.afterIdx + 1
+        if (t < 0 || t >= arr.length) return
+        ;[arr[action.afterIdx], arr[t]] = [arr[t], arr[action.afterIdx]]
+        break
+      }
+
+      case 'p_set_after_label': {
+        const dec = resolveRef(secs, action.ref); if (!dec) return
+        const ae = dec.answers[action.ansIdx]?.after?.[action.afterIdx]; if (!ae) return
+        ae.label = action.value
+        break
       }
 
       case 'p_remove_after_pkg': {
@@ -1818,50 +1928,94 @@ export function LogicEditorPanel({ canEdit }: { canEdit: boolean }) {
         setPendingTransfer({ mode: action.mode, target: { secIdx: action.secIdx } })
         return
 
+      case 'transfer_target_dec':
+        setPendingTransfer({ mode: action.mode, target: { decRef: action.ref, placement: action.placement } })
+        return
+
       case 'pick_source': {
         const pt = pendingTransferRef.current; if (!pt) return
-        const { mode, target } = pt
-        const srcRef = action.ref
-        const srcDec = resolveRef(secs, srcRef)
-        if (!srcDec) { setPendingTransfer(null); return }
-        const cloned = deepClone(srcDec) as LDec
-        if ('secIdx' in target) {
-          const sec = secs[target.secIdx]; if (!sec) { setPendingTransfer(null); return }
-          sec.decisions.push(cloned)
-        } else {
-          const tgtDec = resolveRef(secs, target.ref); if (!tgtDec) { setPendingTransfer(null); return }
-          const tgtAns = tgtDec.answers[target.ansIdx]; if (!tgtAns) { setPendingTransfer(null); return }
-          tgtAns.sub = [...(tgtAns.sub ?? []), cloned]
-        }
-        if (mode === 'move') {
-          const sec2 = secs[srcRef.secIdx]
-          if (sec2) {
-            if (srcRef.sub.length === 0 && srcRef.adIdx === undefined) {
-              sec2.decisions = sec2.decisions.filter((_, i) => i !== srcRef.decIdx)
-            } else if (srcRef.sub.length === 0 && srcRef.adIdx !== undefined) {
-              const pd = sec2.decisions[srcRef.decIdx]
-              if (pd) {
-                pd.afterDec = (pd.afterDec ?? []).filter((_, i) => i !== srcRef.adIdx!)
-                if (pd.afterDec.length === 0) delete pd.afterDec
-              }
-            } else {
-              const parentPath2 = srcRef.sub.slice(0, -2)
-              const lastAi2 = srcRef.sub[srcRef.sub.length - 2]
-              const lastSi2 = srcRef.sub[srcRef.sub.length - 1]
-              const pd2 = resolveRef(secs, { ...srcRef, sub: parentPath2 })
-              if (pd2) {
-                const pa2 = pd2.answers[lastAi2]
-                if (pa2?.sub) {
-                  pa2.sub = pa2.sub.filter((_, i) => i !== lastSi2)
-                  if (pa2.sub.length === 0) delete pa2.sub
-                }
-              }
-            }
-          }
-        }
         setPendingTransfer(null)
+        const { mode, target } = pt
+        const srcDec = resolveRef(secs, action.ref); if (!srcDec) return
+
+        // Resolve o objeto-destino ANTES de qualquer mutação (identidade sobrevive a splices)
+        let tgtDec: LDec | null = null
+        let tgtAns: LAns | null = null
+        if ('ref' in target) {
+          tgtDec = resolveRef(secs, target.ref)
+          tgtAns = tgtDec?.answers[target.ansIdx] ?? null
+          if (!tgtAns) return
+        } else if ('decRef' in target) {
+          tgtDec = resolveRef(secs, target.decRef); if (!tgtDec) return
+        }
+        // Guardas de ciclo/no-op. Mover uma pergunta para dentro da própria subárvore
+        // apagaria origem e destino de uma vez; substituir por si mesma é um no-op.
+        // (Substituir uma pergunta por uma sub-pergunta DELA é permitido — o conteúdo
+        // antigo do destino é descartado por inteiro na troca.)
+        const tgtInsideSrc = !!tgtDec && decInSubtree(srcDec, tgtDec)
+        if ('decRef' in target && target.placement === 'replace') {
+          if (tgtDec === srcDec) { alert('Origem e destino são a mesma pergunta.'); return }
+          if (mode === 'move' && tgtInsideSrc) { alert('Não é possível substituir uma pergunta pelo conteúdo de uma pergunta que a contém.'); return }
+        } else if (mode === 'move' && tgtInsideSrc) {
+          alert('Não é possível mover uma pergunta para dentro dela mesma.')
+          return
+        }
+
+        // MOVER: remove a origem da lista atual (por identidade) antes de inserir.
+        // Exceção: substituição onde a origem está DENTRO do destino — o conteúdo antigo
+        // do destino (que inclui a origem) é descartado por inteiro na troca.
+        const replaceTarget = 'decRef' in target && target.placement === 'replace' ? tgtDec : null
+        const srcInsideReplaceTgt = !!replaceTarget && decInSubtree(replaceTarget, srcDec)
+        if (mode === 'move' && !srcInsideReplaceTgt) {
+          const srcHit = findDecList(secs, srcDec); if (!srcHit) return
+          srcHit.list.splice(srcHit.idx, 1)
+          srcHit.cleanup()
+        }
+        const payload = mode === 'copy' ? (deepClone(srcDec) as LDec) : srcDec
+
+        if ('secIdx' in target) {
+          const sec = secs[target.secIdx]; if (!sec) return
+          sec.decisions.push(payload)
+        } else if ('decRef' in target) {
+          if (target.placement === 'replace') {
+            const t = tgtDec!
+            t.question = payload.question
+            t.answers = payload.answers
+            for (const k of ['packages', 'after', 'afterDec', 'reuseScope'] as const) {
+              if (payload[k] !== undefined) (t as Record<string, unknown>)[k] = payload[k]
+              else delete (t as Record<string, unknown>)[k]
+            }
+          } else {
+            const tgtHit = findDecList(secs, tgtDec!); if (!tgtHit) return
+            tgtHit.list.splice(tgtHit.idx + 1, 0, payload)
+          }
+        } else {
+          tgtAns!.sub = [...(tgtAns!.sub ?? []), payload]
+        }
         break
       }
+
+      // ── Ações genéricas de pergunta (qualquer nível, resolvidas por identidade) ──
+
+      case 'p_move_dec': {
+        const dec = resolveRef(secs, action.ref); if (!dec) return
+        const hit = findDecList(secs, dec); if (!hit) return
+        const t = action.dir === 'up' ? hit.idx - 1 : hit.idx + 1
+        if (t < 0 || t >= hit.list.length) return
+        ;[hit.list[hit.idx], hit.list[t]] = [hit.list[t], hit.list[hit.idx]]
+        break
+      }
+
+      case 'p_copy_dec': {
+        const dec = resolveRef(secs, action.ref); if (!dec) return
+        const hit = findDecList(secs, dec); if (!hit) return
+        hit.list.splice(hit.idx + 1, 0, deepClone(dec))
+        break
+      }
+
+      case 'p_ins_dec':
+        setPendingDec({ ref: action.ref, offset: action.offset })
+        return
 
       // ── Ações diretas (sem modal) — disparadas pelo SidePanel do FlowEditor ──
 
@@ -2106,12 +2260,18 @@ export function LogicEditorPanel({ canEdit }: { canEdit: boolean }) {
     commitSections(secs); setPhasePick(null)
   }
 
-  // Inserir decisão (do picker) na posição certa
+  // Inserir decisão (do picker) na posição certa — em seção ou relativa a outra pergunta
   const handleInsertDecision = (dec: LDec) => {
     if (!pendingDec) return
     const secs = deepClone(sectionsRef.current) as LSec[]
-    const sec = secs[pendingDec.secIdx]; if (!sec) return
-    sec.decisions.splice(pendingDec.afterDecIdx + 1, 0, dec)
+    if ('ref' in pendingDec) {
+      const anchor = resolveRef(secs, pendingDec.ref); if (!anchor) return
+      const hit = findDecList(secs, anchor); if (!hit) return
+      hit.list.splice(hit.idx + pendingDec.offset, 0, dec)
+    } else {
+      const sec = secs[pendingDec.secIdx]; if (!sec) return
+      sec.decisions.splice(pendingDec.afterDecIdx + 1, 0, dec)
+    }
     commitSections(secs); setPendingDec(null)
   }
 
@@ -2632,6 +2792,17 @@ export function LogicEditorPanel({ canEdit }: { canEdit: boolean }) {
               )}
               {!loading && sections.length > 0 && (
                 <div className="relative h-full">
+                  {pendingTransfer && (
+                    <div className="absolute top-2 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2 px-3 py-1.5 rounded-full bg-purple-950/90 border border-purple-500/60 shadow-lg">
+                      <span className="text-[11px] text-purple-100 font-medium">
+                        {pendingTransfer.mode === 'move' ? 'Mover' : 'Copiar'} pergunta — clique na pergunta de ORIGEM no fluxograma
+                      </span>
+                      <button onClick={() => setPendingTransfer(null)}
+                        className="text-[10px] text-purple-200 hover:text-white border border-purple-500/50 rounded px-2 py-0.5 transition-colors">
+                        Cancelar
+                      </button>
+                    </div>
+                  )}
                   {previewVersionId && (
                     <div className="absolute top-2 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2 px-3 py-1.5 rounded-full bg-amber-900/90 border border-amber-600/60 shadow-lg">
                       <History size={12} className="text-amber-300" />

@@ -148,7 +148,8 @@ export type EditAction =
   | { type: 'p_insert_sub_dec';  ref: DecRef; ansIdx: number; subIdx: number }
 | { type: 'p_add_seq';         ref: DecRef; ansIdx: number; atIdx?: number }
   | { type: 'p_remove_seq';      ref: DecRef; ansIdx: number; seqIdx: number }
-  | { type: 'p_edit_seq_label';  ref: DecRef; ansIdx: number; seqIdx: number; current: string }
+  | { type: 'p_move_seq';        ref: DecRef; ansIdx: number; seqIdx: number; dir: 'up' | 'down' }
+  | { type: 'p_set_seq_label';   ref: DecRef; ansIdx: number; seqIdx: number; value: string }
   | { type: 'p_add_seq_pkg';     ref: DecRef; ansIdx: number; seqIdx: number }
   | { type: 'p_remove_seq_pkg';  ref: DecRef; ansIdx: number; seqIdx: number; pkgIdx: number }
   | { type: 'p_move_seq_pkg';   ref: DecRef; ansIdx: number; seqIdx: number; pkgIdx: number; dir: 'up' | 'down' }
@@ -156,7 +157,8 @@ export type EditAction =
   | { type: 'p_add_after';       ref: DecRef; ansIdx: number; atIdx?: number }
   | { type: 'p_add_after_pkg';   ref: DecRef; ansIdx: number; afterIdx: number }
   | { type: 'p_remove_after';    ref: DecRef; ansIdx: number; afterIdx: number }
-  | { type: 'p_edit_after_label';ref: DecRef; ansIdx: number; afterIdx: number; current: string }
+  | { type: 'p_move_after';      ref: DecRef; ansIdx: number; afterIdx: number; dir: 'up' | 'down' }
+  | { type: 'p_set_after_label'; ref: DecRef; ansIdx: number; afterIdx: number; value: string }
   | { type: 'p_remove_after_pkg';ref: DecRef; ansIdx: number; afterIdx: number; pkgIdx: number }
   | { type: 'p_move_after_pkg';  ref: DecRef; ansIdx: number; afterIdx: number; pkgIdx: number; dir: 'up' | 'down' }
   // Blocos "após convergência" de uma DECISÃO (dec.after, path-based) — pacotes que se aplicam
@@ -203,7 +205,15 @@ export type EditAction =
   // 2º clica na pergunta de ORIGEM (pick_source). `ref`+`ansIdx` = a resposta destino.
   | { type: 'transfer_target';  mode: 'move' | 'copy'; ref: DecRef; ansIdx: number }
   | { type: 'transfer_target_sec'; mode: 'move' | 'copy'; secIdx: number }
+  // Destino = outra PERGUNTA: 'below' insere como irmã logo abaixo dela; 'replace'
+  // substitui o conteúdo da pergunta destino pelo da origem (pergunta + respostas + subárvore).
+  | { type: 'transfer_target_dec'; mode: 'move' | 'copy'; ref: DecRef; placement: 'below' | 'replace' }
   | { type: 'pick_source';      ref: DecRef; question: string }
+  // Ações genéricas de pergunta por caminho — válidas em QUALQUER nível de aninhamento
+  // (topo, sub, afterSub, afterDec, aeRef). Operam na lista que contém a decisão.
+  | { type: 'p_move_dec';       ref: DecRef; dir: 'up' | 'down' }
+  | { type: 'p_copy_dec';       ref: DecRef }
+  | { type: 'p_ins_dec';        ref: DecRef; offset: 0 | 1 }
 // Sequential answer actions (within an answer card)
   | { type: 'add_seq';          secIdx: number; decIdx: number; ansIdx: number }
   | { type: 'remove_seq';       secIdx: number; decIdx: number; ansIdx: number; seqIdx: number }
@@ -442,6 +452,28 @@ function openMenu(e: React.MouseEvent, title: string, items: MenuItem[], pkgs?: 
   e.stopPropagation()
   _menuCb?.({ title, items, pkgs, pos: { x: e.clientX, y: e.clientY }, hlKey, onTitleChange })
 }
+// Menu padrão de PERGUNTA (losango) — o MESMO conjunto de ações em todos os níveis
+// (pergunta de topo, sub-pergunta, sub após pacotes, pós-convergência, dentro de chips).
+// Todas as ações são genéricas por DecRef e resolvidas por identidade no editor.
+function qMenuItems(ref: DecRef): MenuItem[] {
+  const fire = _editCb!
+  return [
+    { label: 'Adicionar resposta', glyph: '➕', color: '#0ea5e9', onClick: () => fire({ type: 'p_add_ans', ref }) },
+    { label: 'Adicionar pacote à pergunta', glyph: '📦', color: '#f97316', onClick: () => fire({ type: 'p_add_dec_pkg', ref }) },
+    { label: 'Adicionar entrada após convergência', glyph: '⤵', color: '#7c3aed', onClick: () => fire({ type: 'p_dec_add_after', ref }) },
+    { label: 'Inserir pergunta acima', glyph: '↑', color: '#22d3ee', onClick: () => fire({ type: 'p_ins_dec', ref, offset: 0 }) },
+    { label: 'Inserir pergunta abaixo', glyph: '↓', color: '#22d3ee', onClick: () => fire({ type: 'p_ins_dec', ref, offset: 1 }) },
+    { label: 'Mover pergunta acima', glyph: '⬆', color: '#94a3b8', onClick: () => fire({ type: 'p_move_dec', ref, dir: 'up' }) },
+    { label: 'Mover pergunta abaixo', glyph: '⬇', color: '#94a3b8', onClick: () => fire({ type: 'p_move_dec', ref, dir: 'down' }) },
+    { label: 'Duplicar pergunta', glyph: '⧉', color: '#14b8a6', onClick: () => fire({ type: 'p_copy_dec', ref }) },
+    { label: 'Mover pergunta para cá (abaixo desta)', glyph: '⤿', color: '#a855f7', onClick: () => fire({ type: 'transfer_target_dec', mode: 'move', ref, placement: 'below' }) },
+    { label: 'Copiar pergunta para cá (abaixo desta)', glyph: '⧉', color: '#a855f7', onClick: () => fire({ type: 'transfer_target_dec', mode: 'copy', ref, placement: 'below' }) },
+    { label: 'Substituir pelo conteúdo de outra pergunta (mover)', glyph: '⤿', color: '#f59e0b', onClick: () => fire({ type: 'transfer_target_dec', mode: 'move', ref, placement: 'replace' }) },
+    { label: 'Substituir pelo conteúdo de outra pergunta (copiar)', glyph: '⧉', color: '#f59e0b', onClick: () => fire({ type: 'transfer_target_dec', mode: 'copy', ref, placement: 'replace' }) },
+    { label: 'Remover pergunta', glyph: '×', color: '#ef4444', danger: true, onClick: () => fire({ type: 'p_remove_dec', ref }) },
+  ]
+}
+
 // Anel âmbar em volta de um chip rectangular selecionado (card aberto no menu flutuante)
 function chipHighlight(key: string, x: number, y: number, w: number, h: number, els: React.ReactNode[]) {
   if (_hlKey !== key) return
@@ -629,8 +661,8 @@ function refIsExpanded(s: LSec): boolean {
 }
 function sTotalH(s: LSec): number {
   if (s.ref) {
-    if (refIsExpanded(s)) return SHH + REF_EXP_TOP + refExpandedContentH(s.ref!.scopeId) + REF_EXP_BOT
-    return REF_SEC_H
+    if (refIsExpanded(s)) return refHeaderH(s) + REF_EXP_TOP + refExpandedContentH(s.ref!.scopeId) + REF_EXP_BOT
+    return refHeaderH(s) + (REF_SEC_H - SHH)
   }
   const editPad = _editCb ? 30 : 0  // espaço para "+ decisão ao final"
   return SHH + SVPAD + sAlwH(s) + s.decisions.reduce((sum, d, i) => sum + dTotalH(d) + (i ? DSQ : 0), 0) + SVPAD + editPad
@@ -653,6 +685,42 @@ function sTotalW(s: LSec): number {
 
 // Helpers
 function tr(s: string, n: number) { return s.length > n ? s.slice(0, n - 1) + '…' : s }
+
+const REF_TITLE_LH = 15   // altura de linha do título do bloco quando ele quebra em várias linhas
+
+// Quebra um texto em linhas por palavras, respeitando um limite de caracteres por linha.
+// A 1ª linha tem orçamento menor (`firstMax`), pois divide espaço com o prefixo "▸ 🔗 ".
+function wrapWords(text: string, maxChars: number, firstMax: number, maxLines: number): string[] {
+  const words = text.split(/\s+/).filter(Boolean)
+  const lines: string[] = []
+  let cur = ''
+  for (const w of words) {
+    const budget = lines.length === 0 ? firstMax : maxChars
+    const cand = cur ? cur + ' ' + w : w
+    if (cand.length <= budget || !cur) cur = cand
+    else { lines.push(cur); cur = w }
+  }
+  if (cur) lines.push(cur)
+  if (lines.length > maxLines) { lines.length = maxLines; lines[maxLines - 1] = tr(lines[maxLines - 1], maxChars) }
+  return lines.length ? lines : ['']
+}
+
+// Título do bloco referenciado ("Bloco: <nome>"), já quebrado em linhas para caber na largura
+// do card sem cortar o nome. Usa a largura-base do card de ref (440, +70 em edição).
+function refTitleLines(sec: LSec): string[] {
+  const scopeId = sec.ref!.scopeId
+  const title = getScopeLabel(scopeId) ?? sec.ref?.label ?? scopeId ?? sec.label
+  const sw = 440 + (_editCb ? 70 : 0)
+  const rightReserve = _editCb ? 90 : 34            // espaço do ⋯ e, em edição, dos ↑↓
+  const maxChars = Math.max(10, Math.floor((sw - SPAD - rightReserve) / (F_L * 0.62)))
+  const firstMax = Math.max(6, maxChars - 6)        // 1ª linha desconta o prefixo "▸ 🔗 "
+  return wrapWords('Bloco: ' + title, maxChars, firstMax, 4)
+}
+
+// Altura do header do card de bloco — cresce quando o título quebra em várias linhas.
+function refHeaderH(sec: LSec): number {
+  return SHH + (refTitleLines(sec).length - 1) * REF_TITLE_LH
+}
 
 // Renderiza o rótulo de uma pergunta centralizado DENTRO do losango, ajustando a quebra de
 // linha e o tamanho da fonte para o texto nunca ultrapassar as arestas inclinadas do diamante.
@@ -964,8 +1032,8 @@ function renderAnswer(
       { label: 'Adicionar entrada após convergência', glyph: '⤵', color: '#6366f1', onClick: () => fire({ type: 'p_dec_add_after', ref }) },
       { label: 'Mover resposta acima', glyph: '⬆', color: '#94a3b8', onClick: () => fire({ type: 'p_move_ans', ref, ansIdx: ai, dir: 'up' }) },
       { label: 'Mover resposta abaixo', glyph: '⬇', color: '#94a3b8', onClick: () => fire({ type: 'p_move_ans', ref, ansIdx: ai, dir: 'down' }) },
-      { label: 'Mover pergunta para cá', glyph: '⤿', color: '#a855f7', onClick: () => fire({ type: 'transfer_target', mode: 'move', ref, ansIdx: ai }) },
-      { label: 'Copiar pergunta para cá', glyph: '⧉', color: '#14b8a6', onClick: () => fire({ type: 'transfer_target', mode: 'copy', ref, ansIdx: ai }) },
+      { label: 'Mover pergunta para cá (como sub-pergunta)', glyph: '⤿', color: '#a855f7', onClick: () => fire({ type: 'transfer_target', mode: 'move', ref, ansIdx: ai }) },
+      { label: 'Copiar pergunta para cá (como sub-pergunta)', glyph: '⧉', color: '#14b8a6', onClick: () => fire({ type: 'transfer_target', mode: 'copy', ref, ansIdx: ai }) },
       { label: 'Remover resposta', glyph: '×', color: '#ef4444', danger: true, onClick: () => fire({ type: 'p_remove_ans', ref, ansIdx: ai }) },
     ]
     const capAnsHlKey = `a:${ref.secIdx}:${ref.decIdx}:${ref.sub.join(',')}:${ai}`
@@ -1072,7 +1140,23 @@ function renderAnswer(
       els.push(<rect key={K()} x={seX} y={seCardY + LBLH - 4} width={seW} height={4} fill={p.lbl} />)
 
       if (canEdit) {
-        const capSei = sei
+        const capSei = sei, capSeLbl = se.label
+        // Menu do bloco — mesmo padrão dos chips "após convergência" (saf/ae)
+        const seqMenuItems: MenuItem[] = [
+          { label: 'Adicionar pacote', glyph: '📦', color: '#0ea5e9', onClick: () => fire({ type: 'p_add_seq_pkg', ref, ansIdx: ai, seqIdx: capSei }) },
+          { label: 'Inserir bloco antes', glyph: '↑', color: '#22d3ee', onClick: () => fire({ type: 'p_add_seq', ref, ansIdx: ai, atIdx: capSei }) },
+          { label: 'Inserir bloco depois', glyph: '↓', color: '#22d3ee', onClick: () => fire({ type: 'p_add_seq', ref, ansIdx: ai, atIdx: capSei + 1 }) },
+          { label: 'Mover bloco acima', glyph: '⬆', color: '#94a3b8', onClick: () => fire({ type: 'p_move_seq', ref, ansIdx: ai, seqIdx: capSei, dir: 'up' }) },
+          { label: 'Mover bloco abaixo', glyph: '⬇', color: '#94a3b8', onClick: () => fire({ type: 'p_move_seq', ref, ansIdx: ai, seqIdx: capSei, dir: 'down' }) },
+          { label: 'Remover bloco', glyph: '×', color: '#ef4444', danger: true, onClick: () => fire({ type: 'p_remove_seq', ref, ansIdx: ai, seqIdx: capSei }) },
+        ]
+        // ＋ inserir bloco antes deste (canto esquerdo, igual aos chips saf/asSaf)
+        els.push(
+          <g key={K()} onMouseDown={stopMD} onClick={(e) => { e.stopPropagation(); fire({ type: 'p_add_seq', ref, ansIdx: ai, atIdx: capSei }) }} style={{ cursor: 'pointer' }} {...tipAttrs('Inserir entrada sequencial antes desta')}>
+            <circle cx={seX + 10} cy={seCardY + LBLH / 2} r={6.5} fill={p.code} opacity={0.85} />
+            {svgIco(PiPlusBold, seX + 10, seCardY + LBLH / 2 + 3.5, 10, 'white')}
+          </g>
+        )
         // × remove seq entry
         els.push(
           <g key={K()} onMouseDown={stopMD}
@@ -1082,12 +1166,18 @@ function renderAnswer(
             {svgIco(PiTrashFill, seX + seW - 9, seCardY + LBLH / 2 + 3.5, 10, 'white')}
           </g>
         )
-        // Click label to edit
+        // Clique na label → menu do bloco (título editável no painel)
         els.push(
           <g key={K()} onMouseDown={stopMD}
-             onClick={(e) => { e.stopPropagation(); fire({ type: 'p_edit_seq_label', ref, ansIdx: ai, seqIdx: capSei, current: se.label }) }}
-             style={{ cursor: 'text' }}>
-            <rect x={seX + 8} y={seCardY + 1} width={seW - 28} height={LBLH - 2} rx={2} fill="transparent" />
+             onClick={(e) => openMenu(e, capSeLbl, seqMenuItems, {
+               getList: (s) => resolveRef(s, ref)?.answers[ai]?.seq?.[capSei]?.packages ?? [],
+               onAdd: () => fire({ type: 'p_add_seq_pkg', ref, ansIdx: ai, seqIdx: capSei }),
+               onMove: (idx, dir) => fire({ type: 'p_move_seq_pkg', ref, ansIdx: ai, seqIdx: capSei, pkgIdx: idx, dir }),
+               onRemove: (idx) => fire({ type: 'p_remove_seq_pkg', ref, ansIdx: ai, seqIdx: capSei, pkgIdx: idx }),
+             }, `chip:seq:${ref.secIdx}:${ref.decIdx}:${ref.sub.join(',')}:${ai}:${capSei}`,
+             (v) => fire({ type: 'p_set_seq_label', ref, ansIdx: ai, seqIdx: capSei, value: v }))}
+             style={{ cursor: 'pointer' }} {...tipAttrs('Opções do bloco')}>
+            <rect x={seX + 22} y={seCardY + 1} width={seW - 42} height={LBLH - 2} rx={2} fill="transparent" />
           </g>
         )
       }
@@ -1206,7 +1296,6 @@ function renderAnswer(
       // Referência da sub-decisão = decisão atual + passo [resposta atual, índice da sub].
       const childRef: DecRef = { ...ref, sub: [...ref.sub, ai, subDi] }
       if (canEdit) {
-        const capSubDi = subDi
         // × remove sub-decision diamond
         els.push(
           <g key={K()} onMouseDown={stopMD}
@@ -1228,15 +1317,7 @@ function renderAnswer(
           <g key={K()} onMouseDown={stopMD} onClick={(e) => {
             e.stopPropagation()
             if (_pickMode) { fire({ type: 'pick_source', ref: childRef, question: capSubQ }); return }
-            const subItems: MenuItem[] = [
-              { label: 'Adicionar resposta', glyph: '➕', color: '#0ea5e9', onClick: () => fire({ type: 'p_add_ans', ref: childRef }) },
-              { label: 'Adicionar pacote à sub-pergunta', glyph: '📦', color: '#f97316', onClick: () => fire({ type: 'p_add_dec_pkg', ref: childRef }) },
-              { label: 'Adicionar entrada após convergência', glyph: '⤵', color: '#7c3aed', onClick: () => fire({ type: 'p_dec_add_after', ref: childRef }) },
-              { label: 'Inserir sub-pergunta acima', glyph: '↑', color: '#22d3ee', onClick: () => fire({ type: 'p_insert_sub_dec', ref, ansIdx: ai, subIdx: capSubDi }) },
-              { label: 'Inserir sub-pergunta abaixo', glyph: '↓', color: '#22d3ee', onClick: () => fire({ type: 'p_insert_sub_dec', ref, ansIdx: ai, subIdx: capSubDi + 1 }) },
-              { label: 'Remover pergunta', glyph: '×', color: '#ef4444', danger: true, onClick: () => fire({ type: 'p_remove_dec', ref: childRef }) },
-            ]
-            openMenu(e, capSubQ, subItems, undefined, subHlKey, (v) => fire({ type: 'p_set_q', ref: childRef, value: v }))
+            openMenu(e, capSubQ, qMenuItems(childRef), undefined, subHlKey, (v) => fire({ type: 'p_set_q', ref: childRef, value: v }))
           }} style={{ cursor: _pickMode ? 'copy' : 'pointer' }} {...tip(_pickMode ? 'Selecionar como origem' : 'Ações da pergunta')}>
             <polygon points={`${cx},${actualSY} ${sdX + sdW - 14},${actualSY + DH / 2} ${cx},${actualSY + DH} ${sdX + 14},${actualSY + DH / 2}`}
               fill="transparent" />
@@ -1454,12 +1535,9 @@ function renderAnswer(
         els.push(
           <g key={K()} onMouseDown={stopMD} onClick={(e) => {
             e.stopPropagation()
-            openMenu(e, capAsQ, [
-              { label: 'Adicionar resposta', glyph: '➕', color: '#0ea5e9', onClick: () => fire({ type: 'p_add_ans', ref: asChildRef }) },
-              { label: 'Adicionar entrada após convergência', glyph: '⤵', color: '#7c3aed', onClick: () => fire({ type: 'p_dec_add_after', ref: asChildRef }) },
-              { label: 'Remover pergunta', glyph: '×', color: '#ef4444', danger: true, onClick: () => fire({ type: 'p_remove_aftersub_dec', ref, ansIdx: ai, afterSubIdx: capAsDi }) },
-            ], undefined, capAsHlKey, (v) => fire({ type: 'p_set_q', ref: asChildRef, value: v }))
-          }} style={{ cursor: 'pointer' }} {...tip('Ações da pergunta')}>
+            if (_pickMode) { fire({ type: 'pick_source', ref: asChildRef, question: capAsQ }); return }
+            openMenu(e, capAsQ, qMenuItems(asChildRef), undefined, capAsHlKey, (v) => fire({ type: 'p_set_q', ref: asChildRef, value: v }))
+          }} style={{ cursor: _pickMode ? 'copy' : 'pointer' }} {...tip(_pickMode ? 'Selecionar como origem' : 'Ações da pergunta')}>
             <polygon points={`${cx},${asSY} ${asX + DDW - 14},${asSY + DH / 2} ${cx},${asSY + DH} ${asX + 14},${asSY + DH / 2}`} fill="transparent" />
           </g>
         )
@@ -1587,20 +1665,45 @@ function renderAnswer(
       els.push(<rect key={K()} x={afX} y={afCardY} width={afW} height={LBLH} rx={4} fill={p.lbl} />)
       els.push(<rect key={K()} x={afX} y={afCardY + LBLH - 4} width={afW} height={4} fill={p.lbl} />)
       if (canEdit) {
-        const capAfi = afi
+        const capAfi = afi, capAfLbl = af.label
+        // Menu do bloco — mesmo padrão dos chips "após convergência" de pergunta (saf/ae)
+        const afMenuItems: MenuItem[] = [
+          { label: 'Adicionar pacote', glyph: '📦', color: '#0ea5e9', onClick: () => fire({ type: 'p_add_after_pkg', ref, ansIdx: ai, afterIdx: capAfi }) },
+          { label: 'Inserir bloco antes', glyph: '↑', color: '#22d3ee', onClick: () => fire({ type: 'p_add_after', ref, ansIdx: ai, atIdx: capAfi }) },
+          { label: 'Inserir bloco depois', glyph: '↓', color: '#22d3ee', onClick: () => fire({ type: 'p_add_after', ref, ansIdx: ai, atIdx: capAfi + 1 }) },
+          { label: 'Mover bloco acima', glyph: '⬆', color: '#94a3b8', onClick: () => fire({ type: 'p_move_after', ref, ansIdx: ai, afterIdx: capAfi, dir: 'up' }) },
+          { label: 'Mover bloco abaixo', glyph: '⬇', color: '#94a3b8', onClick: () => fire({ type: 'p_move_after', ref, ansIdx: ai, afterIdx: capAfi, dir: 'down' }) },
+          { label: 'Remover bloco', glyph: '×', color: '#ef4444', danger: true, onClick: () => fire({ type: 'p_remove_after', ref, ansIdx: ai, afterIdx: capAfi }) },
+        ]
+        // ＋ inserir bloco antes deste (canto esquerdo)
+        els.push(
+          <g key={K()} onMouseDown={stopMD} onClick={(e) => { e.stopPropagation(); fire({ type: 'p_add_after', ref, ansIdx: ai, atIdx: capAfi }) }} style={{ cursor: 'pointer' }} {...tipAttrs('Inserir bloco após convergência antes deste')}>
+            <circle cx={afX + 10} cy={afCardY + LBLH / 2} r={6.5} fill={p.code} opacity={0.85} />
+            {svgIco(PiPlusBold, afX + 10, afCardY + LBLH / 2 + 3.5, 10, 'white')}
+          </g>
+        )
         els.push(
           <g key={K()} onMouseDown={stopMD} onClick={(e) => { e.stopPropagation(); fire({ type: 'p_remove_after', ref, ansIdx: ai, afterIdx: capAfi }) }} style={{ cursor: 'pointer' }} {...tipAttrs('Remover bloco')}>
             <circle cx={afX + afW - 9} cy={afCardY + LBLH / 2} r={6.5} fill="#ef4444" opacity={0.82} />
             {svgIco(PiTrashFill, afX + afW - 9, afCardY + LBLH / 2 + 3.5, 10, 'white')}
           </g>
         )
+        // Clique na label → menu do bloco (título editável no painel)
         els.push(
-          <g key={K()} onMouseDown={stopMD} onClick={(e) => { e.stopPropagation(); fire({ type: 'p_edit_after_label', ref, ansIdx: ai, afterIdx: capAfi, current: af.label }) }} style={{ cursor: 'text' }}>
-            <rect x={afX + 8} y={afCardY + 1} width={afW - 28} height={LBLH - 2} rx={2} fill="transparent" />
+          <g key={K()} onMouseDown={stopMD}
+             onClick={(e) => openMenu(e, capAfLbl || 'Após convergência', afMenuItems, {
+               getList: (s) => resolveRef(s, ref)?.answers[ai]?.after?.[capAfi]?.packages ?? [],
+               onAdd: () => fire({ type: 'p_add_after_pkg', ref, ansIdx: ai, afterIdx: capAfi }),
+               onMove: (idx, dir) => fire({ type: 'p_move_after_pkg', ref, ansIdx: ai, afterIdx: capAfi, pkgIdx: idx, dir }),
+               onRemove: (idx) => fire({ type: 'p_remove_after_pkg', ref, ansIdx: ai, afterIdx: capAfi, pkgIdx: idx }),
+             }, `chip:af:${ref.secIdx}:${ref.decIdx}:${ref.sub.join(',')}:${ai}:${capAfi}`,
+             (v) => fire({ type: 'p_set_after_label', ref, ansIdx: ai, afterIdx: capAfi, value: v }))}
+             style={{ cursor: 'pointer' }} {...tipAttrs('Opções do bloco')}>
+            <rect x={afX + 22} y={afCardY + 1} width={afW - 42} height={LBLH - 2} rx={2} fill="transparent" />
           </g>
         )
       }
-      els.push(<text key={K()} x={afX + 8} y={afCardY + LBLH * 0.68} fontSize={F_M} fontWeight={600} fill={p.lblT} fontFamily="ui-sans-serif,system-ui,sans-serif">{tr(af.label || 'Após convergência', 40)}</text>)
+      els.push(<text key={K()} x={canEdit ? afX + 22 : afX + 8} y={afCardY + LBLH * 0.68} fontSize={F_M} fontWeight={600} fill={p.lblT} fontFamily="ui-sans-serif,system-ui,sans-serif">{tr(af.label || 'Após convergência', canEdit ? 20 : 40)}</text>)
       const afPkgs = af.packages ?? []
       const afBY = afCardY + LBLH + BPAD
       const afHlKey = `chip:af:${ref.secIdx}:${ref.decIdx}:${ref.sub.join(',')}:${ai}:${afi}`
@@ -1715,6 +1818,7 @@ function drawAfterDecision(
           onAdd: () => _editCb!({ type: 'p_add_dec_pkg', ref: capAdRef }),
           onMove: (idx, dir) => _editCb!({ type: 'p_move_dec_pkg', ref: capAdRef, pkgIdx: idx, dir }),
           onRemove: (idx) => _editCb!({ type: 'p_remove_dec_pkg', ref: capAdRef, pkgIdx: idx }),
+          onCondition: (idx, condition) => _editCb!({ type: 'p_set_pkg_condition', ref: capAdRef, pkgIdx: idx, condition }),
         }, adPkgHlKey)} style={{ cursor: 'pointer' }} {...tipAttrs('Gerenciar pacotes da pergunta')}>
           <rect x={achipX + 4} y={achipCardY + 4} width={achipW - 30} height={LBLH - 8} rx={2} fill="transparent" />
         </g>
@@ -1753,12 +1857,7 @@ function drawAfterDecision(
       <g key={K()} onMouseDown={stopMD} onClick={(e) => {
         e.stopPropagation()
         if (_pickMode) { _editCb!({ type: 'pick_source', ref, question: capAdQ }); return }
-        const adItems: MenuItem[] = [
-          { label: 'Adicionar resposta', glyph: '➕', color: '#0ea5e9', onClick: () => _editCb!({ type: 'p_add_ans', ref }) },
-          { label: 'Adicionar pacote à pergunta', glyph: '📦', color: '#f97316', onClick: () => _editCb!({ type: 'p_add_dec_pkg', ref }) },
-          { label: 'Remover pergunta', glyph: '×', color: '#ef4444', danger: true, onClick: () => _editCb!({ type: 'p_remove_dec', ref }) },
-        ]
-        openMenu(e, capAdQ, adItems, undefined, adHlKey, (v) => _editCb!({ type: 'p_set_q', ref, value: v }))
+        openMenu(e, capAdQ, qMenuItems(ref), undefined, adHlKey, (v) => _editCb!({ type: 'p_set_q', ref, value: v }))
       }} style={{ cursor: _pickMode ? 'copy' : 'pointer' }} {...tip(_pickMode ? 'Selecionar como origem' : 'Ações da pergunta')}>
         <polygon points={`${cx},${dY} ${cx + dw / 2 - 14},${dY + DH / 2} ${cx},${dY + DH} ${cx - dw / 2 + 14},${dY + DH / 2}`} fill="transparent" />
       </g>
@@ -1856,29 +1955,34 @@ function drawRefSection(sec: LSec, CX: number, Y: number, sw: number, si: number
   const scopeId = sec.ref!.scopeId
   const info = refSourceInfo(scopeId)
   // Nome VIVO do bloco (resolvido pelo scopeId) — reflete renomeações; o label cacheado no
-  // placeholder é só fallback (ex.: offline / bloco ainda não carregado).
-  const title = getScopeLabel(scopeId) ?? sec.ref?.label ?? scopeId ?? sec.label
+  // placeholder é só fallback (ex.: offline / bloco ainda não carregado). Mostrado por INTEIRO,
+  // quebrando em várias linhas quando necessário (o header cresce para caber o nome completo).
   const expanded = refIsExpanded(sec)
+  const titleLines = refTitleLines(sec)
+  const hdrH = SHH + (titleLines.length - 1) * REF_TITLE_LH
   const totalH = sTotalH(sec)
   const capSi = si
 
   // Container (borda tracejada) + header
   els.push(<rect key={K()} x={sx} y={Y} width={sw} height={totalH} rx={10}
     fill={_dark ? '#1e1b4b' : '#eef2ff'} stroke={col} strokeWidth={1.5} strokeDasharray="5,3" />)
-  els.push(<rect key={K()} x={sx} y={Y} width={sw} height={SHH} rx={10} fill={col} />)
-  els.push(<rect key={K()} x={sx} y={Y + SHH - 10} width={sw} height={10} fill={col} />)
+  els.push(<rect key={K()} x={sx} y={Y} width={sw} height={hdrH} rx={10} fill={col} />)
+  els.push(<rect key={K()} x={sx} y={Y + hdrH - 10} width={sw} height={10} fill={col} />)
 
-  // Header clicável → alterna expandir/colapsar. Chevron indica o estado.
+  // Header clicável → alterna expandir/colapsar. Chevron indica o estado. O título é mostrado
+  // por completo: a 1ª linha leva o prefixo "▸ 🔗 "; as demais alinham logo abaixo.
   const cy = Y + SHH / 2
   els.push(
     <g key={K()} onMouseDown={stopMD}
        onClick={(e) => { e.stopPropagation(); _toggleRefExpand?.(scopeId) }}
        style={{ cursor: 'pointer' }} {...tipAttrs(expanded ? 'Clique para colapsar o bloco' : 'Clique para expandir e ver o conteúdo do bloco')}>
-      <rect x={sx} y={Y} width={sw - (_editCb ? 90 : 34)} height={SHH} fill="transparent" />
-      <text x={sx + SPAD} y={Y + SHH * 0.63} fontSize={F_L} fontWeight={700}
-        fill="white" fontFamily="ui-sans-serif,system-ui,sans-serif" letterSpacing={0.6}>
-        {`${expanded ? '▾' : '▸'} 🔗 ${tr('Bloco: ' + title, _editCb ? 26 : 42)}`}
-      </text>
+      <rect x={sx} y={Y} width={sw - (_editCb ? 90 : 34)} height={hdrH} fill="transparent" />
+      {titleLines.map((ln, i) => (
+        <text key={K()} x={sx + SPAD + (i === 0 ? 0 : 16)} y={Y + SHH * 0.63 + i * REF_TITLE_LH}
+          fontSize={F_L} fontWeight={700} fill="white" fontFamily="ui-sans-serif,system-ui,sans-serif" letterSpacing={0.6}>
+          {i === 0 ? `${expanded ? '▾' : '▸'} 🔗 ${ln}` : ln}
+        </text>
+      ))}
     </g>
   )
 
@@ -1915,7 +2019,7 @@ function drawRefSection(sec: LSec, CX: number, Y: number, sw: number, si: number
 
   if (!expanded) {
     // Resumo compacto (colapsado)
-    const bodyY = Y + SHH + 16
+    const bodyY = Y + hdrH + 16
     els.push(
       <text key={K()} x={sx + SPAD} y={bodyY} fontSize={F_M} fill={_dark ? '#c7d2fe' : '#4338ca'}
         fontFamily="ui-sans-serif,system-ui,sans-serif">
@@ -1934,7 +2038,7 @@ function drawRefSection(sec: LSec, CX: number, Y: number, sw: number, si: number
   // Expandido: renderiza as seções internas read-only (salva/restaura _editCb e _flowIndex
   // para não permitir edição inline nem poluir o índice de navegação do escopo pai).
   els.push(
-    <text key={K()} x={sx + SPAD} y={Y + SHH + 18} fontSize={F_S} fill={_dark ? '#818cf8' : '#6366f1'}
+    <text key={K()} x={sx + SPAD} y={Y + hdrH + 18} fontSize={F_S} fill={_dark ? '#818cf8' : '#6366f1'}
       fontFamily="ui-sans-serif,system-ui,sans-serif" fontStyle="italic">
       somente leitura · use “⋯ › Editar bloco” para modificar
     </text>
@@ -1943,7 +2047,7 @@ function drawRefSection(sec: LSec, CX: number, Y: number, sw: number, si: number
   const savedCb = _editCb, savedIdx = _flowIndex
   _editCb = null
   _flowIndex = []
-  drawFlowColumn(inner, CX, Y + SHH + REF_EXP_TOP, els)
+  drawFlowColumn(inner, CX, Y + hdrH + REF_EXP_TOP, els)
   _editCb = savedCb
   _flowIndex = savedIdx
 }
@@ -2081,8 +2185,8 @@ function drawFlowColumn(secs: LSec[], colCX: number, topY: number, els: React.Re
                { label: 'Adicionar decisão', glyph: '➕', color: p.code, onClick: () => _editCb!({ type: 'add_decision', secIdx: capSi, afterDecIdx: capLastDec }) },
                { label: 'Nova seção acima', glyph: '↑', color: '#22d3ee', onClick: () => _editCb!({ type: 'add_section', afterSecIdx: capSi - 1 }) },
                { label: 'Nova seção abaixo', glyph: '↓', color: '#22d3ee', onClick: () => _editCb!({ type: 'add_section', afterSecIdx: capSi }) },
-               { label: 'Mover pergunta para cá', glyph: '⤿', color: '#a855f7', onClick: () => _editCb!({ type: 'transfer_target_sec', mode: 'move', secIdx: capSi }) },
-               { label: 'Copiar pergunta para cá', glyph: '⧉', color: '#14b8a6', onClick: () => _editCb!({ type: 'transfer_target_sec', mode: 'copy', secIdx: capSi }) },
+               { label: 'Mover pergunta para cá (ao final da seção)', glyph: '⤿', color: '#a855f7', onClick: () => _editCb!({ type: 'transfer_target_sec', mode: 'move', secIdx: capSi }) },
+               { label: 'Copiar pergunta para cá (ao final da seção)', glyph: '⧉', color: '#14b8a6', onClick: () => _editCb!({ type: 'transfer_target_sec', mode: 'copy', secIdx: capSi }) },
              ]
              openMenu(e, capLbl, secSideItems, undefined, undefined, (v) => _editCb!({ type: 'p_set_section_label', secIdx: capSi, value: v }))
            }}
@@ -2135,7 +2239,7 @@ function drawFlowColumn(secs: LSec[], colCX: number, topY: number, els: React.Re
             onMove: (idx, dir) => _editCb!({ type: 'move_always', secIdx: capSi, pkgIdx: idx, dir }),
             onRemove: (idx) => _editCb!({ type: 'remove_always', secIdx: capSi, pkgIdx: idx }),
           }, alwHlKey)} style={{ cursor: 'pointer' }} {...tipAttrs(n > 0 ? 'Gerenciar pacotes SEMPRE' : 'Adicionar pacote SEMPRE')}>
-            <rect x={chipX + 4} y={iY + 4} width={chipW - 8} height={LBLH - 8} rx={2} fill="transparent" />
+            <rect x={chipX + 4} y={iY + 4} width={chipW - 8} height={chipH - 8} rx={2} fill="transparent" />
           </g>
         )
       }
@@ -2210,24 +2314,14 @@ function drawFlowColumn(secs: LSec[], colCX: number, topY: number, els: React.Re
       const ref: DecRef = { secIdx: si, decIdx: di, sub: [] }
       // Edit overlays on the diamond
       if (_editCb) {
-        const capSi = si, capDi = di, capQ = dec.question
+        const capQ = dec.question
         const decHlKey = `q:${si}:${di}`
         // Clique no diamante: em modo "clique na origem" seleciona a origem; caso contrário, abre sidebar.
         els.push(
           <g key={K()} onMouseDown={stopMD} onClick={(e) => {
             e.stopPropagation()
             if (_pickMode) { _editCb!({ type: 'pick_source', ref, question: capQ }); return }
-            const decItems: MenuItem[] = [
-              { label: 'Adicionar resposta', glyph: '➕', color: '#0ea5e9', onClick: () => _editCb!({ type: 'p_add_ans', ref }) },
-              { label: 'Adicionar pacote à pergunta', glyph: '📦', color: '#f97316', onClick: () => _editCb!({ type: 'p_add_dec_pkg', ref }) },
-              { label: 'Inserir pergunta acima', glyph: '↑', color: '#22d3ee', onClick: () => _editCb!({ type: 'add_decision', secIdx: capSi, afterDecIdx: capDi - 1 }) },
-              { label: 'Inserir pergunta abaixo', glyph: '↓', color: '#22d3ee', onClick: () => _editCb!({ type: 'add_decision', secIdx: capSi, afterDecIdx: capDi }) },
-              { label: 'Mover pergunta acima', glyph: '⬆', color: '#94a3b8', onClick: () => _editCb!({ type: 'move_decision', secIdx: capSi, decIdx: capDi, dir: 'up' }) },
-              { label: 'Mover pergunta abaixo', glyph: '⬇', color: '#94a3b8', onClick: () => _editCb!({ type: 'move_decision', secIdx: capSi, decIdx: capDi, dir: 'down' }) },
-              { label: 'Copiar pergunta', glyph: '⧉', color: '#14b8a6', onClick: () => _editCb!({ type: 'copy_decision', secIdx: capSi, decIdx: capDi }) },
-              { label: 'Remover pergunta', glyph: '×', color: '#ef4444', danger: true, onClick: () => _editCb!({ type: 'p_remove_dec', ref }) },
-            ]
-            openMenu(e, capQ, decItems, undefined, decHlKey, (v) => _editCb!({ type: 'p_set_q', ref, value: v }))
+            openMenu(e, capQ, qMenuItems(ref), undefined, decHlKey, (v) => _editCb!({ type: 'p_set_q', ref, value: v }))
           }} style={{ cursor: _pickMode ? 'copy' : 'pointer' }} {...tipAttrs(_pickMode ? 'Selecionar como origem' : 'Ações da pergunta')}>
             <polygon points={`${CX},${dY} ${CX+DDW/2-14},${dY+DH/2} ${CX},${dY+DH} ${CX-DDW/2+14},${dY+DH/2}`}
               fill="transparent" />
