@@ -12,6 +12,9 @@ dist
 dist-ssr
 *.local
 
+# Artefatos de teste (Playwright)
+test-results
+
 # Variáveis de ambiente locais (commitar só .env.example)
 .env
 .env.*

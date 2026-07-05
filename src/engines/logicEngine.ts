@@ -1,25 +1,101 @@
 import type { WizardInputs, ScheduleItem, Phase, Technology, Percentile } from '../types'
 import type { LSec, LDec, LAns, LPkg, LCondition } from '../data/logicSecs'
 import { getPackage, getDuration } from '../data/packages'
-import { applyTransitions, applyTimeline } from './sequenceEngine'
+import { expandScopeRefs } from '../data/logicOverrideStore'
+import { applyTransitions, applyTimeline, normalizeScopePhases } from './sequenceEngine'
 
 let _uid = 0
 const nextUid = () => `logic-${++_uid}`
 
 function checkCondition(condition: LCondition | undefined, inputs: WizardInputs): boolean {
   if (!condition) return true
-  const yesOrConting = (v?: string) => v === 'yes' || v === 'contingency'
   switch (condition) {
-    case 'clean_flowlines':    return !!inputs.cleanFlowlines
-    case 'remove_anm':         return !!inputs.removeANM
-    case 'not_remove_anm':     return !inputs.removeANM
-    case 'no_pdi':             return inputs.hasPDI === false
-    case 'stuck_risk':         return yesOrConting(inputs.hasStuckStringRisk)
-    case 'dhsv_no_sleeve':     return !(inputs.installCamisao ?? []).some(v => v === 'yes' || v === 'contingency')
-    case 'transponder_cot':    return inputs.transponderMode !== 'rov'
-    case 'transponder_rov':    return inputs.transponderMode === 'rov'
+    // Variantes por sonda/operação — permitem um único fluxo cobrir ANC/DP e LWO/Generalista
+    case 'rig_anc':            return inputs.rigType === 'ANC'
+    case 'rig_dp':             return inputs.rigType === 'DP'
+    case 'op_lwo':             return inputs.operationType === 'LWO'
+    case 'op_generalista':     return inputs.operationType !== 'LWO'
+    // Compostas (sonda + Generalista): SFT/Terminal Head só em operação Generalista.
+    case 'rig_dp_generalista':  return inputs.rigType === 'DP'  && inputs.operationType !== 'LWO'
+    case 'rig_anc_generalista': return inputs.rigType === 'ANC' && inputs.operationType !== 'LWO'
     default:                   return true
   }
+}
+
+// Campos de WizardInputs utilizáveis em LAns.field (resolução automática de resposta).
+// Exclui campos de controle que não representam decisões (scopeId, startDate, percentile,
+// logicAnswers). Usado pelo editor de fluxo para sugerir campos ao admin.
+export const WIZARD_LOGIC_FIELDS: string[] = [
+  'amortAnularFluid', 'anmForceMethod', 'anmForceOpen', 'anmHydrate', 'anmHydrateBlocks',
+  'anmValveContingency', 'anmValveHydrateBlocks', 'anularAMinPressure', 'anularFillFluid',
+  'anularFluid', 'bopCorrectionMethod', 'bopPwcPreLog', 'bopPwcValidation', 'bopTestMethod',
+  'camisaoMethod', 'ccapRemovalMethod', 'cementMethod', 'cleanFlowlines', 'cleanWithUep',
+  'contingencyCcapWorkstring', 'contingencyFejat', 'contingencyGabaritFT',
+  'contingencyTcapHydrate', 'contingencyTtFt', 'corrosionCapBeforeIntervention', 'csbPrimary',
+  'dhsvBrvType', 'dmmWithEquipment', 'flowlineHydrate', 'flowlineMethod',
+  'fs1CsbAlreadyInstalled', 'fs1CsbPrimary', 'fs1CsbSecondary', 'fs1CsbSecondaryMode',
+  'fs1PerfProfunda', 'fs1PerfRasa', 'fs2CopCutContingency', 'fs2CopCutMethod',
+  'fs2PackerFishing', 'fs2ThPlugRemoval', 'gaugeCamisaoAcoplado', 'gaugeContingency',
+  'gaugeTech', 'hasPDI', 'hasStuckStringRisk', 'hasThPlug', 'hasTmfPlug', 'includeCcapBackup',
+  'initialFillFluid', 'installCamisao', 'installTmfPlugEndAnul', 'installTmfPlugEndProd',
+  'investigationLogContingency', 'investigationLogMethods', 'investigationLogs',
+  'jatearCopCoi', 'killWellFase1A', 'loggingMode', 'operationType',
+  'perforationTestContingency', 'rcmaCsbPrincipal', 'removeANM', 'rigType', 'riserFluid',
+  'stdvDispositionAfterTest', 'subseaEquipments', 'supIntermTailFishing', 'supIntermTailMethod',
+  'tcapDisposition', 'tcapRemovalMethod', 'tcapSurfaceFluid', 'testColumnWithStdv',
+  'thPlugContingency', 'tmfPlugBores', 'tmfPlugContingencyAnul', 'tmfPlugContingencyProd',
+  'transponderMode', 'treeCapBeforeIntervention', 'ttFtCementMode', 'tubingPerfMethod',
+  'vglAction', 'vglContingency', 'vglFishingMethod', 'vglInstallStv', 'vglRemoveStv',
+]
+
+// Amortecimento COP/COI (LIMPEZA_INJECT): camisão contingencial força diesel+FCBA;
+// kill 'no' suprime; 'contingency' escolhe a variante contingencial do mesmo fluido.
+function _amortCopResolver(inp: WizardInputs): string | null {
+  if (inp.killWellFase1A === 'no') return 'Não / N.A.'
+  const hasCamisaoConting = (inp.installCamisao ?? []).includes('contingency')
+  const fluido = hasCamisaoConting ? 'Diesel + FCBA'
+    : inp.initialFillFluid === 'inhibited' ? 'MEG + FCBA'
+    : inp.initialFillFluid === 'diesel' ? 'Diesel puro'
+    : 'Diesel + FCBA'
+  if (inp.killWellFase1A === 'contingency') {
+    // 219 (diesel puro) não tem variante contingencial dedicada — usa diesel + FCBA
+    return fluido === 'Diesel puro' ? 'Contingência — Diesel + FCBA' : `Contingência — ${fluido}`
+  }
+  return fluido
+}
+
+// Perfis de investigação (INVESTIGATION_INJECT): rótulo pelo método do log; prefixo
+// "Contingência — " quando o log está marcado como contingencial. Logs sem variação de
+// método usam o rótulo simples ('Sim'/'Contingência').
+function _invLogResolver(
+  inp: WizardInputs,
+  log: string,
+  methodLabels: Record<string, string>,
+  defaultLabel: string,
+): string {
+  const logs = (inp.investigationLogs ?? []) as string[]
+  if (!logs.includes(log)) return 'Não'
+  const method = (inp.investigationLogMethods as Record<string, string> | undefined)?.[log]
+  const label = (method && methodLabels[method]) || defaultLabel
+  const conting = (inp.investigationLogContingency as Record<string, boolean> | undefined)?.[log] === true
+  if (!conting) return label
+  return label === 'Sim' ? 'Contingência' : `Contingência — ${label}`
+}
+
+// STDV mantida instalada após o teste (TT-BDC em ANC): pula limpeza/amortecimento pós-canhoneio.
+const _stdvKeptInstalled = (inp: WizardInputs) =>
+  inp.scopeId === 'FSU_TT_BDC' && inp.rigType === 'ANC' && inp.stdvDispositionAfterTest === 'keep'
+
+// Plugs no TMF (PLUG_INJECT Fase 1A): bores plugados condicionam testes/válvulas.
+const _hasProdBorePlug = (inp: WizardInputs) => !!inp.hasTmfPlug && (inp.tmfPlugBores ?? []).includes('production')
+const _hasAnulBorePlug = (inp: WizardInputs) => !!inp.hasTmfPlug && (inp.tmfPlugBores ?? []).includes('annular')
+
+// Pescaria de cauda (TAIL_FISHING_INJECT): método do elemento em inputs.tailFishingItems.
+function _tailResolver(inp: WizardInputs, element: string): string {
+  const item = (inp.tailFishingItems as { element: string; method: string }[] | undefined)
+    ?.find(it => it.element === element)
+  if (!item) return 'Não'
+  return item.method === 'stroker' ? 'Stroker' : item.method === 'ct' ? 'Flexitubo' : 'Arame'
 }
 
 // Maps decision question text → a function that resolves the answer label from WizardInputs.
@@ -30,25 +106,36 @@ const QUESTION_LABEL_RESOLVER: Record<string, (inp: WizardInputs) => string | st
   'DMM — equipamento subsea no fundo?': inp => !inp.dmmWithEquipment ? 'Não' : 'Sim — Fase 1',
   'Cap de corrosão (CCAP)?':           inp => (inp.contingencyCcapWorkstring === 'yes' || inp.contingencyCcapWorkstring === 'contingency') ? 'Sim' : 'Não',
   'Método de retirada da CCAP?':       inp => inp.ccapRemovalMethod === 'cable' ? 'Cabo' : 'Coluna de trabalho',
-  'Retirar TCap?':                      inp => inp.tcapRemovalMethod ? 'Sim' : 'Não / N.A.',
-  'Método de retirada da TCap?':        inp => inp.tcapRemovalMethod === 'rov' ? 'ROV' : 'TRT',
+  // TCap é retirada sempre que o poço tem tree_cap; método default é por coluna (espelha TCAP_INJECT)
+  'Retirar TCap?':                      inp => (inp.subseaEquipments ?? []).includes('tree_cap') ? 'Sim' : 'Não / N.A.',
+  'Método de retirada da TCap?':        inp => inp.tcapRemovalMethod === 'rov' ? 'ROV' : 'Coluna (TRT)',
   'Destino da TCap?':                   inp => inp.tcapDisposition === 'surface' ? 'Superfície' : 'Fundeio',
-  'Hidrato no conector TCap?':          inp => (inp.contingencyTcapHydrate === 'yes' || inp.contingencyTcapHydrate === 'contingency') ? 'Sim / Conting.' : 'Não',
+  'Hidrato no conector TCap?':          inp => inp.contingencyTcapHydrate === 'contingency' ? 'Contingência' : inp.contingencyTcapHydrate === 'yes' ? 'Sim' : 'Não',
+  'Fluido no riser (TCap à superfície)?': inp =>
+    inp.tcapSurfaceFluid === 'inhibited_pre' ? 'Inibido (pré-conexão)'
+    : inp.tcapSurfaceFluid === 'inhibited_post' ? 'Inibido (pós-conexão)' : 'N₂',
   // ── DESCIDA ─────────────────────────────────────────────────────────────────
   'Fluido de riser inibido?':          inp => inp.riserFluid === 'inhibited' ? 'Sim' : 'N₂ / sem fluido',
   // ── CONEXÃO ─────────────────────────────────────────────────────────────────
-  'Hidrato na ANM?':                   inp => inp.anmHydrate === 'no' ? 'Não' : (inp.anmHydrate === 'yes' || inp.anmHydrate === 'contingency') ? 'Sim' : null,
-  'Contingência de válvula ANM?':      inp => (inp.anmValveContingency ?? []).includes('jateamento') ? 'Jateamento' : 'Nenhuma',
-  'Abrir válvula da ANM com FT?': inp => {
-    if (!inp.anmForceOpen || inp.anmForceOpen === 'no') return 'Não'
-    const methods = inp.anmForceMethod ?? []
-    const hasHammer = methods.includes('hammer')
-    const hasMotor  = methods.includes('motor_broca')
-    if (hasHammer && hasMotor) return 'Ambos'
-    if (hasHammer)             return 'Martelete'
-    if (hasMotor)              return 'Motor + broca'
-    return 'Não'
-  },
+  'Hidrato na ANM?':                   inp => inp.anmHydrate === 'contingency' ? 'Contingência' : inp.anmHydrate === 'yes' ? 'Sim' : 'Não',
+  // Válvulas da ANM (ANM_VALVE_INJECT): adiadas quando há plug de produção no TMF
+  'Contingência de jateamento (válvulas ANM)?': inp =>
+    (!_hasProdBorePlug(inp) && (inp.anmValveContingency ?? []).includes('jateamento')) ? 'Sim' : 'Não',
+  'Contingência de gabaritagem FT (válvulas ANM)?': inp =>
+    (!_hasProdBorePlug(inp) && (inp.anmValveContingency ?? []).includes('gabarit_ft')) ? 'Sim' : 'Não',
+  'Conting. jateamento (pós-plug)?': inp =>
+    (_hasProdBorePlug(inp) && (inp.anmValveContingency ?? []).includes('jateamento')) ? 'Sim' : 'Não',
+  'Conting. gabaritagem FT (pós-plug)?': inp =>
+    (_hasProdBorePlug(inp) && (inp.anmValveContingency ?? []).includes('gabarit_ft')) ? 'Sim' : 'Não',
+  // Testes de interface e de bloco com plugs no TMF
+  'Teste de interface — produção?': inp => _hasProdBorePlug(inp) ? 'Com plug no TMF' : 'Padrão (sem plug)',
+  'Teste de interface — anular?':   inp => _hasAnulBorePlug(inp) ? 'Com plug no TMF' : 'Padrão (sem plug)',
+  'Retirar plug do TMF — anular?':   inp => _hasAnulBorePlug(inp) ? 'Sim' : 'Não',
+  'Retirar plug do TMF — produção?': inp => _hasProdBorePlug(inp) ? 'Sim' : 'Não',
+  'Teste de bloco de produção da ANM?': inp => _hasProdBorePlug(inp) ? 'Adiado (plug no TMF)' : 'Executar',
+  'Teste de bloco do anular da ANM?':   inp => _hasAnulBorePlug(inp) ? 'Adiado (plug no TMF)' : 'Executar',
+  'Abrir válvula da ANM com FT?': inp =>
+    inp.anmForceOpen === 'contingency' ? 'Contingência' : inp.anmForceOpen === 'yes' ? 'Sim' : 'Não',
   'Instalação de camisão na DHSV?': inp => {
     const v = inp.installCamisao ?? []
     if (v.includes('yes') && !v.includes('contingency')) return 'Sim'
@@ -65,26 +152,55 @@ const QUESTION_LABEL_RESOLVER: Record<string, (inp: WizardInputs) => string | st
       default:         return 'Não'
     }
   },
-  'Amortecimento COP — fluido?': inp => {
-    if (inp.killWellFase1A === 'no') return 'Não / N.A.'
-    if (inp.initialFillFluid === 'diesel_fcba') return 'Diesel + FCBA'
-    if (inp.initialFillFluid === 'inhibited')   return 'MEG + FCBA'
-    if (inp.initialFillFluid === 'diesel')       return 'Diesel puro'
-    return null
-  },
+  'Amortecimento COP — fluido?': _amortCopResolver,
+  // STDV mantida instalada (BDC/ANC): pula limpeza e amortecimento pós-canhoneio
+  'Limpeza pós-canhoneio — fluido?': inp => _stdvKeptInstalled(inp) ? 'Não / N.A.' : _amortCopResolver(inp),
+  'Teste de coluna com STDV?': inp => !inp.testColumnWithStdv ? 'Não'
+    : inp.stdvDispositionAfterTest === 'keep' ? 'Sim — manter instalada' : 'Sim — retirar após teste',
   'Pressão no anular A?': inp => {
-    if (inp.killWellFase1A === 'no') return 'Não / N.A.'
-    if (inp.anularAMinPressure === 'zero') return 'Zero'
-    if (inp.anularAMinPressure === 'nonzero') {
-      return (inp.anularFluid === 'diesel' || inp.anularFluid === 'diesel_fcba') ? 'Top kill — diesel' : 'Top kill — MEG'
-    }
-    return null
+    if (inp.killWellFase1A === 'no') return 'Poço isolado (não amortecer)'
+    const variant = inp.anularAMinPressure === 'nonzero'
+      ? (inp.anularFluid === 'diesel' ? 'top kill diesel' : 'top kill MEG')
+      : 'zero'
+    if (inp.killWellFase1A === 'contingency') return `Contingência — ${variant}`
+    return variant === 'zero' ? 'Zero' : variant === 'top kill diesel' ? 'Top kill — diesel' : 'Top kill — MEG'
   },
-  'Fluido amort. anular A pós-canhoneio?': inp => (inp.amortAnularFluid && inp.killWellFase1A !== 'no') ? 'Incluir' : 'Não incluir',
-  'Realizar Registro de Pressão?':      inp => (inp.investigationLogs ?? []).includes('registro_pressao') ? 'Sim' : 'Não',
+  'Amortecimento do anular pós-canhoneio?': inp =>
+    _stdvKeptInstalled(inp) ? 'Não previsto (STDV mantida)'
+    : inp.killWellFase1A === 'no' ? 'Não — poço isolado'
+    : inp.killWellFase1A === 'contingency' ? 'Contingência' : 'Sim',
+  // ── Perfis de investigação (espelha INVESTIGATION_INJECT; método+contingência por log) ──
+  'Investigação — registro de pressão?': inp => _invLogResolver(inp, 'registro_pressao', { electric: 'Cabo elétrico', ct: 'Flexitubo' }, 'Arame'),
+  'Investigação — fluxo pelo anular?':   inp => _invLogResolver(inp, 'fluxo_anular', { ct: 'Flexitubo' }, 'Arame'),
+  'Investigação — furo na COP?':         inp => _invLogResolver(inp, 'furo_cop', { ct: 'Flexitubo' }, 'Arame'),
+  'Investigação — caliper?':             inp => _invLogResolver(inp, 'caliper', {}, 'Sim'),
+  'Investigação — imageamento?':         inp => _invLogResolver(inp, 'imageamento', {}, 'Sim'),
+  'Investigação — free point?':          inp => _invLogResolver(inp, 'free_point', {}, 'Sim'),
+  // ── Pescaria de cauda (TAIL_FISHING_INJECT) — uma decisão por elemento ──
+  'Pescaria de cauda — STV F?':   inp => _tailResolver(inp, 'stv_f'),
+  'Pescaria de cauda — plug F?':  inp => _tailResolver(inp, 'plug_f'),
+  'Pescaria de cauda — BRV F?':   inp => _tailResolver(inp, 'brv_f'),
+  'Pescaria de cauda — STV R?':   inp => _tailResolver(inp, 'stv_r'),
+  'Pescaria de cauda — plug R?':  inp => _tailResolver(inp, 'plug_r'),
+  'Pescaria de cauda — BRV R?':   inp => _tailResolver(inp, 'brv_r'),
+  'Pescaria de cauda — camisão?': inp => _tailResolver(inp, 'camisao'),
+  // ── Operação de VGL (VGL_INJECT) ──
+  'Operação de VGL?': inp => inp.vglAction === 'replace' ? 'Substituir' : inp.vglAction === 'remove' ? 'Retirar' : 'Não',
+  'Descer STV para a operação de VGL?': inp => inp.vglInstallStv ? 'Sim' : 'Não',
+  'Retirar camisão para a VGL?': inp => {
+    const hasCamisao = (inp.installCamisao ?? []).some(v => v === 'yes' || v === 'contingency')
+    if (!hasCamisao) return 'Não'
+    return inp.camisaoMethod === 'ct' ? 'Flexitubo' : 'Arame'
+  },
+  'Reinstalar camisão pós-VGL?': inp => {
+    const hasCamisao = (inp.installCamisao ?? []).some(v => v === 'yes' || v === 'contingency')
+    if (!hasCamisao) return 'Não'
+    return inp.camisaoMethod === 'ct' ? 'Flexitubo' : 'Arame'
+  },
+  'Retirar STV pós-VGL?': inp => (inp.vglInstallStv && inp.vglRemoveStv) ? 'Sim' : 'Não',
   // ── FLOWLINES ───────────────────────────────────────────────────────────────
   'Limpar flowlines?':                 inp => inp.cleanFlowlines === true ? 'Sim' : inp.cleanFlowlines === false ? 'Não' : null,
-  'Hidrato nas flowlines?':            inp => (inp.flowlineHydrate === 'yes' || inp.flowlineHydrate === 'contingency') ? 'Sim / Conting.' : 'Não',
+  'Hidrato nas flowlines?':            inp => inp.flowlineHydrate === 'contingency' ? 'Contingência' : inp.flowlineHydrate === 'yes' ? 'Sim' : 'Não',
   'Método de limpeza?':                inp => inp.flowlineMethod === 'n2_lift' ? 'N₂ lift' : 'Bombeio direto',
   // ── TMF ─────────────────────────────────────────────────────────────────────
   'Instalar plug no TMF — anular?': inp => {
@@ -107,7 +223,8 @@ const QUESTION_LABEL_RESOLVER: Record<string, (inp: WizardInputs) => string | st
   },
   // ── CORTE ───────────────────────────────────────────────────────────────────
   'Cortar coluna abaixo do TH?':       inp => inp.hasPDI === false ? 'Sim — sem PDI' : 'Não — há PDI',
-  'Risco de aprisionamento de coluna?': inp => (inp.hasStuckStringRisk === 'yes' || inp.hasStuckStringRisk === 'contingency') ? 'Sim / Conting.' : 'Não / N.A.',
+  'Risco de aprisionamento de coluna?': inp =>
+    inp.hasStuckStringRisk === 'contingency' ? 'Contingência' : inp.hasStuckStringRisk === 'yes' ? 'Sim' : 'Não / N.A.',
   // ── CSB SECUNDÁRIO (TT) ─────────────────────────────────────────────────────
   'Canhoneio raso (tubingPerf)?': inp => {
     if (!inp.fs1PerfRasa || inp.fs1PerfRasa === 'no') return 'Não'
@@ -121,26 +238,43 @@ const QUESTION_LABEL_RESOLVER: Record<string, (inp: WizardInputs) => string | st
   'Tipo de CSB Secundário?': inp => inp.fs1CsbSecondary === 'tae' ? 'TAE' : 'Plug TH',
   // ── CSB SECUNDÁRIO (FS1) ────────────────────────────────────────────────────
   'Perfuração profunda da coluna?': inp => {
+    // RCMA com CSB principal por fluido eCSB: sem perfuração (espelha PERF_INJECT)
+    if (inp.scopeId === 'FSU_Conv_RCMA' && inp.rcmaCsbPrincipal === 'fluid_csb') return 'Não perfurar'
     if (inp.fs1PerfProfunda === 'no') return 'Não perfurar'
     switch (inp.tubingPerfMethod) {
-      case 'electric': return 'Cabo elétrico'
       case 'wireline': return 'Arame (eFire)'
       case 'ct':       return 'Flexitubo'
-      default:         return null
+      default:         return 'Cabo elétrico'
     }
   },
-  'Canhoneio raso + CSB Secundário?': inp => {
-    const perf = inp.fs1PerfRasa !== 'no'
-    const isTae = inp.fs1CsbSecondary === 'tae'
-    if (perf && isTae)  return 'Perf. + TAE'
-    if (perf)           return 'Perf. + Plug TH'
-    if (isTae)          return 'S/ perf. + TAE'
-    return 'S/ perf. + Plug TH'
+  'CSB secundário (FS1)?': inp => {
+    if (inp.scopeId === 'FSU_Conv_RCMA' && inp.rcmaCsbPrincipal === 'fluid_csb') return 'Não previsto'
+    if (inp.fs1CsbSecondaryMode === 'no') return 'Não previsto'
+    return inp.fs1CsbSecondaryMode === 'contingency' ? 'Contingência' : 'Executar'
+  },
+  'Canhoneio raso da coluna?': inp => {
+    if (inp.fs1PerfRasa === 'no') return 'Não'
+    switch (inp.tubingPerfMethod) {
+      case 'wireline': return 'Arame (eFire)'
+      case 'ct':       return 'Flexitubo'
+      default:         return 'Cabo elétrico'
+    }
   },
   // ── RETIRADA ────────────────────────────────────────────────────────────────
   'Retirar ANM?':                      inp => inp.removeANM === true ? 'Sim' : inp.removeANM === false ? 'Não' : null,
   // ── BDC ─────────────────────────────────────────────────────────────────────
   'Contingência TT-FT (coluna não estanque)?': inp => inp.contingencyTtFt ? 'Sim / Conting.' : 'Não prevista',
+  // CSB do BDC (CSB_INJECT): DP força TAE; ANC com STDV mantida pula; senão csbPrimary.
+  'CSB primário (BDC)?': inp => {
+    if (inp.rigType === 'ANC' && inp.stdvDispositionAfterTest === 'keep') return 'Mantida (STDV instalada)'
+    if (inp.rigType === 'DP') return 'TAE'
+    switch (inp.csbPrimary) {
+      case 'plug': return 'Plug wireline'
+      case 'tae':  return 'TAE'
+      default:     return 'STV wireline'
+    }
+  },
+  'Avaliação de cimentação BDC?': inp => inp.cementMethod === 'logging' ? 'Perfilagem' : 'Parâmetros',
   // ── RCMA ────────────────────────────────────────────────────────────────────
   'Tipo de CSB Principal RCMA?': inp => {
     switch (inp.rcmaCsbPrincipal) {
@@ -160,9 +294,24 @@ const QUESTION_LABEL_RESOLVER: Record<string, (inp: WizardInputs) => string | st
       default:                return null
     }
   },
-  'Coluna presa — corte? (conting.)':  inp => (inp.fs2CopCutContingency === 'yes' || inp.fs2CopCutContingency === 'contingency') ? 'Sim / Conting.' : 'Não',
-  'Retirar plug 3,75" no TH (Fase 2)?': inp => (inp.fs2ThPlugRemoval === 'yes' || inp.fs2ThPlugRemoval === 'contingency') ? 'Sim' : 'Não',
-  'Pescaria de packer?':               inp => (inp.fs2PackerFishing === 'yes' || inp.fs2PackerFishing === 'contingency') ? 'Sim / Conting.' : 'Não',
+  'Coluna presa — corte? (conting.)':  inp => inp.fs2CopCutContingency === 'contingency' ? 'Contingência' : inp.fs2CopCutContingency === 'yes' ? 'Sim' : 'Não',
+  // ── ISOLAMENTO (espelha ISOLATION_INJECT; isolamento único = isolations[0]) ──
+  'Avaliação de cimento antes do tampão?': inp => {
+    const isRcma = inp.scopeId === 'FSU_Conv_RCMA' || inp.scopeId === 'FS2_Conv_RCMA'
+    return (inp.bopPwcPreLog !== false && !isRcma) ? 'Sim (padrão)' : 'Não'
+  },
+  'Precisa correção de cimentação?': inp => {
+    const iso = inp.isolations?.[0]
+    if (!iso?.needsCorrection) return 'Não'
+    const method = iso.corrMethod ?? ((inp.scopeId ?? '').startsWith('FS2') ? 'pwc' : 'convencional')
+    if (method === 'convencional') return 'Convencional'
+    return iso.pwcValidation === 'perfil' ? 'PWC — validação por perfilagem' : 'PWC — validação por parâmetros'
+  },
+  'Tipo de tampão de isolamento?': inp =>
+    inp.isolations?.[0]?.plugType === 'pata_de_mula' ? 'Pata de Mula' : 'BPP',
+  'Retirar plug 3,75" no TH (Fase 2)?': inp => inp.fs2ThPlugRemoval === 'contingency' ? 'Contingência' : inp.fs2ThPlugRemoval === 'yes' ? 'Sim' : 'Não',
+  'Pescaria de packer?':               inp => inp.fs2PackerFishing === 'contingency' ? 'Contingência' : inp.fs2PackerFishing === 'yes' ? 'Sim' : 'Não',
+  'Avaliação de cimento antes do bombeio (RCMA)?': inp => inp.bopPwcPreLog !== false ? 'Sim (padrão)' : 'Não',
 }
 
 function resolveAnswer(dec: LDec, inputs: WizardInputs, key: string): LAns | undefined {
@@ -305,7 +454,9 @@ function walkDecisions(
       // Pacotes "após convergência" desta resposta — emitidos depois de toda a subárvore.
       for (const entry of ans.after ?? []) {
         for (const pkg of entry.packages ?? []) {
-          emitPkg(pkg, fallbackPhase, percentile, items, inputs, ctx)
+          const pkgIsContingency = contingency || !!pkg.isContingency
+          emitPkg(pkg, fallbackPhase, percentile, items, inputs,
+            pkgIsContingency ? { reason: reason ?? 'Contingência' } : undefined)
         }
       }
     }
@@ -332,7 +483,12 @@ export function generateScheduleFromLogic(
   _uid = 0
   const { rigType, operationType, percentile } = inputs
 
-  const filtered = sections.filter(sec => {
+  // Seções `ref` (blocos de reuso vivo) são expandidas aqui — idempotente para chamadas
+  // que já expandiram (seções expandidas não têm ref). Garante que TODOS os callers
+  // (scheduleRouter estático, parity.ts, dumpCase) resolvam blocos.
+  const expanded = expandScopeRefs(sections)
+
+  const filtered = expanded.filter(sec => {
     if (sec.rigTypes?.length && !sec.rigTypes.includes(rigType)) return false
     if (sec.opTypes?.length && !sec.opTypes.includes(operationType)) return false
     return true
@@ -352,5 +508,8 @@ export function generateScheduleFromLogic(
 
   const base = items.filter(i => !i.autoInserted)
   const rebuilt = applyTransitions(base, rigType, operationType, percentile)
-  return applyTimeline(rebuilt)
+  // Mesma normalização final de fases da sequence engine (âncora da TCap / promoção
+  // da Fase 0) — mantém o fluxo custom equivalente à engine sem exigir que o admin
+  // modele a regra de fases manualmente.
+  return normalizeScopePhases(applyTimeline(rebuilt), inputs.scopeId ?? '')
 }

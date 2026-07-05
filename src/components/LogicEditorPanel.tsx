@@ -3,20 +3,54 @@
  * Usa o mesmo fluxograma SVG interativo: clique para editar perguntas, respostas
  * e pacotes; botões para adicionar/remover decisões e pernas de resposta.
  */
-import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
-import { Layers, GitBranch, Puzzle, Plus, Trash2, Save, RotateCcw, RotateCw, Check, Copy, X, AlertCircle, Download, ChevronLeft, ChevronDown, ChevronRight, HelpCircle, Pencil } from 'lucide-react'
-import { SCOPE_CATEGORIES, categoryOfScope } from '../data/scopeCategories'
-import type { LSec, LDec, LAns, LPkg } from '../data/logicSecs'
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react'
+// Ícones padronizados na biblioteca react-icons (Phosphor), com alias para os nomes
+// antes vindos de lucide-react — mantém todos os call sites (<Save/>, <Layers/>…) intactos.
+import {
+  PiStackFill as Layers,
+  PiGitBranchFill as GitBranch,
+  PiPuzzlePieceFill as Puzzle,
+  PiPlusBold as Plus,
+  PiTrashFill as Trash2,
+  PiFloppyDiskFill as Save,
+  PiArrowCounterClockwiseBold as RotateCcw,
+  PiArrowClockwiseBold as RotateCw,
+  PiCheckBold as Check,
+  PiCopyFill as Copy,
+  PiX as X,
+  PiDownloadSimpleFill as Download,
+  PiCaretLeftBold as ChevronLeft,
+  PiCaretDownBold as ChevronDown,
+  PiCaretRightBold as ChevronRight,
+  PiQuestionFill as HelpCircle,
+  PiPencilSimpleFill as Pencil,
+  PiChartBarFill as BarChart3,
+  PiFolderFill,
+  PiFolderOpenFill,
+  PiFolderPlusFill,
+  PiClockCounterClockwiseBold as History,
+} from 'react-icons/pi'
+// Ícones da legenda de ajuda (mesmos usados no fluxograma/menus).
+import {
+  PiLegoFill, PiStarFill, PiFlagPennantFill, PiPlusCircleFill,
+  PiListNumbersFill, PiArrowLineUp, PiArrowUUpLeftFill, PiCopySimpleFill, PiTrashFill,
+} from 'react-icons/pi'
+import type { IconType } from 'react-icons'
+import type { LSec, LDec, LAns, LPkg, LCondition } from '../data/logicSecs'
 import { LOGIC_BY_SCOPE } from '../data/logicSecs'
 import {
   getLogicScopes, getLogicScope, saveLogicScope, saveLogicScopeMeta,
   createLogicScope, deleteLogicScope, type LogicScopeMeta,
+  getLogicScopeVersions, getLogicScopeVersion, restoreLogicScopeVersion,
+  type LogicScopeVersionMeta,
 } from '../utils/api'
 import { isAdmin, authHeader } from '../utils/auth'
 import { updateCustomScopeMeta } from '../data/logicOverrideStore'
 import { PACKAGES } from '../data/packages'
-import { setLogicOverrides, getLogicOverride } from '../data/logicOverrideStore'
+import { setLogicOverrides, getLogicOverride, expandScopeRefs, resolveScopeSections, setScopeLabels } from '../data/logicOverrideStore'
 import { LogicGraphPanel, type EditAction, type DecRef } from './LogicGraphPanel'
+import { ScopeParityChecker } from './ScopeParityChecker'
+import { ConditionAuditPanel } from './ConditionAuditPanel'
 
 // ─── Constantes ───────────────────────────────────────────────────────────────
 
@@ -31,8 +65,13 @@ const BUNDLE_LABELS: Record<string, string> = {
 const BUNDLE_IDS = Object.keys(BUNDLE_LABELS)
 
 const BLOCK_LABELS: Record<string, string> = {
-  MOB_DESCIDA:       'MOB · Descida (DP)',
-  MOB_REENTRADA_ANC: 'MOB · Reentrada (ANC)',
+  // Bloco de MOB por condicionais de sonda — usado (via ref) no início dos escopos FSU/FS1.
+  BLK_MOB_DESCIDA_DP_COND: 'MOB · Descida DP (condicionais por sonda)',
+  // Blocos fatorados de subsequências repetidas entre escopos.
+  BLK_CORTE_MEC_FS1: 'Corte Mecânico (FS1)',
+  BLK_MOB_FS2:       'Mobilização (Fase 2)',
+  BLK_BOP_ABERTURA:  'BOP · Abertura (instalação + FETH/COP)',
+  BLK_BOP_FECHAMENTO:'BOP · Fechamento (isolamento + retirada)',
 }
 const BLOCK_IDS = Object.keys(BLOCK_LABELS)
 
@@ -545,44 +584,52 @@ function BasePickerModal({ overrides, currentScopeId, onPick, onClose }: {
 
 // ─── Modal: novo escopo customizado ──────────────────────────────────────────
 
-function NewScopeModal({ onSave, onClose }: {
+function NewScopeModal({ kind, onSave, onClose }: {
+  kind: 'scope' | 'block'
   onSave: (scopeId: string, label: string) => Promise<void>; onClose: () => void
 }) {
-  const [scopeId, setScopeId] = useState('')
+  const isBlock = kind === 'block'
+  // Blocos usam prefixo obrigatório 'BLK_' (a UI os classifica como bloco por esse prefixo).
+  const [scopeId, setScopeId] = useState(isBlock ? 'BLK_' : '')
   const [label, setLabel] = useState('')
   const [creating, setCreating] = useState(false)
   const [localError, setLocalError] = useState<string | null>(null)
-  const valid = !creating && scopeId.trim() && label.trim() && !BUNDLE_IDS.includes(scopeId.trim()) && !BLOCK_IDS.includes(scopeId.trim())
+  const id = scopeId.trim()
+  const idOk = isBlock ? (id.startsWith('BLK_') && id.length > 4) : id.length > 0
+  const valid = !creating && idOk && label.trim() && !BUNDLE_IDS.includes(id) && !BLOCK_IDS.includes(id)
 
   const handleCreate = async () => {
     if (!valid) return
     setCreating(true); setLocalError(null)
-    try { await onSave(scopeId.trim(), label.trim()) }
-    catch (e) { setLocalError(e instanceof Error ? e.message : 'Erro ao criar escopo'); setCreating(false) }
+    try { await onSave(id, label.trim()) }
+    catch (e) { setLocalError(e instanceof Error ? e.message : `Erro ao criar ${isBlock ? 'bloco' : 'escopo'}`); setCreating(false) }
   }
 
   return (
     <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/60">
       <div className="bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl w-full max-w-sm p-5 space-y-4">
         <div className="flex items-center gap-2">
-          <Plus size={14} className="text-[#d97706]" />
-          <span className="text-sm font-semibold text-slate-100">Novo escopo customizado</span>
+          {isBlock ? <Puzzle size={14} className="text-[#d97706]" /> : <Plus size={14} className="text-[#d97706]" />}
+          <span className="text-sm font-semibold text-slate-100">{isBlock ? 'Novo bloco de lógica' : 'Novo escopo customizado'}</span>
         </div>
         <p className="text-[11px] text-slate-500">
-          Após criar, escolha um escopo base e edite no fluxograma.
+          {isBlock
+            ? 'Um bloco é reutilizável: pode ser incluído em vários escopos. Após criar, edite o fluxograma do bloco.'
+            : 'Após criar, escolha um escopo base e edite no fluxograma.'}
         </p>
         <div className="space-y-3">
           <div>
             <label className="text-[10px] text-slate-400">ID único</label>
             <input value={scopeId} onChange={e => { setScopeId(e.target.value.replace(/\s/g,'')); setLocalError(null) }}
-              placeholder="ex: FSU_Custom_01"
+              placeholder={isBlock ? 'ex: BLK_MEU_BLOCO' : 'ex: FSU_Custom_01'}
               onKeyDown={e => e.key === 'Enter' && handleCreate()}
               className="w-full mt-1 text-sm bg-slate-800 rounded-lg px-3 py-2 text-slate-100 outline-none border border-slate-700 focus:border-[#d97706]/60" />
-            {scopeId && (BUNDLE_IDS.includes(scopeId) || BLOCK_IDS.includes(scopeId)) && <p className="text-[10px] text-rose-400 mt-0.5">ID reservado.</p>}
+            {id && (BUNDLE_IDS.includes(id) || BLOCK_IDS.includes(id)) && <p className="text-[10px] text-rose-400 mt-0.5">ID reservado.</p>}
+            {isBlock && id.length > 0 && !id.startsWith('BLK_') && <p className="text-[10px] text-rose-400 mt-0.5">O ID de um bloco deve começar com “BLK_”.</p>}
           </div>
           <div>
             <label className="text-[10px] text-slate-400">Rótulo</label>
-            <input value={label} onChange={e => setLabel(e.target.value)} placeholder="ex: FSU customizado"
+            <input value={label} onChange={e => setLabel(e.target.value)} placeholder={isBlock ? 'ex: Meu bloco reutilizável' : 'ex: FSU customizado'}
               onKeyDown={e => e.key === 'Enter' && handleCreate()}
               className="w-full mt-1 text-sm bg-slate-800 rounded-lg px-3 py-2 text-slate-100 outline-none border border-slate-700 focus:border-[#d97706]/60" />
           </div>
@@ -628,6 +675,41 @@ type PendingTransfer = {
   target: { ref: DecRef; ansIdx: number } | { secIdx: number }
 }
 
+// ─── Grupos de escopos (organização em pastas, persistido em localStorage) ───
+type ScopeGroup = { id: string; name: string; parentId: string | null }
+type GroupStorage = { groups: ScopeGroup[]; memberships: Record<string, string | null>; _v?: number }
+const EMPTY_GS: GroupStorage = { groups: [], memberships: {} }
+
+// Grupos pré-existentes (ex-categorias hard-coded → agora grupos de usuário)
+const SEED_GROUPS: ScopeGroup[] = [
+  { id: 'cat_molhada',  name: 'Abandono Completação Molhada', parentId: null },
+  { id: 'cat_seca',     name: 'Abandono Completação Seca',    parentId: null },
+  { id: 'cat_workover', name: 'Workover',                     parentId: null },
+]
+const SEED_V = 1
+
+function loadGroupStorage(): GroupStorage {
+  try {
+    const raw = localStorage.getItem('lep-scope-groups')
+    const stored: GroupStorage = raw ? JSON.parse(raw) : EMPTY_GS
+    if ((stored._v ?? 0) < SEED_V) {
+      // Semeia os grupos padrão preservando o que o usuário já criou. Dedup por id E por
+      // nome: evita recriar "Abandono Completação Molhada" (etc.) se já houver uma pasta
+      // com esse nome — mesmo que com outro id (blinda estados de localStorage legados).
+      const existingIds = new Set(stored.groups.map(g => g.id))
+      const existingNames = new Set(stored.groups.map(g => g.name))
+      const newGroups = [...stored.groups, ...SEED_GROUPS.filter(g => !existingIds.has(g.id) && !existingNames.has(g.name))]
+      // Todos os bundles vão para "Completação Molhada" se ainda sem grupo
+      const newMem = { ...stored.memberships }
+      for (const id of BUNDLE_IDS) { if (!newMem[id]) newMem[id] = 'cat_molhada' }
+      const next: GroupStorage = { groups: newGroups, memberships: newMem, _v: SEED_V }
+      localStorage.setItem('lep-scope-groups', JSON.stringify(next))
+      return next
+    }
+    return stored
+  } catch { return EMPTY_GS }
+}
+
 // ─── Painel principal ─────────────────────────────────────────────────────────
 
 export function LogicEditorPanel({ canEdit }: { canEdit: boolean }) {
@@ -636,11 +718,21 @@ export function LogicEditorPanel({ canEdit }: { canEdit: boolean }) {
   const [sections, setSections] = useState<LSec[]>([])
   const [baseLabel, setBaseLabel] = useState<string | null>(null)
   const [showHelp, setShowHelp] = useState(false)
+  const [showParity, setShowParity] = useState(false)
+  const [showAudit, setShowAudit] = useState(false)
   const [showScopePanel, setShowScopePanel] = useState(false)
-  const [collapsedCats, setCollapsedCats] = useState<Set<string>>(new Set())
-  const toggleCat = (id: string) => setCollapsedCats(prev => {
-    const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n
+  const [showScopeSidebar, setShowScopeSidebar] = useState(true)
+  // Largura da sidebar de escopos (px), redimensionável por mouse e persistida.
+  const [sidebarWidth, setSidebarWidth] = useState(() => {
+    const v = Number(localStorage.getItem('lep-sidebar-w'))
+    return v >= 160 && v <= 520 ? v : 208
   })
+  const [scopeGroups, setScopeGroups] = useState<GroupStorage>(loadGroupStorage)
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set())
+  const [editingGroupId, setEditingGroupId] = useState<{ id: string; draft: string } | null>(null)
+  const [creatingGroup, setCreatingGroup] = useState<{ parentId: string | null; draft: string } | null>(null)
+  const [movingScopeId, setMovingScopeId] = useState<string | null>(null)
+  const [movingGroupId, setMovingGroupId] = useState<string | null>(null)
   const scopePanelRef = useRef<HTMLDivElement>(null)
   const renameCancelledRef = useRef(false)
   const [dirty, setDirty] = useState(false)
@@ -648,7 +740,12 @@ export function LogicEditorPanel({ canEdit }: { canEdit: boolean }) {
   const [saved, setSaved] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [showNewScope, setShowNewScope] = useState(false)
+  const [newScopeKind, setNewScopeKind] = useState<'scope' | 'block' | null>(null)
+  // Histórico de versões (snapshots dos fluxogramas)
+  const [showHistory, setShowHistory] = useState(false)
+  const [versions, setVersions] = useState<LogicScopeVersionMeta[]>([])
+  const [versionsLoading, setVersionsLoading] = useState(false)
+  const [previewVersionId, setPreviewVersionId] = useState<string | null>(null)
   const [showBasePicker, setShowBasePicker] = useState(false)
   const [showImportSection, setShowImportSection] = useState(false)
   const [editingLabel, setEditingLabel] = useState<string | null>(null)
@@ -687,6 +784,10 @@ export function LogicEditorPanel({ canEdit }: { canEdit: boolean }) {
 
   const sectionsRef = useRef(sections)
   sectionsRef.current = sections
+
+  // Ref para selectScope (definido adiante) — usada por handleEditAction (memoizado) ao
+  // navegar para o escopo de um bloco, sem capturar uma closure obsoleta.
+  const selectScopeRef = useRef<((id: string) => Promise<void>) | null>(null)
 
   // ── Histórico de undo/redo ─────────────────────────────────────────────────
   const [past, setPast] = useState<LSec[][]>([])
@@ -748,22 +849,267 @@ export function LogicEditorPanel({ canEdit }: { canEdit: boolean }) {
     return () => window.removeEventListener('keydown', handler)
   }, [undo, redo])
 
+  // `deletable`: só overrides criados pelo usuário (não bundles/blocos hardcoded do código).
+  // Blocos custom = override cujo scopeId começa com 'BLK_' → aparecem na seção "Blocos".
   const scopeList = [
-    ...BUNDLE_IDS.map(id => ({ scopeId: id, label: BUNDLE_LABELS[id], isCustom: false, isBlock: false })),
+    ...BUNDLE_IDS.map(id => ({ scopeId: id, label: BUNDLE_LABELS[id], isCustom: false, isBlock: false, deletable: false })),
     ...BLOCK_IDS.map(id => {
       const serverMeta = overrides.find(o => o.scopeId === id)
-      return { scopeId: id, label: serverMeta?.label ?? BLOCK_LABELS[id], isCustom: false, isBlock: true }
+      return { scopeId: id, label: serverMeta?.label ?? BLOCK_LABELS[id], isCustom: false, isBlock: true, deletable: false }
     }),
-    ...overrides.filter(o => o.isCustom && !isReservedId(o.scopeId)).map(o => ({ scopeId: o.scopeId, label: o.label ?? o.scopeId, isCustom: true, isBlock: false })),
+    ...overrides.filter(o => o.isCustom && !isReservedId(o.scopeId)).map(o => {
+      const isBlk = o.scopeId.startsWith('BLK_')
+      return { scopeId: o.scopeId, label: o.label ?? o.scopeId, isCustom: !isBlk, isBlock: isBlk, deletable: true }
+    }),
   ]
 
   const hasOverride = (scopeId: string) => overrides.some(o => o.scopeId === scopeId)
+  // scopeIds de blocos incluídos (via `ref`) nas seções de um escopo (não expandidas).
+  const refUsers = (scopeId: string): string[] =>
+    resolveScopeSections(scopeId).filter(s => s.ref).map(s => s.ref!.scopeId)
+
+  // ── Gestão de grupos ──────────────────────────────────────────────────────
+  // Usa updater funcional para evitar closure stale (duas operações antes do re-render).
+  const saveGroups = (updater: (prev: GroupStorage) => GroupStorage) => {
+    setScopeGroups(prev => {
+      // Força o marcador de versão em TODA escrita: sem isso, um updater que reconstrói o
+      // objeto (ex.: groupDelete) perderia `_v`, e o próximo load re-semearia os grupos
+      // padrão — fazendo a pasta "Abandono Completação Molhada" reaparecer vazia.
+      const next = { ...updater(prev), _v: SEED_V }
+      localStorage.setItem('lep-scope-groups', JSON.stringify(next))
+      return next
+    })
+  }
+  const groupCreate = (name: string, parentId: string | null) => {
+    const id = `g${Date.now()}`
+    saveGroups(prev => ({ ...prev, groups: [...prev.groups, { id, name: name.trim(), parentId }] }))
+  }
+  const groupRename = (id: string, name: string) => {
+    saveGroups(prev => ({ ...prev, groups: prev.groups.map(g => g.id === id ? { ...g, name: name.trim() } : g) }))
+  }
+  const groupDelete = (id: string) => {
+    saveGroups(prev => {
+      const toDelete = new Set<string>()
+      const collect = (gid: string) => { toDelete.add(gid); prev.groups.filter(g => g.parentId === gid).forEach(g => collect(g.id)) }
+      collect(id)
+      const newMem = { ...prev.memberships }
+      for (const [sid, gid] of Object.entries(newMem)) { if (gid && toDelete.has(gid)) delete newMem[sid] }
+      return { groups: prev.groups.filter(g => !toDelete.has(g.id)), memberships: newMem }
+    })
+  }
+  const groupAssign = (scopeId: string, groupId: string | null) => {
+    saveGroups(prev => ({ ...prev, memberships: { ...prev.memberships, [scopeId]: groupId } }))
+    setMovingScopeId(null)
+  }
+  const groupReparent = (groupId: string, newParentId: string | null) => {
+    saveGroups(prev => {
+      // Coleta descendentes para impedir referência circular
+      const descendants = new Set<string>()
+      const collect = (gid: string) => { descendants.add(gid); prev.groups.filter(g => g.parentId === gid).forEach(g => collect(g.id)) }
+      collect(groupId)
+      if (newParentId !== null && descendants.has(newParentId)) return prev
+      return { ...prev, groups: prev.groups.map(g => g.id === groupId ? { ...g, parentId: newParentId } : g) }
+    })
+    setMovingGroupId(null)
+  }
+  const toggleGroupCollapse = (id: string) => setCollapsedGroups(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n })
+
+  // ── Resize da sidebar por mouse (arrasta a borda direita) ─────────────────
+  const startSidebarResize = (e: React.MouseEvent) => {
+    e.preventDefault()
+    const startX = e.clientX
+    const startW = sidebarWidth
+    let lastW = startW
+    const onMove = (ev: MouseEvent) => {
+      lastW = Math.min(520, Math.max(160, startW + (ev.clientX - startX)))
+      setSidebarWidth(lastW)
+    }
+    const onUp = () => {
+      document.removeEventListener('mousemove', onMove)
+      document.removeEventListener('mouseup', onUp)
+      document.body.style.userSelect = ''
+      localStorage.setItem('lep-sidebar-w', String(lastW))
+    }
+    document.addEventListener('mousemove', onMove)
+    document.addEventListener('mouseup', onUp)
+    document.body.style.userSelect = 'none'
+  }
+
+  // ── Tree picker inline para atribuição de grupo ───────────────────────────
+  // Exibe a hierarquia completa de grupos com indentação; fecha ao clicar fora
+  // (handler de mousedown adicionado em useEffect quando algum picker está aberto).
+  const renderGroupPicker = (
+    currentGroupId: string | null,
+    onSelect: (id: string | null) => void,
+    excludeIds: Set<string> = new Set(),
+  ): React.ReactNode => {
+    const renderNode = (group: ScopeGroup, d: number): React.ReactNode => {
+      if (excludeIds.has(group.id)) return null
+      const children = scopeGroups.groups.filter(g => g.parentId === group.id)
+      const isCurrent = currentGroupId === group.id
+      return (
+        <div key={group.id}>
+          <button
+            onMouseDown={e => e.preventDefault()}
+            onClick={() => onSelect(group.id)}
+            className={`w-full text-left flex items-center gap-1 py-0.5 rounded transition-colors
+              ${isCurrent ? 'text-amber-300 bg-amber-500/10' : 'text-slate-300 hover:bg-slate-700/60'}`}
+            style={{ paddingLeft: `${6 + d * 10}px` }}>
+            {isCurrent
+              ? <PiFolderOpenFill size={9} className="text-amber-400 shrink-0" />
+              : <PiFolderFill size={9} className="text-amber-500/40 shrink-0" />}
+            <span className="text-[10px] truncate">{group.name}</span>
+          </button>
+          {children.map(g => renderNode(g, d + 1))}
+        </div>
+      )
+    }
+    return (
+      <div data-group-picker
+        className="mt-0.5 bg-slate-800 border border-[#d97706]/30 rounded-lg shadow-xl overflow-hidden">
+        <div className="max-h-44 overflow-y-auto py-1 scrollbar-custom">
+          <button
+            onMouseDown={e => e.preventDefault()}
+            onClick={() => onSelect(null)}
+            className={`w-full text-left flex items-center gap-1 px-2 py-0.5 text-[10px] rounded transition-colors
+              ${currentGroupId === null ? 'text-amber-300 bg-amber-500/10' : 'text-slate-400 hover:bg-slate-700/60'}`}>
+            <PiFolderOpenFill size={9} className={currentGroupId === null ? 'text-amber-400' : 'opacity-30'} />
+            Sem grupo
+          </button>
+          {scopeGroups.groups.filter(g => g.parentId === null && !excludeIds.has(g.id)).map(g => renderNode(g, 0))}
+        </div>
+      </div>
+    )
+  }
+
+  // ── Renderizadores da árvore de grupos (funções inline p/ acessar estado) ─
+  const renderScopeItem = (s: { scopeId: string; label: string; isCustom: boolean; isBlock: boolean; deletable?: boolean }, depth: number) => {
+    const currentGroup = scopeGroups.memberships[s.scopeId] ?? null
+    const Icon = s.isBlock ? Puzzle : s.isCustom ? GitBranch : Layers
+    const iconCls = s.isBlock || s.isCustom ? 'text-[#d97706]/70' : 'opacity-50'
+    return (
+      <div key={s.scopeId}>
+        <div className={`flex items-center rounded-lg mx-1 group/item transition-colors
+          ${selectedScope === s.scopeId ? 'bg-slate-700/60' : 'hover:bg-slate-800/50'}`}
+          style={{ paddingLeft: `${depth * 10}px` }}>
+          <button onClick={() => selectScope(s.scopeId)}
+            className="flex-1 text-left flex items-center gap-2 px-3 py-1.5 text-xs text-slate-400 hover:text-slate-200 min-w-0">
+            <Icon size={10} className={`shrink-0 ${iconCls}`} />
+            <span className="flex-1 truncate">{s.label}</span>
+            {hasOverride(s.scopeId) && !s.isCustom && (
+              <span className="w-1.5 h-1.5 rounded-full bg-[#d97706] shrink-0" title="Override ativo" />
+            )}
+          </button>
+          {isAdmin() && (
+            <div className="flex items-center gap-0.5 pr-1.5 opacity-0 group-hover/item:opacity-100 transition-opacity">
+              <button onClick={() => setMovingScopeId(movingScopeId === s.scopeId ? null : s.scopeId)}
+                title="Mover para grupo"
+                className="flex items-center text-slate-600 hover:text-amber-400 transition-colors">
+                <PiFolderOpenFill size={11} />
+              </button>
+              {s.deletable && (
+                <button onClick={e => { e.stopPropagation(); void handleDeleteCustom(s.scopeId) }}
+                  title={s.isBlock ? 'Excluir bloco' : 'Excluir escopo'}
+                  className="flex items-center text-slate-600 hover:text-rose-400 transition-colors">
+                  <Trash2 size={10} />
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+        {movingScopeId === s.scopeId && (
+          <div className="mx-2 mb-1" style={{ paddingLeft: `${depth * 10}px` }}>
+            {renderGroupPicker(currentGroup, (id) => groupAssign(s.scopeId, id))}
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  const renderScopeGroup = (group: ScopeGroup, depth: number): React.ReactNode => {
+    const collapsed = collapsedGroups.has(group.id)
+    const childScopes = scopeList
+      .filter(s => (scopeGroups.memberships[s.scopeId] ?? null) === group.id)
+      .sort((a, b) => (a.isBlock === b.isBlock ? 0 : a.isBlock ? -1 : 1))
+    const childGroups = scopeGroups.groups.filter(g => g.parentId === group.id)
+    const isEditing = editingGroupId?.id === group.id
+    return (
+      <div key={group.id} style={{ paddingLeft: `${depth * 10}px` }}>
+        <div className="flex items-center gap-0.5 mx-1 rounded-lg group/grp hover:bg-slate-800/30 transition-colors">
+          <button onClick={() => toggleGroupCollapse(group.id)} className="text-left flex items-center gap-1 flex-1 min-w-0 px-2 py-1.5">
+            {collapsed
+              ? <><ChevronRight size={9} className="text-slate-600 shrink-0" /><PiFolderFill size={12} className="text-amber-500/70 shrink-0" /></>
+              : <><ChevronDown size={9} className="text-slate-600 shrink-0" /><PiFolderOpenFill size={12} className="text-amber-500/70 shrink-0" /></>}
+            {isEditing ? (
+              <input autoFocus value={editingGroupId!.draft}
+                onChange={e => setEditingGroupId({ ...editingGroupId!, draft: e.target.value })}
+                onKeyDown={e => { if (e.key === 'Enter') { renameCancelledRef.current = true; groupRename(group.id, editingGroupId!.draft); setEditingGroupId(null) } if (e.key === 'Escape') { renameCancelledRef.current = true; setEditingGroupId(null) } }}
+                onBlur={() => { if (renameCancelledRef.current) { renameCancelledRef.current = false; setEditingGroupId(null); return } if (editingGroupId?.draft.trim()) groupRename(group.id, editingGroupId!.draft); setEditingGroupId(null) }}
+                onClick={e => e.stopPropagation()}
+                className="flex-1 text-[11px] bg-slate-800 border border-[#d97706]/40 rounded px-1 text-slate-200 outline-none min-w-0" />
+            ) : (
+              <span className="flex-1 truncate text-[11px] text-slate-400">{group.name}</span>
+            )}
+          </button>
+          {isAdmin() && (
+            <div className="flex items-center gap-0.5 pr-1.5 opacity-0 group-hover/grp:opacity-100 transition-opacity">
+              <button onClick={() => setCreatingGroup({ parentId: group.id, draft: '' })} title="Criar sub-grupo"
+                className="flex items-center text-slate-600 hover:text-amber-400 transition-colors"><PiFolderPlusFill size={10} /></button>
+              <button onClick={() => setMovingGroupId(movingGroupId === group.id ? null : group.id)} title="Mover grupo"
+                className={`flex items-center transition-colors ${movingGroupId === group.id ? 'text-amber-400' : 'text-slate-600 hover:text-amber-400'}`}><PiFolderOpenFill size={10} /></button>
+              <button onClick={() => setEditingGroupId({ id: group.id, draft: group.name })} title="Renomear"
+                className="flex items-center text-slate-600 hover:text-amber-400 transition-colors"><Pencil size={10} /></button>
+              <button onClick={() => groupDelete(group.id)} title="Excluir grupo"
+                className="flex items-center text-slate-600 hover:text-rose-400 transition-colors"><Trash2 size={10} /></button>
+            </div>
+          )}
+        </div>
+        {movingGroupId === group.id && (() => {
+          // Coleta o grupo e todos seus descendentes para excluir do picker (evitar ciclos)
+          const excluded = new Set<string>()
+          const collect = (gid: string) => { excluded.add(gid); scopeGroups.groups.filter(g => g.parentId === gid).forEach(g => collect(g.id)) }
+          collect(group.id)
+          return (
+            <div className="mx-2 mb-1">
+              {renderGroupPicker(group.parentId, (id) => groupReparent(group.id, id), excluded)}
+            </div>
+          )
+        })()}
+        {!collapsed && (
+          <div>
+            {childScopes.map(s => renderScopeItem(s, depth + 1))}
+            {childGroups.map(g => renderScopeGroup(g, depth + 1))}
+            {creatingGroup?.parentId === group.id && (
+              <div className="mx-3 my-0.5" style={{ paddingLeft: `${(depth + 1) * 10}px` }}>
+                <input autoFocus value={creatingGroup.draft}
+                  onChange={e => setCreatingGroup({ ...creatingGroup, draft: e.target.value })}
+                  onKeyDown={e => { if (e.key === 'Enter' && creatingGroup.draft.trim()) { renameCancelledRef.current = true; groupCreate(creatingGroup.draft, group.id); setCreatingGroup(null) } if (e.key === 'Escape') { renameCancelledRef.current = true; setCreatingGroup(null) } }}
+                  onBlur={() => { if (renameCancelledRef.current) { renameCancelledRef.current = false; setCreatingGroup(null); return } if (creatingGroup?.draft.trim()) groupCreate(creatingGroup.draft, group.id); setCreatingGroup(null) }}
+                  placeholder="Nome do sub-grupo…"
+                  className="w-full text-[11px] bg-slate-800 border border-[#d97706]/40 rounded px-2 py-0.5 text-slate-200 outline-none" />
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    )
+  }
 
   const loadScopes = useCallback(async () => {
     try { setOverrides(await getLogicScopes()) } catch { /* offline */ }
   }, [])
 
   useEffect(() => { void loadScopes() }, [loadScopes])
+
+  // Mantém o registro global de rótulos em sincronia com os overrides — os cards de bloco
+  // (`ref`) resolvem o nome vivo por scopeId, refletindo renomeações em todos os fluxogramas.
+  useEffect(() => {
+    const labels: Record<string, string> = {}
+    for (const id of BUNDLE_IDS) labels[id] = BUNDLE_LABELS[id]
+    for (const id of BLOCK_IDS) labels[id] = overrides.find(o => o.scopeId === id)?.label ?? BLOCK_LABELS[id]
+    for (const o of overrides) if (o.label) labels[o.scopeId] = o.label
+    setScopeLabels(labels)
+  }, [overrides])
 
   useEffect(() => {
     if (!showScopePanel) return
@@ -776,6 +1122,19 @@ export function LogicEditorPanel({ canEdit }: { canEdit: boolean }) {
     return () => document.removeEventListener('mousedown', handler)
   }, [showScopePanel])
 
+  // Fecha o tree picker de grupo ao clicar fora do elemento [data-group-picker]
+  useEffect(() => {
+    if (!movingScopeId && !movingGroupId) return
+    const handler = (e: MouseEvent) => {
+      if (!(e.target as HTMLElement).closest('[data-group-picker]')) {
+        setMovingScopeId(null)
+        setMovingGroupId(null)
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [movingScopeId, movingGroupId])
+
   const selectScope = async (scopeId: string) => {
     if (dirty && !confirm('Há alterações não salvas. Descartar?')) return
     setShowScopePanel(false)
@@ -783,12 +1142,22 @@ export function LogicEditorPanel({ canEdit }: { canEdit: boolean }) {
     setSections([])
     setPast([]); setFuture([])
     setDirty(false); setError(null); setBaseLabel(null)
+    // Encerra qualquer preview/histórico do escopo anterior.
+    previewSnapshotRef.current = null
+    setPreviewVersionId(null); setShowHistory(false)
 
     const memOverride = getLogicOverride(scopeId)
     if (memOverride) { setSections(memOverride as LSec[]); setBaseLabel('override salvo'); return }
     if (hasOverride(scopeId)) {
       setLoading(true)
-      try { const d = await getLogicScope(scopeId); setSections(d.sections as LSec[]); setBaseLabel('override salvo')
+      try {
+        const d = await getLogicScope(scopeId)
+        const secs = d.sections as LSec[]
+        // Override vazio (ex.: criado por edição de metadados) não deve mascarar o bundle
+        // do código — carrega o bundle quando existe.
+        if (secs.length > 0) { setSections(secs); setBaseLabel('override salvo') }
+        else if (LOGIC_BY_SCOPE[scopeId]) { setSections(deepClone(LOGIC_BY_SCOPE[scopeId])); setBaseLabel('bundle (não modificado)') }
+        else { setSections([]); setBaseLabel('override salvo') }
       } catch { setError('Erro ao carregar override.') } finally { setLoading(false) }
       return
     }
@@ -798,6 +1167,7 @@ export function LogicEditorPanel({ canEdit }: { canEdit: boolean }) {
     }
     setShowBasePicker(true)
   }
+  selectScopeRef.current = selectScope
 
   const loadScopeSections = useCallback(async (sourceId: string): Promise<LSec[]> => {
     if (hasOverride(sourceId)) {
@@ -928,6 +1298,22 @@ export function LogicEditorPanel({ canEdit }: { canEdit: boolean }) {
         ;[secs[action.secIdx], secs[target]] = [secs[target], secs[action.secIdx]]
         break
       }
+
+      // Desanexar bloco: substitui o placeholder `ref` pelas seções expandidas (cópia local).
+      // A partir daqui as seções são editáveis só neste escopo (perde o vínculo vivo).
+      case 'detach_ref_section': {
+        const sec = secs[action.secIdx]
+        if (!sec?.ref) return
+        const inner = deepClone(expandScopeRefs(resolveScopeSections(sec.ref.scopeId))) as LSec[]
+        if (!inner.length) { alert('Bloco vazio — nada a desanexar.'); return }
+        secs.splice(action.secIdx, 1, ...inner)
+        break
+      }
+
+      // Editar bloco geral: navega ao escopo BLK_ (edições lá propagam a todos que o incluem).
+      case 'edit_ref_block':
+        void selectScopeRef.current?.(action.scopeId)
+        return
 
       case 'edit_section_label': {
         setTextEdit({
@@ -1644,6 +2030,65 @@ export function LogicEditorPanel({ canEdit }: { canEdit: boolean }) {
         break
       }
 
+      // ── Editor de fluxo: posições manuais ────────────────────────────────────
+      case 'set_node_pos': {
+        const t = action.target
+        if (t.kind === 'sec') {
+          const sec = secs[t.secIdx]; if (!sec) return
+          sec._pos = action.pos
+        } else {
+          const dec = resolveRef(secs, t.ref); if (!dec) return
+          if (t.kind === 'q') dec._pos = action.pos
+          else if (t.kind === 'conv') dec._convPos = action.pos
+          else {
+            const ans = dec.answers[t.ansIdx]; if (!ans) return
+            ans._pos = action.pos
+          }
+        }
+        // Arrastar nós não entra no histórico de undo — atualização direta do estado.
+        sectionsRef.current = secs
+        setSections(secs)
+        setDirty(true)
+        return
+      }
+
+      case 'clear_node_pos': {
+        const stripEntry = (e: { sub?: LDec[]; afterSub?: LDec[] }) => {
+          e.sub?.forEach(stripDec); e.afterSub?.forEach(stripDec)
+        }
+        function stripDec(d: LDec) {
+          delete d._pos; delete d._convPos
+          for (const a of d.answers) {
+            delete a._pos
+            a.sub?.forEach(stripDec); a.afterSub?.forEach(stripDec)
+            a.after?.forEach(stripEntry); a.seq?.forEach(stripEntry)
+          }
+          d.afterDec?.forEach(stripDec)
+          d.after?.forEach(stripEntry)
+        }
+        for (const sec of secs) { delete sec._pos; sec.decisions.forEach(stripDec) }
+        break
+      }
+
+      case 'p_set_ans_field': {
+        const dec = resolveRef(secs, action.ref); if (!dec) return
+        const ans = dec.answers[action.ansIdx]; if (!ans) return
+        if (action.field) { ans.field = action.field; ans.value = action.value }
+        else { delete ans.field; delete ans.value }
+        break
+      }
+
+      case 'p_set_pkg_condition': {
+        const dec = resolveRef(secs, action.ref); if (!dec) return
+        const pkg = action.ansIdx !== undefined
+          ? dec.answers[action.ansIdx]?.packages?.[action.pkgIdx]
+          : dec.packages?.[action.pkgIdx]
+        if (!pkg) return
+        if (action.condition) pkg.condition = action.condition as LCondition
+        else delete pkg.condition
+        break
+      }
+
       default: return
     }
 
@@ -1721,6 +2166,9 @@ export function LogicEditorPanel({ canEdit }: { canEdit: boolean }) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       setLogicOverrides(map as any)
       setDirty(false); setSaved(true); setTimeout(() => setSaved(false), 2500)
+      // Histórico de undo é descartado após persistir — o estado salvo vira a base.
+      pastRef.current = []; futureRef.current = []
+      setPast([]); setFuture([])
       await loadScopes()
     } catch (e) { setError(e instanceof Error ? e.message : 'Erro ao salvar')
     } finally { setSaving(false) }
@@ -1740,6 +2188,59 @@ export function LogicEditorPanel({ canEdit }: { canEdit: boolean }) {
     } catch (e) { setError(e instanceof Error ? e.message : 'Erro ao restaurar') }
   }
 
+  // ── Histórico de versões ────────────────────────────────────────────────────
+  // Estado do fluxograma antes de entrar no preview de uma versão, para poder voltar.
+  const previewSnapshotRef = useRef<{ sections: LSec[]; dirty: boolean } | null>(null)
+
+  const openHistory = async () => {
+    if (!selectedScope) return
+    setShowHistory(true); setVersionsLoading(true); setError(null)
+    try { setVersions(await getLogicScopeVersions(selectedScope)) }
+    catch (e) { setError(e instanceof Error ? e.message : 'Erro ao carregar histórico'); setVersions([]) }
+    finally { setVersionsLoading(false) }
+  }
+
+  const previewVersion = async (versionId: string) => {
+    if (!selectedScope) return
+    try {
+      const v = await getLogicScopeVersion(selectedScope, versionId)
+      // Guarda o estado editável atual só na 1ª entrada em preview (não sobrescreve ao trocar).
+      if (!previewVersionId) previewSnapshotRef.current = { sections: sectionsRef.current, dirty }
+      setSections(v.sections as LSec[])
+      setPreviewVersionId(versionId)
+    } catch (e) { setError(e instanceof Error ? e.message : 'Erro ao carregar versão') }
+  }
+
+  const exitPreview = () => {
+    const snap = previewSnapshotRef.current
+    if (snap) { setSections(snap.sections); setDirty(snap.dirty) }
+    previewSnapshotRef.current = null
+    setPreviewVersionId(null)
+  }
+
+  const restoreVersion = async (versionId: string) => {
+    if (!selectedScope || !canEdit) return
+    if (!confirm('Restaurar o escopo a esta versão? O estado atual será salvo no histórico.')) return
+    try {
+      const r = await restoreLogicScopeVersion(selectedScope, versionId, authHeader())
+      previewSnapshotRef.current = null
+      setPreviewVersionId(null)
+      // Recarrega as seções restauradas do servidor e atualiza o cache de overrides.
+      const d = await getLogicScope(selectedScope)
+      setSections(d.sections as LSec[])
+      const map: Record<string, unknown[]> = {}
+      scopeList.forEach(s => { const ov = getLogicOverride(s.scopeId); if (ov) map[s.scopeId] = ov as unknown[] })
+      map[selectedScope] = d.sections
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      setLogicOverrides(map as any)
+      setDirty(false); setBaseLabel('override salvo (restaurado)')
+      setPast([]); setFuture([]); pastRef.current = []; futureRef.current = []
+      await loadScopes()
+      await openHistory()  // recarrega a lista (nova versão de restauração aparece no topo)
+      void r
+    } catch (e) { setError(e instanceof Error ? e.message : 'Erro ao restaurar versão') }
+  }
+
   const handleImportSections = (importedSecs: LSec[]) => {
     const secs = deepClone(sectionsRef.current) as LSec[]
     for (const sec of importedSecs) secs.push({ ...sec, id: `sec_${uid()}` })
@@ -1748,12 +2249,20 @@ export function LogicEditorPanel({ canEdit }: { canEdit: boolean }) {
 
   const handleCreateScope = async (scopeId: string, label: string) => {
     await createLogicScope({ scopeId, label, sections: [] }, authHeader())
-    setShowNewScope(false); await loadScopes()
+    setNewScopeKind(null); await loadScopes()
     setSelectedScope(scopeId); setSections([]); setDirty(false); setError(null); setBaseLabel(null)
   }
 
   const handleDeleteCustom = async (scopeId: string) => {
-    if (!confirm(`Apagar "${scopeId}"? Esta ação não pode ser desfeita.`)) return
+    const isBlk = scopeId.startsWith('BLK_')
+    // Blocos podem estar incluídos (via `ref`) em outros escopos — avisa antes de excluir.
+    const users = isBlk ? scopeList.filter(s => refUsers(s.scopeId).includes(scopeId)).map(s => s.label) : []
+    const msg = isBlk
+      ? `Apagar o bloco "${scopeId}"?` +
+        (users.length ? `\n\nEle é usado por: ${users.join(', ')}. Esses escopos ficarão sem o conteúdo do bloco.` : '') +
+        `\n\nEsta ação não pode ser desfeita.`
+      : `Apagar "${scopeId}"? Esta ação não pode ser desfeita.`
+    if (!confirm(msg)) return
     try {
       await deleteLogicScope(scopeId, authHeader())
       if (selectedScope === scopeId) { setSelectedScope(null); setSections([]) }
@@ -1803,82 +2312,86 @@ export function LogicEditorPanel({ canEdit }: { canEdit: boolean }) {
 
   return (
     <div className="flex h-full min-h-0">
-      {/* ── Sidebar ── */}
-      <div className="w-52 shrink-0 border-r border-slate-700/40 flex flex-col">
-        <div className="px-3 py-2.5 border-b border-slate-700/30 flex items-center justify-between">
-          <span className="text-[10px] text-slate-500 uppercase tracking-wider font-semibold">Escopos</span>
+      {/* ── Sidebar de escopos ── */}
+      {showScopeSidebar ? (
+      <div className="shrink-0 border-r border-slate-700/40 flex flex-col relative" style={{ width: sidebarWidth }}>
+        <div className="px-3 py-2.5 border-b border-slate-700/30 flex items-center gap-1">
+          <span className="flex-1 text-[10px] text-slate-500 uppercase tracking-wider font-semibold">Escopos</span>
           {isAdmin() && (
-            <button onClick={() => setShowNewScope(true)} title="Novo escopo"
-              className="w-6 h-6 flex items-center justify-center rounded-lg text-slate-400 hover:text-[#d97706] hover:bg-slate-700/50 transition-colors">
-              <Plus size={13} />
-            </button>
-          )}
-        </div>
-        <div className="flex-1 overflow-y-auto scrollbar-custom py-1">
-          {SCOPE_CATEGORIES.map(cat => {
-            const items = scopeList.filter(s => !s.isCustom && !s.isBlock && categoryOfScope(s.scopeId) === cat.id)
-            const collapsed = collapsedCats.has(cat.id)
-            return (
-              <div key={cat.id}>
-                <button onClick={() => toggleCat(cat.id)}
-                  className="w-full flex items-center gap-1 px-3 pt-3 pb-0.5 text-slate-600 hover:text-slate-400 transition-colors">
-                  {collapsed ? <ChevronRight size={9} className="shrink-0" /> : <ChevronDown size={9} className="shrink-0" />}
-                  <span className="flex-1 text-left text-[9px] uppercase tracking-widest truncate">{cat.label}</span>
-                  {items.length > 0 && <span className="text-[9px] text-slate-700 tabular-nums">{items.length}</span>}
-                </button>
-                {!collapsed && (items.length > 0 ? items.map(s => (
-                  <button key={s.scopeId} onClick={() => selectScope(s.scopeId)}
-                    className={`w-full text-left flex items-center gap-2 px-3 py-1.5 text-xs transition-colors rounded-lg mx-1 w-[calc(100%-0.5rem)]
-                      ${selectedScope === s.scopeId ? 'bg-slate-700/60 text-slate-100' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'}`}>
-                    <Layers size={10} className="shrink-0 opacity-50" />
-                    <span className="flex-1 truncate">{s.label}</span>
-                    {hasOverride(s.scopeId) && <span className="w-1.5 h-1.5 rounded-full bg-[#d97706] shrink-0" title="Override ativo" />}
-                  </button>
-                )) : (
-                  <p className="px-3 pl-6 py-1 text-[10px] text-slate-700 italic">vazio</p>
-                ))}
-              </div>
-            )
-          })}
-          {scopeList.some(s => s.isBlock) && (
             <>
-              <p className="text-[9px] px-3 pt-3 pb-0.5 text-slate-600 uppercase tracking-widest">Blocos de lógica</p>
-              {scopeList.filter(s => s.isBlock).map(s => (
-                <button key={s.scopeId} onClick={() => selectScope(s.scopeId)}
-                  className={`w-full text-left flex items-center gap-2 px-3 py-1.5 text-xs transition-colors rounded-lg mx-1 w-[calc(100%-0.5rem)]
-                    ${selectedScope === s.scopeId ? 'bg-slate-700/60 text-slate-100' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'}`}>
-                  <Puzzle size={10} className="shrink-0 text-[#d97706]/70" />
-                  <span className="flex-1 truncate">{s.label}</span>
-                </button>
-              ))}
+              <button onClick={() => setCreatingGroup({ parentId: null, draft: '' })} title="Criar grupo"
+                className="w-6 h-6 flex items-center justify-center rounded-lg text-slate-500 hover:text-[#d97706] hover:bg-slate-700/50 transition-colors">
+                <PiFolderPlusFill size={12} />
+              </button>
+              <button onClick={() => setNewScopeKind('block')} title="Novo bloco de lógica"
+                className="w-6 h-6 flex items-center justify-center rounded-lg text-slate-400 hover:text-[#d97706] hover:bg-slate-700/50 transition-colors">
+                <Puzzle size={12} />
+              </button>
+              <button onClick={() => setNewScopeKind('scope')} title="Novo escopo customizado"
+                className="w-6 h-6 flex items-center justify-center rounded-lg text-slate-400 hover:text-[#d97706] hover:bg-slate-700/50 transition-colors">
+                <Plus size={13} />
+              </button>
             </>
           )}
-          {scopeList.some(s => s.isCustom) && (
+          <button onClick={() => setShowScopeSidebar(false)} title="Ocultar sidebar de escopos"
+            className="w-6 h-6 flex items-center justify-center rounded-lg text-slate-600 hover:text-slate-300 hover:bg-slate-700/50 transition-colors">
+            <ChevronLeft size={12} />
+          </button>
+        </div>
+        <div className="flex-1 overflow-y-auto scrollbar-custom py-1">
+
+          {/* ── Grupos do usuário (aparecem primeiro, contêm qualquer tipo de escopo) ── */}
+          {scopeGroups.groups.filter(g => g.parentId === null).map(g => renderScopeGroup(g, 0))}
+          {creatingGroup?.parentId === null && (
+            <div className="mx-3 my-1">
+              <input autoFocus value={creatingGroup.draft}
+                onChange={e => setCreatingGroup({ ...creatingGroup, draft: e.target.value })}
+                onKeyDown={e => { if (e.key === 'Enter' && creatingGroup.draft.trim()) { renameCancelledRef.current = true; groupCreate(creatingGroup.draft, null); setCreatingGroup(null) } if (e.key === 'Escape') { renameCancelledRef.current = true; setCreatingGroup(null) } }}
+                onBlur={() => { if (renameCancelledRef.current) { renameCancelledRef.current = false; setCreatingGroup(null); return } if (creatingGroup?.draft.trim()) groupCreate(creatingGroup.draft, null); setCreatingGroup(null) }}
+                placeholder="Nome do grupo…"
+                className="w-full text-[11px] bg-slate-800 border border-[#d97706]/40 rounded px-2 py-0.5 text-slate-200 outline-none" />
+            </div>
+          )}
+
+          {/* ── Bundles não agrupados (fallback — normalmente vazio, pois todos estão em grupos) ── */}
+          {scopeList.some(s => !s.isCustom && !s.isBlock && (scopeGroups.memberships[s.scopeId] ?? null) === null) && (
+            <>
+              <p className="text-[9px] px-3 pt-3 pb-0.5 text-slate-600 uppercase tracking-widest">Escopos</p>
+              {scopeList.filter(s => !s.isCustom && !s.isBlock && (scopeGroups.memberships[s.scopeId] ?? null) === null).map(s => renderScopeItem(s, 0))}
+            </>
+          )}
+
+          {/* ── Blocos não agrupados ── */}
+          {scopeList.some(s => s.isBlock && (scopeGroups.memberships[s.scopeId] ?? null) === null) && (
+            <>
+              <p className="text-[9px] px-3 pt-3 pb-0.5 text-slate-600 uppercase tracking-widest">Blocos de lógica</p>
+              {scopeList.filter(s => s.isBlock && (scopeGroups.memberships[s.scopeId] ?? null) === null).map(s => renderScopeItem(s, 0))}
+            </>
+          )}
+
+          {/* ── Customizados não agrupados ── */}
+          {scopeList.some(s => s.isCustom && (scopeGroups.memberships[s.scopeId] ?? null) === null) && (
             <>
               <p className="text-[9px] px-3 pt-3 pb-0.5 text-slate-600 uppercase tracking-widest">Customizados</p>
-              {scopeList.filter(s => s.isCustom).map(s => (
-                <div key={s.scopeId}
-                  className={`flex items-center rounded-lg mx-1 group transition-colors
-                    ${selectedScope === s.scopeId ? 'bg-slate-700/60' : 'hover:bg-slate-800/50'}`}>
-                  <button onClick={() => selectScope(s.scopeId)}
-                    className="flex-1 flex items-center gap-2 px-3 py-1.5 text-xs text-slate-400 hover:text-slate-200 min-w-0">
-                    <GitBranch size={10} className="shrink-0 text-[#d97706]/70" />
-                    <span className="flex-1 truncate">{s.label}</span>
-                  </button>
-                  {isAdmin() && (
-                    <button onClick={e => { e.stopPropagation(); void handleDeleteCustom(s.scopeId) }}
-                      title="Excluir escopo"
-                      className={`shrink-0 pr-2 transition-all hover:text-rose-400 ${selectedScope === s.scopeId ? 'opacity-50 hover:opacity-100 text-slate-500' : 'opacity-0 group-hover:opacity-100 text-slate-600'}`}>
-                      <Trash2 size={10} />
-                    </button>
-                  )}
-                </div>
-              ))}
+              {scopeList.filter(s => s.isCustom && (scopeGroups.memberships[s.scopeId] ?? null) === null).map(s => renderScopeItem(s, 0))}
             </>
           )}
         </div>
 
+        {/* Handle de redimensionamento — arraste a borda direita da sidebar */}
+        <div onMouseDown={startSidebarResize}
+          title="Arraste para redimensionar"
+          className="absolute top-0 right-0 h-full w-1.5 cursor-col-resize hover:bg-[#d97706]/50 active:bg-[#d97706]/70 transition-colors" />
       </div>
+      ) : (
+        /* Sidebar colapsada — tira só 8px, botão para expandir */
+        <div className="border-r border-slate-700/40 flex flex-col items-center py-2 w-8 shrink-0 gap-1">
+          <button onClick={() => setShowScopeSidebar(true)} title="Mostrar escopos"
+            className="w-6 h-6 flex items-center justify-center rounded-lg text-slate-600 hover:text-slate-300 hover:bg-slate-700/50 transition-colors">
+            <ChevronRight size={12} />
+          </button>
+        </div>
+      )}
 
       {/* ── Área principal ── */}
       <div className="flex-1 flex flex-col min-h-0 min-w-0">
@@ -1927,6 +2440,13 @@ export function LogicEditorPanel({ canEdit }: { canEdit: boolean }) {
                 {baseLabel && <p className="text-[10px] text-slate-500 mt-0.5">Base: {baseLabel}</p>}
               </div>
 
+              {dirty && (
+                <span className="shrink-0 text-[9px] font-semibold uppercase tracking-wider text-amber-400 bg-amber-900/25 border border-amber-700/40 rounded-full px-2 py-0.5">
+                  não salvo
+                </span>
+              )}
+
+
               {(
                 <>
                   {canEdit && (selectedMeta?.isCustom || selectedMeta?.isBlock) && (
@@ -1941,16 +2461,16 @@ export function LogicEditorPanel({ canEdit }: { canEdit: boolean }) {
                       <Download size={10} /> Importar seção
                     </button>
                   )}
-                  {canEdit && hasOverride(selectedScope) && !selectedMeta?.isCustom && (
+                  {canEdit && hasOverride(selectedScope) && !selectedMeta?.deletable && (
                     <button onClick={restore}
                       className="flex items-center gap-1 text-[10px] text-slate-400 hover:text-slate-200 border border-slate-700 rounded-lg px-2 py-1.5 transition-colors">
                       <RotateCcw size={10} /> Restaurar bundle
                     </button>
                   )}
-                  {isAdmin() && selectedMeta?.isCustom && selectedScope && (
+                  {isAdmin() && selectedMeta?.deletable && selectedScope && (
                     <button onClick={() => void handleDeleteCustom(selectedScope)}
                       className="flex items-center gap-1 text-[10px] text-slate-600 hover:text-rose-400 border border-slate-700/50 hover:border-rose-500/40 rounded-lg px-2 py-1.5 transition-colors">
-                      <Trash2 size={10} /> Excluir
+                      <Trash2 size={10} /> Excluir {selectedMeta?.isBlock ? 'bloco' : ''}
                     </button>
                   )}
                   {error && <p className="text-[10px] text-rose-400 shrink-0">{error}</p>}
@@ -2037,6 +2557,29 @@ export function LogicEditorPanel({ canEdit }: { canEdit: boolean }) {
                       </button>
                     </div>
                   )}
+                  {sections.length > 0 && (
+                    <button
+                      onClick={() => setShowParity(true)}
+                      title="Comparar a saída deste fluxo com a engine de sequenciamento"
+                      className="flex items-center gap-1 text-[10px] text-slate-400 hover:text-emerald-300 border border-slate-700 hover:border-emerald-600/40 rounded-lg px-2 py-1.5 transition-colors">
+                      <GitBranch size={10} />
+                      Paridade
+                    </button>
+                  )}
+                  <button
+                    onClick={() => setShowAudit(true)}
+                    title="Auditoria de condições de emissão (sonda/operação) usadas nos pacotes"
+                    className="flex items-center gap-1 text-[10px] text-slate-400 hover:text-sky-300 border border-slate-700 hover:border-sky-600/40 rounded-lg px-2 py-1.5 transition-colors">
+                    <BarChart3 size={10} />
+                    Condições
+                  </button>
+                  <button
+                    onClick={openHistory}
+                    title="Histórico de versões — voltar a um estado anterior"
+                    className="flex items-center gap-1 text-[10px] text-slate-400 hover:text-[#d97706] border border-slate-700 hover:border-[#d97706]/40 rounded-lg px-2 py-1.5 transition-colors">
+                    <History size={10} />
+                    Histórico
+                  </button>
                   <button
                     onClick={() => setShowHelp(true)}
                     title="Ajuda — símbolos e botões do fluxograma"
@@ -2086,20 +2629,100 @@ export function LogicEditorPanel({ canEdit }: { canEdit: boolean }) {
                 </div>
               )}
               {!loading && sections.length > 0 && (
-                <LogicGraphPanel
-                  secs={sections}
-                  editCb={canEdit ? handleEditAction : undefined}
-                  pickMode={!!pendingTransfer}
-                  selRef={null}
-                />
+                <div className="relative h-full">
+                  {previewVersionId && (
+                    <div className="absolute top-2 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2 px-3 py-1.5 rounded-full bg-amber-900/90 border border-amber-600/60 shadow-lg">
+                      <History size={12} className="text-amber-300" />
+                      <span className="text-[11px] text-amber-100 font-medium">Visualizando versão anterior (somente leitura)</span>
+                      {canEdit && (
+                        <button onClick={() => restoreVersion(previewVersionId)}
+                          className="text-[10px] font-semibold text-white bg-[#d97706] hover:bg-amber-600 rounded px-2 py-0.5 transition-colors">
+                          Restaurar esta
+                        </button>
+                      )}
+                      <button onClick={exitPreview}
+                        className="text-[10px] text-amber-200 hover:text-white border border-amber-600/50 rounded px-2 py-0.5 transition-colors">
+                        Voltar ao atual
+                      </button>
+                    </div>
+                  )}
+                  <LogicGraphPanel
+                    secs={sections}
+                    editCb={canEdit && !previewVersionId ? handleEditAction : undefined}
+                    pickMode={!!pendingTransfer}
+                    selRef={null}
+                  />
+                </div>
               )}
             </div>
           </>
         )}
       </div>
 
+      {/* ── Histórico de versões (drawer lateral) ── */}
+      {showHistory && (
+        <div className="fixed inset-0 z-40 flex justify-end" onClick={() => { setShowHistory(false) }}>
+          <div className="absolute inset-0 bg-black/40" />
+          <div className="relative w-80 h-full bg-slate-900 border-l border-slate-700 shadow-2xl flex flex-col"
+               onClick={e => e.stopPropagation()}>
+            <div className="flex items-center gap-2 px-4 py-3 border-b border-slate-700/50">
+              <History size={15} className="text-[#d97706]" />
+              <div className="flex-1 min-w-0">
+                <h3 className="text-sm font-semibold text-slate-100">Histórico de versões</h3>
+                <p className="text-[10px] text-slate-500 truncate">{selectedMeta?.label ?? selectedScope}</p>
+              </div>
+              <button onClick={() => setShowHistory(false)}
+                className="text-slate-500 hover:text-slate-200 transition-colors"><X size={16} /></button>
+            </div>
+            <div className="flex-1 overflow-y-auto scrollbar-custom p-2 space-y-1.5">
+              {versionsLoading && <p className="text-xs text-slate-500 text-center py-6">Carregando…</p>}
+              {!versionsLoading && versions.length === 0 && (
+                <p className="text-xs text-slate-500 text-center py-6">
+                  Nenhuma versão registrada ainda.<br />
+                  <span className="text-[10px] text-slate-600">Cada save cria um snapshot automaticamente.</span>
+                </p>
+              )}
+              {!versionsLoading && versions.map((v, i) => {
+                const isActive = previewVersionId === v.id
+                const when = new Date(v.createdAt).toLocaleString('pt-BR', {
+                  day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit',
+                })
+                return (
+                  <div key={v.id}
+                    className={`rounded-lg border px-3 py-2 transition-colors ${
+                      isActive ? 'border-[#d97706]/60 bg-[#d97706]/10' : 'border-slate-700/60 bg-slate-800/40 hover:border-slate-600'
+                    }`}>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] font-mono text-slate-500 shrink-0">
+                        {i === 0 ? 'atual' : `#${versions.length - i}`}
+                      </span>
+                      <span className="flex-1 text-[11px] text-slate-200 truncate font-medium">{v.note ?? 'Save'}</span>
+                    </div>
+                    <p className="text-[10px] text-slate-500 mt-0.5">
+                      {when} · {v.author ?? '—'} · {v.sectionCount} seção(ões)
+                    </p>
+                    <div className="flex items-center gap-1.5 mt-1.5">
+                      <button onClick={() => previewVersion(v.id)}
+                        className="text-[10px] text-slate-300 hover:text-[#d97706] border border-slate-700 hover:border-[#d97706]/40 rounded px-2 py-0.5 transition-colors">
+                        {isActive ? 'Visualizando' : 'Visualizar'}
+                      </button>
+                      {canEdit && (
+                        <button onClick={() => restoreVersion(v.id)}
+                          className="text-[10px] text-white bg-[#d97706]/80 hover:bg-[#d97706] rounded px-2 py-0.5 transition-colors">
+                          Restaurar
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ── Modais ── */}
-      {showNewScope && <NewScopeModal onSave={handleCreateScope} onClose={() => setShowNewScope(false)} />}
+      {newScopeKind && <NewScopeModal kind={newScopeKind} onSave={handleCreateScope} onClose={() => setNewScopeKind(null)} />}
       {showBasePicker && selectedScope && (
         <BasePickerModal overrides={overrides} currentScopeId={selectedScope}
           onPick={applyBase} onClose={() => setShowBasePicker(false)} />
@@ -2133,25 +2756,41 @@ export function LogicEditorPanel({ canEdit }: { canEdit: boolean }) {
         <PhasePickerModal current={phasePick.current} onPick={handlePhasePick} onClose={() => setPhasePick(null)} />
       )}
       {showHelp && <HelpModal onClose={() => setShowHelp(false)} />}
+      {showAudit && (
+        <ConditionAuditPanel
+          sections={sections}
+          scopeLabel={selectedMeta?.label ?? selectedScope ?? 'Este escopo'}
+          scopeId={selectedScope}
+          onClose={() => setShowAudit(false)}
+        />
+      )}
+      {showParity && selectedScope && (
+        <ScopeParityChecker
+          scopeLabel={selectedMeta?.label ?? selectedScope}
+          sections={sections}
+          isCustomScope={!BUNDLE_IDS.includes(selectedScope)}
+          defaultRef={BUNDLE_IDS.includes(selectedScope) ? selectedScope : undefined}
+          onClose={() => setShowParity(false)}
+        />
+      )}
     </div>
   )
 }
 
 // ─── Modal de ajuda ───────────────────────────────────────────────────────────
 function HelpModal({ onClose }: { onClose: () => void }) {
-  const SYMBOLS = [
-    { sym: '✦', color: '#facc15', desc: 'Marca a resposta como padrão (caminho default do fluxo)' },
-    { sym: '⚑', color: '#f97316', desc: 'Duplica a resposta como variante de contingência' },
-    { sym: '×', color: '#ef4444', desc: 'Remove o item (resposta, pacote, pergunta ou entrada sequencial)' },
+  const SYMBOLS: { Icon: IconType; color: string; desc: string }[] = [
+    { Icon: PiStarFill, color: '#facc15', desc: 'Marca a resposta como padrão (caminho default do fluxo)' },
+    { Icon: PiFlagPennantFill, color: '#f97316', desc: 'Duplica a resposta como variante de contingência' },
+    { Icon: PiTrashFill, color: '#ef4444', desc: 'Remove o item (resposta, pacote, pergunta ou entrada sequencial)' },
   ]
-  const MENUS = [
-    { glyph: '📦', color: '#3b82f6', label: 'Adicionar pacote', desc: 'Inclui um pacote de serviços nesta resposta ou ponto de convergência' },
-    { glyph: '❓', color: '#0ea5e9', label: 'Adicionar pergunta', desc: 'Insere uma pergunta dentro desta resposta' },
-    { glyph: '⤵', color: '#7c3aed', label: 'Adicionar sequencial', desc: 'Adiciona uma entrada sequencial (etapa ordenada) nesta resposta' },
-    { glyph: '↑', color: '#0ea5e9', label: 'Inserir pergunta acima', desc: 'Cria uma nova pergunta imediatamente antes desta no fluxo' },
-    { glyph: '➕', color: '#d97706', label: 'Adicionar decisão', desc: 'Inclui uma nova pergunta ao final de uma seção' },
-    { glyph: '⤿', color: '#a855f7', label: 'Mover pergunta', desc: 'Move uma pergunta existente para este ponto do fluxo' },
-    { glyph: '⧉', color: '#14b8a6', label: 'Copiar pergunta', desc: 'Copia uma pergunta existente para este ponto do fluxo' },
+  const MENUS: { Icon: IconType; color: string; label: string; desc: string }[] = [
+    { Icon: PiLegoFill, color: '#3b82f6', label: 'Adicionar pacote', desc: 'Inclui um pacote de serviços nesta resposta ou ponto de convergência' },
+    { Icon: PiPlusCircleFill, color: '#0ea5e9', label: 'Adicionar resposta/pergunta', desc: 'Insere uma resposta ou pergunta neste ponto' },
+    { Icon: PiListNumbersFill, color: '#7c3aed', label: 'Adicionar sequencial', desc: 'Adiciona uma entrada sequencial (etapa ordenada) nesta resposta' },
+    { Icon: PiArrowLineUp, color: '#22d3ee', label: 'Inserir acima/abaixo', desc: 'Cria uma pergunta, bloco ou seção imediatamente antes/depois desta no fluxo' },
+    { Icon: PiArrowUUpLeftFill, color: '#a855f7', label: 'Mover pergunta para cá', desc: 'Move uma pergunta existente para este ponto do fluxo' },
+    { Icon: PiCopySimpleFill, color: '#14b8a6', label: 'Copiar pergunta', desc: 'Copia uma pergunta existente para este ponto do fluxo' },
   ]
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={onClose}>
@@ -2173,12 +2812,33 @@ function HelpModal({ onClose }: { onClose: () => void }) {
           <section>
             <h3 className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-2">Símbolos no fluxograma</h3>
             <div className="space-y-1.5">
-              {SYMBOLS.map(s => (
-                <div key={s.sym} className="flex items-start gap-3">
-                  <span className="shrink-0 w-6 text-center text-base font-bold leading-none mt-0.5" style={{ color: s.color }}>{s.sym}</span>
+              {SYMBOLS.map((s, i) => (
+                <div key={i} className="flex items-start gap-3">
+                  <span className="shrink-0 w-6 flex items-center justify-center mt-0.5" style={{ color: s.color }}><s.Icon size={16} /></span>
                   <span className="text-[11px] text-slate-300 leading-snug">{s.desc}</span>
                 </div>
               ))}
+            </div>
+          </section>
+
+          {/* Tipos de losango */}
+          <section>
+            <h3 className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-2">Tipos de losango (pergunta)</h3>
+            <div className="space-y-2">
+              <div className="flex items-start gap-3">
+                <svg className="shrink-0 mt-0.5" width="22" height="16" viewBox="0 0 22 16">
+                  <polygon points="11,1 21,8 11,15 1,8" fill="#fde9c0" stroke="#e7c896" strokeWidth="1.5" />
+                </svg>
+                <span className="text-[11px] text-slate-300 leading-snug">Pergunta padrão — ramificação do fluxo</span>
+              </div>
+              <div className="flex items-start gap-3">
+                <svg className="shrink-0 mt-0.5" width="22" height="16" viewBox="0 0 22 16">
+                  <polygon points="11,1 21,8 11,15 1,8" fill="#0c2340" stroke="#64748b" strokeWidth="2" />
+                </svg>
+                <span className="text-[11px] text-slate-300 leading-snug">
+                  Pergunta <span className="font-semibold text-orange-400">Tipo de sonda</span> — detectada automaticamente pelo nome; ramifica o fluxo por tipo de equipamento (ANC / DP)
+                </span>
+              </div>
             </div>
           </section>
 
@@ -2188,7 +2848,7 @@ function HelpModal({ onClose }: { onClose: () => void }) {
             <div className="space-y-1.5">
               {MENUS.map(m => (
                 <div key={m.label} className="flex items-start gap-3">
-                  <span className="shrink-0 w-6 text-center text-base leading-none mt-0.5">{m.glyph}</span>
+                  <span className="shrink-0 w-6 flex items-center justify-center mt-0.5" style={{ color: m.color }}><m.Icon size={16} /></span>
                   <div>
                     <span className="text-[11px] font-semibold leading-none" style={{ color: m.color }}>{m.label}</span>
                     <p className="text-[10px] text-slate-400 leading-snug mt-0.5">{m.desc}</p>

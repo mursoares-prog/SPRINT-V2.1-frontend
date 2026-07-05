@@ -19,8 +19,22 @@ export function setLogicOverrides(o: Record<string, LSec[]>): void {
 }
 
 export function getLogicOverride(scopeId: string): LSec[] | null {
-  return _overrides[scopeId] ?? null
+  const ov = _overrides[scopeId]
+  // Um override VAZIO não é uma edição válida: ele costuma ser criado como efeito colateral
+  // (ex.: PATCH de metadados cria a linha com sections=[]) e NÃO deve mascarar o bundle do
+  // código. Tratamos [] como "sem override" quando existe um bundle para o escopo.
+  if (ov && ov.length > 0) return ov
+  return null
 }
+
+// Rótulo ATUAL de cada escopo/bloco (nome editável), mantido pela UI. Usado pela renderização
+// dos cards de inclusão (`ref`) para exibir o nome vivo do bloco pelo scopeId — assim, ao
+// renomear um bloco, todos os fluxogramas que o incluem passam a mostrar o novo nome sem
+// perder o vínculo (que é sempre pelo scopeId, nunca pelo label cacheado no placeholder).
+let _scopeLabels: Record<string, string> = {}
+// Merge (não substitui): App e editor contribuem com rótulos sem apagar os do outro.
+export function setScopeLabels(map: Record<string, string>): void { _scopeLabels = { ..._scopeLabels, ...map } }
+export function getScopeLabel(scopeId: string): string | null { return _scopeLabels[scopeId] ?? null }
 
 export function setCustomScopesMeta(scopes: { scopeId: string; label: string; fase?: string | null; opTypes?: string[] | null }[]): void {
   _customScopes = scopes.map(s => ({ ...s, fase: s.fase ?? null, opTypes: s.opTypes ?? null }))
@@ -36,8 +50,13 @@ export function updateCustomScopeMeta(scopeId: string, patch: { fase?: string | 
 
 // ── Reuso vivo de fluxogramas (seções `ref`) ────────────────────────────────
 // Seções de um escopo, sem expandir refs: override salvo (memória/backend) ou bundle.
+// Um override VAZIO não mascara o bundle: só usamos o override quando ele tem conteúdo
+// (evita que um override acidental com sections=[] apague o bloco definido no código).
+// Blocos custom (sem bundle) permanecem podendo ficar vazios — caem no `ov ?? []` final.
 export function resolveScopeSections(scopeId: string): LSec[] {
-  return _overrides[scopeId] ?? LOGIC_BY_SCOPE[scopeId] ?? []
+  const ov = _overrides[scopeId]
+  if (ov && ov.length > 0) return ov
+  return LOGIC_BY_SCOPE[scopeId] ?? ov ?? []
 }
 
 // Expande recursivamente as seções `ref` (placeholders que incluem outro escopo) pelas

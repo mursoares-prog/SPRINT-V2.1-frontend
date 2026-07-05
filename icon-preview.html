@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+<meta charset="UTF-8">
+<title>Opções de ícone — Torre de perfuração</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #0F1923; font-family: ui-sans-serif, system-ui, sans-serif; color: #D4E4F4; padding: 32px; }
+  h1 { font-size: 13px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: #6B8BAD; margin-bottom: 24px; }
+  .grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 16px; }
+  .card {
+    background: #162030;
+    border: 1px solid #1E3248;
+    border-radius: 12px;
+    padding: 20px 12px 16px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+  }
+  .label { font-size: 11px; font-weight: 700; color: #6B8BAD; letter-spacing: 0.06em; text-transform: uppercase; }
+  .desc { font-size: 10px; color: #4a6a8a; text-align: center; line-height: 1.4; }
+  /* Preview in-context: diamond with icon */
+  .diamond-wrap { position: relative; }
+  .sep { width: 1px; height: 24px; background: #1E3248; margin: 0 auto; }
+
+  /* size at-scale note */
+  .at-scale { font-size: 9px; color: #3a5a7a; text-align: center; margin-top: -8px; }
+</style>
+</head>
+<body>
+<h1>Opções de ícone — Torre de perfuração · clique no código para copiar</h1>
+
+<div class="grid">
+
+  <!-- OPÇÃO A: Triângulo com coroa (atual, simplificado) -->
+  <div class="card">
+    <div class="label">A · Atual</div>
+    <!-- Grande -->
+    <svg width="60" height="70" viewBox="-15 -18 30 35">
+      <line x1="0" y1="-16" x2="-11" y2="13" stroke="#059669" stroke-width="1.8" stroke-linecap="round"/>
+      <line x1="0" y1="-16" x2="11" y2="13" stroke="#059669" stroke-width="1.8" stroke-linecap="round"/>
+      <line x1="-4.5" y1="-16" x2="4.5" y2="-16" stroke="#059669" stroke-width="2.4" stroke-linecap="round"/>
+      <line x1="0" y1="-20" x2="0" y2="-16" stroke="#059669" stroke-width="1.6" stroke-linecap="round"/>
+      <line x1="-7" y1="-1.5" x2="7" y2="-1.5" stroke="#059669" stroke-width="1.4" stroke-linecap="round"/>
+      <line x1="-13" y1="13" x2="13" y2="13" stroke="#059669" stroke-width="2.2" stroke-linecap="round"/>
+    </svg>
+    <div class="sep"></div>
+    <!-- Contexto: diamante com ícone -->
+    <svg width="120" height="30" viewBox="0 0 120 30">
+      <polygon points="60,1 119,15 60,29 1,15" fill="#0c2e22" stroke="#059669" stroke-width="1.5"/>
+      <!-- ícone a -38px do centro -->
+      <line x1="22" y1="7" x2="12" y2="23" stroke="#059669" stroke-width="1.0" stroke-linecap="round"/>
+      <line x1="22" y1="7" x2="32" y2="23" stroke="#059669" stroke-width="1.0" stroke-linecap="round"/>
+      <line x1="19" y1="7" x2="25" y2="7" stroke="#059669" stroke-width="1.4" stroke-linecap="round"/>
+      <line x1="22" y1="4" x2="22" y2="7" stroke="#059669" stroke-width="0.9" stroke-linecap="round"/>
+      <line x1="16" y1="15" x2="28" y2="15" stroke="#059669" stroke-width="0.8" stroke-linecap="round"/>
+      <line x1="10" y1="23" x2="34" y2="23" stroke="#059669" stroke-width="1.2" stroke-linecap="round"/>
+      <text x="62" y="18" font-size="7" fill="#6ee7b7" font-weight="600" font-family="ui-sans-serif,sans-serif" text-anchor="middle">Tipo de sonda?</text>
+    </svg>
+    <div class="at-scale">em escala real</div>
+    <div class="desc">A-frame com coroa e travessa</div>
+  </div>
+
+  <!-- OPÇÃO B: Torre retangular -->
+  <div class="card">
+    <div class="label">B · Retangular</div>
+    <svg width="60" height="70" viewBox="-15 -18 30 35">
+      <!-- dois montantes verticais -->
+      <line x1="-5" y1="-18" x2="-5" y2="10" stroke="#059669" stroke-width="1.8" stroke-linecap="round"/>
+      <line x1="5" y1="-18" x2="5" y2="10" stroke="#059669" stroke-width="1.8" stroke-linecap="round"/>
+      <!-- barra topo -->
+      <line x1="-5" y1="-18" x2="5" y2="-18" stroke="#059669" stroke-width="2.2" stroke-linecap="round"/>
+      <!-- travessas horizontais internas -->
+      <line x1="-5" y1="-8" x2="5" y2="-8" stroke="#059669" stroke-width="1.2" stroke-linecap="round"/>
+      <line x1="-5" y1="2" x2="5" y2="2" stroke="#059669" stroke-width="1.2" stroke-linecap="round"/>
+      <!-- pernas da base -->
+      <line x1="-5" y1="10" x2="-12" y2="17" stroke="#059669" stroke-width="1.8" stroke-linecap="round"/>
+      <line x1="5" y1="10" x2="12" y2="17" stroke="#059669" stroke-width="1.8" stroke-linecap="round"/>
+      <!-- plataforma base -->
+      <line x1="-13" y1="17" x2="13" y2="17" stroke="#059669" stroke-width="2.0" stroke-linecap="round"/>
+    </svg>
+    <div class="sep"></div>
+    <svg width="120" height="30" viewBox="0 0 120 30">
+      <polygon points="60,1 119,15 60,29 1,15" fill="#0c2e22" stroke="#059669" stroke-width="1.5"/>
+      <line x1="19" y1="4" x2="19" y2="19" stroke="#059669" stroke-width="1.0" stroke-linecap="round"/>
+      <line x1="25" y1="4" x2="25" y2="19" stroke="#059669" stroke-width="1.0" stroke-linecap="round"/>
+      <line x1="19" y1="4" x2="25" y2="4" stroke="#059669" stroke-width="1.3" stroke-linecap="round"/>
+      <line x1="19" y1="10" x2="25" y2="10" stroke="#059669" stroke-width="0.8" stroke-linecap="round"/>
+      <line x1="19" y1="16" x2="25" y2="16" stroke="#059669" stroke-width="0.8" stroke-linecap="round"/>
+      <line x1="19" y1="19" x2="15" y2="24" stroke="#059669" stroke-width="1.0" stroke-linecap="round"/>
+      <line x1="25" y1="19" x2="29" y2="24" stroke="#059669" stroke-width="1.0" stroke-linecap="round"/>
+      <line x1="14" y1="24" x2="30" y2="24" stroke="#059669" stroke-width="1.2" stroke-linecap="round"/>
+      <text x="62" y="18" font-size="7" fill="#6ee7b7" font-weight="600" font-family="ui-sans-serif,sans-serif" text-anchor="middle">Tipo de sonda?</text>
+    </svg>
+    <div class="at-scale">em escala real</div>
+    <div class="desc">Torre retangular com pernas</div>
+  </div>
+
+  <!-- OPÇÃO C: Treliça dupla (X-bracing) -->
+  <div class="card">
+    <div class="label">C · Treliça</div>
+    <svg width="60" height="70" viewBox="-15 -18 30 35">
+      <!-- montantes -->
+      <line x1="-6" y1="-18" x2="-6" y2="10" stroke="#059669" stroke-width="1.8" stroke-linecap="round"/>
+      <line x1="6" y1="-18" x2="6" y2="10" stroke="#059669" stroke-width="1.8" stroke-linecap="round"/>
+      <!-- barra topo -->
+      <line x1="-6" y1="-18" x2="6" y2="-18" stroke="#059669" stroke-width="2.2" stroke-linecap="round"/>
+      <!-- X superior -->
+      <line x1="-6" y1="-18" x2="6" y2="-6" stroke="#059669" stroke-width="1.0" stroke-linecap="round"/>
+      <line x1="6" y1="-18" x2="-6" y2="-6" stroke="#059669" stroke-width="1.0" stroke-linecap="round"/>
+      <!-- X inferior -->
+      <line x1="-6" y1="-6" x2="6" y2="10" stroke="#059669" stroke-width="1.0" stroke-linecap="round"/>
+      <line x1="6" y1="-6" x2="-6" y2="10" stroke="#059669" stroke-width="1.0" stroke-linecap="round"/>
+      <!-- travessa mid -->
+      <line x1="-6" y1="-6" x2="6" y2="-6" stroke="#059669" stroke-width="1.2" stroke-linecap="round"/>
+      <!-- base alargada -->
+      <line x1="-6" y1="10" x2="-12" y2="17" stroke="#059669" stroke-width="1.8" stroke-linecap="round"/>
+      <line x1="6" y1="10" x2="12" y2="17" stroke="#059669" stroke-width="1.8" stroke-linecap="round"/>
+      <line x1="-13" y1="17" x2="13" y2="17" stroke="#059669" stroke-width="2.0" stroke-linecap="round"/>
+    </svg>
+    <div class="sep"></div>
+    <svg width="120" height="30" viewBox="0 0 120 30">
+      <polygon points="60,1 119,15 60,29 1,15" fill="#0c2e22" stroke="#059669" stroke-width="1.5"/>
+      <line x1="18" y1="4" x2="18" y2="19" stroke="#059669" stroke-width="1.0" stroke-linecap="round"/>
+      <line x1="26" y1="4" x2="26" y2="19" stroke="#059669" stroke-width="1.0" stroke-linecap="round"/>
+      <line x1="18" y1="4" x2="26" y2="4" stroke="#059669" stroke-width="1.3" stroke-linecap="round"/>
+      <line x1="18" y1="4" x2="26" y2="11.5" stroke="#059669" stroke-width="0.7" stroke-linecap="round"/>
+      <line x1="26" y1="4" x2="18" y2="11.5" stroke="#059669" stroke-width="0.7" stroke-linecap="round"/>
+      <line x1="18" y1="11.5" x2="26" y2="19" stroke="#059669" stroke-width="0.7" stroke-linecap="round"/>
+      <line x1="26" y1="11.5" x2="18" y2="19" stroke="#059669" stroke-width="0.7" stroke-linecap="round"/>
+      <line x1="18" y1="11.5" x2="26" y2="11.5" stroke="#059669" stroke-width="0.8" stroke-linecap="round"/>
+      <line x1="18" y1="19" x2="14" y2="24" stroke="#059669" stroke-width="1.0" stroke-linecap="round"/>
+      <line x1="26" y1="19" x2="30" y2="24" stroke="#059669" stroke-width="1.0" stroke-linecap="round"/>
+      <line x1="13" y1="24" x2="31" y2="24" stroke="#059669" stroke-width="1.2" stroke-linecap="round"/>
+      <text x="62" y="18" font-size="7" fill="#6ee7b7" font-weight="600" font-family="ui-sans-serif,sans-serif" text-anchor="middle">Tipo de sonda?</text>
+    </svg>
+    <div class="at-scale">em escala real</div>
+    <div class="desc">Torre com cruzetas (lattice)</div>
+  </div>
+
+  <!-- OPÇÃO D: Silhueta sólida -->
+  <div class="card">
+    <div class="label">D · Sólido</div>
+    <svg width="60" height="70" viewBox="-15 -18 30 35">
+      <polygon points="0,-20 -8,10 8,10" fill="#059669" opacity="0.85"/>
+      <rect x="-8" y="10" width="16" height="7" rx="1" fill="#059669" opacity="0.85"/>
+      <line x1="-7" y1="-3" x2="7" y2="-3" stroke="#0c2e22" stroke-width="1.5" stroke-linecap="round"/>
+      <line x1="-5" y1="5" x2="5" y2="5" stroke="#0c2e22" stroke-width="1.5" stroke-linecap="round"/>
+      <line x1="0" y1="-20" x2="0" y2="-24" stroke="#059669" stroke-width="1.8" stroke-linecap="round"/>
+      <line x1="-2" y1="-24" x2="2" y2="-24" stroke="#059669" stroke-width="2.2" stroke-linecap="round"/>
+    </svg>
+    <div class="sep"></div>
+    <svg width="120" height="30" viewBox="0 0 120 30">
+      <polygon points="60,1 119,15 60,29 1,15" fill="#0c2e22" stroke="#059669" stroke-width="1.5"/>
+      <polygon points="22,3 16,21 28,21" fill="#059669" opacity="0.85"/>
+      <rect x="16" y="21" width="12" height="5" rx="0.8" fill="#059669" opacity="0.85"/>
+      <line x1="16" y1="13" x2="28" y2="13" stroke="#0c2e22" stroke-width="1.2"/>
+      <text x="62" y="18" font-size="7" fill="#6ee7b7" font-weight="600" font-family="ui-sans-serif,sans-serif" text-anchor="middle">Tipo de sonda?</text>
+    </svg>
+    <div class="at-scale">em escala real</div>
+    <div class="desc">Silhueta preenchida (fill)</div>
+  </div>
+
+  <!-- OPÇÃO E: Minimalista (2 linhas) -->
+  <div class="card">
+    <div class="label">E · Minimal</div>
+    <svg width="60" height="70" viewBox="-15 -18 30 35">
+      <!-- apenas as duas pernas e a base, sem detalhes -->
+      <line x1="0" y1="-20" x2="-13" y2="17" stroke="#059669" stroke-width="2.2" stroke-linecap="round"/>
+      <line x1="0" y1="-20" x2="13" y2="17" stroke="#059669" stroke-width="2.2" stroke-linecap="round"/>
+      <line x1="-14" y1="17" x2="14" y2="17" stroke="#059669" stroke-width="2.8" stroke-linecap="round"/>
+      <!-- ponto / haste no topo -->
+      <circle cx="0" cy="-20" r="2.5" fill="#059669"/>
+    </svg>
+    <div class="sep"></div>
+    <svg width="120" height="30" viewBox="0 0 120 30">
+      <polygon points="60,1 119,15 60,29 1,15" fill="#0c2e22" stroke="#059669" stroke-width="1.5"/>
+      <line x1="22" y1="4" x2="14" y2="24" stroke="#059669" stroke-width="1.5" stroke-linecap="round"/>
+      <line x1="22" y1="4" x2="30" y2="24" stroke="#059669" stroke-width="1.5" stroke-linecap="round"/>
+      <line x1="13" y1="24" x2="31" y2="24" stroke="#059669" stroke-width="1.8" stroke-linecap="round"/>
+      <circle cx="22" cy="4" r="1.5" fill="#059669"/>
+      <text x="62" y="18" font-size="7" fill="#6ee7b7" font-weight="600" font-family="ui-sans-serif,sans-serif" text-anchor="middle">Tipo de sonda?</text>
+    </svg>
+    <div class="at-scale">em escala real</div>
+    <div class="desc">V invertido — máximo minimal</div>
+  </div>
+
+  <!-- OPÇÃO F: Bomba de petróleo (pumpjack) -->
+  <div class="card">
+    <div class="label">F · Pumpjack</div>
+    <svg width="60" height="70" viewBox="-15 -18 30 35">
+      <!-- coluna vertical (suporte) -->
+      <line x1="2" y1="-4" x2="2" y2="17" stroke="#059669" stroke-width="2.0" stroke-linecap="round"/>
+      <!-- base -->
+      <line x1="-8" y1="17" x2="12" y2="17" stroke="#059669" stroke-width="2.2" stroke-linecap="round"/>
+      <!-- balanço (beam) -->
+      <line x1="-13" y1="-10" x2="10" y2="-2" stroke="#059669" stroke-width="2.0" stroke-linecap="round"/>
+      <!-- cabeça de cavalo (horse-head, frente) -->
+      <path d="M-13,-10 Q-16,-12 -14,-15 Q-11,-18 -9,-15 L-8,-10 Z" fill="#059669"/>
+      <!-- haste de bombeio (rod) descendo da cabeça -->
+      <line x1="-11" y1="-10" x2="-11" y2="4" stroke="#059669" stroke-width="1.4" stroke-linecap="round" stroke-dasharray="2,1.5"/>
+      <!-- pivô central -->
+      <circle cx="2" cy="-4" r="2.5" fill="#059669"/>
+      <!-- motor / caixa traseira -->
+      <rect x="5" y="-6" width="9" height="7" rx="1.5" fill="none" stroke="#059669" stroke-width="1.6"/>
+      <!-- contrapeso (back end) -->
+      <circle cx="10" cy="-2" r="3.5" fill="#059669" opacity="0.7"/>
+    </svg>
+    <div class="sep"></div>
+    <svg width="120" height="30" viewBox="0 0 120 30">
+      <polygon points="60,1 119,15 60,29 1,15" fill="#0c2e22" stroke="#059669" stroke-width="1.5"/>
+      <line x1="23" y1="13" x2="23" y2="24" stroke="#059669" stroke-width="1.2" stroke-linecap="round"/>
+      <line x1="17" y1="24" x2="30" y2="24" stroke="#059669" stroke-width="1.3" stroke-linecap="round"/>
+      <line x1="13" y1="10" x2="28" y2="15" stroke="#059669" stroke-width="1.3" stroke-linecap="round"/>
+      <path d="M13,10 Q11,9 12,7 Q14,5 16,7 L16,10 Z" fill="#059669"/>
+      <circle cx="23" cy="13" r="1.5" fill="#059669"/>
+      <rect x="25" y="10" width="5" height="4" rx="0.8" fill="none" stroke="#059669" stroke-width="0.9"/>
+      <circle cx="28" cy="13" r="2" fill="#059669" opacity="0.7"/>
+      <text x="62" y="18" font-size="7" fill="#6ee7b7" font-weight="600" font-family="ui-sans-serif,sans-serif" text-anchor="middle">Tipo de sonda?</text>
+    </svg>
+    <div class="at-scale">em escala real</div>
+    <div class="desc">Bomba de petróleo (pumpjack)</div>
+  </div>
+
+</div>
+
+<p style="margin-top:28px; font-size:10px; color:#3a5a7a;">
+  Fundo escuro (#0F1923) e cor verde (#059669) correspondem ao tema real do fluxograma.
+  A linha "em escala real" mostra o ícone na proporção exata em que aparece dentro do diamante.
+  Diga qual letra prefere — ou combine elementos de duas opções.
+</p>
+
+</body>
+</html>

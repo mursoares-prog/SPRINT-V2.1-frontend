@@ -1,6 +1,18 @@
 ﻿export type LCondition =
-  | 'clean_flowlines' | 'remove_anm' | 'not_remove_anm' | 'no_pdi'
-  | 'stuck_risk' | 'dhsv_no_sleeve' | 'transponder_cot' | 'transponder_rov'
+  | 'rig_anc' | 'rig_dp' | 'op_lwo' | 'op_generalista'
+  // Compostas (sonda + operação): necessárias p/ pacotes de arranjo de superfície
+  // Generalista específicos por sonda (SFT 246 = DP+Gen; Terminal Head 247 = ANC+Gen).
+  | 'rig_dp_generalista' | 'rig_anc_generalista'
+
+// Rótulos humanos das condições de emissão de pacote (editor/admin).
+export const CONDITION_LABELS: Record<LCondition, string> = {
+  rig_anc: 'Sonda ANC',
+  rig_dp: 'Sonda DP',
+  op_lwo: 'Operação LWO',
+  op_generalista: 'Operação Generalista',
+  rig_dp_generalista: 'Sonda DP + Generalista',
+  rig_anc_generalista: 'Sonda ANC + Generalista',
+}
 
 export type LPkgPhase = 'Fase 0' | 'Fase 1A' | 'Fase 1B' | 'Fase 2' | 'Extra Abandono' | 'Mobilização' | 'Desmobilização'
 export type LTech = 'wireline' | 'ct' | 'electric' | 'workstring' | 'bop' | 'none'
@@ -19,6 +31,10 @@ export type LPkg = {
 
 export type LSeqEntry = { label: string; note?: string; packages?: LPkg[]; sub?: LDec[]; afterSub?: LDec[] }
 
+// Posição manual de um nó no editor de fluxo (ReactFlow). Persistida junto com o
+// escopo; ausente = posição calculada pelo layout automático.
+export type LPos = { x: number; y: number }
+
 export interface LAns {
   label: string
   active?: boolean
@@ -28,12 +44,15 @@ export interface LAns {
   seq?: LSeqEntry[]  // respostas sequenciais abaixo desta (sem decisão intermediária)
   after?: LSeqEntry[]  // blocos (pacotes/sequenciais) emitidos APÓS a convergência da subárvore
                        // desta resposta — renderizados no rodapé do chip, emitidos após `sub`.
+  afterSub?: LDec[]    // decisões emitidas após a convergência da subárvore desta resposta
+                       // (endereçadas em DecRef.sub com índice negativo: -(idx+1))
   goto?: string      // texto da pergunta destino (link visual entre respostas e decisões)
   contingency?: boolean  // marca esta resposta (e seu bloco) como variante de contingência,
                          // evitando duplicar todo o bloco só para mudar firme→contingência
   // Mapeamento para WizardInputs (field + value → seleciona esta resposta):
   field?: string
   value?: unknown
+  _pos?: LPos        // posição manual no editor de fluxo (ausente = layout automático)
   // Transiente (UI): resposta alterada desde o último salvamento. Removido ao salvar.
   _dirty?: boolean
 }
@@ -47,6 +66,8 @@ export interface LDec {
   reuseScope?: boolean  // "Já respondida no escopo": pergunta repetida que herda a resposta dada
                         // na 1ª ocorrência da MESMA pergunta no escopo. Não é exibida no passo 2
                         // (não pergunta de novo), mas o ramo resolvido continua emitindo pacotes.
+  _pos?: LPos           // posição manual do nó de pergunta no editor de fluxo
+  _convPos?: LPos       // posição manual do nó de convergência desta pergunta
   // Transiente (UI): pergunta alterada/criada desde o último salvamento. Removido ao salvar.
   _dirty?: boolean
 }
@@ -65,6 +86,7 @@ export interface LSec {
   // outro escopo (resolvidas na geração/consumo, não copiadas). Edições no escopo de
   // origem propagam automaticamente. `decisions` fica vazio; `label` é só rótulo do card.
   ref?: { scopeId: string; label?: string }
+  _pos?: LPos  // posição manual do card de seção no editor de fluxo
 }
 
 // ── SEÇÕES COMPARTILHADAS (Fase 0 / 1A) ────────────────────────────────────
@@ -88,177 +110,217 @@ const _MOB_POST_CCAP: LDec = {
   ],
 }
 
-// Hidrato na ANM: pacotes de dissociação diferem por rig (165/166 DP; 169/170 ANC).
-// Mantidos como constantes separadas pois 'mob' não passa por _mapSec em _secsForRig.
-const _CONEXAO_HIDRATO_DP: LDec = {
+// Hidrato na ANM: pacotes de dissociação diferem por rig (165/166 DP; 169/170 ANC),
+// resolvidos por condition. Firme/contingencial conforme o valor de anmHydrate
+// (só emitido quando anmValveContingency inclui 'hydrate' — espelha ANM_HYDRATE_INJECT).
+const _ANM_HYDRATE_REASON_P = 'Contingência: dissociação de hidrato na ANM — bloco de produção'
+const _ANM_HYDRATE_REASON_A = 'Contingência: dissociação de hidrato na ANM — bloco de anular'
+const _anmHydratePkgs = (conting: boolean): LPkg[] => [
+  { id: 'ABAN 169', name: 'Dissociação hidrato — prod. (ANC)', phase: 'Fase 1A', condition: 'rig_anc',
+    ...(conting ? { isContingency: true, contingencyReason: _ANM_HYDRATE_REASON_P } : {}) },
+  { id: 'ABAN 165', name: 'Dissociação hidrato — prod. (DP)', phase: 'Fase 1A', condition: 'rig_dp',
+    ...(conting ? { isContingency: true, contingencyReason: _ANM_HYDRATE_REASON_P } : {}) },
+  { id: 'ABAN 170', name: 'Dissociação hidrato — anular (ANC)', phase: 'Fase 1A', condition: 'rig_anc',
+    ...(conting ? { isContingency: true, contingencyReason: _ANM_HYDRATE_REASON_A } : {}) },
+  { id: 'ABAN 166', name: 'Dissociação hidrato — anular (DP)', phase: 'Fase 1A', condition: 'rig_dp',
+    ...(conting ? { isContingency: true, contingencyReason: _ANM_HYDRATE_REASON_A } : {}) },
+]
+const _CONEXAO_HIDRATO: LDec = {
   question: 'Hidrato na ANM?',
   answers: [
-    { label: 'Sim', active: true, packages: [
-      { id: 'ABAN 165', name: 'Dissociação hidrato — prod. (DP)' },
-      { id: 'ABAN 166', name: 'Dissociação hidrato — anular (DP)' },
-    ], sub: [{
-      question: 'Contingência de válvula ANM?',
-      answers: [
-        { label: 'Nenhuma', active: true },
-        { label: 'Jateamento', packages: [{ id: 'ABAN 125', name: 'Flexitubo - Jateamento (SpinCat) + Gabaritagem' }] },
-        { label: 'Gabarit. FT', packages: [{ id: 'ABAN 124', name: 'Flexitubo - Gabaritagem' }] },
-      ],
-    }]},
-    { label: 'Não' },
+    { label: 'Não', active: true },
+    { label: 'Sim', field: 'anmHydrate', value: 'yes', packages: _anmHydratePkgs(false) },
+    { label: 'Contingência', field: 'anmHydrate', value: 'contingency', packages: _anmHydratePkgs(true) },
   ],
 }
-const _CONEXAO_HIDRATO_ANC: LDec = {
-  question: 'Hidrato na ANM?',
+// Contingências de abertura de válvulas da ANM (espelha ANM_VALVE_INJECT):
+// jateamento (125) e gabaritagem FT (124) são independentes e sempre contingenciais.
+// Sem field/value: o resolver aplica o guard "adiadas quando há plug de produção no TMF".
+const _VALVE_JATEAMENTO: LDec = {
+  question: 'Contingência de jateamento (válvulas ANM)?',
   answers: [
-    { label: 'Sim', active: true, packages: [
-      { id: 'ABAN 169', name: 'Dissociação hidrato — prod. (ANC)' },
-      { id: 'ABAN 170', name: 'Dissociação hidrato — anular (ANC)' },
-    ], sub: [{
-      question: 'Contingência de válvula ANM?',
-      answers: [
-        { label: 'Nenhuma', active: true },
-        { label: 'Jateamento', packages: [{ id: 'ABAN 125', name: 'Flexitubo - Jateamento (SpinCat) + Gabaritagem' }] },
-        { label: 'Gabarit. FT', packages: [{ id: 'ABAN 124', name: 'Flexitubo - Gabaritagem' }] },
-      ],
-    }]},
-    { label: 'Não' },
+    { label: 'Não', active: true },
+    { label: 'Sim', packages: [
+      { id: 'ABAN 125', name: 'Flexitubo - Jateamento (SpinCat) + Gabaritagem', phase: 'Fase 1A',
+        isContingency: true, contingencyReason: 'Contingência: jateamento com flexitubo para abertura de válvulas da ANM' },
+    ]},
   ],
 }
-
-// Pacotes de descida WO por rig — usados na etapa sequencial e na re-descida pós-Superfície.
-const _DESCIDA_DP: LPkg[] = [
-  { id: 'ABAN 011', name: 'Descida do conjunto de WO (DPR/HCR)' },
-  { id: 'ABAN 246', name: 'Montagem do SFT (DP Generalista)' },
-  { id: 'ABAN 014', name: 'Flush do DPR/HCR' },
-]
-const _DESCIDA_ANC: LPkg[] = [
-  { id: 'ABAN 012', name: 'Descida do Conjunto de WO com Riser Dual Bore' },
-  { id: 'ABAN 247', name: 'Montagem do Terminal Head (ANC)' },
-  { id: 'ABAN 015', name: 'Flush Riser Dual Bore com agmar' },
-]
-
-// Descida WO como decisão sequencial standalone (sempre "Executar").
-// Posicionada ANTES do TCap para garantir que o WO está no fundo antes das ops de TCap.
-// Para Superfície: a re-descida após retirar a TCap é coberta pelo ..._DESCIDA_* no ramo.
-const _DESCIDA_DEC_DP: LDec = {
-  question: 'Descida do conjunto de WO?',
-  answers: [{ label: 'Executar', active: true, packages: _DESCIDA_DP }],
-}
-const _DESCIDA_DEC_ANC: LDec = {
-  question: 'Descida do conjunto de WO?',
-  answers: [{ label: 'Executar', active: true, packages: _DESCIDA_ANC }],
-}
-
-// Fluido de riser: decisão sequencial standalone (sem sub — segue para _REENTRADA_* abaixo).
-const _FLUIDO_DP: LDec = {
-  question: 'Fluido de riser inibido?',
+const _VALVE_GABARIT: LDec = {
+  question: 'Contingência de gabaritagem FT (válvulas ANM)?',
   answers: [
-    { label: 'Sim', active: true, packages: [{ id: 'ABAN 215', name: 'Posicionamento de fluido inibido no DPR/HCR' }] },
-    { label: 'N₂ / sem fluido', packages: [{ id: 'ABAN 016', name: 'Desalagamento DPR/HCR com Nitrogênio' }] },
-  ],
-}
-const _FLUIDO_ANC: LDec = {
-  question: 'Fluido de riser inibido?',
-  answers: [
-    { label: 'Sim', active: true, packages: [{ id: 'ABAN 209', name: 'Posicionamento de fluido inibido no Riser Dual Bore' }] },
-    { label: 'N₂ / sem fluido', packages: [{ id: 'ABAN 017', name: 'Desalagamento Riser Dual Bore com Nitrogênio' }] },
+    { label: 'Não', active: true },
+    { label: 'Sim', packages: [
+      { id: 'ABAN 124', name: 'Flexitubo - Gabaritagem', phase: 'Fase 1A',
+        isContingency: true, contingencyReason: 'Contingência: gabaritagem com motor de fundo e broca para abertura de válvulas da ANM' },
+    ]},
   ],
 }
 
-// Reentrada + testes ANM: decisão sequencial standalone (sempre "Executar").
-// Idêntica para DP e ANC; _CONEXAO_HIDRATO_* vem como próxima decisão da seção.
-const _REENTRADA_DP: LDec = {
+// ── MOB/TCap — espelha a engine (tabela 211/212/011 + TCAP_INJECT + ITF/RISER_FLUID) ──
+// Fases: pacotes até a âncora da TCap (010/020/021/022/177) herdam a Fase 0 da seção;
+// tudo o que vem depois leva phase 'Fase 1A' explícita (normalizeScopePhases cuida do resto).
+
+// Hidrato no conector da TCap (após o desassentamento): 177 é a âncora da Fase 0.
+const _HIDRATO_TCAP_DEC: LDec = {
+  question: 'Hidrato no conector TCap?',
+  answers: [
+    { label: 'Não', active: true },
+    { label: 'Sim', field: 'contingencyTcapHydrate', value: 'yes', packages: [
+      { id: 'ABAN 177', name: 'Jateamento de água aquecida no conector TCap' },
+    ]},
+    { label: 'Contingência', field: 'contingencyTcapHydrate', value: 'contingency', packages: [
+      { id: 'ABAN 177', name: 'Jateamento de água aquecida no conector TCap', isContingency: true,
+        contingencyReason: 'Contingência: dissociação de hidrato no conector da TCap — jateamento de água aquecida' },
+    ]},
+  ],
+}
+
+// Reentrada + fluido pós-conexão (comum a DP e ANC via conditions). Os testes de
+// interface/válvula seguem em decisões próprias (a retirada de plugs do TMF entra entre eles).
+const _REENTRADA: LDec = {
   question: 'Reentrada e conexão na ANM?',
-  answers: [{ label: 'Executar', active: true, packages: [
-    { id: 'ABAN 023', name: 'Reentrada e conexão na ANM' },
-    { id: 'ABAN 024', name: 'Teste funcional — bloco produção' },
-    { id: 'ABAN 025', name: 'Teste funcional — bloco anular' },
-    { id: 'ABAN 218', name: 'Teste funcional — válvula anular' },
-  ]}],
-}
-const _REENTRADA_ANC: LDec = _REENTRADA_DP
-
-// TCap DP: ramos sem pacotes de descida (vêm da decisão sequencial _DESCIDA_DEC_DP antes).
-// Superfície tem re-descida (..  ._DESCIDA_DP) pois o WO sobe com a TCap e depois re-desce.
-// 211 só em Superfície (prep TRT). Fundeio e Não/N.A. seguem com WO já no fundo.
-const _MOB_TCAP_DP: LDec = {
-  question: 'Retirar TCap?',
-  answers: [
-    { label: 'Não / N.A.', active: true },
-    { label: 'Sim', sub: [{
-      question: 'Método de retirada da TCap?',
+  answers: [{
+    label: 'Executar', active: true,
+    packages: [{ id: 'ABAN 023', name: 'Reentrada e conexão na ANM', phase: 'Fase 1A' }],
+    sub: [{
+      question: 'Fluido inibido pós-conexão?',
       answers: [
-        { label: 'ROV', packages: [{ id: 'ABAN 010', name: 'Retirar TCap com ROV' }] },
-        { label: 'TRT', active: true, sub: [{
-          question: 'Destino da TCap?',
-          answers: [
-            { label: 'Fundeio', active: true, packages: [
-              { id: 'ABAN 018', name: 'Movimentação e conexão na Tcap' },
-              { id: 'ABAN 019', name: 'Ventilação de TCap' },
-              { id: 'ABAN 020', name: 'Desassentamento de TCap e fundeio no leito marinho' },
-            ] },
-            { label: 'Superfície', packages: [
-              { id: 'ABAN 211', name: 'Preparação do Conjunto de WO + TRT para retirada/fundeio da TCap' },
-              { id: 'ABAN 244', name: 'Descida do Conjunto de WO com DPR/HCR para retirada/fundeio da TCap' },
-              { id: 'ABAN 018', name: 'Movimentação e conexão na Tcap' },
-              { id: 'ABAN 019', name: 'Ventilação de TCap' },
-              { id: 'ABAN 021', name: 'Desassentamento de TCap e retirada até a superfície com DPR/HCR' },
-              ..._DESCIDA_DP,
-            ] },
-          ],
-        }]},
+        { label: 'Não', active: true },
+        { label: 'Sim', field: 'tcapSurfaceFluid', value: 'inhibited_post', packages: [
+          { id: 'ABAN 217', name: 'Posicionamento de fluido inibido pós-conexão (ANC)', phase: 'Fase 1A', condition: 'rig_anc' },
+          { id: 'ABAN 216', name: 'Posicionamento de fluido inibido pós-conexão (DP)', phase: 'Fase 1A', condition: 'rig_dp' },
+        ]},
       ],
-      afterDec: [{
-        question: 'Hidrato no conector TCap?',
+    }],
+  }],
+}
+
+// Testes de interface (024/025) — com plug no TMF o teste usa o bore correspondente (026/027).
+const _ITF_TEST_PROD: LDec = {
+  question: 'Teste de interface — produção?',
+  answers: [
+    { label: 'Padrão (sem plug)', active: true, packages: [
+      { id: 'ABAN 024', name: 'Teste funcional — bloco produção', phase: 'Fase 1A' },
+    ]},
+    { label: 'Com plug no TMF', packages: [
+      { id: 'ABAN 026', name: 'Teste de interface — bore produção (com plug)', phase: 'Fase 1A' },
+    ]},
+  ],
+}
+const _ITF_TEST_ANUL: LDec = {
+  question: 'Teste de interface — anular?',
+  answers: [
+    { label: 'Padrão (sem plug)', active: true, packages: [
+      { id: 'ABAN 025', name: 'Teste funcional — bloco anular', phase: 'Fase 1A' },
+    ]},
+    { label: 'Com plug no TMF', packages: [
+      { id: 'ABAN 027', name: 'Teste de interface — bore anular (com plug)', phase: 'Fase 1A' },
+    ]},
+  ],
+}
+
+// Retirada de plugs do TMF (espelha PLUG_INJECT Fase 1A): anular (035 + contingências +
+// limpeza FT no DP + teste de bloco adiado 029) e produção (034 + contingências + 028),
+// seguidos das contingências de válvula adiadas (125/124).
+const _TMF_PLUG_ANUL: LDec = {
+  question: 'Retirar plug do TMF — anular?',
+  answers: [
+    { label: 'Não', active: true },
+    { label: 'Sim', packages: [
+      { id: 'ABAN 035', name: 'Retirada de plug do TMF (bore anular)', phase: 'Fase 1A' },
+    ], sub: [
+      {
+        question: 'Conting. plug anular — stroker?',
         answers: [
           { label: 'Não', active: true },
-          { label: 'Sim / Conting.', packages: [
-            { id: 'ABAN 177', name: 'Jateamento de água aquecida no conector TCap' },
+          { label: 'Sim', field: 'tmfPlugContingencyAnul', value: 'stroker', packages: [
+            { id: 'ABAN 089', name: 'Retirada de plug do TMF (anular) com stroker', phase: 'Fase 1A',
+              isContingency: true, contingencyReason: 'Contingência: retirada de plug do TMF (anular) com stroker' },
           ]},
         ],
-      }],
-    }]},
+      },
+      {
+        question: 'Conting. plug anular — flexitubo?',
+        answers: [
+          { label: 'Não', active: true },
+          { label: 'Sim', field: 'tmfPlugContingencyAnul', value: 'ft', packages: [
+            { id: 'ABAN 122', name: 'Flexitubo - Retirada de plug do TMF (anular)', phase: 'Fase 1A',
+              isContingency: true, contingencyReason: 'Contingência: retirada de plug do TMF (anular) com flexitubo' },
+          ]},
+        ],
+      },
+    ], after: [{ label: 'Limpeza do anular + teste de bloco', packages: [
+      { id: 'ABAN 125', name: 'Flexitubo - Jateamento (SpinCat) + Gabaritagem', phase: 'Fase 1A', condition: 'rig_dp' },
+      { id: 'ABAN 162', name: 'Flexitubo - BPP inflável', phase: 'Fase 1A', condition: 'rig_dp' },
+      { id: 'ABAN 029', name: 'Teste bloco anular da ANM', phase: 'Fase 1A' },
+    ]}]},
   ],
 }
-
-// TCap ANC: idem mas 245/022 em vez de 244/021, e _DESCIDA_ANC.
-const _MOB_TCAP_ANC: LDec = {
-  question: 'Retirar TCap?',
+const _TMF_PLUG_PROD: LDec = {
+  question: 'Retirar plug do TMF — produção?',
   answers: [
-    { label: 'Não / N.A.', active: true },
-    { label: 'Sim', sub: [{
-      question: 'Método de retirada da TCap?',
-      answers: [
-        { label: 'ROV', packages: [{ id: 'ABAN 010', name: 'Retirar TCap com ROV' }] },
-        { label: 'TRT', active: true, sub: [{
-          question: 'Destino da TCap?',
-          answers: [
-            { label: 'Fundeio', active: true, packages: [
-              { id: 'ABAN 018', name: 'Movimentação e conexão na Tcap' },
-              { id: 'ABAN 019', name: 'Ventilação de TCap' },
-              { id: 'ABAN 020', name: 'Desassentamento de TCap e fundeio no leito marinho' },
-            ] },
-            { label: 'Superfície', packages: [
-              { id: 'ABAN 211', name: 'Preparação do Conjunto de WO + TRT para retirada/fundeio da TCap' },
-              { id: 'ABAN 245', name: 'Descida do Conjunto de WO com Riser Dual Bore para retirada/fundeio da TCap' },
-              { id: 'ABAN 018', name: 'Movimentação e conexão na Tcap' },
-              { id: 'ABAN 019', name: 'Ventilação de TCap' },
-              { id: 'ABAN 022', name: 'Desassentamento de TCap e retirada até a superfície com Riser Dual Bore' },
-              ..._DESCIDA_ANC,
-            ] },
-          ],
-        }]},
-      ],
-    }]},
+    { label: 'Não', active: true },
+    { label: 'Sim', packages: [
+      { id: 'ABAN 034', name: 'Retirada de plug do TMF (bore produção)', phase: 'Fase 1A' },
+    ], sub: [
+      {
+        question: 'Conting. plug produção — stroker?',
+        answers: [
+          { label: 'Não', active: true },
+          { label: 'Sim', field: 'tmfPlugContingencyProd', value: 'stroker', packages: [
+            { id: 'ABAN 088', name: 'Retirada de plug do TMF (produção) com stroker', phase: 'Fase 1A',
+              isContingency: true, contingencyReason: 'Contingência: retirada de plug do TMF (produção) com stroker' },
+          ]},
+        ],
+      },
+      {
+        question: 'Conting. plug produção — flexitubo?',
+        answers: [
+          { label: 'Não', active: true },
+          { label: 'Sim', field: 'tmfPlugContingencyProd', value: 'ft', packages: [
+            { id: 'ABAN 123', name: 'Flexitubo - Retirada de plug do TMF (produção)', phase: 'Fase 1A',
+              isContingency: true, contingencyReason: 'Contingência: retirada de plug do TMF (produção) com flexitubo' },
+          ]},
+        ],
+      },
+    ], after: [{ label: 'Teste de bloco de produção', packages: [
+      { id: 'ABAN 028', name: 'Teste bloco produção da ANM', phase: 'Fase 1A' },
+    ]}]},
   ],
 }
+// Contingências de válvula adiadas para depois da retirada do plug de produção.
+const _VALVE_JATEAMENTO_POS_PLUG: LDec = {
+  question: 'Conting. jateamento (pós-plug)?',
+  answers: [
+    { label: 'Não', active: true },
+    { label: 'Sim', packages: [
+      { id: 'ABAN 125', name: 'Flexitubo - Jateamento (SpinCat) + Gabaritagem', phase: 'Fase 1A',
+        isContingency: true, contingencyReason: 'Contingência: jateamento com flexitubo para abertura de válvulas da ANM' },
+    ]},
+  ],
+}
+const _VALVE_GABARIT_POS_PLUG: LDec = {
+  question: 'Conting. gabaritagem FT (pós-plug)?',
+  answers: [
+    { label: 'Não', active: true },
+    { label: 'Sim', packages: [
+      { id: 'ABAN 124', name: 'Flexitubo - Gabaritagem', phase: 'Fase 1A',
+        isContingency: true, contingencyReason: 'Contingência: gabaritagem com motor de fundo e broca para abertura de válvulas da ANM' },
+    ]},
+  ],
+}
+// Teste da válvula do anular (218) — após interface/plugs, antes do hidrato.
+const _TESTE_VALV_ANULAR: LDec = {
+  question: 'Teste da válvula do anular?',
+  answers: [{ label: 'Executar', active: true, packages: [
+    { id: 'ABAN 218', name: 'Teste funcional — válvula anular', phase: 'Fase 1A' },
+  ]}],
+}
 
-// Seção unificada MOBILIZAÇÃO + DESCIDA WO + CONEXÃO ANM (DP), exceto DHSV.
-// Ordem: Transponder → CCAP → Descida WO → TCap → Fluido → Reentrada → Hidrato.
-const SEC_MOB_DP: LSec = {
-  id: 'mob', label: 'MOBILIZAÇÃO / DESCIDA / CONEXÃO (DP)', phase: 'Fase 0', color: 'gray',
-  decisions: [
-    {
+// Transponder/DMM (DP) — compartilhado entre a mobilização de Fase 1 (SEC_MOB_DP)
+// e a de Fase 2 (SEC_MOB_FS2_DP, sem descida/conexão ANM).
+const _TRANSPONDER_DMM_DEC: LDec = {
       question: 'Modo do transponder?',
       answers: [
         { label: 'ROV', active: true, packages: [
@@ -300,19 +362,206 @@ const SEC_MOB_DP: LSec = {
           ],
         }]},
       ],
-    },
-    _MOB_POST_CCAP, _DESCIDA_DEC_DP, _MOB_TCAP_DP, _FLUIDO_DP, _REENTRADA_DP, _CONEXAO_HIDRATO_DP,
+}
+
+// ── BLOCO: MOBILIZAÇÃO / DESCIDA / CONEXÃO ───────────────────────────────────
+// ID do bloco de MOB por condicionais de sonda — declarado aqui para poder ser
+// referenciado por SEC_MOB_REF abaixo; a seção do bloco é definida mais adiante.
+export const BLK_MOB_DESCIDA_DP_COND_ID = 'BLK_MOB_DESCIDA_DP_COND'
+
+// Placeholder de inclusão viva do bloco nos escopos base (reuso via `ref`).
+// Fase Única / Fase 1 usam o bloco de MOB por CONDICIONAIS de sonda (rig_dp/rig_anc),
+// sem as perguntas "Tipo de sonda?". Editar o bloco propaga a todos os FSU/FS1.
+const SEC_MOB_REF: LSec = {
+  id: 'mob', label: 'MOBILIZAÇÃO / DESCIDA / CONEXÃO', phase: 'Fase 0', color: 'gray',
+  decisions: [],
+  ref: { scopeId: BLK_MOB_DESCIDA_DP_COND_ID, label: 'MOB · Descida DP (condicionais por sonda)' },
+}
+
+// ── BLOCO: MOBILIZAÇÃO / DESCIDA / CONEXÃO — Condicionais por tipo de sonda ──
+// Bloco de MOB usado (via ref) no início dos escopos FSU/FS1, sem as perguntas
+// "Tipo de sonda?". Pacotes DP-específicos → condition: 'rig_dp'; ANC → 'rig_anc'.
+// DMA (ANC) entra como always da seção. As decisões de transponder/DMM, CCAP, TCap e
+// reentrada ficam planas; o engine filtra os pacotes de cada ramo pelo rigType.
+// (BLK_MOB_DESCIDA_DP_COND_ID é declarado acima, junto do placeholder SEC_MOB_REF.)
+
+// Arranjo de superfície + flush: DP usa SFT (246) e flush DPR (014); ANC usa Terminal
+// Head (247) e flush Riser Dual Bore (015); LWO monta ITF (206) independente de sonda.
+// 246/247 são de operação Generalista — usam condition composta (sonda + Generalista)
+// para não emitir junto com o ITF (206) em operações LWO. O flush (014/015) é só por sonda.
+const _ARRANJO_FLUSH_COND: LPkg[] = [
+  { id: 'ABAN 246', name: 'Montagem do SFT (DP Generalista)', phase: 'Fase 1A', condition: 'rig_dp_generalista' },
+  { id: 'ABAN 247', name: 'Montagem do Terminal Head (ANC)', phase: 'Fase 1A', condition: 'rig_anc_generalista' },
+  { id: 'ABAN 206', name: 'Montagem de ITF (LWO)', phase: 'Fase 1A', condition: 'op_lwo' },
+  { id: 'ABAN 014', name: 'Flush do DPR/HCR', phase: 'Fase 1A', condition: 'rig_dp' },
+  { id: 'ABAN 015', name: 'Flush Riser Dual Bore com agmar', phase: 'Fase 1A', condition: 'rig_anc' },
+]
+
+// Fluido de riser: DP usa DPR/HCR (215/016), ANC usa Riser Dual Bore (209/017).
+const _FLUIDO_RISER_COND: LDec = {
+  question: 'Fluido de riser inibido?',
+  answers: [
+    { label: 'Sim', field: 'riserFluid', value: 'inhibited', packages: [
+      { id: 'ABAN 215', name: 'Posicionamento de fluido inibido no DPR/HCR', phase: 'Fase 1A', condition: 'rig_dp' },
+      { id: 'ABAN 209', name: 'Posicionamento de fluido inibido no Riser Dual Bore', phase: 'Fase 1A', condition: 'rig_anc' },
+    ]},
+    { label: 'N₂ / sem fluido', active: true, packages: [
+      { id: 'ABAN 016', name: 'Desalagamento DPR/HCR com Nitrogênio', phase: 'Fase 1A', condition: 'rig_dp' },
+      { id: 'ABAN 017', name: 'Desalagamento Riser Dual Bore com Nitrogênio', phase: 'Fase 1A', condition: 'rig_anc' },
+    ]},
   ],
 }
 
-// Seção unificada MOBILIZAÇÃO + DESCIDA WO + CONEXÃO ANM (ANC), exceto DHSV.
-// DMA em always (sempre). Ordem: CCAP → Descida WO → TCap → Fluido → Reentrada → Hidrato.
-const SEC_MOB_ANC: LSec = {
-  id: 'mob', label: 'MOBILIZAÇÃO / DESCIDA / CONEXÃO (ANC)', phase: 'Fase 0', color: 'gray',
-  always: [{ id: 'ABAN 208', name: 'DMA' }],
-  decisions: [_MOB_POST_CCAP, _DESCIDA_DEC_ANC, _MOB_TCAP_ANC, _FLUIDO_ANC, _REENTRADA_ANC, _CONEXAO_HIDRATO_ANC],
+// Fluido pós-TCap fundeada: arranjo+flush como dec.packages (mesmo padrão de _FLUIDO_POS_TCAP_DP/ANC).
+const _FLUIDO_POS_TCAP_COND: LDec = { ..._FLUIDO_RISER_COND, packages: _ARRANJO_FLUSH_COND }
+
+// Fluido de riser quando TCap vai à superfície: inclui re-descida WO + arranjo como dec.packages.
+const _FLUIDO_RISER_SUPERFICIE_COND: LDec = {
+  question: 'Fluido no riser (TCap à superfície)?',
+  packages: [
+    { id: 'ABAN 011', name: 'Descida do conjunto de WO (DPR/HCR)', phase: 'Fase 1A', condition: 'rig_dp' },
+    { id: 'ABAN 012', name: 'Descida do Conjunto de WO com Riser Dual Bore', phase: 'Fase 1A', condition: 'rig_anc' },
+    ..._ARRANJO_FLUSH_COND,
+  ],
+  answers: [
+    { label: 'N₂', active: true, field: 'tcapSurfaceFluid', value: 'n2', packages: [
+      { id: 'ABAN 016', name: 'Desalagamento DPR/HCR com Nitrogênio', phase: 'Fase 1A', condition: 'rig_dp' },
+      { id: 'ABAN 017', name: 'Desalagamento Riser Dual Bore com Nitrogênio', phase: 'Fase 1A', condition: 'rig_anc' },
+    ]},
+    { label: 'Inibido (pré-conexão)', field: 'tcapSurfaceFluid', value: 'inhibited_pre', packages: [
+      { id: 'ABAN 215', name: 'Posicionamento de fluido inibido no DPR/HCR', phase: 'Fase 1A', condition: 'rig_dp' },
+      { id: 'ABAN 209', name: 'Posicionamento de fluido inibido no Riser Dual Bore', phase: 'Fase 1A', condition: 'rig_anc' },
+    ]},
+    { label: 'Inibido (pós-conexão)', field: 'tcapSurfaceFluid', value: 'inhibited_post',
+      note: 'ABAN 216/217 posicionados após a reentrada na ANM' },
+  ],
 }
 
+// Decisão de TCap unificada: mesma estrutura do _MOB_TCAP_DP, mas pacotes DP/ANC
+// diferenciados por condition em vez de ramificados em "Tipo de sonda?".
+const _MOB_TCAP_COND: LDec = {
+  question: 'Retirar TCap?',
+  answers: [
+    { label: 'Não / N.A.', active: true, packages: [
+      { id: 'ABAN 212', name: 'Preparação do Conjunto de WO + TRT (reentrada, sem TCap)', phase: 'Fase 1A' },
+      { id: 'ABAN 011', name: 'Descida do conjunto de WO (DPR/HCR)', phase: 'Fase 1A', condition: 'rig_dp' },
+      { id: 'ABAN 012', name: 'Descida do Conjunto de WO com Riser Dual Bore', phase: 'Fase 1A', condition: 'rig_anc' },
+      ..._ARRANJO_FLUSH_COND,
+    ], sub: [_FLUIDO_RISER_COND] },
+    { label: 'Sim', sub: [{
+      question: 'Método de retirada da TCap?',
+      answers: [
+        { label: 'ROV', field: 'tcapRemovalMethod', value: 'rov', packages: [
+          { id: 'ABAN 010', name: 'Retirar TCap com ROV' },
+          { id: 'ABAN 212', name: 'Preparação do Conjunto de WO + TRT (reentrada, sem TCap)', phase: 'Fase 1A' },
+          { id: 'ABAN 011', name: 'Descida do conjunto de WO (DPR/HCR)', phase: 'Fase 1A', condition: 'rig_dp' },
+          { id: 'ABAN 012', name: 'Descida do Conjunto de WO com Riser Dual Bore', phase: 'Fase 1A', condition: 'rig_anc' },
+          ..._ARRANJO_FLUSH_COND,
+        ], sub: [_FLUIDO_RISER_COND] },
+        { label: 'Coluna (TRT)', active: true, field: 'tcapRemovalMethod', value: 'workstring', packages: [
+          { id: 'ABAN 211', name: 'Preparação do Conjunto de WO + TRT para retirada/fundeio da TCap' },
+          { id: 'ABAN 244', name: 'Descida do Conjunto de WO com DPR/HCR para retirada/fundeio da TCap', condition: 'rig_dp' },
+          { id: 'ABAN 245', name: 'Descida do Conjunto de WO com Riser Dual Bore para retirada/fundeio da TCap', condition: 'rig_anc' },
+          { id: 'ABAN 018', name: 'Movimentação e conexão na Tcap' },
+          { id: 'ABAN 019', name: 'Ventilação de TCap' },
+        ], sub: [{
+          question: 'Destino da TCap?',
+          answers: [
+            { label: 'Fundeio', active: true, field: 'tcapDisposition', value: 'bottom', packages: [
+              { id: 'ABAN 020', name: 'Desassentamento de TCap e fundeio no leito marinho' },
+            ], sub: [_HIDRATO_TCAP_DEC, _FLUIDO_POS_TCAP_COND] },
+            { label: 'Superfície', field: 'tcapDisposition', value: 'surface', packages: [
+              { id: 'ABAN 021', name: 'Desassentamento de TCap e retirada até a superfície com DPR/HCR', condition: 'rig_dp' },
+              { id: 'ABAN 022', name: 'Desassentamento de TCap e retirada até a superfície com Riser Dual Bore', condition: 'rig_anc' },
+            ], sub: [_HIDRATO_TCAP_DEC, _FLUIDO_RISER_SUPERFICIE_COND] },
+          ],
+        }]},
+      ],
+    }]},
+  ],
+}
+
+// Transponder/DMM com condition: 'rig_dp' em todos os pacotes — para ANC, o engine
+// filtra esses pacotes e a decisão produz resultado vazio (sem impacto no cronograma).
+const _TRANSPONDER_DMM_COND: LDec = {
+  question: 'Modo do transponder?',
+  answers: [
+    { label: 'ROV', active: true, packages: [
+      { id: 'ABAN 002', name: 'Recolhimento de transponder com ROV', condition: 'rig_dp' },
+    ], sub: [{
+      question: 'DMM — equipamento subsea no fundo?',
+      answers: [
+        { label: 'Não', active: true, packages: [
+          { id: 'ABAN 003', name: 'DMM', condition: 'rig_dp' },
+          { id: 'ABAN 007', name: 'Lançamento de transponder com ROV e calibração DP', condition: 'rig_dp' },
+        ]},
+        { label: 'Sim — Fase 1', packages: [
+          { id: 'ABAN 004', name: 'DMM - Fase 1 / Stack-up SSUB no fundo', condition: 'rig_dp' },
+          { id: 'ABAN 007', name: 'Lançamento de transponder com ROV e calibração DP', condition: 'rig_dp' },
+        ]},
+        { label: 'Sim — Fase 2', packages: [
+          { id: 'ABAN 005', name: 'DMM - Fase 2 / BOP no fundo', condition: 'rig_dp' },
+          { id: 'ABAN 007', name: 'Lançamento de transponder com ROV e calibração DP', condition: 'rig_dp' },
+        ]},
+      ],
+    }]},
+    { label: 'COT', packages: [
+      { id: 'ABAN 001', name: 'Recolhimento de transponder com COT', condition: 'rig_dp' },
+    ], sub: [{
+      question: 'DMM — equipamento subsea no fundo?',
+      answers: [
+        { label: 'Não', active: true, packages: [
+          { id: 'ABAN 003', name: 'DMM', condition: 'rig_dp' },
+          { id: 'ABAN 006', name: 'Lançamento de transponder com COT e calibração DP', condition: 'rig_dp' },
+        ]},
+        { label: 'Sim — Fase 1', packages: [
+          { id: 'ABAN 004', name: 'DMM - Fase 1 / Stack-up SSUB no fundo', condition: 'rig_dp' },
+          { id: 'ABAN 006', name: 'Lançamento de transponder com COT e calibração DP', condition: 'rig_dp' },
+        ]},
+        { label: 'Sim — Fase 2', packages: [
+          { id: 'ABAN 005', name: 'DMM - Fase 2 / BOP no fundo', condition: 'rig_dp' },
+          { id: 'ABAN 006', name: 'Lançamento de transponder com COT e calibração DP', condition: 'rig_dp' },
+        ]},
+      ],
+    }]},
+  ],
+}
+
+const SEC_MOB_DESCIDA_DP_COND: LSec = {
+  id: 'mob_cond',
+  label: 'MOBILIZAÇÃO / DESCIDA / CONEXÃO (condicionais por sonda)',
+  phase: 'Fase 0',
+  color: 'gray',
+  // DMA: emitido automaticamente pelo engine para sondas ANC (condition: 'rig_anc').
+  // Transponder/DMM: pacotes condition: 'rig_dp' — invisíveis para ANC.
+  always: [
+    { id: 'ABAN 208', name: 'DMA', condition: 'rig_anc' },
+  ],
+  decisions: [
+    _TRANSPONDER_DMM_COND,
+    _MOB_POST_CCAP,
+    _MOB_TCAP_COND,
+    _REENTRADA,
+    _ITF_TEST_PROD, _ITF_TEST_ANUL, _TMF_PLUG_ANUL, _TMF_PLUG_PROD,
+    _VALVE_JATEAMENTO_POS_PLUG, _VALVE_GABARIT_POS_PLUG, _TESTE_VALV_ANULAR,
+    _CONEXAO_HIDRATO, _VALVE_JATEAMENTO, _VALVE_GABARIT,
+  ],
+}
+
+// FS2: mobilização sem descida do WO / conexão ANM — na Fase 2 o poço já não tem
+// ANM; a engine vai de POST_MOB direto para BOP/FETH. Espelha SEQUENCES[FS2_*].
+// DP: transponder/DMM; ANC: DMA (ABAN 208). CCAP em ambos (POST_MOB_INJECT).
+const SEC_MOB_FS2_DP: LSec = {
+  id: 'mob', label: 'MOBILIZAÇÃO (DP — Fase 2)', phase: 'Fase 0', color: 'gray',
+  rigTypes: ['DP'],
+  decisions: [_TRANSPONDER_DMM_DEC, _MOB_POST_CCAP],
+}
+const SEC_MOB_FS2_ANC: LSec = {
+  id: 'mob_anc', label: 'MOBILIZAÇÃO (ANC — Fase 2)', phase: 'Fase 0', color: 'gray',
+  rigTypes: ['ANC'],
+  always: [{ id: 'ABAN 208', name: 'DMA' }],
+  decisions: [_MOB_POST_CCAP],
+}
 
 // DHSV: controla inclusão de ABAN 030 (teste funcional DHSV por bullheading).
 // Reentrada ANM, testes funcionais e hidrato foram absorvidos em SEC_MOB_DP/ANC.
@@ -320,48 +569,205 @@ const SEC_CONEXAO: LSec = {
   id: 'conexao', label: 'DHSV / BLOCOS ANM', phase: 'Fase 1A', color: 'blue',
   decisions: [
     {
-      question: 'Instalação de camisão na DHSV?',
+      // Testes de bloco da ANM (tabela 028/029): adiados quando há plug no bore
+      // correspondente do TMF (emitidos após a retirada do plug, na seção MOB).
+      question: 'Teste de bloco de produção da ANM?',
       answers: [
-        { label: 'Não', active: true, packages: [
+        { label: 'Executar', active: true, packages: [
           { id: 'ABAN 028', name: 'Teste bloco produção da ANM' },
-          { id: 'ABAN 029', name: 'Teste bloco anular da ANM' },
-          { id: 'ABAN 030', name: 'Teste funcional de DHSV (bullheading)' },
         ]},
-        { label: 'Sim', packages: [
-          { id: 'ABAN 028', name: 'Teste bloco produção da ANM' },
+        { label: 'Adiado (plug no TMF)' },
+      ],
+    },
+    {
+      question: 'Teste de bloco do anular da ANM?',
+      answers: [
+        { label: 'Executar', active: true, packages: [
           { id: 'ABAN 029', name: 'Teste bloco anular da ANM' },
         ]},
-        { label: 'Contingência', packages: [
-          { id: 'ABAN 028', name: 'Teste bloco produção da ANM' },
-          { id: 'ABAN 029', name: 'Teste bloco anular da ANM' },
-          { id: 'ABAN 030', name: 'Teste funcional de DHSV (bullheading)' },
+        { label: 'Adiado (plug no TMF)' },
+      ],
+    },
+    {
+      // Espelha ANM_FORCE_INJECT: martelete (143) e motor+broca (124) independentes,
+      // firmes ou contingenciais conforme anmForceOpen.
+      question: 'Abrir válvula da ANM com FT?',
+      answers: [
+        { label: 'Não', active: true },
+        { label: 'Sim', field: 'anmForceOpen', value: 'yes', sub: [
+          {
+            question: 'Força com martelete?',
+            answers: [
+              { label: 'Não', active: true },
+              { label: 'Sim', field: 'anmForceMethod', value: 'hammer', packages: [
+                { id: 'ABAN 143', name: 'Flexitubo — Martelete para abertura de válvula ANM' },
+              ]},
+            ],
+          },
+          {
+            question: 'Força com motor + broca?',
+            answers: [
+              { label: 'Não', active: true },
+              { label: 'Sim', field: 'anmForceMethod', value: 'motor_broca', packages: [
+                { id: 'ABAN 124', name: 'Flexitubo - Gabaritagem' },
+              ]},
+            ],
+          },
+        ]},
+        { label: 'Contingência', field: 'anmForceOpen', value: 'contingency', sub: [
+          {
+            question: 'Força com martelete?',
+            answers: [
+              { label: 'Não', active: true },
+              { label: 'Sim', field: 'anmForceMethod', value: 'hammer', packages: [
+                { id: 'ABAN 143', name: 'Flexitubo — Martelete para abertura de válvula ANM',
+                  isContingency: true, contingencyReason: 'Contingência: abertura de válvula da ANM com martelete (FT)' },
+              ]},
+            ],
+          },
+          {
+            question: 'Força com motor + broca?',
+            answers: [
+              { label: 'Não', active: true },
+              { label: 'Sim', field: 'anmForceMethod', value: 'motor_broca', packages: [
+                { id: 'ABAN 124', name: 'Flexitubo - Gabaritagem',
+                  isContingency: true, contingencyReason: 'Contingência: gabaritagem com motor de fundo e broca para abertura de válvulas da ANM' },
+              ]},
+            ],
+          },
         ]},
       ],
     },
     {
-      question: 'Abrir válvula da ANM com FT?',
+      // ABAN 030 firme (condição dhsv_no_sleeve da tabela): só quando não há camisão.
+      question: 'Instalação de camisão na DHSV?',
       answers: [
-        { label: 'Não', active: true },
-        { label: 'Martelete', packages: [
-          { id: 'ABAN 143', name: 'Flexitubo — Martelete para abertura de válvula ANM' },
+        { label: 'Não', packages: [
+          { id: 'ABAN 030', name: 'Teste funcional de DHSV (bullheading)' },
         ]},
-        { label: 'Motor + broca', packages: [
-          { id: 'ABAN 124', name: 'Flexitubo - Gabaritagem' },
-        ]},
-        { label: 'Ambos', packages: [
-          { id: 'ABAN 143', name: 'Flexitubo — Martelete para abertura de válvula ANM' },
-          { id: 'ABAN 124', name: 'Flexitubo - Gabaritagem' },
-        ]},
+        { label: 'Sim', active: true },
+        { label: 'Contingência', note: 'Teste de DHSV (030) adiado para após o amortecimento' },
       ],
     },
   ],
 }
 
-const SEC_GAB: LSec = {
-  id: 'gab', label: 'GABARITAGEM / ANULAR', phase: 'Fase 1A', color: 'blue',
-  always: [
-    { id: 'ABAN 031A', name: 'Montagem de unidade de arame (DP Generalista)' },
+// Amortecimento COP/COI (LIMPEZA_INJECT): fluido conforme initialFillFluid; poço isolado
+// (killWellFase1A 'no') suprime; 'contingency' marca como contingencial. Usado 2× (pré e
+// pós-canhoneio) — os rótulos compostos evitam sub-níveis para a combinação kill×fluido.
+const _AMORT_COP_ANSWERS: LAns[] = [
+  { label: 'Diesel + FCBA', active: true, packages: [
+    { id: 'ABAN 061', name: 'Limpeza e Amort. COP (bullheading diesel + FCBA)' },
+  ]},
+  { label: 'MEG + FCBA', packages: [
+    { id: 'ABAN 062', name: 'Limpeza e Amort. COP (bullheading MEG + FCBA)' },
+  ]},
+  { label: 'Diesel puro', packages: [
+    { id: 'ABAN 219', name: 'Preenchimento de anular A e coluna com diesel' },
+  ]},
+  { label: 'Não / N.A.' },
+  { label: 'Contingência — Diesel + FCBA', packages: [
+    { id: 'ABAN 061', name: 'Limpeza e Amort. COP (bullheading diesel + FCBA)',
+      isContingency: true, contingencyReason: 'Contingência: amortecimento da COP/COI' },
+  ]},
+  { label: 'Contingência — MEG + FCBA', packages: [
+    { id: 'ABAN 062', name: 'Limpeza e Amort. COP (bullheading MEG + FCBA)',
+      isContingency: true, contingencyReason: 'Contingência: amortecimento da COP/COI' },
+  ]},
+]
+
+// Pescaria de cauda (TAIL_FISHING_INJECT): uma decisão por elemento, na ordem da engine;
+// método define o pacote (arame/stroker/FT). Resolvida de inputs.tailFishingItems.
+const _TAIL_ELEMENTS: { key: string; label: string; pkgs: Record<'wireline' | 'stroker' | 'ct', { id: string; name: string }> }[] = [
+  { key: 'stv_f', label: 'STV F', pkgs: {
+    wireline: { id: 'ABAN 049', name: 'Pescaria de STV F (arame)' },
+    stroker:  { id: 'ABAN 091', name: 'Pescaria de STV F (stroker)' },
+    ct:       { id: 'ABAN 137', name: 'Flexitubo - Pescaria de STV F' } } },
+  { key: 'plug_f', label: 'plug F', pkgs: {
+    wireline: { id: 'ABAN 051', name: 'Pescaria de plug F (arame)' },
+    stroker:  { id: 'ABAN 093', name: 'Pescaria de plug F (stroker)' },
+    ct:       { id: 'ABAN 139', name: 'Flexitubo - Pescaria de plug F' } } },
+  { key: 'brv_f', label: 'BRV F', pkgs: {
+    wireline: { id: 'ABAN 053', name: 'Pescaria de BRV F (arame)' },
+    stroker:  { id: 'ABAN 095', name: 'Pescaria de BRV F (stroker)' },
+    ct:       { id: 'ABAN 141', name: 'Flexitubo - Pescaria de BRV F' } } },
+  { key: 'stv_r', label: 'STV R', pkgs: {
+    wireline: { id: 'ABAN 048', name: 'Pescaria de STV R (arame)' },
+    stroker:  { id: 'ABAN 090', name: 'Pescaria de STV R (stroker)' },
+    ct:       { id: 'ABAN 136', name: 'Flexitubo - Pescaria de STV R' } } },
+  { key: 'plug_r', label: 'plug R', pkgs: {
+    wireline: { id: 'ABAN 050', name: 'Pescaria de plug R (arame)' },
+    stroker:  { id: 'ABAN 092', name: 'Pescaria de plug R (stroker)' },
+    ct:       { id: 'ABAN 138', name: 'Flexitubo - Pescaria de plug R' } } },
+  { key: 'brv_r', label: 'BRV R', pkgs: {
+    wireline: { id: 'ABAN 054', name: 'Pescaria de BRV R (arame)' },
+    stroker:  { id: 'ABAN 096', name: 'Pescaria de BRV R (stroker)' },
+    ct:       { id: 'ABAN 142', name: 'Flexitubo - Pescaria de BRV R' } } },
+  { key: 'camisao', label: 'camisão', pkgs: {
+    wireline: { id: 'ABAN 055', name: 'Pescaria de camisão (arame)' },
+    stroker:  { id: 'ABAN 097', name: 'Pescaria de camisão (stroker)' },
+    ct:       { id: 'ABAN 134', name: 'Flexitubo - Pescaria de camisão' } } },
+]
+const _TAIL_FISHING_DECS: LDec[] = _TAIL_ELEMENTS.map(el => ({
+  question: `Pescaria de cauda — ${el.label}?`,
+  answers: [
+    { label: 'Não', active: true },
+    { label: 'Arame', packages: [el.pkgs.wireline] },
+    { label: 'Stroker', packages: [el.pkgs.stroker] },
+    { label: 'Flexitubo', packages: [el.pkgs.ct] },
   ],
+}))
+
+// Sub-decisões da operação de VGL (VGL_INJECT); replace acrescenta a instalação da nova VGL.
+const _vglSubDecs = (replace: boolean): LDec[] => [
+  {
+    question: 'Descer STV para a operação de VGL?',
+    answers: [
+      { label: 'Não', active: true },
+      { label: 'Sim', packages: [{ id: 'ABAN 038', name: 'STV em nipple R 2,75"' }] },
+    ],
+  },
+  {
+    question: 'Retirar camisão para a VGL?',
+    answers: [
+      { label: 'Não', active: true },
+      { label: 'Arame', packages: [{ id: 'ABAN 055', name: 'Pescaria de camisão (arame)' }] },
+      { label: 'Flexitubo', packages: [{ id: 'ABAN 134', name: 'Flexitubo - Pescaria de camisão' }] },
+    ],
+  },
+  {
+    question: 'Método de pescaria da VGL?',
+    answers: [
+      { label: 'Arame', active: true, field: 'vglFishingMethod', value: 'wireline', packages: [
+        { id: 'ABAN 056', name: 'Pescaria de VGL (arame)' },
+      ]},
+      { label: 'Stroker', field: 'vglFishingMethod', value: 'stroker', packages: [
+        { id: 'ABAN 114', name: 'Pescaria de VGL (stroker)' },
+      ]},
+    ],
+    ...(replace ? { after: [{ label: 'Instalação da nova VGL', packages: [
+      { id: 'ABAN 057', name: 'Instalação de nova VGL' },
+    ]}] } : {}),
+  },
+  {
+    question: 'Reinstalar camisão pós-VGL?',
+    answers: [
+      { label: 'Não', active: true },
+      { label: 'Arame', packages: [{ id: 'ABAN 037', name: 'Instalação de camisão na DHSV (arame)' }] },
+      { label: 'Flexitubo', packages: [{ id: 'ABAN 126', name: 'Flexitubo - Instalação de camisão na DHSV' }] },
+    ],
+  },
+  {
+    question: 'Retirar STV pós-VGL?',
+    answers: [
+      { label: 'Não', active: true },
+      { label: 'Sim', packages: [{ id: 'ABAN 048', name: 'Pescaria de STV R (arame)' }] },
+    ],
+  },
+]
+
+const SEC_GAB: LSec = {
+  id: 'gab', label: 'ANULAR / CAMISÃO / GABARITAGEM', phase: 'Fase 1A', color: 'blue',
   decisions: [
     {
       question: 'Plug no TH?',
@@ -370,6 +776,89 @@ const SEC_GAB: LSec = {
         { label: 'Sim', packages: [
           { id: 'ABAN 052', name: 'Retirada de plug 3,75" no TH' },
         ]},
+      ],
+    },
+    {
+      // Espelha ANULAR_A_INJECT: poço isolado → só estanqueidade (226); contingência →
+      // 226 firme + amortecimento contingencial; senão o pacote conforme pressão/fluido.
+      question: 'Pressão no anular A?',
+      answers: [
+        { label: 'Poço isolado (não amortecer)', field: 'killWellFase1A', value: 'no', packages: [
+          { id: 'ABAN 226', name: 'Confirmação de estanqueidade do poço' },
+        ]},
+        { label: 'Zero', active: true, packages: [
+          { id: 'ABAN 063', name: 'Amort. anular A (despressurização total + bullheading FCBA)' },
+        ]},
+        { label: 'Top kill — diesel', packages: [
+          { id: 'ABAN 064', name: 'Amort. anular A (steps depress. + top kill diesel)' },
+        ]},
+        { label: 'Top kill — MEG', packages: [
+          { id: 'ABAN 065', name: 'Amort. anular A (steps depress. + top kill MEG/FCBA)' },
+        ]},
+        { label: 'Não / N.A.' },
+        { label: 'Contingência — zero', packages: [
+          { id: 'ABAN 226', name: 'Confirmação de estanqueidade do poço' },
+          { id: 'ABAN 063', name: 'Amort. anular A (despressurização total + bullheading FCBA)',
+            isContingency: true, contingencyReason: 'Contingência: despressurização/preenchimento do anular A' },
+        ]},
+        { label: 'Contingência — top kill diesel', packages: [
+          { id: 'ABAN 226', name: 'Confirmação de estanqueidade do poço' },
+          { id: 'ABAN 064', name: 'Amort. anular A (steps depress. + top kill diesel)',
+            isContingency: true, contingencyReason: 'Contingência: despressurização/preenchimento do anular A' },
+        ]},
+        { label: 'Contingência — top kill MEG', packages: [
+          { id: 'ABAN 226', name: 'Confirmação de estanqueidade do poço' },
+          { id: 'ABAN 065', name: 'Amort. anular A (steps depress. + top kill MEG/FCBA)',
+            isContingency: true, contingencyReason: 'Contingência: despressurização/preenchimento do anular A' },
+        ]},
+      ],
+    },
+    { question: 'Amortecimento COP — fluido?', answers: _AMORT_COP_ANSWERS },
+    {
+      // Espelha DHSV_TEST_INJECT: teste funcional de DHSV pós-amortecimento quando o
+      // camisão é contingencial (o 030 firme sai na conexão via dhsv_no_sleeve).
+      question: 'Teste funcional de DHSV pós-amortecimento?',
+      answers: [
+        { label: 'Não', active: true },
+        { label: 'Sim', field: 'installCamisao', value: 'contingency', packages: [
+          { id: 'ABAN 030', name: 'Teste funcional de DHSV (bullheading)' },
+        ]},
+      ],
+    },
+    {
+      // Espelha CAMISAO_INJECT (slot firme): instalação de camisão na DHSV por arame ou FT.
+      question: 'Instalar camisão na DHSV (firme)?',
+      answers: [
+        { label: 'Não', active: true },
+        { label: 'Sim', field: 'installCamisao', value: 'yes', sub: [{
+          question: 'Método de instalação do camisão?',
+          answers: [
+            { label: 'Arame', active: true, packages: [
+              { id: 'ABAN 037', name: 'Instalação de camisão na DHSV (arame)' },
+            ]},
+            { label: 'Flexitubo', field: 'camisaoMethod', value: 'ct', packages: [
+              { id: 'ABAN 126', name: 'Flexitubo - Instalação de camisão na DHSV' },
+            ]},
+          ],
+        }]},
+      ],
+    },
+    {
+      // Slot contingencial de camisão (pode coexistir com o firme — installCamisao é array).
+      question: 'Instalar camisão na DHSV (contingência)?',
+      answers: [
+        { label: 'Não', active: true },
+        { label: 'Sim', field: 'installCamisao', value: 'contingency', sub: [{
+          question: 'Método do camisão (contingência)?',
+          answers: [
+            { label: 'Arame', active: true, packages: [
+              { id: 'ABAN 037', name: 'Instalação de camisão na DHSV (arame)', isContingency: true },
+            ]},
+            { label: 'Flexitubo', field: 'camisaoMethod', value: 'ct', packages: [
+              { id: 'ABAN 126', name: 'Flexitubo - Instalação de camisão na DHSV', isContingency: true },
+            ]},
+          ],
+        }]},
       ],
     },
     {
@@ -388,51 +877,100 @@ const SEC_GAB: LSec = {
       ],
     },
     {
-      question: 'Amortecimento COP — fluido?',
-      answers: [
-        { label: 'Diesel + FCBA', active: true, packages: [
-          { id: 'ABAN 061', name: 'Limpeza e Amort. COP (bullheading diesel + FCBA)' },
-        ]},
-        { label: 'MEG + FCBA', packages: [
-          { id: 'ABAN 062', name: 'Limpeza e Amort. COP (bullheading MEG + FCBA)' },
-        ]},
-        { label: 'Diesel puro', packages: [
-          { id: 'ABAN 219', name: 'Preenchimento de anular A e coluna com diesel' },
-        ]},
-        { label: 'Não / N.A.' },
-      ],
-    },
-    {
-      question: 'Pressão no anular A?',
-      answers: [
-        { label: 'Zero', active: true, packages: [
-          { id: 'ABAN 063', name: 'Amort. anular A (despressurização total + bullheading FCBA)' },
-        ]},
-        { label: 'Top kill — diesel', packages: [
-          { id: 'ABAN 064', name: 'Amort. anular A (steps depress. + top kill diesel)' },
-        ]},
-        { label: 'Top kill — MEG', packages: [
-          { id: 'ABAN 065', name: 'Amort. anular A (steps depress. + top kill MEG/FCBA)' },
-        ]},
-        { label: 'Não / N.A.' },
-      ],
-      afterDec: [{
-        question: 'Fluido amort. anular A pós-canhoneio?',
-        answers: [
-          { label: 'Não incluir', active: true },
-          { label: 'Incluir', packages: [
-            { id: 'ABAN 255', name: 'Amortecimento do anular A pós-canhoneio (FCBA)' },
-          ]},
-        ],
-      }],
-    },
-    {
-      question: 'Realizar Registro de Pressão?',
+      // Espelha o bloco contingencyGabaritFT do CAMISAO_INJECT.
+      question: 'Contingência de gabaritagem com FT?',
       answers: [
         { label: 'Não', active: true },
-        { label: 'Sim', packages: [
-          { id: 'ABAN 047', name: 'Registro de pressão e temperatura' },
+        { label: 'Sim', field: 'contingencyGabaritFT', value: 'yes', packages: [
+          { id: 'ABAN 124', name: 'Flexitubo - Gabaritagem' },
         ]},
+        { label: 'Contingência', field: 'contingencyGabaritFT', value: 'contingency', packages: [
+          { id: 'ABAN 124', name: 'Flexitubo - Gabaritagem', isContingency: true,
+            contingencyReason: 'Contingência: gabaritagem com motor de fundo e broca via flexitubo' },
+        ]},
+      ],
+    },
+    // ── Perfis de investigação (espelha INVESTIGATION_INJECT, na ordem da engine) ──
+    {
+      question: 'Investigação — registro de pressão?',
+      answers: [
+        { label: 'Não', active: true },
+        { label: 'Arame', packages: [{ id: 'ABAN 047', name: 'Registro de pressão e temperatura' }] },
+        { label: 'Cabo elétrico', packages: [{ id: 'ABAN 104', name: 'Registro de pressão — cabo elétrico' }] },
+        { label: 'Flexitubo', packages: [{ id: 'ABAN 147', name: 'Flexitubo - Registro de pressão' }] },
+        { label: 'Contingência — Arame', packages: [{ id: 'ABAN 047', name: 'Registro de pressão e temperatura', isContingency: true }] },
+        { label: 'Contingência — Cabo elétrico', packages: [{ id: 'ABAN 104', name: 'Registro de pressão — cabo elétrico', isContingency: true }] },
+        { label: 'Contingência — Flexitubo', packages: [{ id: 'ABAN 147', name: 'Flexitubo - Registro de pressão', isContingency: true }] },
+      ],
+    },
+    {
+      question: 'Investigação — fluxo pelo anular?',
+      answers: [
+        { label: 'Não', active: true },
+        { label: 'Arame', packages: [{ id: 'ABAN 100', name: 'Investigação de fluxo pelo anular' }] },
+        { label: 'Flexitubo', packages: [{ id: 'ABAN 151', name: 'Flexitubo - Investigação de fluxo pelo anular' }] },
+        { label: 'Contingência — Arame', packages: [{ id: 'ABAN 100', name: 'Investigação de fluxo pelo anular', isContingency: true }] },
+        { label: 'Contingência — Flexitubo', packages: [{ id: 'ABAN 151', name: 'Flexitubo - Investigação de fluxo pelo anular', isContingency: true }] },
+      ],
+    },
+    {
+      question: 'Investigação — furo na COP?',
+      answers: [
+        { label: 'Não', active: true },
+        { label: 'Arame', packages: [{ id: 'ABAN 099', name: 'Investigação de furo na COP' }] },
+        { label: 'Flexitubo', packages: [{ id: 'ABAN 152', name: 'Flexitubo - Investigação de furo na COP' }] },
+        { label: 'Contingência — Arame', packages: [{ id: 'ABAN 099', name: 'Investigação de furo na COP', isContingency: true }] },
+        { label: 'Contingência — Flexitubo', packages: [{ id: 'ABAN 152', name: 'Flexitubo - Investigação de furo na COP', isContingency: true }] },
+      ],
+    },
+    {
+      question: 'Investigação — caliper?',
+      answers: [
+        { label: 'Não', active: true },
+        { label: 'Sim', packages: [{ id: 'ABAN 111', name: 'Perfilagem caliper' }] },
+        { label: 'Contingência', packages: [{ id: 'ABAN 111', name: 'Perfilagem caliper', isContingency: true }] },
+      ],
+    },
+    {
+      question: 'Investigação — imageamento?',
+      answers: [
+        { label: 'Não', active: true },
+        { label: 'Sim', packages: [{ id: 'ABAN 112', name: 'Perfilagem de imageamento' }] },
+        { label: 'Contingência', packages: [{ id: 'ABAN 112', name: 'Perfilagem de imageamento', isContingency: true }] },
+      ],
+    },
+    {
+      question: 'Investigação — free point?',
+      answers: [
+        { label: 'Não', active: true },
+        { label: 'Sim', packages: [{ id: 'ABAN 251', name: 'Free point (investigação de prisão)' }] },
+        { label: 'Contingência', packages: [{ id: 'ABAN 251', name: 'Free point (investigação de prisão)', isContingency: true }] },
+      ],
+    },
+    // ── Pescaria de cauda (espelha TAIL_FISHING_INJECT, na ordem elemento→método) ──
+    ..._TAIL_FISHING_DECS,
+    {
+      // Espelha STDV_TEST_INJECT: teste de coluna com STDV antes do canhoneio (TT-BDC).
+      question: 'Teste de coluna com STDV?',
+      answers: [
+        { label: 'Não', active: true },
+        { label: 'Sim — manter instalada', packages: [
+          { id: 'ABAN 038', name: 'STV em nipple R 2,75"' },
+        ]},
+        { label: 'Sim — retirar após teste', packages: [
+          { id: 'ABAN 038', name: 'STV em nipple R 2,75"' },
+          { id: 'ABAN 048', name: 'Pescaria de STV R (arame)' },
+        ]},
+      ],
+    },
+    {
+      // Espelha VGL_INJECT: STV opcional → retirada do camisão → pescaria → [nova VGL]
+      // → reinstalação do camisão → retirada do STV.
+      question: 'Operação de VGL?',
+      answers: [
+        { label: 'Não', active: true },
+        { label: 'Retirar', field: 'vglAction', value: 'remove', sub: _vglSubDecs(false) },
+        { label: 'Substituir', field: 'vglAction', value: 'replace', sub: _vglSubDecs(true) },
       ],
     },
   ],
@@ -453,12 +991,26 @@ const SEC_FLOWLINES: LSec = {
         { label: 'Não', active: true, note: '(bloco omitido)' },
         { label: 'Sim', sub: [
           {
+            // Espelha FLOWLINE_INJECT (hidrato): 171/172 ANC, 167/168 DP; firme ou
+            // contingencial conforme flowlineHydrate.
             question: 'Hidrato nas flowlines?',
             answers: [
               { label: 'Não', active: true },
-              { label: 'Sim / Conting.', packages: [
-                { id: 'ABAN 167', name: 'Dissociação hidrato — flowline prod. (DP)' },
-                { id: 'ABAN 168', name: 'Dissociação hidrato — flowline anular (DP)' },
+              { label: 'Sim', field: 'flowlineHydrate', value: 'yes', packages: [
+                { id: 'ABAN 171', name: 'Dissociação hidrato — flowline prod. (ANC)', condition: 'rig_anc' },
+                { id: 'ABAN 167', name: 'Dissociação hidrato — flowline prod. (DP)', condition: 'rig_dp' },
+                { id: 'ABAN 172', name: 'Dissociação hidrato — flowline gas lift (ANC)', condition: 'rig_anc' },
+                { id: 'ABAN 168', name: 'Dissociação hidrato — flowline gas lift (DP)', condition: 'rig_dp' },
+              ]},
+              { label: 'Contingência', field: 'flowlineHydrate', value: 'contingency', packages: [
+                { id: 'ABAN 171', name: 'Dissociação hidrato — flowline prod. (ANC)', condition: 'rig_anc',
+                  isContingency: true, contingencyReason: 'Contingência: dissociação de hidrato na flowline de produção' },
+                { id: 'ABAN 167', name: 'Dissociação hidrato — flowline prod. (DP)', condition: 'rig_dp',
+                  isContingency: true, contingencyReason: 'Contingência: dissociação de hidrato na flowline de produção' },
+                { id: 'ABAN 172', name: 'Dissociação hidrato — flowline gas lift (ANC)', condition: 'rig_anc',
+                  isContingency: true, contingencyReason: 'Contingência: dissociação de hidrato na flowline de gas lift' },
+                { id: 'ABAN 168', name: 'Dissociação hidrato — flowline gas lift (DP)', condition: 'rig_dp',
+                  isContingency: true, contingencyReason: 'Contingência: dissociação de hidrato na flowline de gas lift' },
               ]},
             ],
           },
@@ -517,150 +1069,146 @@ const SEC_TMF: LSec = {
   ],
 }
 
+// Amortecimento do anular A pós-canhoneio (255) — suprimido/contingencial via killWellFase1A.
+const _AMORT_POS_CANHONEIO: LDec = {
+  question: 'Amortecimento do anular pós-canhoneio?',
+  answers: [
+    { label: 'Sim', active: true, packages: [
+      { id: 'ABAN 255', name: 'Amortecimento do anular A pós-canhoneio (FCBA)' },
+    ]},
+    { label: 'Não — poço isolado', field: 'killWellFase1A', value: 'no' },
+    { label: 'Não previsto (STDV mantida)' },
+    { label: 'Contingência', field: 'killWellFase1A', value: 'contingency', packages: [
+      { id: 'ABAN 255', name: 'Amortecimento do anular A pós-canhoneio (FCBA)', isContingency: true,
+        contingencyReason: 'Contingência: amortecimento do anular A pós-canhoneio' },
+    ]},
+  ],
+}
+
 // ── FSU_TT_FT — seções específicas ─────────────────────────────────────────
 
-const SEC_CSB1_TT: LSec = {
-  id: 'csb1', label: 'CSB PRIMÁRIO', phase: 'Fase 1A', color: 'blue',
+// Espelha PERF_INJECT (ramo TT) + LIMPEZA_INJECT (2ª) + CSB_INJECT: canhoneio profundo
+// pela tecnologia escolhida, amortecimento pós-canhoneio, limpeza e CSB primário.
+const SEC_TT_BARREIRA: LSec = {
+  id: 'csb1_tt', label: 'CANHONEIO + CSB PRIMÁRIO (TT)', phase: 'Fase 1A', color: 'blue',
   decisions: [
     {
-      question: 'CSB Primário já instalado?',
+      question: 'Perfuração da coluna (TT)?',
       answers: [
-        { label: 'Sim', active: true, note: '(etapa omitida)' },
-        { label: 'Não', sub: [{
-          question: 'Tipo de CSB Primário?',
-          answers: [
-            { label: 'TAE', packages: [
-              { id: 'ABAN 085', name: 'Montagem unidade cabo elétrico (DP)' },
-              { id: 'ABAN 237', name: 'Instalação de TAE (CSB primário)' },
-            ]},
-            { label: 'Plug wireline', packages: [
-              { id: 'ABAN 040', name: 'Plug em nipple R 2,75"' },
-              { id: 'ABAN 221', name: 'Teste influxo c/ N2 (plug) — DPR' },
-            ]},
-            { label: 'STV wireline', packages: [
-              { id: 'ABAN 038', name: 'STV em nipple R 2,75"' },
-            ]},
-            { label: 'Cimento FT', packages: [
-              { id: 'ABAN 156', name: 'Cimentação anular A c/ CR + int. COP (FT)' },
-              { id: 'ABAN 234', name: 'Checagem de TOC — jogo de polias' },
-            ]},
-            { label: 'eCSB bombeio', packages: [
-              { id: 'ABAN 079', name: 'Bombeio direto — obturação c/ fluido eCSB' },
-            ]},
-          ],
-        }]},
+        { label: 'Cabo elétrico', active: true, field: 'tubingPerfMethod', value: 'electric', packages: [
+          { id: 'ABAN 101', name: 'Perfuração da coluna (tubing puncher elétrico)' },
+        ]},
+        { label: 'Arame (eFire)', field: 'tubingPerfMethod', value: 'wireline', packages: [
+          { id: 'ABAN 045', name: 'Perfuração da coluna (eFire, arame)' },
+        ]},
+        { label: 'Flexitubo', field: 'tubingPerfMethod', value: 'ct', packages: [
+          { id: 'ABAN 154', name: 'Flexitubo - Perfuração da coluna (tubing puncher)' },
+        ]},
+      ],
+      afterDec: [_AMORT_POS_CANHONEIO],
+    },
+    { question: 'Limpeza pós-canhoneio — fluido?', answers: _AMORT_COP_ANSWERS },
+    {
+      question: 'CSB primário (TT)?',
+      answers: [
+        { label: 'STV wireline', active: true, field: 'csbPrimary', value: 'stdv', packages: [
+          { id: 'ABAN 038', name: 'STV em nipple R 2,75"' },
+        ]},
+        { label: 'Plug wireline', field: 'csbPrimary', value: 'plug', packages: [
+          { id: 'ABAN 040', name: 'Plug em nipple R 2,75"' },
+        ]},
+        { label: 'TAE', field: 'csbPrimary', value: 'tae', packages: [
+          { id: 'ABAN 237', name: 'Instalação de TAE (CSB primário)' },
+        ]},
+        { label: 'Packer inflável', field: 'csbPrimary', value: 'inflatable_packer', packages: [
+          { id: 'ABAN 125', name: 'Flexitubo - Jateamento (SpinCat) + Gabaritagem' },
+          { id: 'ABAN 162', name: 'Flexitubo - BPP inflável' },
+        ]},
       ],
     },
   ],
 }
 
-const SEC_CORTE_TT: LSec = {
-  id: 'corte', label: 'CORTE DE COLUNA', phase: 'Fase 1A', color: 'blue',
+// Espelha JATEAR_INJECT + FT_CEMENT_INJECT + corte (ABAN 113, condição no_pdi):
+// jateamento COP/COI, cimentação FT (single/distinct/successive × polias/equip. de
+// pressão) e corte de coluna quando não há PDI.
+const SEC_TT_CIMENT: LSec = {
+  id: 'ciment_tt', label: 'CIMENTAÇÃO FT + CORTE (TT)', phase: 'Fase 1A', color: 'blue',
   decisions: [
     {
-      // Espelha o campo da etapa 2 "Cortar coluna abaixo do TH?" (hasPDI):
-      // Não = há PDI (coluna sacável, corte omitido); Sim = sem PDI → corta (ABAN 113).
+      question: 'Jatear COP/COI?',
+      answers: [
+        { label: 'Sim', active: true, field: 'jatearCopCoi', value: 'yes', packages: [
+          { id: 'ABAN 125', name: 'Flexitubo - Jateamento (SpinCat) + Gabaritagem' },
+        ]},
+        { label: 'Contingência', field: 'jatearCopCoi', value: 'contingency', packages: [
+          { id: 'ABAN 125', name: 'Flexitubo - Jateamento (SpinCat) + Gabaritagem', isContingency: true,
+            contingencyReason: 'Contingência: jateamento COP/COI com FT' },
+        ]},
+        { label: 'Não', field: 'jatearCopCoi', value: 'no' },
+      ],
+    },
+    {
+      question: 'Modo de cimentação FT?',
+      answers: [
+        { label: 'Etapa única', active: true, field: 'ttFtCementMode', value: 'single', packages: [
+          { id: 'ABAN 156', name: 'Cimentação anular A c/ CR + int. COP (FT)' },
+        ], sub: [{
+          question: 'Avaliação de TOC (etapa única)?',
+          answers: [
+            { label: 'Jogo de polias', active: true, field: 'loggingMode', value: 'polias', packages: [
+              { id: 'ABAN 234', name: 'Checagem de TOC — jogo de polias', transitionTechnology: 'none' },
+              { id: 'ABAN 105', name: 'Avaliação de cimentação', transitionTechnology: 'none' },
+            ]},
+            { label: 'Equipamento de pressão', field: 'loggingMode', value: 'pressure_equipment', packages: [
+              { id: 'ABAN 105', name: 'Avaliação de cimentação' },
+            ]},
+          ],
+        }]},
+        { label: 'Etapas distintas', field: 'ttFtCementMode', value: 'distinct', packages: [
+          { id: 'ABAN 155', name: 'Cimentação anular A c/ CR (FT) — 1ª etapa' },
+        ], sub: [{
+          question: 'Avaliação de TOC (etapas distintas)?',
+          answers: [
+            { label: 'Jogo de polias', active: true, field: 'loggingMode', value: 'polias', packages: [
+              { id: 'ABAN 105', name: 'Avaliação de cimentação', transitionTechnology: 'none' },
+              { id: 'ABAN 157', name: 'Cimentação interior COP (FT) — 2ª etapa' },
+              { id: 'ABAN 234', name: 'Checagem de TOC — jogo de polias', transitionTechnology: 'none' },
+            ]},
+            { label: 'Equipamento de pressão', field: 'loggingMode', value: 'pressure_equipment', packages: [
+              { id: 'ABAN 105', name: 'Avaliação de cimentação' },
+              { id: 'ABAN 157', name: 'Cimentação interior COP (FT) — 2ª etapa' },
+            ]},
+          ],
+        }]},
+        { label: 'Etapas sucessivas', field: 'ttFtCementMode', value: 'successive', packages: [
+          { id: 'ABAN 155', name: 'Cimentação anular A c/ CR (FT) — 1ª etapa' },
+        ], sub: [{
+          question: 'Avaliação de TOC (etapas sucessivas)?',
+          answers: [
+            { label: 'Jogo de polias', active: true, field: 'loggingMode', value: 'polias', packages: [
+              { id: 'ABAN 105', name: 'Avaliação de cimentação', transitionTechnology: 'none', isContingency: true,
+                contingencyReason: 'Contingência: perfilagem de cimento se parâmetros da 1ª etapa inconclusivos' },
+              { id: 'ABAN 157', name: 'Cimentação interior COP (FT) — 2ª etapa' },
+              { id: 'ABAN 234', name: 'Checagem de TOC — jogo de polias', transitionTechnology: 'none' },
+            ]},
+            { label: 'Equipamento de pressão', field: 'loggingMode', value: 'pressure_equipment', packages: [
+              { id: 'ABAN 105', name: 'Avaliação de cimentação', isContingency: true,
+                contingencyReason: 'Contingência: perfilagem de cimento se parâmetros da 1ª etapa inconclusivos' },
+              { id: 'ABAN 157', name: 'Cimentação interior COP (FT) — 2ª etapa' },
+            ]},
+          ],
+        }]},
+      ],
+    },
+    {
+      // Espelha o campo hasPDI: Não = há PDI (corte omitido); Sim = sem PDI → corta.
       question: 'Cortar coluna abaixo do TH?',
       answers: [
         { label: 'Não — há PDI', active: true, note: '(coluna sacável; corte omitido)' },
-        { label: 'Sim — sem PDI', sub: [{
-          question: 'Método de corte?',
-          answers: [
-            { label: 'Mecânico', active: true, packages: [
-              { id: 'ABAN 085', name: 'Montagem unidade cabo elétrico (DP)' },
-              { id: 'ABAN 113', name: 'Corte de coluna (cortador mecânico)' },
-            ]},
-            { label: 'Químico', packages: [
-              { id: 'ABAN 085', name: 'Montagem unidade cabo elétrico (DP)' },
-              { id: 'ABAN 117', name: 'Corte de coluna (cortador químico)' },
-            ]},
-            { label: 'Plasma', packages: [
-              { id: 'ABAN 085', name: 'Montagem unidade cabo elétrico (DP)' },
-              { id: 'ABAN 118', name: 'Corte de coluna (cortador a plasma)' },
-            ]},
-            { label: 'Explosivo', packages: [
-              { id: 'ABAN 085', name: 'Montagem unidade cabo elétrico (DP)' },
-              { id: 'ABAN 225', name: 'Corte de coluna (explosivo)' },
-            ]},
-          ],
-        }]},
-      ],
-    },
-  ],
-}
-
-const SEC_CSB2_TT: LSec = {
-  id: 'csb2', label: 'CSB SECUNDÁRIO', phase: 'Fase 1A', color: 'blue',
-  decisions: [
-    {
-      question: 'Canhoneio raso (tubingPerf)?',
-      answers: [
-        { label: 'Não', active: true, sub: [{
-          question: 'Tipo de CSB Secundário?',
-          answers: [
-            { label: 'TAE', active: true, packages: [
-              { id: 'ABAN 085', name: 'Montagem unidade cabo elétrico (DP)' },
-              { id: 'ABAN 237', name: 'TAE — CSB secundário' },
-            ]},
-            { label: 'Plug TH', packages: [
-              { id: 'ABAN 031A', name: 'Montagem unidade arame (DP)' },
-              { id: 'ABAN 042', name: 'Plug 3,75" no TH' },
-            ]},
-          ],
-        }]},
-        { label: 'Sim — cabo elétrico',
-          packages: [
-            { id: 'ABAN 085', name: 'Montagem unidade cabo elétrico (DP)' },
-            { id: 'ABAN 101', name: 'Perfuração da coluna (tubing puncher elétrico)' },
-          ],
-          sub: [{
-            question: 'Tipo de CSB Secundário?',
-            answers: [
-              { label: 'TAE', active: true, packages: [
-                { id: 'ABAN 237', name: 'TAE — CSB secundário' },
-              ]},
-              { label: 'Plug TH', packages: [
-                { id: 'ABAN 031A', name: 'Montagem unidade arame (DP)' },
-                { id: 'ABAN 042', name: 'Plug 3,75" no TH' },
-              ]},
-            ],
-          }],
-        },
-        { label: 'Sim — arame',
-          packages: [
-            { id: 'ABAN 045', name: 'Perfuração da coluna (eFire — arame)' },
-          ],
-          sub: [{
-            question: 'Tipo de CSB Secundário?',
-            answers: [
-              { label: 'TAE', active: true, packages: [
-                { id: 'ABAN 085', name: 'Montagem unidade cabo elétrico (DP)' },
-                { id: 'ABAN 237', name: 'TAE — CSB secundário' },
-              ]},
-              { label: 'Plug TH', packages: [
-                { id: 'ABAN 042', name: 'Plug 3,75" no TH' },
-              ]},
-            ],
-          }],
-        },
-        { label: 'Sim — FT',
-          packages: [
-            { id: 'ABAN 154', name: 'Perfuração da coluna (tubing puncher FT)' },
-          ],
-          sub: [{
-            question: 'Tipo de CSB Secundário?',
-            answers: [
-              { label: 'TAE', active: true, packages: [
-                { id: 'ABAN 085', name: 'Montagem unidade cabo elétrico (DP)' },
-                { id: 'ABAN 237', name: 'TAE — CSB secundário' },
-              ]},
-              { label: 'Plug TH', packages: [
-                { id: 'ABAN 031A', name: 'Montagem unidade arame (DP)' },
-                { id: 'ABAN 042', name: 'Plug 3,75" no TH' },
-              ]},
-            ],
-          }],
-        },
+        { label: 'Sim — sem PDI', packages: [
+          { id: 'ABAN 113', name: 'Corte de coluna (cortador mecânico)' },
+        ]},
       ],
     },
   ],
@@ -673,11 +1221,13 @@ const SEC_RET_FSU: LSec = {
       question: 'Retirar ANM?',
       answers: [
         { label: 'Não', active: true, packages: [
-          { id: 'ABAN 213', name: 'Retirada do conjunto de WO (DPR/HCR)' },
+          { id: 'ABAN 213', name: 'Retirada do conjunto de WO (DPR/HCR)', condition: 'rig_dp' },
+          { id: 'ABAN 179', name: 'Retirada do conjunto de WO (Riser Dual Bore)', condition: 'rig_anc' },
         ]},
         { label: 'Sim', packages: [
-          { id: 'ABAN 178', name: 'Desassentamento de ANM e retirada (DPR/HCR)' },
-          { id: 'ABAN 180', name: 'Desmobilização de FIBOP/BOPW/TRT/ANM' },
+          { id: 'ABAN 178', name: 'Desassentamento de ANM e retirada (DPR/HCR)', phase: 'Fase 1B', condition: 'rig_dp' },
+          { id: 'ABAN 210', name: 'Desassentamento de ANM e retirada (Riser Dual Bore)', phase: 'Fase 1B', condition: 'rig_anc' },
+          { id: 'ABAN 180', name: 'Desmobilização de FIBOP/BOPW/TRT/ANM', phase: 'Fase 1B' },
         ]},
       ],
     },
@@ -686,32 +1236,89 @@ const SEC_RET_FSU: LSec = {
 
 // ── FSU_TT_BDC — seções específicas ────────────────────────────────────────
 
+// Espelha PERF_INJECT (TT) + LIMPEZA (2ª) + CSB_INJECT (BDC: DP força TAE; ANC segue
+// csbPrimary; STDV mantida instalada pula o CSB) — barreira antes da cimentação BDC.
+const SEC_BDC_BARREIRA: LSec = {
+  id: 'csb1_bdc', label: 'CANHONEIO + CSB (BDC)', phase: 'Fase 1A', color: 'blue',
+  decisions: [
+    {
+      question: 'Perfuração da coluna (TT)?',
+      answers: [
+        { label: 'Cabo elétrico', active: true, field: 'tubingPerfMethod', value: 'electric', packages: [
+          { id: 'ABAN 101', name: 'Perfuração da coluna (tubing puncher elétrico)' },
+        ]},
+        { label: 'Arame (eFire)', field: 'tubingPerfMethod', value: 'wireline', packages: [
+          { id: 'ABAN 045', name: 'Perfuração da coluna (eFire, arame)' },
+        ]},
+        { label: 'Flexitubo', field: 'tubingPerfMethod', value: 'ct', packages: [
+          { id: 'ABAN 154', name: 'Flexitubo - Perfuração da coluna (tubing puncher)' },
+        ]},
+      ],
+      afterDec: [_AMORT_POS_CANHONEIO],
+    },
+    { question: 'Limpeza pós-canhoneio — fluido?', answers: _AMORT_COP_ANSWERS },
+    {
+      question: 'CSB primário (BDC)?',
+      answers: [
+        { label: 'TAE', active: true, packages: [
+          { id: 'ABAN 237', name: 'Instalação de TAE (CSB primário)' },
+        ]},
+        { label: 'STV wireline', packages: [
+          { id: 'ABAN 038', name: 'STV em nipple R 2,75"' },
+        ]},
+        { label: 'Plug wireline', packages: [
+          { id: 'ABAN 040', name: 'Plug em nipple R 2,75"' },
+        ]},
+        { label: 'Mantida (STDV instalada)', note: '(base já instalada — etapa omitida)' },
+      ],
+    },
+  ],
+}
+
+// Espelha BDC_FT_CONTING_INJECT + 223/224 + BDC_CEMENT_INJECT + 234 + ABAN 113 (no_pdi).
 const SEC_BDC: LSec = {
   id: 'bdc', label: 'BARREIRA BDC', phase: 'Fase 1A', color: 'blue',
   decisions: [
-    {
-      question: 'Avaliação de cimentação BDC?',
-      answers: [
-        { label: 'Parâmetros', active: true, packages: [
-          { id: 'ABAN 223', name: 'Bombeio direto — cimentação (ANC)' },
-          { id: 'ABAN 083', name: 'Cimentação BDC — validação por parâmetros' },
-          { id: 'ABAN 234', name: 'Checagem de TOC — jogo de polias' },
-        ]},
-        { label: 'Perfilagem', packages: [
-          { id: 'ABAN 223', name: 'Bombeio direto — cimentação (ANC)' },
-          { id: 'ABAN 084', name: 'Cimentação BDC — perfilagem a cabo' },
-          { id: 'ABAN 234', name: 'Checagem de TOC — jogo de polias' },
-        ]},
-      ],
-    },
     {
       question: 'Contingência TT-FT (coluna não estanque)?',
       answers: [
         { label: 'Não prevista', active: true },
         { label: 'Sim / Conting.', packages: [
-          { id: 'ABAN 125', name: 'Jateamento COP/COI com FT (conting.)' },
-          { id: 'ABAN 156', name: 'Cimentação c/ FT — tampão único (conting.)' },
-          { id: 'ABAN 234', name: 'Checagem de TOC — jogo de polias (conting.)' },
+          { id: 'ABAN 125', name: 'Flexitubo - Jateamento (SpinCat) + Gabaritagem', isContingency: true,
+            contingencyReason: 'Contingência TT-FT: coluna não estanque — jateamento e cimentação com FT' },
+          { id: 'ABAN 156', name: 'Cimentação anular A c/ CR + int. COP (FT)', isContingency: true,
+            contingencyReason: 'Contingência TT-FT: coluna não estanque — jateamento e cimentação com FT' },
+          { id: 'ABAN 234', name: 'Checagem de TOC — jogo de polias', transitionTechnology: 'none', isContingency: true,
+            contingencyReason: 'Contingência TT-FT: coluna não estanque — jateamento e cimentação com FT' },
+          { id: 'ABAN 105', name: 'Avaliação de cimentação', transitionTechnology: 'none', isContingency: true,
+            contingencyReason: 'Contingência TT-FT: coluna não estanque — jateamento e cimentação com FT' },
+        ]},
+      ],
+    },
+    {
+      question: 'Avaliação de cimentação BDC?',
+      packages: [
+        { id: 'ABAN 224', name: 'Bombeio direto - Circulação para resfriamento do poço (HCR/DPR)', condition: 'rig_dp' },
+        { id: 'ABAN 223', name: 'Bombeio direto - Circulação para resfriamento do poço (Riser Dual Bore)', condition: 'rig_anc' },
+      ],
+      answers: [
+        { label: 'Parâmetros', active: true, packages: [
+          { id: 'ABAN 083', name: 'Bombeio direto - cimentação de COP + Anular A (parâmetros)' },
+        ]},
+        { label: 'Perfilagem', packages: [
+          { id: 'ABAN 084', name: 'Bombeio direto - cimentação de COP + Anular A (perfilagem)' },
+        ]},
+      ],
+      after: [{ label: 'Checagem de TOC', packages: [
+        { id: 'ABAN 234', name: 'Checagem de TOC — jogo de polias', transitionTechnology: 'none' },
+      ]}],
+    },
+    {
+      question: 'Cortar coluna abaixo do TH?',
+      answers: [
+        { label: 'Não — há PDI', active: true, note: '(coluna sacável; corte omitido)' },
+        { label: 'Sim — sem PDI', packages: [
+          { id: 'ABAN 113', name: 'Corte de coluna (cortador mecânico)' },
         ]},
       ],
     },
@@ -720,30 +1327,58 @@ const SEC_BDC: LSec = {
 
 // ── FS1_Mec / FSU_Conv / FSU_Sup — barreiras Fase 1 ───────────────────────
 
-const SEC_CSB1_FS1: LSec = {
+// Espelha PERF_INJECT (ramo FS1: canhoneio profundo + amortecimento) + LIMPEZA (2ª).
+// O CSB primário fica em seção própria (no RCMA, o CSB principal entra entre as duas).
+const SEC_FS1_CANHONEIO: LSec = {
+  id: 'canhoneio_fs1', label: 'CANHONEIO PROFUNDO (FS1)', phase: 'Fase 1A', color: 'blue',
+  decisions: [
+    {
+      question: 'Perfuração profunda da coluna?',
+      answers: [
+        { label: 'Cabo elétrico', active: true, packages: [
+          { id: 'ABAN 101', name: 'Perfuração da coluna (tubing puncher elétrico)' },
+        ], sub: [_AMORT_POS_CANHONEIO] },
+        { label: 'Arame (eFire)', packages: [
+          { id: 'ABAN 045', name: 'Perfuração da coluna (eFire, arame)' },
+        ], sub: [_AMORT_POS_CANHONEIO] },
+        { label: 'Flexitubo', packages: [
+          { id: 'ABAN 154', name: 'Flexitubo - Perfuração da coluna (tubing puncher)' },
+        ], sub: [_AMORT_POS_CANHONEIO] },
+        { label: 'Não perfurar' },
+      ],
+    },
+    { question: 'Limpeza pós-canhoneio — fluido?', answers: _AMORT_COP_ANSWERS },
+  ],
+}
+
+// Espelha FS1_CSB_PRIMARY_INJECT (TAE/STV/plug/cimento FT/eCSB).
+const SEC_FS1_CSB1: LSec = {
   id: 'csb1_fs1', label: 'CSB PRIMÁRIO (FS1)', phase: 'Fase 1A', color: 'blue',
   decisions: [
     {
       question: 'CSB Primário já instalado?',
       answers: [
-        { label: 'Sim', active: true, note: '(etapa omitida)' },
-        { label: 'Não', sub: [{
+        { label: 'Sim', note: '(etapa omitida)' },
+        { label: 'Não', active: true, sub: [{
           question: 'Tipo de CSB Primário?',
           answers: [
             { label: 'TAE', active: true, packages: [
-              { id: 'ABAN 085', name: 'Montagem unidade cabo elétrico (DP)' },
-              { id: 'ABAN 237', name: 'TAE — CSB primário' },
+              { id: 'ABAN 237', name: 'Instalação de TAE (CSB primário)' },
             ]},
-            { label: 'Plug mec.', packages: [
+            { label: 'STV wireline', packages: [
+              { id: 'ABAN 038', name: 'STV em nipple R 2,75"' },
+            ]},
+            { label: 'Plug wireline', packages: [
               { id: 'ABAN 040', name: 'Plug em nipple R 2,75"' },
-              { id: 'ABAN 221', name: 'Teste influxo c/ N₂ (plug) — DPR' },
+              { id: 'ABAN 220', name: 'Teste influxo c/ N₂ (plug) — Riser Dual Bore', condition: 'rig_anc' },
+              { id: 'ABAN 221', name: 'Teste influxo c/ N₂ (plug) — DPR', condition: 'rig_dp' },
             ]},
             { label: 'Cimento FT', packages: [
-              { id: 'ABAN 156', name: 'Cimentação c/ FT + CR' },
-              { id: 'ABAN 234', name: 'Checagem de TOC — jogo de polias' },
+              { id: 'ABAN 156', name: 'Cimentação anular A c/ CR + int. COP (FT)' },
+              { id: 'ABAN 234', name: 'Checagem de TOC — jogo de polias', transitionTechnology: 'none' },
             ]},
-            { label: 'eCSB', packages: [
-              { id: 'ABAN 079', name: 'Bombeio direto — obturação c/ fluido eCSB' },
+            { label: 'eCSB bombeio', packages: [
+              { id: 'ABAN 079', name: 'Bombeio direto — obturação c/ fluido eCSB', transitionTechnology: 'none' },
             ]},
           ],
         }]},
@@ -752,58 +1387,57 @@ const SEC_CSB1_FS1: LSec = {
   ],
 }
 
-const SEC_CORTE_FS1: LSec = {
-  id: 'corte_fs1', label: 'CORTE DE COLUNA', phase: 'Fase 1A', color: 'blue',
+// Espelha ABAN 113 (condição stuck_risk) + FS1_CSB_SECONDARY_INJECT (canhoneio raso + CSB 2).
+const _FS1_RASO_DEC: LDec = {
+  question: 'Canhoneio raso da coluna?',
+  answers: [
+    { label: 'Cabo elétrico', active: true, packages: [
+      { id: 'ABAN 101', name: 'Perfuração da coluna (tubing puncher elétrico)' },
+    ]},
+    { label: 'Arame (eFire)', packages: [
+      { id: 'ABAN 045', name: 'Perfuração da coluna (eFire, arame)' },
+    ]},
+    { label: 'Flexitubo', packages: [
+      { id: 'ABAN 154', name: 'Flexitubo - Perfuração da coluna (tubing puncher)' },
+    ]},
+    { label: 'Não' },
+  ],
+}
+const _fs1Csb2Tipo = (conting: boolean): LDec => ({
+  question: 'Tipo de CSB Secundário?',
+  answers: [
+    { label: 'TAE', packages: [
+      { id: 'ABAN 237', name: 'Instalação de TAE (CSB secundário)',
+        ...(conting ? { isContingency: true, contingencyReason: 'Contingência: instalação de TAE como CSB 2' } : {}) },
+    ]},
+    { label: 'Plug TH', active: true, packages: [
+      { id: 'ABAN 042', name: 'Plug 3,75" no TH',
+        ...(conting ? { isContingency: true, contingencyReason: 'Contingência: instalação de plug TH como CSB 2' } : {}) },
+    ]},
+  ],
+})
+const SEC_FS1_CORTE_CSB2: LSec = {
+  id: 'csb2_fs1', label: 'CORTE + CSB SECUNDÁRIO (FS1)', phase: 'Fase 1A', color: 'blue',
   decisions: [
     {
       question: 'Risco de aprisionamento de coluna?',
       answers: [
         { label: 'Não / N.A.', active: true },
-        { label: 'Sim / Conting.', packages: [
-          { id: 'ABAN 085', name: 'Montagem unidade cabo elétrico (DP)' },
+        { label: 'Sim', packages: [
           { id: 'ABAN 113', name: 'Corte de coluna (cortador mecânico)' },
-        ], note: 'Pacotes contingenciais de pescaria adicionados ao bloco' },
-      ],
-    },
-  ],
-}
-
-const SEC_CSB2_FS1: LSec = {
-  id: 'csb2_fs1', label: 'CSB SECUNDÁRIO (FS1)', phase: 'Fase 1A', color: 'blue',
-  decisions: [
-    {
-      question: 'Perfuração profunda da coluna?',
-      answers: [
-        { label: 'Cabo elétrico', active: true, packages: [
-          { id: 'ABAN 085', name: 'Montagem unidade cabo elétrico (DP)' },
-          { id: 'ABAN 101', name: 'Perfuração deep — tubing puncher (cabo elétrico)' },
         ]},
-        { label: 'Arame (eFire)', packages: [
-          { id: 'ABAN 045', name: 'Perfuração deep — eFire (arame)' },
+        { label: 'Contingência', packages: [
+          { id: 'ABAN 113', name: 'Corte de coluna (cortador mecânico)', isContingency: true,
+            contingencyReason: 'Corte preventivo de coluna marcado como contingência pelo projetista' },
         ]},
-        { label: 'Flexitubo', packages: [
-          { id: 'ABAN 154', name: 'Perfuração deep — tubing puncher (FT)' },
-        ]},
-        { label: 'Não perfurar' },
       ],
     },
     {
-      question: 'Canhoneio raso + CSB Secundário?',
+      question: 'CSB secundário (FS1)?',
       answers: [
-        { label: 'Perf. + TAE', active: true, packages: [
-          { id: 'ABAN 101', name: 'Perfuração rasa — tubing puncher' },
-          { id: 'ABAN 237', name: 'TAE — CSB secundário' },
-        ]},
-        { label: 'Perf. + Plug TH', packages: [
-          { id: 'ABAN 101', name: 'Perfuração rasa — tubing puncher' },
-          { id: 'ABAN 042', name: 'Plug 3,75" no TH' },
-        ]},
-        { label: 'S/ perf. + TAE', packages: [
-          { id: 'ABAN 237', name: 'TAE — CSB secundário' },
-        ]},
-        { label: 'S/ perf. + Plug TH', packages: [
-          { id: 'ABAN 042', name: 'Plug 3,75" no TH' },
-        ]},
+        { label: 'Não previsto' },
+        { label: 'Executar', active: true, sub: [_FS1_RASO_DEC, _fs1Csb2Tipo(false)] },
+        { label: 'Contingência', field: 'fs1CsbSecondaryMode', value: 'contingency', sub: [_FS1_RASO_DEC, _fs1Csb2Tipo(true)] },
       ],
     },
   ],
@@ -815,7 +1449,8 @@ const SEC_RET_CONV: LSec = {
     question: 'Retirar ANM?',
     answers: [
       { label: 'Sim', active: true, packages: [
-        { id: 'ABAN 178', name: 'Desassentamento de ANM e retirada (DPR/HCR)' },
+        { id: 'ABAN 178', name: 'Desassentamento de ANM e retirada (DPR/HCR)', condition: 'rig_dp' },
+        { id: 'ABAN 210', name: 'Desassentamento de ANM e retirada (Riser Dual Bore)', condition: 'rig_anc' },
         { id: 'ABAN 180', name: 'Desmobilização de FIBOP/BOPW/TRT/ANM' },
       ]},
       { label: 'Não' },
@@ -825,6 +1460,20 @@ const SEC_RET_CONV: LSec = {
 
 // ── FSU_Conv_RCMA — CSB principal antes das barreiras FS1 ──────────────────
 
+// Espelha RCMA_CSB_PRINCIPAL_INJECT: só o tampão de cimento emite pacotes (os
+// selecionados em rcmaCementPkgs, na ordem canônica); Não Surgência e Fluido+CSB
+// não geram pacote aqui (o fluido eCSB apenas suprime perfuração/CSB 2 no fluxo FS1).
+const _RCMA_CEMENT_ORDER: { id: string; name: string }[] = [
+  { id: 'ABAN 159', name: 'Flexitubo - Cimentação Interior da COP' },
+  { id: 'ABAN 160', name: 'Flexitubo - Cimentação Interior de revestimento a mar aberto' },
+  { id: 'ABAN 078', name: 'Bombeio direto - obturação com tampões de combate a perda' },
+  { id: 'ABAN 079', name: 'Bombeio direto - obturação de reservatório e preenchimento' },
+  { id: 'ABAN 080', name: 'Bombeio direto - cimentação de COP' },
+  { id: 'ABAN 081', name: 'Bombeio direto - cimentação Formação/tela + COP + Anular A (parâmetros)' },
+  { id: 'ABAN 082', name: 'Bombeio direto - cimentação Formação/tela + COP + Anular A (perfilagem)' },
+  { id: 'ABAN 083', name: 'Bombeio direto - cimentação de COP + Anular A (parâmetros)' },
+  { id: 'ABAN 084', name: 'Bombeio direto - cimentação de COP + Anular A (perfilagem)' },
+]
 const SEC_RCMA_PRINCIPAL: LSec = {
   id: 'rcma_principal', label: 'CSB PRINCIPAL (RCMA)', phase: 'Fase 1A', color: 'blue',
   decisions: [
@@ -832,27 +1481,15 @@ const SEC_RCMA_PRINCIPAL: LSec = {
       question: 'Tipo de CSB Principal RCMA?',
       answers: [
         { label: 'Não Surgência', active: true, note: '(sem pacotes adicionais)' },
-        { label: 'Fluido + CSB',
-          packages: [
-            { id: 'ABAN 079', name: 'Obturação c/ fluido eCSB (CSB principal)' },
-          ],
-          note: 'CSB secundário não previsto neste caso',
-        },
+        { label: 'Fluido + CSB', note: '(fluido eCSB — sem perfuração e sem CSB secundário no fluxo FS1)' },
         { label: 'Tampão de cimento',
-          note: 'Pacote(s) de cimentação selecionado(s) conforme projeto',
-          sub: [{
-            question: 'Tampão(ões) de cimentação RCMA?',
+          sub: _RCMA_CEMENT_ORDER.map(pkg => ({
+            question: `Cimentação RCMA — incluir ${pkg.id}?`,
             answers: [
-              { label: 'Comb. à perda',   active: true, packages: [{ id: 'ABAN 078', name: 'Obturação com tampões de combate a perda' }] },
-              { label: 'Cim. COP',        packages: [{ id: 'ABAN 080', name: 'Cimentação de COP' }] },
-              { label: 'Form/COP/AnA (param.)', packages: [{ id: 'ABAN 081', name: 'Cimentação Formação/tela + COP + Anular A (parâmetros)' }] },
-              { label: 'Form/COP/AnA (perfil.)', packages: [{ id: 'ABAN 082', name: 'Cimentação Formação/tela + COP + Anular A (perfilagem)' }] },
-              { label: 'COP/AnA (param.)', packages: [{ id: 'ABAN 083', name: 'Cimentação COP + Anular A (parâmetros)' }] },
-              { label: 'COP/AnA (perfil.)', packages: [{ id: 'ABAN 084', name: 'Cimentação COP + Anular A (perfilagem)' }] },
-              { label: 'FT — int. COP',    packages: [{ id: 'ABAN 159', name: 'FT - Cimentação Interior da COP' }] },
-              { label: 'FT — revest. aberto', packages: [{ id: 'ABAN 160', name: 'FT - Cimentação Interior de revestimento a mar aberto' }] },
+              { label: 'Não', active: true },
+              { label: 'Sim', field: 'rcmaCementPkgs', value: pkg.id, packages: [pkg] },
             ],
-          }],
+          })),
         },
       ],
     },
@@ -888,41 +1525,91 @@ const SEC_BOP_INSTALA: LSec = {
         { label: 'Coluna flutuada', packages: [
           { id: 'ABAN 229', name: 'Teste de BOP — coluna flutuada (FS2)' },
         ]},
-        { label: 'FETH no TH', packages: [
-          { id: 'ABAN 241', name: 'Teste de BOP c/ FETH apoiada no TH (FS2)' },
-        ], note: 'Emitido após a descida da FETH'},
+        { label: 'FETH no TH', note: 'Teste deslocado para após a descida da FETH (ABAN 241 na seção FETH + COP)' },
       ],
     },
   ],
 }
 
+// Corte de COP/COI (modo BOP) — espelha COP_CUT_INJECT: THRT (186) → plug TH (052,
+// opcional) → free point (251) → corte pelo método → retirada com THRT (190).
+// O ramo inteiro é firme ou contingencial conforme fs2CopCutContingency.
+const _FS2_CUT_REASON = 'Contingência: corte de COP/COI após falha de desassentamento do TH'
+const _fs2CutPkg = (id: string, name: string, conting: boolean, extra?: Partial<LPkg>): LPkg => ({
+  id, name,
+  ...(conting ? { isContingency: true, contingencyReason: _FS2_CUT_REASON } : {}),
+  ...extra,
+})
+const _fs2CutBranch = (conting: boolean): Pick<LAns, 'packages' | 'sub'> => ({
+  packages: [_fs2CutPkg('ABAN 186', 'Descida de THRT (modo BOP)', conting)],
+  sub: [
+    {
+      question: 'Retirar plug 3,75" no TH (Fase 2)?',
+      answers: [
+        { label: 'Não', active: true },
+        { label: 'Sim', field: 'fs2ThPlugRemoval', value: 'yes', packages: [
+          _fs2CutPkg('ABAN 052', 'Retirada de plug 3,75" no TH', conting),
+        ]},
+        { label: 'Contingência', field: 'fs2ThPlugRemoval', value: 'contingency', packages: [
+          { id: 'ABAN 052', name: 'Retirada de plug 3,75" no TH', isContingency: true,
+            contingencyReason: 'Contingência: retirada de plug 3,75" no TH antes do free point' },
+        ]},
+      ],
+    },
+    {
+      question: 'Método de corte da COP/COI?',
+      packages: [_fs2CutPkg('ABAN 251', 'Free point (investigação de prisão)', conting)],
+      answers: [
+        { label: 'Cabo elétrico', active: true, field: 'fs2CopCutMethod', value: 'electric', packages: [
+          _fs2CutPkg('ABAN 113', 'Corte de coluna (cortador mecânico)', conting),
+        ]},
+        { label: 'Flexitubo', field: 'fs2CopCutMethod', value: 'ct', packages: [
+          _fs2CutPkg('ABAN 121', 'Flexitubo - Montagem e teste da unidade sobre Terminal Head - Bore de produção', conting, { condition: 'rig_anc' }),
+          _fs2CutPkg('ABAN 119', 'Flexitubo - Montagem e teste da unidade sobre SFT', conting, { condition: 'rig_dp' }),
+          _fs2CutPkg('ABAN 150', 'Flexitubo - Corte de coluna', conting),
+          _fs2CutPkg('ABAN 148', 'Flexitubo - Desmobilização (sonda LWO)', conting, { condition: 'op_lwo' }),
+          _fs2CutPkg('ABAN 161', 'Flexitubo - Desmobilização (sonda generalista)', conting, { condition: 'op_generalista' }),
+        ]},
+        { label: 'Slip shot', field: 'fs2CopCutMethod', value: 'slip_shot', packages: [
+          _fs2CutPkg('ABAN 115', 'Perfilagem/Cabo elétrico - Split shot', conting),
+        ]},
+        { label: 'String shot', field: 'fs2CopCutMethod', value: 'string_shot', packages: [
+          _fs2CutPkg('ABAN 116', 'Perfilagem/Cabo elétrico - String shot', conting),
+        ]},
+      ],
+      after: [{ label: 'Retirada com THRT', packages: [
+        _fs2CutPkg('ABAN 190', 'Retirada de TH + COP/COI com THRT (modo BOP)', conting),
+      ]}],
+    },
+  ],
+})
+
 const SEC_FETH_COP: LSec = {
   id: 'feth_cop', label: 'FETH + COLUNA + COP', phase: 'Fase 2', color: 'amber',
   always: [
     { id: 'ABAN 185', name: 'Descida da FETH (modo BOP)' },
-    { id: 'ABAN 189', name: 'Retirada de TH + COP/COI com FETH (modo BOP)' },
   ],
   decisions: [
     {
-      question: 'Coluna presa — corte? (conting.)',
+      // Espelha BOP_TEST_FETH_INJECT (após a descida da FETH, antes da retirada do TH)
+      question: 'Teste do BOP com FETH apoiada no TH?',
       answers: [
         { label: 'Não', active: true },
-        { label: 'Sim / Conting.', packages: [
-          { id: 'ABAN 186', name: 'Descida de THRT (modo BOP)' },
-          { id: 'ABAN 251', name: 'Free point (investigação de prisão)' },
-          { id: 'ABAN 113', name: 'Corte de coluna (cortador mecânico)' },
-          { id: 'ABAN 190', name: 'Retirada de TH + COP/COI com THRT (modo BOP)' },
+        { label: 'Sim', field: 'bopTestMethod', value: 'feth_on_th', packages: [
+          { id: 'ABAN 241', name: 'Teste do BOP com FETH (manobra combo)' },
         ]},
       ],
-      afterDec: [{
-        question: 'Retirar plug 3,75" no TH (Fase 2)?',
-        answers: [
-          { label: 'Não', active: true },
-          { label: 'Sim', packages: [
-            { id: 'ABAN 052', name: 'Retirada de plug 3,75" no TH' },
-          ]},
-        ],
-      }],
+    },
+    {
+      question: 'Coluna presa — corte? (conting.)',
+      packages: [
+        { id: 'ABAN 189', name: 'Retirada de TH + COP/COI com FETH (modo BOP)' },
+      ],
+      answers: [
+        { label: 'Não', active: true },
+        { label: 'Sim', field: 'fs2CopCutContingency', value: 'yes', ..._fs2CutBranch(false) },
+        { label: 'Contingência', field: 'fs2CopCutContingency', value: 'contingency', ..._fs2CutBranch(true) },
+      ],
     },
   ],
 }
@@ -935,19 +1622,29 @@ const SEC_RCMA_F2: LSec = {
   ],
   decisions: [
     {
+      // Espelha COP_CUT_INJECT (RCMA, mar aberto): corte → descer FIBAP → retirar COP.
       question: 'Coluna presa — corte? (conting.)',
       answers: [
         { label: 'Não', active: true },
-        { label: 'Sim / Conting.', packages: [
+        { label: 'Sim', field: 'fs2CopCutContingency', value: 'yes', packages: [
           { id: 'ABAN 252', name: 'Corte de coluna a mar aberto' },
+          { id: 'ABAN 183', name: 'Descida da FIBAP a mar aberto' },
+          { id: 'ABAN 188', name: 'Retirada de BAP + TH + COP/COI com FIBAP (mar aberto)' },
+        ]},
+        { label: 'Contingência', field: 'fs2CopCutContingency', value: 'contingency', packages: [
+          { id: 'ABAN 252', name: 'Corte de coluna a mar aberto', isContingency: true, contingencyReason: _FS2_CUT_REASON },
+          { id: 'ABAN 183', name: 'Descida da FIBAP a mar aberto', isContingency: true, contingencyReason: _FS2_CUT_REASON },
+          { id: 'ABAN 188', name: 'Retirada de BAP + TH + COP/COI com FIBAP (mar aberto)', isContingency: true, contingencyReason: _FS2_CUT_REASON },
         ]},
       ],
     },
     {
-      question: 'Avaliação de cimento antes do tampão?',
+      // Espelha RCMA_CEMENT_LOG_INJECT (gate: bopPwcPreLog !== false); a mar aberto,
+      // cabo desce direto — sem montagem de terminal head/SFT (transitionTechnology none).
+      question: 'Avaliação de cimento antes do bombeio (RCMA)?',
       answers: [
         { label: 'Sim (padrão)', active: true, packages: [
-          { id: 'ABAN 107', name: 'Avaliação de cimentação — cabo aberto (RCMA)' },
+          { id: 'ABAN 107', name: 'Perfilagem/Cabo elétrico - Avaliação de cimentação a mar aberto (through casing, sem coluna guia)', transitionTechnology: 'none' },
         ]},
         { label: 'Não' },
       ],
@@ -976,19 +1673,35 @@ const SEC_PACKER_FISHING: LSec = {
   id: 'packer', label: 'PESCARIA DE PACKER', phase: 'Fase 2', color: 'amber',
   decisions: [
     {
+      // Espelha PACKER_FISHING_INJECT: 192 firme/contingencial conforme o input;
+      // corte (193) e estampagem (194) sempre contingenciais.
       question: 'Pescaria de packer?',
       answers: [
         { label: 'Não', active: true },
-        { label: 'Sim / Conting.', packages: [
+        { label: 'Sim', field: 'fs2PackerFishing', value: 'yes', packages: [
           { id: 'ABAN 192', name: 'Pescaria de packer — overshot específico' },
-          { id: 'ABAN 193', name: 'Conting.: corte de packer c/ sapata de lavagem' },
-          { id: 'ABAN 194', name: 'Conting.: estampagem de packer' },
+          { id: 'ABAN 193', name: 'Conting.: corte de packer c/ sapata de lavagem',
+            isContingency: true, contingencyReason: 'Contingência: corte de packer c/ sapata de lavagem / estampagem' },
+          { id: 'ABAN 194', name: 'Conting.: estampagem de packer',
+            isContingency: true, contingencyReason: 'Contingência: corte de packer c/ sapata de lavagem / estampagem' },
+        ]},
+        { label: 'Contingência', field: 'fs2PackerFishing', value: 'contingency', packages: [
+          { id: 'ABAN 192', name: 'Pescaria de packer — overshot específico',
+            isContingency: true, contingencyReason: 'Contingência: pescaria de packer' },
+          { id: 'ABAN 193', name: 'Conting.: corte de packer c/ sapata de lavagem',
+            isContingency: true, contingencyReason: 'Contingência: corte de packer c/ sapata de lavagem / estampagem' },
+          { id: 'ABAN 194', name: 'Conting.: estampagem de packer',
+            isContingency: true, contingencyReason: 'Contingência: corte de packer c/ sapata de lavagem / estampagem' },
         ]},
       ],
     },
   ],
 }
 
+// Espelha ISOLATION_INJECT da engine (isolamento único): pré-avaliação (bopPwcPreLog,
+// exceto RCMA) → sem correção (tampão BPP/pata de mula) OU correção convencional
+// (233 conting. + 103 + 202 + 200) OU PWC (231 + 200; 200 contingencial quando a
+// validação é por parâmetros). Resolvido de inputs.isolations[0] pela logicEngine.
 const SEC_ISOLATION: LSec = {
   id: 'isolation', label: 'ISOLAMENTO — TAMPÃO', phase: 'Fase 2', color: 'amber',
   decisions: [
@@ -1002,27 +1715,34 @@ const SEC_ISOLATION: LSec = {
       ],
     },
     {
-      question: 'Tipo de tampão de isolamento?',
-      answers: [
-        { label: 'BPP', active: true, packages: [
-          { id: 'ABAN 199', name: 'Tampão de isolamento BPP inflável' },
-        ]},
-        { label: 'Pata de Mula', packages: [
-          { id: 'ABAN 200', name: 'Tampão de isolamento pata de mula' },
-        ]},
-      ],
-    },
-    {
       question: 'Precisa correção de cimentação?',
       answers: [
-        { label: 'Não', active: true },
+        { label: 'Não', active: true, sub: [{
+          question: 'Tipo de tampão de isolamento?',
+          answers: [
+            { label: 'BPP', active: true, packages: [
+              { id: 'ABAN 199', name: 'Coluna de trabalho - BPP + Tampão de cimento' },
+            ]},
+            { label: 'Pata de Mula', packages: [
+              { id: 'ABAN 200', name: 'Coluna de trabalho - Tampão de cimento com pata de mula' },
+            ]},
+          ],
+        }]},
         { label: 'Convencional', packages: [
-          { id: 'ABAN 202', name: 'Recimentação/correção de cimento com CR' },
-          { id: 'ABAN 200', name: 'Tampão de cimento com pata de mula' },
+          { id: 'ABAN 233', name: 'Coluna de trabalho - Condicionamento do revestimento',
+            isContingency: true, contingencyReason: 'Contingência: condicionamento do revestimento após avaliação de cimentação' },
+          { id: 'ABAN 103', name: 'Perfilagem/Cabo elétrico - Perfuração de revestimento/liner em modo BOP' },
+          { id: 'ABAN 202', name: 'Coluna de trabalho - Recimentação/correção de cimento com CR' },
+          { id: 'ABAN 200', name: 'Coluna de trabalho - Tampão de cimento com pata de mula' },
         ]},
-        { label: 'PWC', packages: [
-          { id: 'ABAN 231', name: 'Complemento/Correção de cimentação com PWC' },
-          { id: 'ABAN 200', name: 'Tampão de cimento com pata de mula' },
+        { label: 'PWC — validação por parâmetros', packages: [
+          { id: 'ABAN 231', name: 'Coluna de trabalho - Complemento/Correção de cimentação com PWC' },
+          { id: 'ABAN 200', name: 'Coluna de trabalho - Tampão de cimento com pata de mula',
+            isContingency: true, contingencyReason: 'Contingência: tampão final após correção de cimentação PWC' },
+        ]},
+        { label: 'PWC — validação por perfilagem', packages: [
+          { id: 'ABAN 231', name: 'Coluna de trabalho - Complemento/Correção de cimentação com PWC' },
+          { id: 'ABAN 200', name: 'Coluna de trabalho - Tampão de cimento com pata de mula' },
         ]},
       ],
     },
@@ -1032,6 +1752,7 @@ const SEC_ISOLATION: LSec = {
 const SEC_BOP_RETIRA: LSec = {
   id: 'bop_retira', label: 'BOP — RETIRADA', phase: 'Fase 2', color: 'amber',
   always: [
+    { id: 'ABAN 230', name: 'Efetuar teste de influxo do CSB permanente' },
     { id: 'ABAN 236', name: 'Troca de fluido do riser' },
     { id: 'ABAN 203', name: 'BOP — Preparação e retirada' },
   ],
@@ -1040,291 +1761,109 @@ const SEC_BOP_RETIRA: LSec = {
 
 // ── MONTAGEM DOS ESCOPOS ────────────────────────────────────────────────────
 
-const F1_PREFIX: LSec[] = [SEC_MOB_DP, SEC_CONEXAO, SEC_GAB]
+// MOB por condicionais de sonda incluída via bloco `ref` — editar BLK_MOB_DESCIDA_DP_COND
+// propaga para todos os escopos de Fase Única/FS1.
+const F1_PREFIX: LSec[] = [SEC_MOB_REF, SEC_CONEXAO, SEC_GAB]
 const F1_SUFFIX: LSec[] = [SEC_FLOWLINES, SEC_TMF]
 
-// ── SEÇÕES DO FLUXO MIRO (MOB / DESCIDA / CONEXÃO ANM) ──────────────────────
-// Estrutura baseada no board "SPRINT" (Miro, junho/2026).
-// Transponder recolha/DMM/lançamento são decisões independentes (vs. aninhadas no SEC_MOB).
-// Não altera logicEngine.ts — aparece apenas no editor de lógica como bundle MOB_DESCIDA.
+// ── BLOCOS REUTILIZÁVEIS (BLK_) — subsequências fatoradas via `ref` vivo ─────
+// Cada bloco encapsula uma sequência de seções repetida em vários escopos. No escopo,
+// um único placeholder `ref` (SEC_*_REF) expande para as seções do bloco (expandScopeRefs
+// ao consumir). Editar o bloco no editor visual propaga para todos os usos. Semanticamente
+// idêntico à sequência inline anterior (as seções eram a mesma referência de objeto).
 
-const SEC_MIRO_TRANSPONDER_DMM: LSec = {
-  id: 'miro_transponder_dmm',
-  label: 'TRANSPONDERS / DMM',
-  phase: 'Mobilização',
-  color: 'gray',
-  decisions: [
-    {
-      question: 'Recolher transponders?',
-      answers: [
-        { label: 'Não', active: true },
-        { label: 'Sim', sub: [{
-          question: 'Como?',
-          answers: [
-            { label: 'ROV', active: true, packages: [
-              { id: 'ABAN 002', name: 'Recolhimento de transponder com ROV' },
-            ]},
-            { label: 'COT', packages: [
-              { id: 'ABAN 001', name: 'Recolhimento de transponder com COT' },
-            ]},
-          ],
-        }]},
-        { label: 'Contingência', sub: [{
-          question: 'Como?',
-          answers: [
-            { label: 'ROV', active: true, packages: [
-              { id: 'ABAN 002', name: 'Recolhimento de transponder com ROV' },
-            ]},
-            { label: 'COT', packages: [
-              { id: 'ABAN 001', name: 'Recolhimento de transponder com COT' },
-            ]},
-          ],
-        }]},
-      ],
-    },
-    {
-      question: 'DMM — equipamento subsea no fundo?',
-      answers: [
-        { label: 'Não', active: true, packages: [
-          { id: 'ABAN 003', name: 'DMM' },
-        ]},
-        { label: 'Sim — CWO no fundo', packages: [
-          { id: 'ABAN 004', name: 'DMM - Fase 1 / Stack-up SSUB no fundo' },
-        ]},
-        { label: 'Sim — BOP no fundo', packages: [
-          { id: 'ABAN 005', name: 'DMM - Fase 2 / BOP no fundo' },
-        ]},
-      ],
-    },
-    {
-      question: 'Lançar transponders?',
-      answers: [
-        { label: 'Não', active: true },
-        { label: 'Sim', sub: [{
-          question: 'Como?',
-          answers: [
-            { label: 'ROV', active: true, packages: [
-              { id: 'ABAN 007', name: 'Lançamento de transponder com ROV e calibração DP' },
-            ]},
-            { label: 'COT', packages: [
-              { id: 'ABAN 006', name: 'Lançamento de transponder com COT e calibração DP' },
-            ]},
-          ],
-        }]},
-        { label: 'Contingência', sub: [{
-          question: 'Como?',
-          answers: [
-            { label: 'ROV', active: true, packages: [
-              { id: 'ABAN 007', name: 'Lançamento de transponder com ROV e calibração DP' },
-            ]},
-            { label: 'COT', packages: [
-              { id: 'ABAN 006', name: 'Lançamento de transponder com COT e calibração DP' },
-            ]},
-          ],
-        }]},
-      ],
-    },
-  ],
+// Bloco A — Corte Mecânico FS1: canhoneio → CSB primário → limpeza → corte CSB2.
+export const BLK_CORTE_MEC_FS1_ID = 'BLK_CORTE_MEC_FS1'
+const SEC_CORTE_MEC_FS1_REF: LSec = {
+  id: 'corte_mec_fs1', label: 'CORTE MECÂNICO (FS1)', phase: 'Fase 1A', color: 'blue',
+  decisions: [], ref: { scopeId: BLK_CORTE_MEC_FS1_ID, label: 'CORTE MECÂNICO (FS1)' },
 }
 
-const SEC_MIRO_CCAP_TCAP: LSec = {
-  id: 'miro_ccap_tcap',
-  label: 'CCAP / TCAP',
-  phase: 'Mobilização',
-  color: 'gray',
-  decisions: [
-    {
-      question: 'Retirar CCAP?',
-      answers: [
-        { label: 'Não', active: true },
-        { label: 'Sim', packages: [
-          { id: 'ABAN 008', name: 'Retirada de CCAP com coluna de trabalho (garatéia)' },
-        ]},
-        { label: 'Contingência', packages: [
-          { id: 'ABAN 008', name: 'Retirada de CCAP com coluna de trabalho (garatéia)' },
-        ]},
-      ],
-    },
-    {
-      question: 'Retirar TCap?',
-      answers: [
-        { label: 'Não / N.A.', active: true, packages: [
-          { id: 'ABAN 212', name: 'Preparação do Conjunto de WO + TRT (Reentrada na ANM)' },
-          { id: 'ABAN 011', name: 'Descida do conjunto de WO (DPR/HCR)' },
-        ]},
-        { label: 'Sim', sub: [{
-          question: 'Como?',
-          answers: [
-            { label: 'ROV', packages: [
-              { id: 'ABAN 010', name: 'Retirar TCap com ROV' },
-            ]},
-            { label: 'TRT', active: true,
-              packages: [
-                { id: 'ABAN 211', name: 'Preparação do Conjunto de WO + TRT para retirada/fundeio da TCap' },
-                { id: 'ABAN 244', name: 'Descida do Conjunto de WO com DPR/HCR para retirada/fundeio da TCap' },
-                { id: 'ABAN 018', name: 'Movimentação e conexão na Tcap' },
-                { id: 'ABAN 019', name: 'Ventilação de TCap' },
-              ],
-              sub: [{
-                question: 'Fundear TCap?',
-                answers: [
-                  { label: 'Fundeio', active: true, packages: [
-                    { id: 'ABAN 020', name: 'Desassentamento de TCap e fundeio no leito marinho' },
-                  ]},
-                  { label: 'Superfície', packages: [
-                    { id: 'ABAN 021', name: 'Desassentamento de TCap e retirada até a superfície com DPR/HCR' },
-                    { id: 'ABAN 011', name: 'Descida do conjunto de WO (DPR/HCR)' },
-                  ]},
-                ],
-              }]
-            },
-          ],
-        }]},
-      ],
-    },
-  ],
+// Bloco B — Mobilização de Fase 2 (DP + ANC).
+export const BLK_MOB_FS2_ID = 'BLK_MOB_FS2'
+const SEC_MOB_FS2_REF: LSec = {
+  id: 'mob', label: 'MOBILIZAÇÃO (Fase 2)', phase: 'Fase 0', color: 'gray',
+  decisions: [], ref: { scopeId: BLK_MOB_FS2_ID, label: 'MOBILIZAÇÃO (Fase 2)' },
 }
 
-const SEC_MIRO_DESCIDA_CONEXAO: LSec = {
-  id: 'miro_descida_conexao',
-  label: 'DESCIDA / CONEXÃO ANM',
-  phase: 'Mobilização',
-  color: 'gray',
-  decisions: [
-    {
-      question: 'Montagem do arranjo de superfície e flush (agmar)?',
-      answers: [{ label: 'Executar', active: true, packages: [
-        { id: 'ABAN 246', name: 'Montagem do SFT (DP Generalista)' },
-        { id: 'ABAN 014', name: 'Flush do DPR/HCR com água do mar (agmar)' },
-      ]}],
-    },
-    {
-      question: 'Fluido no SCVS para reentrada?',
-      answers: [
-        { label: 'N₂', packages: [
-          { id: 'ABAN 016', name: 'Desalagamento DPR/HCR com Nitrogênio' },
-        ]},
-        { label: 'Fluido inibido', active: true, packages: [
-          { id: 'ABAN 215', name: 'Posicionamento de fluido inibido no DPR/HCR' },
-        ]},
-        { label: 'Água do mar' },
-      ],
-    },
-    {
-      question: 'Reentrada e conexão na ANM?',
-      answers: [
-        { label: 'Executar', active: true, packages: [
-          { id: 'ABAN 023', name: 'Reentrada e conexão na ANM' },
-          { id: 'ABAN 024', name: 'Teste funcional — bloco produção' },
-          { id: 'ABAN 025', name: 'Teste funcional — bloco anular' },
-          { id: 'ABAN 218', name: 'Teste funcional — válvula anular' },
-        ]},
-      ],
-    },
-    {
-      question: 'Posicionar fluido inibido no SCVS (após conexão)?',
-      answers: [
-        { label: 'Não', active: true },
-        { label: 'Sim', packages: [
-          { id: 'ABAN 215', name: 'Posicionamento de fluido inibido no DPR/HCR' },
-        ]},
-      ],
-    },
-    {
-      question: 'Testes funcionais ANM e estanqueidade?',
-      answers: [
-        { label: 'Executar', active: true, packages: [
-          { id: 'ABAN 028', name: 'Teste bloco produção da ANM' },
-          { id: 'ABAN 029', name: 'Teste bloco anular da ANM' },
-        ]},
-      ],
-    },
-  ],
+// Bloco C — Abertura de poço com BOP: instalação do BOP + FETH/COP.
+export const BLK_BOP_ABERTURA_ID = 'BLK_BOP_ABERTURA'
+const SEC_BOP_ABERTURA_REF: LSec = {
+  id: 'bop_abertura', label: 'BOP — ABERTURA (INSTALAÇÃO + FETH/COP)', phase: 'Fase 2', color: 'amber',
+  decisions: [], ref: { scopeId: BLK_BOP_ABERTURA_ID, label: 'BOP — ABERTURA' },
 }
 
-// Seção unificada: Transponders/DMM + CCAP/TCap + Descida/Conexão ANM (DP)
-const SEC_MOB_REENTRADA_DP: LSec = {
-  id: 'mob_reentrada_dp',
-  label: 'MOBILIZAÇÃO E REENTRADA NA ANM (SONDA DP)',
-  phase: 'Mobilização',
-  color: 'gray',
-  decisions: [
-    ...SEC_MIRO_TRANSPONDER_DMM.decisions,
-    ...SEC_MIRO_CCAP_TCAP.decisions,
-    ...SEC_MIRO_DESCIDA_CONEXAO.decisions,
-  ],
-}
-
-// Seção para sonda ancorada: sem transponders/DMM (exclusivos de DP)
-const SEC_MOB_REENTRADA_ANC: LSec = {
-  id: 'mob_reentrada_anc',
-  label: 'MOBILIZAÇÃO E REENTRADA NA ANM (SONDA ANCORADA)',
-  phase: 'Mobilização',
-  color: 'gray',
-  decisions: [
-    ...SEC_MIRO_CCAP_TCAP.decisions,
-    ...SEC_MIRO_DESCIDA_CONEXAO.decisions,
-  ],
+// Bloco D — Fechamento de poço com BOP: isolamento/tampão + retirada do BOP.
+export const BLK_BOP_FECHAMENTO_ID = 'BLK_BOP_FECHAMENTO'
+const SEC_BOP_FECHAMENTO_REF: LSec = {
+  id: 'bop_fechamento', label: 'BOP — FECHAMENTO (ISOLAMENTO + RETIRADA)', phase: 'Fase 2', color: 'amber',
+  decisions: [], ref: { scopeId: BLK_BOP_FECHAMENTO_ID, label: 'BOP — FECHAMENTO' },
 }
 
 export const LOGIC_BY_SCOPE: Record<string, LSec[]> = {
   FSU_TT_FT: [
     ...F1_PREFIX,
-    SEC_CSB1_TT, SEC_LIMP, SEC_CORTE_TT, SEC_CSB2_TT,
+    SEC_TT_BARREIRA, SEC_LIMP, SEC_TT_CIMENT,
     ...F1_SUFFIX, SEC_RET_FSU,
   ],
   FSU_TT_BDC: [
     ...F1_PREFIX,
-    SEC_CSB1_TT, SEC_LIMP, SEC_BDC,
+    SEC_BDC_BARREIRA, SEC_LIMP, SEC_BDC,
     ...F1_SUFFIX, SEC_RET_FSU,
   ],
   FS1_Mec: [
     ...F1_PREFIX,
-    SEC_CSB1_FS1, SEC_LIMP, SEC_CORTE_FS1, SEC_CSB2_FS1,
+    SEC_CORTE_MEC_FS1_REF,
     ...F1_SUFFIX, SEC_RET_FSU,
   ],
   FSU_Conv_BOP: [
     ...F1_PREFIX,
-    SEC_CSB1_FS1, SEC_LIMP, SEC_CORTE_FS1, SEC_CSB2_FS1,
+    SEC_CORTE_MEC_FS1_REF,
     ...F1_SUFFIX, SEC_RET_CONV,
-    SEC_BOP_INSTALA, SEC_FETH_COP, SEC_ISOLATION, SEC_BOP_RETIRA,
+    SEC_BOP_ABERTURA_REF, SEC_BOP_FECHAMENTO_REF,
   ],
   FSU_Conv_RCMA: [
     ...F1_PREFIX,
-    SEC_RCMA_PRINCIPAL, SEC_CSB1_FS1, SEC_LIMP, SEC_CORTE_FS1, SEC_CSB2_FS1,
+    SEC_FS1_CANHONEIO, SEC_RCMA_PRINCIPAL, SEC_FS1_CSB1, SEC_LIMP, SEC_FS1_CORTE_CSB2,
     ...F1_SUFFIX, SEC_RET_CONV,
     SEC_RCMA_F2, SEC_ISOLATION,
   ],
   FSU_Sup_COP: [
     ...F1_PREFIX,
-    SEC_CSB1_FS1, SEC_LIMP, SEC_CORTE_FS1, SEC_CSB2_FS1,
+    SEC_CORTE_MEC_FS1_REF,
     ...F1_SUFFIX, SEC_RET_CONV,
-    SEC_BOP_INSTALA, SEC_FETH_COP, SEC_CAUDA, SEC_ISOLATION, SEC_BOP_RETIRA,
+    SEC_BOP_ABERTURA_REF, SEC_CAUDA, SEC_BOP_FECHAMENTO_REF,
   ],
   FSU_Sup_PWC: [
     ...F1_PREFIX,
-    SEC_CSB1_FS1, SEC_LIMP, SEC_CORTE_FS1, SEC_CSB2_FS1,
+    SEC_CORTE_MEC_FS1_REF,
     ...F1_SUFFIX, SEC_RET_CONV,
-    SEC_BOP_INSTALA, SEC_FETH_COP, SEC_CAUDA, SEC_ISOLATION, SEC_BOP_RETIRA,
+    SEC_BOP_ABERTURA_REF, SEC_CAUDA, SEC_BOP_FECHAMENTO_REF,
   ],
   FS2_Conv_BOP: [
-    SEC_MOB_DP,
-    SEC_BOP_INSTALA, SEC_FETH_COP, SEC_PACKER_FISHING, SEC_ISOLATION, SEC_BOP_RETIRA,
+    SEC_MOB_FS2_REF,
+    SEC_BOP_ABERTURA_REF, SEC_PACKER_FISHING, SEC_BOP_FECHAMENTO_REF,
   ],
   FS2_Conv_RCMA: [
-    SEC_MOB_DP,
+    SEC_MOB_FS2_REF,
     SEC_RCMA_F2, SEC_PACKER_FISHING, SEC_ISOLATION,
   ],
   FS2_Sup_COP: [
-    SEC_MOB_DP,
-    SEC_BOP_INSTALA, SEC_FETH_COP, SEC_CAUDA, SEC_PACKER_FISHING, SEC_ISOLATION, SEC_BOP_RETIRA,
+    SEC_MOB_FS2_REF,
+    SEC_BOP_ABERTURA_REF, SEC_CAUDA, SEC_PACKER_FISHING, SEC_BOP_FECHAMENTO_REF,
   ],
   FS2_Sup_PWC: [
-    SEC_MOB_DP,
-    SEC_BOP_INSTALA, SEC_FETH_COP, SEC_CAUDA, SEC_PACKER_FISHING, SEC_ISOLATION, SEC_BOP_RETIRA,
+    SEC_MOB_FS2_REF,
+    SEC_BOP_ABERTURA_REF, SEC_CAUDA, SEC_PACKER_FISHING, SEC_BOP_FECHAMENTO_REF,
   ],
-  MOB_DESCIDA: [SEC_MOB_REENTRADA_DP],
-  MOB_REENTRADA_ANC: [SEC_MOB_REENTRADA_ANC],
+  // Bloco de MOB por condicionais de sonda (rig_dp/rig_anc), incluído via `ref` no início
+  // dos escopos de Fase Única/FS1. Não é escopo selecionável no gerador (BLK_).
+  [BLK_MOB_DESCIDA_DP_COND_ID]: [SEC_MOB_DESCIDA_DP_COND],
+  // Blocos fatorados de subsequências repetidas (ver definições acima).
+  [BLK_CORTE_MEC_FS1_ID]: [SEC_FS1_CANHONEIO, SEC_FS1_CSB1, SEC_LIMP, SEC_FS1_CORTE_CSB2],
+  [BLK_MOB_FS2_ID]: [SEC_MOB_FS2_DP, SEC_MOB_FS2_ANC],
+  [BLK_BOP_ABERTURA_ID]: [SEC_BOP_INSTALA, SEC_FETH_COP],
+  [BLK_BOP_FECHAMENTO_ID]: [SEC_ISOLATION, SEC_BOP_RETIRA],
 }
 
 // ── VISÃO COMPLETA ─────────────────────────────────────────────────────────
@@ -1389,14 +1928,27 @@ const _mapDec = (d: LDec, rig: 'ANC' | 'DP'): LDec => ({
 const _mapSec = (s: LSec, rig: 'ANC' | 'DP'): LSec => ({
   ...s, always: _mapPkgs(s.always, rig), decisions: s.decisions.map(d => _mapDec(d, rig)),
 })
+// Expansão estática de seções `ref` (só LOGIC_BY_SCOPE — a visão completa é estática;
+// overrides do backend são tratados em logicOverrideStore.expandScopeRefs).
+function _expandRefsStatic(secs: LSec[], seen: Set<string> = new Set()): LSec[] {
+  const out: LSec[] = []
+  for (const sec of secs) {
+    const refId = sec.ref?.scopeId
+    if (refId) {
+      if (seen.has(refId)) continue
+      out.push(..._expandRefsStatic(LOGIC_BY_SCOPE[refId] ?? [], new Set(seen).add(refId)))
+    } else out.push(sec)
+  }
+  return out
+}
+
 function _secsForRig(scopeId: string, rig: 'ANC' | 'DP'): LSec[] {
-  const secs = LOGIC_BY_SCOPE[scopeId] ?? []
-  // A seção de mobilização é específica por sonda (DMA vs DMM+transponder), trocada por inteiro;
-  // as demais seções, sob ANC, têm os pacotes trocados pelos equivalentes ANC.
-  return secs.map(s => {
-    if (s.id === 'mob') return rig === 'ANC' ? SEC_MOB_ANC : SEC_MOB_DP
-    return rig === 'ANC' ? _mapSec(s, rig) : s
-  })
+  const secs = _expandRefsStatic(LOGIC_BY_SCOPE[scopeId] ?? [])
+  // Seções específicas por sonda (rigTypes) são filtradas; as demais, sob ANC, têm os
+  // pacotes trocados pelos equivalentes ANC.
+  return secs
+    .filter(s => !s.rigTypes || s.rigTypes.includes(rig))
+    .map(s => (rig === 'ANC' && !s.rigTypes ? _mapSec(s, rig) : s))
 }
 
 function _leaf(scopeId: string, rig: 'ANC' | 'DP'): QLeaf {

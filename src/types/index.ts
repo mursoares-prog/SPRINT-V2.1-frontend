@@ -126,7 +126,7 @@ export interface WizardInputs {
   includeCcapBackup?: boolean
   anmHydrate?: YesContingencyNo
   anmHydrateBlocks?: ('producao' | 'anular')[]
-  anmValveContingency?: ('hydrate' | 'jateamento')[]
+  anmValveContingency?: ('hydrate' | 'jateamento' | 'gabarit_ft')[]
   anmForceOpen?: YesContingencyNo
   anmForceMethod?: ('hammer' | 'motor_broca')[]
   anmValveHydrateBlocks?: ('producao' | 'anular')[]

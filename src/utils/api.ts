@@ -279,3 +279,33 @@ export function deleteLogicScope(scopeId: string, authHeaders: Record<string, st
     { method: 'DELETE', headers: authHeaders },
   )
 }
+
+// ── Versionamento (histórico de snapshots dos fluxogramas) ──────────────────
+export interface LogicScopeVersionMeta {
+  id: string
+  scopeId: string
+  label: string | null
+  note: string | null
+  author: string | null
+  sectionCount: number
+  createdAt: string
+}
+
+export function getLogicScopeVersions(scopeId: string) {
+  return req<LogicScopeVersionMeta[]>(
+    `/api/logic/scopes/${encodeURIComponent(scopeId)}/versions`,
+  )
+}
+
+export function getLogicScopeVersion(scopeId: string, versionId: string) {
+  return req<LogicScopeVersionMeta & { sections: unknown[] }>(
+    `/api/logic/scopes/${encodeURIComponent(scopeId)}/versions/${encodeURIComponent(versionId)}`,
+  )
+}
+
+export function restoreLogicScopeVersion(scopeId: string, versionId: string, authHeaders: Record<string, string>) {
+  return req<{ scopeId: string; isCustom: boolean; sectionCount: number }>(
+    `/api/logic/scopes/${encodeURIComponent(scopeId)}/versions/${encodeURIComponent(versionId)}/restore`,
+    { method: 'POST', headers: authHeaders },
+  )
+}

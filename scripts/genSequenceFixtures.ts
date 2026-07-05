@@ -90,6 +90,16 @@ const VARIATIONS: Variation[] = [
   { id: 'rcma_cement_plug', rig: 'DP', op: 'Generalista', scope: 'FSU_Conv_RCMA', over: { rcmaCsbPrincipal: 'cement_plug', rcmaCementPkgs: ['ABAN 159', 'ABAN 078', 'ABAN 082'] } },
   { id: 'fs1_perf_wireline', rig: 'DP', op: 'Generalista', scope: 'FS1_Mec', over: { tubingPerfMethod: 'wireline', fs1CsbPrimary: 'cement_plug', fs1CsbSecondary: 'tae' } },
   { id: 'ttft_lwo', rig: 'DP', op: 'LWO', scope: 'FSU_TT_FT', over: { tcapDisposition: 'surface', tcapSurfaceFluid: 'n2' } },
+  // Features pós-espelho (337933a): killWellFase1A, ANM force-open, ccapRemovalMethod,
+  // fs1CsbSecondaryMode e bopTestMethod para todos os escopos com BOP.
+  { id: 'ttft_kill_no', rig: 'DP', op: 'Generalista', scope: 'FSU_TT_FT', over: { killWellFase1A: 'no' } },
+  { id: 'ttft_kill_contingency', rig: 'ANC', op: 'Generalista', scope: 'FSU_TT_FT', over: { killWellFase1A: 'contingency' } },
+  { id: 'ttft_anm_force', rig: 'DP', op: 'Generalista', scope: 'FSU_TT_FT', over: { anmForceOpen: 'contingency', anmForceMethod: ['hammer', 'motor_broca'] } },
+  { id: 'ttft_ccap_cable', rig: 'DP', op: 'Generalista', scope: 'FSU_TT_FT', over: { subseaEquipments: ['tree_cap', 'corrosion_cap'], ccapRemovalMethod: 'cable', contingencyCcapWorkstring: 'yes' } },
+  { id: 'fs1_csb2_contingency', rig: 'DP', op: 'Generalista', scope: 'FS1_Mec', over: { fs1CsbSecondaryMode: 'contingency' } },
+  { id: 'fs1_csb2_no', rig: 'ANC', op: 'Generalista', scope: 'FS1_Mec', over: { fs1CsbSecondaryMode: 'no' } },
+  { id: 'convbop_test_orman', rig: 'DP', op: 'Generalista', scope: 'FSU_Conv_BOP', over: { bopTestMethod: 'ponteira_orman' } },
+  { id: 'convbop_test_feth', rig: 'DP', op: 'Generalista', scope: 'FSU_Conv_BOP', over: { bopTestMethod: 'feth_on_th' } },
 ]
 
 type Fixture = { id: string; inputs: WizardInputs; schedule: unknown }

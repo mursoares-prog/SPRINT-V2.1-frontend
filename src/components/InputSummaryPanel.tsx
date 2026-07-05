@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom'
 import { X, ChevronLeft, ChevronRight } from 'lucide-react'
 import { useApp } from '../context/AppContext'
 import { generateSchedule } from '../engines/scheduleRouter'
-import { resolveScopeSections, expandScopeRefs } from '../data/logicOverrideStore'
+import { resolveScopeSections, expandScopeRefs, getCustomScopesMeta } from '../data/logicOverrideStore'
 import { LogicQuestionsPanel } from './LogicQuestionsPanel'
 import type { WizardInputs, FlowlineLine, ScopeId, YesContingencyNo, TmfPlugBore, IsolationPlugType, IsolationCorrMethod, FishingElement, FishingMethod, VglAction, GaugeTech, InvestigationLog, RcmaCsbPrincipal, RcmaCementPkg, TcapSurfaceFluid } from '../types'
 
@@ -165,6 +165,9 @@ const showRemoveANM = isTT || isFS1Mec
   const customSecs = isCustomScope
     ? expandScopeRefs(resolveScopeSections(inputs.scopeId!))
     : null
+  const customScopeLabel = isCustomScope
+    ? (getCustomScopesMeta().find(s => s.scopeId === inputs.scopeId)?.label ?? inputs.scopeId)
+    : null
   const cSecIds = new Set(customSecs?.map(s => s.id) ?? [])
   const hasSec = (...ids: string[]) => !isCustomScope || ids.some(id => cSecIds.has(id))
   const hasSecPhase = (phase: string) => !isCustomScope || (customSecs?.some(s => s.phase === phase) ?? false)
@@ -236,27 +239,36 @@ const showRemoveANM = isTT || isFS1Mec
             </Row>
           )}
 
-          <Row label="Escopo"
-            tooltip="Sequência genérica de intervenção"
-            value={inputs.scopeId ? (SCOPE_SHORT[inputs.scopeId as ScopeId] ?? inputs.scopeId) : '—'}
-            isEditing={isEd('scopeId')} onEdit={() => edit('scopeId')}>
-            <InlineRadio
-              options={scopeOpts}
-              value={inputs.scopeId ?? ''}
-              onChange={v => {
-                const isNewFS2 = (v as string).startsWith('FS2')
-                const defIso = v === 'FS2_Sup_PWC'
-                  ? { needsCorrection: true, corrMethod: 'pwc' as IsolationCorrMethod, pwcValidation: 'params' as const }
-                  : { needsCorrection: false, plugType: 'bpp' as IsolationPlugType }
-                apply({ scopeId: v as ScopeId, logicAnswers: {}, ...(isNewFS2 && {
-                  contingencyFejat: 'no', fs2CopCutContingency: 'no', fs2CopCutMethod: 'electric', fs2PackerFishing: 'no',
-                  transponderMode: 'rov', dmmWithEquipment: false, isolationCount: 1, isolations: [defIso],
-                  bopTestMethod: 'test_plug',
-                }) })
-              }}
-            />
-          </Row>
+          {isCustomScope ? (
+            <div className="flex justify-between items-center py-1.5 px-2 text-xs">
+              <span className="text-slate-600 dark:text-slate-500">Escopo</span>
+              <span className="font-semibold text-slate-700 dark:text-slate-200 text-right truncate ml-2">{customScopeLabel}</span>
+            </div>
+          ) : (
+            <Row label="Escopo"
+              tooltip="Sequência genérica de intervenção"
+              value={inputs.scopeId ? (SCOPE_SHORT[inputs.scopeId as ScopeId] ?? inputs.scopeId) : '—'}
+              isEditing={isEd('scopeId')} onEdit={() => edit('scopeId')}>
+              <InlineRadio
+                options={scopeOpts}
+                value={inputs.scopeId ?? ''}
+                onChange={v => {
+                  const isNewFS2 = (v as string).startsWith('FS2')
+                  const defIso = v === 'FS2_Sup_PWC'
+                    ? { needsCorrection: true, corrMethod: 'pwc' as IsolationCorrMethod, pwcValidation: 'params' as const }
+                    : { needsCorrection: false, plugType: 'bpp' as IsolationPlugType }
+                  apply({ scopeId: v as ScopeId, logicAnswers: {}, ...(isNewFS2 && {
+                    contingencyFejat: 'no', fs2CopCutContingency: 'no', fs2CopCutMethod: 'electric', fs2PackerFishing: 'no',
+                    transponderMode: 'rov', dmmWithEquipment: false, isolationCount: 1, isolations: [defIso],
+                    bopTestMethod: 'test_plug',
+                  }) })
+                }}
+              />
+            </Row>
+          )}
         </Section>
+
+        {!isCustomScope && <>
 
         {/* ── Fase 0 — Mobilização (só existe quando há TCap, Fase Única / Fase 1) ── */}
         {inputs.rigType && inputs.scopeId && !isFS2 && hasTC && hasSecPhase('Fase 0') && (
@@ -1866,7 +1878,9 @@ const showRemoveANM = isTT || isFS1Mec
           </Section>
         )}
 
-        {/* ── Perguntas da lógica customizada ── */}
+        </>}
+
+        {/* ── Perguntas do fluxograma customizado ── */}
         {isCustomScope && inputs.rigType && inputs.scopeId && (() => {
           const secs = (customSecs ?? []).filter(sec => {
             if (sec.rigTypes?.length && !sec.rigTypes.includes(inputs.rigType!)) return false

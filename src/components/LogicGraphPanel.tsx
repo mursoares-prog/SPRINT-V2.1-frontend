@@ -1,9 +1,66 @@
 import { useRef, useState, useCallback, useMemo, useEffect, useLayoutEffect, useReducer } from 'react'
+import type { IconType } from 'react-icons'
+import { MdOutlineAnchor } from 'react-icons/md'
+import {
+  PiFan, PiLegoFill, PiTrashFill, PiPlusCircleFill, PiDiamondFill,
+  PiArrowLineUp, PiArrowLineDown, PiArrowFatUp, PiArrowFatDown,
+  PiCopySimpleFill, PiArrowUUpLeftFill, PiListNumbersFill,
+  PiStarFill, PiFlagPennantFill, PiListDashesFill, PiPlusBold, PiXBold,
+} from 'react-icons/pi'
+import { SiCodeship } from 'react-icons/si'
+import { GiOffshorePlatform } from 'react-icons/gi'
 import { getPackage } from '../data/packages'
-import { resolveScopeSections, expandScopeRefs } from '../data/logicOverrideStore'
+import { resolveScopeSections, expandScopeRefs, getScopeLabel } from '../data/logicOverrideStore'
+import { CONDITION_LABELS } from '../data/logicSecs'
 
 // Original/canonical package name (falls back to the flowchart's own label)
 const pkgName = (p: LPkg): string => getPackage(p.id)?.name ?? p.name
+// Rótulo humano da condição de emissão de um pacote (fallback: chave crua)
+const condLabel = (c?: string): string | null =>
+  c ? ((CONDITION_LABELS as Record<string, string>)[c] ?? c) : null
+
+// Ícone (react-icons) que marca a condição de emissão de um pacote, no lugar do
+// antigo losango azul ◈. Um por condição de sonda/operação.
+const CONDITION_ICONS: Record<string, IconType> = {
+  rig_anc: MdOutlineAnchor,      // Sonda ancorada (ANC)
+  rig_dp: PiFan,                 // Sonda DP
+  op_lwo: SiCodeship,            // Operação LWIV (LWO)
+  op_generalista: GiOffshorePlatform, // Operação Generalista
+}
+
+// Mapa dos antigos glyphs (emoji/unicode) dos menus para ícones react-icons (Phosphor Fill).
+// A chave é o próprio glyph usado nos MenuItem, evitando alterar todos os call sites.
+const GLYPH_ICONS: Record<string, IconType> = {
+  '📦': PiLegoFill,          // adicionar pacote
+  '×': PiTrashFill,          // remover
+  '➕': PiPlusCircleFill,     // adicionar resposta/decisão
+  '◇': PiDiamondFill,        // inserir sub-pergunta
+  '↑': PiArrowLineUp,        // inserir acima
+  '↓': PiArrowLineDown,      // inserir abaixo
+  '⬆': PiArrowFatUp,         // mover acima
+  '⬇': PiArrowFatDown,       // mover abaixo
+  '⧉': PiCopySimpleFill,     // copiar
+  '⤿': PiArrowUUpLeftFill,   // mover pergunta para cá
+  '⤵': PiListNumbersFill,    // sequencial / após convergência
+}
+
+// Renderiza um ícone react-icons centrado num ponto do SVG. `cx`/`cyText` são as mesmas
+// coordenadas usadas no antigo <text> (que tinha textAnchor="middle" e baseline +3.5);
+// descontamos o baseline para centralizar verticalmente. Substitui os glyphs × / + / ⚑…
+function svgIco(Icon: IconType, cx: number, cyText: number, size: number, color: string, opacity = 1) {
+  return <Icon key={K()} x={cx - size / 2} y={cyText - 3.5 - size / 2} size={size} color={color}
+    style={{ pointerEvents: 'none', opacity }} />
+}
+
+// Ícone de condição para contexto HTML (dropdown/painéis). No SVG do fluxograma o
+// ícone é renderizado inline (com x/y/size) em drawPkgRow.
+export function ConditionIcon({ condition, className, size = 11 }: { condition: string; className?: string; size?: number }) {
+  const Ic = CONDITION_ICONS[condition]
+  const title = `Condicional: ${condLabel(condition)}`
+  return Ic
+    ? <Ic className={className} size={size} title={title} />
+    : <span className={className} title={title}>◈</span>
+}
 
 // Deep equality helpers for merging identical Sim/Contingência answers
 function _pkgEq(a: LPkg[] | undefined, b: LPkg[] | undefined): boolean {
@@ -37,7 +94,7 @@ function toDisplayList(answers: LAns[]): DisplayAns[] {
 }
 
 // Types compatible with AdminView.tsx (structural typing)
-type LPkg = { id: string; name: string; isContingency?: boolean }
+type LPkg = { id: string; name: string; isContingency?: boolean; condition?: string }
 type LSeqEntry = { label: string; note?: string; packages?: LPkg[]; sub?: LDec[]; afterSub?: LDec[] }
 interface LAns { label: string; active?: boolean; note?: string; packages?: LPkg[]; sub?: LDec[]; afterSub?: LDec[]; seq?: LSeqEntry[]; after?: LSeqEntry[]; goto?: string; contingency?: boolean; _dirty?: boolean }
 interface LDec { question: string; answers: LAns[]; packages?: LPkg[]; after?: LSeqEntry[]; afterDec?: LDec[]; reuseScope?: boolean; _dirty?: boolean }
@@ -138,6 +195,10 @@ export type EditAction =
   | { type: 'edit_section_label'; secIdx: number; current: string }
   | { type: 'add_section';      afterSecIdx: number }
   | { type: 'move_section';     secIdx: number; dir: 'up' | 'down' }
+  // Blocos de lógica (seções `ref`): desanexar substitui o placeholder pelas seções
+  // expandidas (cópia local, edição só neste escopo); editar bloco navega ao escopo BLK_.
+  | { type: 'detach_ref_section'; secIdx: number }
+  | { type: 'edit_ref_block';     scopeId: string }
   // Mover/copiar em 2 cliques: 1º escolhe o DESTINO no menu do chip (transfer_target),
   // 2º clica na pergunta de ORIGEM (pick_source). `ref`+`ansIdx` = a resposta destino.
   | { type: 'transfer_target';  mode: 'move' | 'copy'; ref: DecRef; ansIdx: number }
@@ -216,6 +277,20 @@ export type EditAction =
   | { type: 'p_toggle_dec_pkg_contingency'; ref: DecRef; pkgIdx: number }
   // Delete entire packages chip from an answer
   | { type: 'p_clear_ans_pkgs'; ref: DecRef; ansIdx: number }
+  // ── Editor de fluxo (ReactFlow): posições manuais de nós ─────────────────────
+  // set_node_pos NÃO entra no histórico de undo (arrastar nós não é edição de lógica).
+  | { type: 'set_node_pos'; target: FlowNodeTarget; pos: { x: number; y: number } }
+  | { type: 'clear_node_pos' }  // remove todas as posições manuais do escopo (re-layout)
+  // Campo/valor de resolução automática da resposta a partir de WizardInputs
+  | { type: 'p_set_ans_field'; ref: DecRef; ansIdx: number; field?: string; value?: unknown }
+  // Condição de emissão de um pacote (LCondition) — em dec.packages ou ans.packages
+  | { type: 'p_set_pkg_condition'; ref: DecRef; ansIdx?: number; pkgIdx: number; condition?: string }
+
+export type FlowNodeTarget =
+  | { kind: 'sec'; secIdx: number }
+  | { kind: 'q'; ref: DecRef }
+  | { kind: 'a'; ref: DecRef; ansIdx: number }
+  | { kind: 'conv'; ref: DecRef }
 
 export interface LogicGraphProps { secs?: LSec[]; tree?: QNode; editCb?: (a: EditAction) => void; pickMode?: boolean; selRef?: DecRef | null }
 
@@ -286,6 +361,10 @@ let _search = ''
 // destacada (subárvore que será movida/copiada).
 let _pickMode = false
 let _selRef: DecRef | null = null
+// Blocos de lógica (seções `ref`) expandidos inline no fluxo — chave = scopeId do bloco.
+// Estado de UI puro (mantido no componente), não altera as seções do escopo.
+let _expandedRefs = new Set<string>()
+let _toggleRefExpand: ((scopeId: string) => void) | null = null
 // `ref` está dentro da subárvore de `sel` (ou é a própria raiz)? Usado p/ destacar a origem.
 function refUnder(ref: DecRef, sel: DecRef): boolean {
   if (ref.secIdx !== sel.secIdx || ref.decIdx !== sel.decIdx || (ref.adIdx ?? -1) !== (sel.adIdx ?? -1)) return false
@@ -298,6 +377,25 @@ let _dupQuestions = new Set<string>()
 // Tooltip callback — set by LogicGraphPanel component, called by action buttons
 let _tooltipCb: ((info: { text: string; x: number; y: number } | null) => void) | null = null
 const _decPos = new Map<string, { cx: number; topY: number }>()
+// Índice de navegação (painel "Índice"): seções e perguntas de nível 1 com suas
+// coordenadas Y no SVG — repovoado em cada buildSvg por drawFlowColumn.
+export type FlowIndexSection = {
+  secIdx: number; label: string; phase: string; y: number
+  questions: { decIdx: number; question: string; y: number; subs: { q: string; depth: number }[] }[]
+}
+
+// Coleta sub-perguntas recursivamente (até maxDepth) a partir de um LDec.
+// As sub-perguntas não têm Y próprio — no índice navegam até o pai.
+function collectSubQs(dec: LDec, depth = 1, out: { q: string; depth: number }[] = [], max = 3): { q: string; depth: number }[] {
+  if (depth > max) return out
+  for (const ans of dec.answers) {
+    for (const sub of ans.sub ?? []) { out.push({ q: sub.question, depth }); collectSubQs(sub, depth + 1, out, max) }
+    for (const sub of ans.afterSub ?? []) { out.push({ q: sub.question, depth }); collectSubQs(sub, depth + 1, out, max) }
+  }
+  for (const ad of dec.afterDec ?? []) { out.push({ q: ad.question, depth }); collectSubQs(ad, depth + 1, out, max) }
+  return out
+}
+let _flowIndex: FlowIndexSection[] = []
 const K = () => String(_k++)
 const HIT_STROKE = '#d97706'
 // Destaque de "alterado e ainda não salvo" — tom azul escuro da coluna esquerda do app
@@ -328,9 +426,14 @@ export type MenuPkgList = {
   onAdd: () => void
   onMove: (idx: number, dir: 'up' | 'down') => void
   onRemove: (idx: number) => void
+  // Presente apenas onde a condição do pacote é editável (chips de pergunta e resposta)
+  onCondition?: (idx: number, condition?: string) => void
 }
 // Resolved version passed to ClassicSidePanel (list already computed from current secs)
-type ResolvedPkgList = { list: LPkg[]; onAdd: () => void; onMove: (idx: number, dir: 'up' | 'down') => void; onRemove: (idx: number) => void }
+type ResolvedPkgList = {
+  list: LPkg[]; onAdd: () => void; onMove: (idx: number, dir: 'up' | 'down') => void
+  onRemove: (idx: number) => void; onCondition?: (idx: number, condition?: string) => void
+}
 export type MenuState = { title?: string; items: MenuItem[]; pkgs?: MenuPkgList; pos?: { x: number; y: number }; hlKey?: string; onTitleChange?: (v: string) => void }
 let _menuCb: ((m: MenuState | null) => void) | null = null
 // Key of the currently-selected element — highlighted with amber ring in the SVG
@@ -405,10 +508,6 @@ const F_L = 11      // large font (section header)
 const SEQ_GAP = 10  // gap: answer body bottom → seq entry top (arrow space)
 const AFTER_GAP = 22 // gap used for after-convergence entries (larger for breathing room)
 const DEC_PKG_GAP = 18 // gap between PACOTES chip bottom and diamond top (needs space for arrowhead)
-// Botões de ação — padronização de tamanho e distância (evita sobrepor linhas/bordas)
-const BTN_R = 8       // raio padrão dos botões de ação
-const BTN_GAP = 3     // distância padrão da borda do card / das linhas
-const BTN_INSET = BTN_R + BTN_GAP   // centro do botão a esta distância da borda inferior do card
 
 // Size helpers
 function aW(a: LAns): number {
@@ -509,13 +608,45 @@ function sAlwH(s: LSec): number {
   return 0
 }
 const REF_SEC_H = SHH + 60   // altura compacta do card de "fluxograma incluído"
+const REF_EXP_TOP = 30       // espaço entre o header do bloco e a 1ª seção interna (expandido)
+const REF_EXP_BOT = 24       // padding inferior do container do bloco expandido
+// Seções internas de um bloco `ref`, já expandindo refs aninhadas (mesma fonte do preview).
+function refInnerSecs(scopeId: string): LSec[] {
+  return expandScopeRefs(resolveScopeSections(scopeId))
+}
+// Altura da coluna de seções internas de um bloco expandido. Calcula com `_editCb` nulo
+// pois o conteúdo é renderizado read-only (sem os paddings de edição das seções).
+function refExpandedContentH(scopeId: string): number {
+  const inner = refInnerSecs(scopeId)
+  if (!inner.length) return 40
+  const saved = _editCb; _editCb = null
+  const h = inner.reduce((sum, s, i) => sum + sTotalH(s) + (i ? SGAP : 0), 0)
+  _editCb = saved
+  return h
+}
+function refIsExpanded(s: LSec): boolean {
+  return !!s.ref?.scopeId && _expandedRefs.has(s.ref.scopeId)
+}
 function sTotalH(s: LSec): number {
-  if (s.ref) return REF_SEC_H
+  if (s.ref) {
+    if (refIsExpanded(s)) return SHH + REF_EXP_TOP + refExpandedContentH(s.ref!.scopeId) + REF_EXP_BOT
+    return REF_SEC_H
+  }
   const editPad = _editCb ? 30 : 0  // espaço para "+ decisão ao final"
   return SHH + SVPAD + sAlwH(s) + s.decisions.reduce((sum, d, i) => sum + dTotalH(d) + (i ? DSQ : 0), 0) + SVPAD + editPad
 }
 function sTotalW(s: LSec): number {
-  if (s.ref) return 440 + (_editCb ? 70 : 0)
+  if (s.ref) {
+    const base = 440 + (_editCb ? 70 : 0)
+    if (refIsExpanded(s)) {
+      const inner = refInnerSecs(s.ref!.scopeId)
+      const saved = _editCb; _editCb = null
+      const innerW = inner.length ? Math.max(...inner.map(sTotalW)) : 0
+      _editCb = saved
+      return Math.max(base, innerW + SPAD * 2)
+    }
+    return base
+  }
   // When editing, add 70px on the right so the "× decisão" pill (60px + margin) fits
   return Math.max(300, ...s.decisions.map(dW)) + SPAD * 2 + (_editCb ? 70 : 0)
 }
@@ -523,15 +654,51 @@ function sTotalW(s: LSec): number {
 // Helpers
 function tr(s: string, n: number) { return s.length > n ? s.slice(0, n - 1) + '…' : s }
 
-// Quebra texto longo de diamante em no máximo 2 linhas, encontrando limite de palavra
-// próximo ao centro. Retorna [line1] ou [line1, line2].
-function wrapDiamondText(text: string, maxChars = 30): [string, string?] {
-  if (text.length <= maxChars) return [text]
-  const half = Math.ceil(text.length / 2)
-  let bp = text.lastIndexOf(' ', half + 5)
-  if (bp < half - 12 || bp <= 0) bp = text.indexOf(' ', half - 5)
-  if (bp <= 0 || bp >= text.length - 1) return [tr(text, maxChars * 2)]
-  return [tr(text.slice(0, bp).trim(), maxChars), tr(text.slice(bp + 1).trim(), maxChars)]
+// Renderiza o rótulo de uma pergunta centralizado DENTRO do losango, ajustando a quebra de
+// linha e o tamanho da fonte para o texto nunca ultrapassar as arestas inclinadas do diamante.
+// topY = Y da aresta superior do losango; a largura do diamante é fixa (DDW).
+const DIA_CHAR = 0.56  // largura média de caractere ≈ 0.56×fontSize (sans-serif)
+// Largura útil do losango numa faixa horizontal a `d` px (vertical) do centro do diamante.
+function diaWidthAt(d: number): number {
+  return DDW * (1 - Math.min(1, Math.abs(d) / (DH / 2)))
+}
+// Máximo de caracteres que cabem numa linha de fonte `fs` centrada na faixa a `d` px do centro.
+function diaCap(fs: number, d: number): number {
+  return Math.max(3, Math.floor((diaWidthAt(d) - 12) / (fs * DIA_CHAR)))
+}
+function drawDiamondLabel(cx: number, topY: number, text: string, fill: string, els: React.ReactNode[]): void {
+  const t = text.trim()
+  const cy = topY + DH / 2
+  // 1 linha — cabe na faixa central com a fonte padrão?
+  if (t.length <= diaCap(F_M, Math.abs(4 - 0.72 * F_M))) {
+    els.push(
+      <text key={K()} x={cx} y={cy + 4} fontSize={F_M} fontWeight={600} fill={fill}
+        textAnchor="middle" fontFamily="ui-sans-serif,system-ui,sans-serif"><title>{t}</title>{t}</text>
+    )
+    return
+  }
+  // 2 linhas — quebra próxima ao meio, preferindo limite de palavra.
+  const half = Math.ceil(t.length / 2)
+  let bp = t.lastIndexOf(' ', half + 6)
+  if (bp < half - 12 || bp <= 0) bp = t.indexOf(' ', half - 6)
+  let l1 = bp > 0 ? t.slice(0, bp).trim() : t.slice(0, half).trim()
+  let l2 = bp > 0 ? t.slice(bp + 1).trim() : t.slice(half).trim()
+  // Escolhe a maior fonte em que ambas as linhas cabem nas faixas superior/inferior do losango.
+  const need = Math.max(l1.length, l2.length)
+  let fs = F_M
+  for (const cand of [F_M, 9.5, 8.5, 7.8]) {
+    fs = cand
+    if (need <= Math.min(diaCap(cand, 2 + 0.72 * cand), diaCap(cand, 10 + 0.24 * cand))) break
+  }
+  const cap = Math.min(diaCap(fs, 2 + 0.72 * fs), diaCap(fs, 10 + 0.24 * fs))
+  l1 = tr(l1, cap); l2 = tr(l2, cap)
+  els.push(
+    <text key={K()} textAnchor="middle" fontFamily="ui-sans-serif,system-ui,sans-serif" fill={fill} fontSize={fs} fontWeight={600}>
+      <title>{t}</title>
+      <tspan x={cx} y={cy - 2}>{l1}</tspan>
+      <tspan x={cx} dy={fs + 1.5}>{l2}</tspan>
+    </text>
+  )
 }
 
 // Renderiza uma linha de pacote em 2 linhas: ID (monospace, negrito) acima + nome abaixo.
@@ -568,7 +735,7 @@ function drawPkgRow(
   if (onClick) {
     els.push(
       <g key={K()} onMouseDown={stopMD} onClick={(e) => { e.stopPropagation(); onClick(e) }} style={{ cursor: 'pointer' }}
-         {...tipAttrs(`${pkg.id} — clique para opções`)}>
+         {...tipAttrs(`${pkg.id}${pkg.condition ? ` · condição: ${condLabel(pkg.condition)}` : ''} — clique para opções`)}>
         <rect x={leftX + 4} y={topY + 1} width={w - 8} height={rowH - 2} rx={3} fill="transparent" />
         <text x={leftX + 8} y={idY} fontSize={F_S} fontFamily="ui-monospace,monospace" fontWeight={600} fill={p.code}>{pkg.id}</text>
         <text x={leftX + 8} y={nameY} fontSize={F_S - 0.5} fontFamily="ui-sans-serif,system-ui,sans-serif" fill={p.ansT} opacity={0.85}>{nameLine1}</text>
@@ -588,7 +755,21 @@ function drawPkgRow(
   // Here we only render the visual indicator for read-only mode when pkg.isContingency is already set.
   if (!onFlagToggle && pkg.isContingency) {
     els.push(
-      <text key={K()} x={flagX} y={flagY} fontSize={9} fill="#f97316">⚑</text>
+      <PiFlagPennantFill key={K()} x={flagX} y={flagY - 10} size={11} color="#f97316" style={{ pointerEvents: 'none' }} />
+    )
+  }
+  // Condição de emissão (pkg.condition): ícone react-icons (sonda/operação) no canto
+  // direito da linha do pacote, na mesma cor azul do código do pacote (p.code).
+  if (pkg.condition) {
+    const CondIcon = CONDITION_ICONS[pkg.condition]
+    const ic = 12
+    els.push(CondIcon
+      ? <CondIcon key={K()} x={leftX + w - 8 - ic} y={idY - ic + 2} size={ic} color={p.code}
+          title={`Condicional: ${condLabel(pkg.condition)}`} style={{ pointerEvents: 'none' }} />
+      : <text key={K()} x={leftX + w - 8} y={idY} fontSize={9} fontWeight={700} textAnchor="end"
+          fill={p.code} style={{ pointerEvents: 'none' }}>
+          ◈<title>{`Condicional: ${condLabel(pkg.condition)}`}</title>
+        </text>
     )
   }
 }
@@ -610,8 +791,8 @@ function pushPkgFlagOverlays(
          style={{ cursor: 'pointer' }}
          {...tipAttrs(pkg.isContingency ? 'Pacote contingencial — clique para remover' : 'Marcar pacote como contingencial')}>
         <rect x={flagX - 4} y={bY + i * PKG + 1} width={14} height={PKG - 2} rx={2} fill="transparent" />
-        <text x={flagX} y={flagY} fontSize={9} fill={pkg.isContingency ? '#f97316' : p.lblT}
-          opacity={pkg.isContingency ? 1 : 0.28}>⚑</text>
+        <PiFlagPennantFill x={flagX} y={flagY - 10} size={11} color={pkg.isContingency ? '#f97316' : p.lblT}
+          style={{ pointerEvents: 'none', opacity: pkg.isContingency ? 1 : 0.28 }} />
       </g>
     )
   })
@@ -762,8 +943,7 @@ function renderAnswer(
         e.stopPropagation()
         fire({ type: 'p_toggle_default', ref, ansIdx: ai })
       }} style={{ cursor: 'pointer' }} {...tip('Marcar como padrão')}>
-        <text x={x + 10} y={y + LBLH * 0.72} fontSize={11} textAnchor="middle"
-          fill={act ? '#facc15' : p.lblT} opacity={act ? 1 : 0.35}>✦</text>
+        {svgIco(PiStarFill, x + 10, y + LBLH * 0.72, 13, act ? '#facc15' : p.lblT, act ? 1 : 0.35)}
       </g>
     )
     // ⚑ toggle-contingency button (right of ✦) — marca a resposta como variante de contingência
@@ -772,8 +952,7 @@ function renderAnswer(
         e.stopPropagation()
         fire({ type: 'p_toggle_contingency', ref, ansIdx: ai })
       }} style={{ cursor: 'pointer' }} {...tip('Duplicar à direita como variante de contingência')}>
-        <text x={x + 23} y={y + LBLH * 0.74} fontSize={11} textAnchor="middle"
-          fill={cont ? '#d97706' : p.lblT} opacity={cont ? 1 : 0.35}>⚑</text>
+        {svgIco(PiFlagPennantFill, x + 23, y + LBLH * 0.74, 13, cont ? '#d97706' : p.lblT, cont ? 1 : 0.35)}
       </g>
     )
     // Label bar click → opens sidebar with all answer actions
@@ -783,8 +962,6 @@ function renderAnswer(
       { label: 'Inserir sub-pergunta abaixo', glyph: '↓', color: '#22d3ee', onClick: () => fire({ type: 'p_add_aftersub_dec', ref, ansIdx: ai }) },
       { label: 'Adicionar resposta sequencial', glyph: '⤵', color: '#7c3aed', onClick: () => fire({ type: 'p_add_seq', ref, ansIdx: ai, atIdx: 0 }) },
       { label: 'Adicionar entrada após convergência', glyph: '⤵', color: '#6366f1', onClick: () => fire({ type: 'p_dec_add_after', ref }) },
-      { label: 'Inserir resposta irmã acima', glyph: '↑', color: '#22d3ee', onClick: () => fire({ type: 'p_ins_ans', ref, atIdx: ai }) },
-      { label: 'Inserir resposta irmã abaixo', glyph: '↓', color: '#22d3ee', onClick: () => fire({ type: 'p_ins_ans', ref, atIdx: ai + 1 }) },
       { label: 'Mover resposta acima', glyph: '⬆', color: '#94a3b8', onClick: () => fire({ type: 'p_move_ans', ref, ansIdx: ai, dir: 'up' }) },
       { label: 'Mover resposta abaixo', glyph: '⬇', color: '#94a3b8', onClick: () => fire({ type: 'p_move_ans', ref, ansIdx: ai, dir: 'down' }) },
       { label: 'Mover pergunta para cá', glyph: '⤿', color: '#a855f7', onClick: () => fire({ type: 'transfer_target', mode: 'move', ref, ansIdx: ai }) },
@@ -805,7 +982,7 @@ function renderAnswer(
         fire({ type: 'p_remove_ans', ref, ansIdx: ai })
       }} style={{ cursor: 'pointer' }} {...tip('Remover resposta')}>
         <circle cx={x + w - 9} cy={y + LBLH / 2} r={6.5} fill="#ef4444" opacity={0.82} />
-        <text x={x + w - 9} y={y + LBLH / 2 + 3.5} fontSize={10} fontWeight={800} textAnchor="middle" fill="white">×</text>
+        {svgIco(PiTrashFill, x + w - 9, y + LBLH / 2 + 3.5, 10, 'white')}
       </g>
     )
   }
@@ -822,27 +999,32 @@ function renderAnswer(
     bY += NOTE_R + 2
   }
   const hasSub = !!(a.sub?.length)
-  if (!hasSub && pkgs.length > 0) {
+  if (!hasSub && (pkgs.length > 0 || canEdit)) {
     pkgs.forEach((pkg, i) => {
       drawPkgRow(x, bY + i * PKG, PKG, w, pkg, p, pkgHitIdx.has(i), null, null, els)
     })
+    if (pkgs.length === 0 && !a.note) {
+      els.push(<text key={K()} x={x + 8} y={bY + NOTE_R * 0.8} fontSize={F_S} fontStyle="italic" fill={p.empty}>—</text>)
+    }
     if (canEdit) {
       const capRef = ref, capAi = ai
+      const zoneH = pkgs.length > 0 ? pkgs.length * PKG + 4 : NOTE_R + 4
       els.push(
-        <g key={K()} onMouseDown={stopMD} onClick={(e) => openMenu(e, a.label, [
-          { label: 'Excluir chip de pacotes', glyph: '×', color: '#ef4444', danger: true, onClick: () => fire({ type: 'p_clear_ans_pkgs', ref, ansIdx: ai }) },
-        ], {
+        <g key={K()} onMouseDown={stopMD} onClick={(e) => openMenu(e, a.label, [], {
           getList: (s) => resolveRef(s, capRef)?.answers[capAi]?.packages ?? [],
           onAdd: () => fire({ type: 'p_add_pkg', ref, ansIdx: ai }),
           onMove: (idx, dir) => fire({ type: 'p_move_pkg', ref, ansIdx: ai, pkgIdx: idx, dir }),
           onRemove: (idx) => fire({ type: 'p_remove_pkg', ref, ansIdx: ai, pkgIdx: idx }),
-        })} style={{ cursor: 'pointer' }} {...tipAttrs('Gerenciar pacotes')}>
-          <rect x={x + 4} y={bY - 2} width={w - 8} height={pkgs.length * PKG + 4} rx={3} fill="transparent" />
+          onCondition: (idx, condition) => fire({ type: 'p_set_pkg_condition', ref, ansIdx: ai, pkgIdx: idx, condition }),
+        })} style={{ cursor: 'pointer' }} {...tipAttrs(pkgs.length > 0 ? 'Gerenciar pacotes' : 'Adicionar pacote')}>
+          <rect x={x + 4} y={bY - 2} width={w - 8} height={zoneH} rx={3} fill="transparent" />
         </g>
       )
       // Flag overlays rendered AFTER zone rect so they sit on top in SVG z-order
-      pushPkgFlagOverlays(x, bY, pkgs, p,
-        (pi) => fire({ type: 'p_toggle_ans_pkg_contingency', ref, ansIdx: ai, pkgIdx: pi }), els)
+      if (pkgs.length > 0) {
+        pushPkgFlagOverlays(x, bY, pkgs, p,
+          (pi) => fire({ type: 'p_toggle_ans_pkg_contingency', ref, ansIdx: ai, pkgIdx: pi }), els)
+      }
     }
   } else if (!a.note && !hasSub) {
     els.push(<text key={K()} x={x + 8} y={bY + NOTE_R * 0.8} fontSize={F_S} fontStyle="italic" fill={p.empty}>—</text>)
@@ -897,7 +1079,7 @@ function renderAnswer(
              onClick={(e) => { e.stopPropagation(); fire({ type: 'p_remove_seq', ref, ansIdx: ai, seqIdx: capSei }) }}
              style={{ cursor: 'pointer' }} {...tipAttrs('Remover entrada sequencial')}>
             <circle cx={seX + seW - 9} cy={seCardY + LBLH / 2} r={6.5} fill="#ef4444" opacity={0.82} />
-            <text x={seX + seW - 9} y={seCardY + LBLH / 2 + 3.5} fontSize={10} fontWeight={800} textAnchor="middle" fill="white">×</text>
+            {svgIco(PiTrashFill, seX + seW - 9, seCardY + LBLH / 2 + 3.5, 10, 'white')}
           </g>
         )
         // Click label to edit
@@ -922,20 +1104,24 @@ function renderAnswer(
       const sePkgs = se.packages ?? []
       const seBY = seCardY + LBLH + BPAD
       const seqHlKey = `chip:seq:${ref.secIdx}:${ref.decIdx}:${ref.sub.join(',')}:${ai}:${sei}`
-      if (sePkgs.length > 0) {
+      if (sePkgs.length > 0 || canEdit) {
         sePkgs.forEach((pkg, pi) => {
           drawPkgRow(seX, seBY + pi * PKG, PKG, seW, pkg, p, hit(pkg.id) || hit(pkgName(pkg)), null, null, els)
         })
+        if (sePkgs.length === 0) {
+          els.push(<text key={K()} x={seX + 8} y={seBY + NOTE_R * 0.8} fontSize={F_S} fontStyle="italic" fill={p.empty}>—</text>)
+        }
         if (canEdit) {
           const capSei2 = sei, capRef = ref, capAi = ai, capSeLabel = se.label
+          const seZoneH = sePkgs.length > 0 ? sePkgs.length * PKG + 4 : NOTE_R + 4
           els.push(
             <g key={K()} onMouseDown={stopMD} onClick={(e) => openMenu(e, capSeLabel, [], {
               getList: (s) => resolveRef(s, capRef)?.answers[capAi]?.seq?.[capSei2]?.packages ?? [],
               onAdd: () => fire({ type: 'p_add_seq_pkg', ref, ansIdx: ai, seqIdx: capSei2 }),
               onMove: (idx, dir) => fire({ type: 'p_move_seq_pkg', ref, ansIdx: ai, seqIdx: capSei2, pkgIdx: idx, dir }),
               onRemove: (idx) => fire({ type: 'p_remove_seq_pkg', ref, ansIdx: ai, seqIdx: capSei2, pkgIdx: idx }),
-            }, seqHlKey)} style={{ cursor: 'pointer' }} {...tipAttrs('Gerenciar pacotes')}>
-              <rect x={seX + 4} y={seBY - 2} width={seW - 8} height={sePkgs.length * PKG + 4} rx={3} fill="transparent" />
+            }, seqHlKey)} style={{ cursor: 'pointer' }} {...tipAttrs(sePkgs.length > 0 ? 'Gerenciar pacotes' : 'Adicionar pacote')}>
+              <rect x={seX + 4} y={seBY - 2} width={seW - 8} height={seZoneH} rx={3} fill="transparent" />
             </g>
           )
         }
@@ -977,15 +1163,22 @@ function renderAnswer(
         if (canEdit) {
           const capSubRef2 = subCapRef
           els.push(
-            <g key={K()} onMouseDown={stopMD} onClick={(e) => openMenu(e, 'PACOTES', [
-              { label: 'Excluir chip de pacotes', glyph: '×', color: '#ef4444', danger: true, onClick: () => fire({ type: 'p_clear_dec_pkgs', ref: capSubRef2 }) },
-            ], {
+            <g key={K()} onMouseDown={stopMD} onClick={(e) => openMenu(e, 'PACOTES', [], {
               getList: (s) => resolveRef(s, capSubRef2)?.packages ?? [],
               onAdd: () => fire({ type: 'p_add_dec_pkg', ref: capSubRef2 }),
               onMove: (idx, dir) => fire({ type: 'p_move_dec_pkg', ref: capSubRef2, pkgIdx: idx, dir }),
               onRemove: (idx) => fire({ type: 'p_remove_dec_pkg', ref: capSubRef2, pkgIdx: idx }),
+              onCondition: (idx, condition) => fire({ type: 'p_set_pkg_condition', ref: capSubRef2, pkgIdx: idx, condition }),
             }, subPkgHlKey)} style={{ cursor: 'pointer' }} {...tipAttrs('Gerenciar pacotes da sub-pergunta')}>
-              <rect x={schipX + 4} y={schipCardY + 4} width={schipW - 8} height={LBLH - 8} rx={2} fill="transparent" />
+              <rect x={schipX + 4} y={schipCardY + 4} width={schipW - 30} height={LBLH - 8} rx={2} fill="transparent" />
+            </g>
+          )
+          // × excluir chip de pacotes (canto direito, igual aos demais chips)
+          els.push(
+            <g key={K()} onMouseDown={stopMD} onClick={(e) => { e.stopPropagation(); fire({ type: 'p_clear_dec_pkgs', ref: capSubRef2 }) }}
+               style={{ cursor: 'pointer' }} {...tipAttrs('Excluir chip de pacotes')}>
+              <circle cx={schipX + schipW - 9} cy={schipCardY + LBLH / 2} r={6.5} fill="#ef4444" opacity={0.82} />
+              {svgIco(PiTrashFill, schipX + schipW - 9, schipCardY + LBLH / 2 + 3.5, 10, 'white')}
             </g>
           )
           pushPkgFlagOverlays(schipX, sPkgBY, sub.packages!, p,
@@ -1009,21 +1202,7 @@ function renderAnswer(
       // Mesma posição do ícone que no top-level (fonte e largura agora idênticas)
       if (isSubRigQ) drawDerrickIcon(cx - 62, actualSY + DH / 2, subQd.text, els)
       drawNoDefaultWarn(sub.answers, cx, actualSY, sdW, els)
-      const sdLines = wrapDiamondText(sub.question)  // mesmo maxChars (30) do top-level
-      if (sdLines[1]) {
-        els.push(
-          <text key={K()} textAnchor="middle" fontFamily="ui-sans-serif,system-ui,sans-serif" fill={subQd.text} fontSize={F_M} fontWeight={600}>
-            <tspan x={cx} y={sY + DH / 2 - 2}>{sdLines[0]}</tspan>
-            <tspan x={cx} dy={12}>{sdLines[1]}</tspan>
-          </text>
-        )
-      } else {
-        els.push(
-          <text key={K()} x={cx} y={sY + DH / 2 + 4} fontSize={F_M} fontWeight={600} fill={subQd.text} textAnchor="middle" fontFamily="ui-sans-serif,system-ui,sans-serif">
-            {sdLines[0]}
-          </text>
-        )
-      }
+      drawDiamondLabel(cx, actualSY, sub.question, subQd.text, els)
       // Referência da sub-decisão = decisão atual + passo [resposta atual, índice da sub].
       const childRef: DecRef = { ...ref, sub: [...ref.sub, ai, subDi] }
       if (canEdit) {
@@ -1034,7 +1213,7 @@ function renderAnswer(
              onClick={(e) => { e.stopPropagation(); fire({ type: 'p_remove_dec', ref: childRef }) }}
              style={{ cursor: 'pointer' }} {...tip('Remover pergunta')}>
             <circle cx={sdX + sdW + 11} cy={actualSY + DH / 2} r={9} fill="#ef4444" opacity={0.9} />
-            <text x={sdX + sdW + 11} y={actualSY + DH / 2 + 3.5} fontSize={12} fontWeight={800} textAnchor="middle" fill="white">×</text>
+            {svgIco(PiTrashFill, sdX + sdW + 11, actualSY + DH / 2 + 3.5, 12, 'white')}
           </g>
         )
         // ⟲ "já respondida no escopo" (só em sub-perguntas repetidas)
@@ -1118,13 +1297,13 @@ function renderAnswer(
           els.push(
             <g key={K()} onMouseDown={stopMD} onClick={(e) => { e.stopPropagation(); fire({ type: 'p_dec_add_after', ref: childRef, atIdx: capSafi }) }} style={{ cursor: 'pointer' }} {...tipAttrs('Inserir bloco após convergência antes deste')}>
               <circle cx={safX + 10} cy={safCardY + LBLH / 2} r={6.5} fill={p.code} opacity={0.85} />
-              <text x={safX + 10} y={safCardY + LBLH / 2 + 3.5} fontSize={10} fontWeight={800} textAnchor="middle" fill="white">+</text>
+              {svgIco(PiPlusBold, safX + 10, safCardY + LBLH / 2 + 3.5, 10, 'white')}
             </g>
           )
           els.push(
             <g key={K()} onMouseDown={stopMD} onClick={(e) => { e.stopPropagation(); fire({ type: 'p_dec_remove_after', ref: childRef, afterIdx: capSafi }) }} style={{ cursor: 'pointer' }} {...tipAttrs('Remover bloco')}>
               <circle cx={safX + safW - 9} cy={safCardY + LBLH / 2} r={6.5} fill="#ef4444" opacity={0.82} />
-              <text x={safX + safW - 9} y={safCardY + LBLH / 2 + 3.5} fontSize={10} fontWeight={800} textAnchor="middle" fill="white">×</text>
+              {svgIco(PiTrashFill, safX + safW - 9, safCardY + LBLH / 2 + 3.5, 10, 'white')}
             </g>
           )
           els.push(
@@ -1141,10 +1320,13 @@ function renderAnswer(
         els.push(<text key={K()} x={canEdit ? safX + 22 : safX + 8} y={safCardY + LBLH * 0.68} fontSize={F_M} fontWeight={600} fill={p.lblT} fontFamily="ui-sans-serif,system-ui,sans-serif">{tr(saf.label || 'Após convergência', canEdit ? 20 : 40)}</text>)
         const safPkgs = saf.packages ?? []
         const safBY = safCardY + LBLH + BPAD
-        if (safPkgs.length) {
+        if (safPkgs.length || canEdit) {
           safPkgs.forEach((pkg, pi) => {
             drawPkgRow(safX, safBY + pi * PKG, PKG, safW, pkg, p, hit(pkg.id) || hit(pkgName(pkg)), null, null, els)
           })
+          if (!safPkgs.length) {
+            els.push(<text key={K()} x={safX + 8} y={safBY + NOTE_R * 0.8} fontSize={F_S} fontStyle="italic" fill={p.empty}>—</text>)
+          }
           if (canEdit) {
             const capSafi2 = safi, capChildRef = childRef, capSafLabel2 = saf.label
             els.push(
@@ -1153,7 +1335,7 @@ function renderAnswer(
                 onAdd: () => fire({ type: 'p_dec_add_after_pkg', ref: capChildRef, afterIdx: capSafi2 }),
                 onMove: (idx, dir) => fire({ type: 'p_dec_move_after_pkg', ref: capChildRef, afterIdx: capSafi2, pkgIdx: idx, dir }),
                 onRemove: (idx) => fire({ type: 'p_dec_remove_after_pkg', ref: capChildRef, afterIdx: capSafi2, pkgIdx: idx }),
-              }, safHlKey)} style={{ cursor: 'pointer' }} {...tipAttrs('Gerenciar pacotes')}>
+              }, safHlKey)} style={{ cursor: 'pointer' }} {...tipAttrs(safPkgs.length ? 'Gerenciar pacotes' : 'Adicionar pacote')}>
                 <rect x={safX + 4} y={safBY - 2} width={safW - 8} height={Math.max(safPkgs.length * PKG, NOTE_R) + 4} rx={3} fill="transparent" />
               </g>
             )
@@ -1197,7 +1379,6 @@ function renderAnswer(
         const capRef2 = ref, capAi2 = ai, capSubLen = a.sub?.length ?? 0
         els.push(
           <g key={K()} onMouseDown={stopMD} onClick={(e) => openMenu(e, 'Pacotes', [
-            { label: 'Excluir chip de pacotes', glyph: '×', color: '#ef4444', danger: true, onClick: () => fire({ type: 'p_clear_ans_pkgs', ref, ansIdx: ai }) },
             { label: 'Inserir sub-pergunta acima dos pacotes', glyph: '↑', color: '#22d3ee',
               onClick: () => fire({ type: 'p_insert_sub_dec', ref, ansIdx: ai, subIdx: capSubLen }) },
             { label: 'Inserir sub-pergunta abaixo dos pacotes', glyph: '↓', color: '#22d3ee',
@@ -1207,8 +1388,29 @@ function renderAnswer(
             onAdd: () => fire({ type: 'p_add_pkg', ref, ansIdx: ai }),
             onMove: (idx, dir) => fire({ type: 'p_move_pkg', ref, ansIdx: ai, pkgIdx: idx, dir }),
             onRemove: (idx) => fire({ type: 'p_remove_pkg', ref, ansIdx: ai, pkgIdx: idx }),
+            onCondition: (idx, condition) => fire({ type: 'p_set_pkg_condition', ref, ansIdx: ai, pkgIdx: idx, condition }),
           }, pkgChipHlKey)} style={{ cursor: 'pointer' }} {...tipAttrs('Gerenciar pacotes')}>
-            <rect x={chipX + 4} y={chipCardY + 4} width={chipW - 8} height={LBLH - 8} rx={2} fill="transparent" />
+            <rect x={chipX + 4} y={chipCardY + 4} width={chipW - 30} height={LBLH - 8} rx={2} fill="transparent" />
+          </g>
+        )
+        // Zona clicável sobre a área de pacotes → abre o gerenciador direto
+        els.push(
+          <g key={K()} onMouseDown={stopMD} onClick={(e) => openMenu(e, 'Pacotes', [], {
+            getList: (s) => resolveRef(s, capRef2)?.answers[capAi2]?.packages ?? [],
+            onAdd: () => fire({ type: 'p_add_pkg', ref, ansIdx: ai }),
+            onMove: (idx, dir) => fire({ type: 'p_move_pkg', ref, ansIdx: ai, pkgIdx: idx, dir }),
+            onRemove: (idx) => fire({ type: 'p_remove_pkg', ref, ansIdx: ai, pkgIdx: idx }),
+            onCondition: (idx, condition) => fire({ type: 'p_set_pkg_condition', ref, ansIdx: ai, pkgIdx: idx, condition }),
+          }, pkgChipHlKey)} style={{ cursor: 'pointer' }} {...tipAttrs('Gerenciar pacotes')}>
+            <rect x={chipX + 4} y={pkgBY - 2} width={chipW - 8} height={Math.max(pkgs.length * PKG, NOTE_R) + 4} rx={3} fill="transparent" />
+          </g>
+        )
+        // × excluir chip de pacotes (canto direito, igual aos demais chips)
+        els.push(
+          <g key={K()} onMouseDown={stopMD} onClick={(e) => { e.stopPropagation(); fire({ type: 'p_clear_ans_pkgs', ref, ansIdx: ai }) }}
+             style={{ cursor: 'pointer' }} {...tipAttrs('Excluir chip de pacotes')}>
+            <circle cx={chipX + chipW - 9} cy={chipCardY + LBLH / 2} r={6.5} fill="#ef4444" opacity={0.82} />
+            {svgIco(PiTrashFill, chipX + chipW - 9, chipCardY + LBLH / 2 + 3.5, 10, 'white')}
           </g>
         )
         if (pkgs.length > 0) {
@@ -1236,21 +1438,7 @@ function renderAnswer(
         <polygon key={K()} points={`${cx},${asSY} ${asX + DDW},${asSY + DH / 2} ${cx},${asSY + DH} ${asX},${asSY + DH / 2}`}
           fill={asSub._dirty ? DIRTY_CARD : asQd.fill} stroke={asSub._dirty ? DIRTY_STROKE : asQd.stroke} strokeWidth={1.5} />
       )
-      const asLines = wrapDiamondText(asSub.question)
-      if (asLines[1]) {
-        els.push(
-          <text key={K()} textAnchor="middle" fontFamily="ui-sans-serif,system-ui,sans-serif" fill={asQd.text} fontSize={F_M} fontWeight={600}>
-            <tspan x={cx} y={asSY + DH / 2 - 2}>{asLines[0]}</tspan>
-            <tspan x={cx} dy={12}>{asLines[1]}</tspan>
-          </text>
-        )
-      } else {
-        els.push(
-          <text key={K()} x={cx} y={asSY + DH / 2 + 4} fontSize={F_M} fontWeight={600} fill={asQd.text} textAnchor="middle" fontFamily="ui-sans-serif,system-ui,sans-serif">
-            {asLines[0]}
-          </text>
-        )
-      }
+      drawDiamondLabel(cx, asSY, asSub.question, asQd.text, els)
       const asChildRef: DecRef = { ...ref, sub: [...ref.sub, ai, -(asDi + 1)] }
       if (canEdit) {
         const capAsQ = asSub.question, capAsDi = asDi
@@ -1259,7 +1447,7 @@ function renderAnswer(
             onClick={(e) => { e.stopPropagation(); fire({ type: 'p_remove_aftersub_dec', ref, ansIdx: ai, afterSubIdx: capAsDi }) }}
             style={{ cursor: 'pointer' }} {...tip('Remover pergunta')}>
             <circle cx={asX + DDW + 11} cy={asSY + DH / 2} r={9} fill="#ef4444" opacity={0.9} />
-            <text x={asX + DDW + 11} y={asSY + DH / 2 + 3.5} fontSize={12} fontWeight={800} textAnchor="middle" fill="white">×</text>
+            {svgIco(PiTrashFill, asX + DDW + 11, asSY + DH / 2 + 3.5, 12, 'white')}
           </g>
         )
         const capAsHlKey = `q:${asChildRef.secIdx}:${asChildRef.decIdx}:${asChildRef.sub.join(',')}`
@@ -1328,13 +1516,13 @@ function renderAnswer(
           els.push(
             <g key={K()} onMouseDown={stopMD} onClick={(e) => { e.stopPropagation(); fire({ type: 'p_dec_add_after', ref: asChildRef, atIdx: capAsSafi }) }} style={{ cursor: 'pointer' }} {...tipAttrs('Inserir bloco após convergência antes deste')}>
               <circle cx={asSafX + 10} cy={asSafCardY + LBLH / 2} r={6.5} fill={p.code} opacity={0.85} />
-              <text x={asSafX + 10} y={asSafCardY + LBLH / 2 + 3.5} fontSize={10} fontWeight={800} textAnchor="middle" fill="white">+</text>
+              {svgIco(PiPlusBold, asSafX + 10, asSafCardY + LBLH / 2 + 3.5, 10, 'white')}
             </g>
           )
           els.push(
             <g key={K()} onMouseDown={stopMD} onClick={(e) => { e.stopPropagation(); fire({ type: 'p_dec_remove_after', ref: asChildRef, afterIdx: capAsSafi }) }} style={{ cursor: 'pointer' }} {...tipAttrs('Remover bloco')}>
               <circle cx={asSafX + asSafW - 9} cy={asSafCardY + LBLH / 2} r={6.5} fill="#ef4444" opacity={0.82} />
-              <text x={asSafX + asSafW - 9} y={asSafCardY + LBLH / 2 + 3.5} fontSize={10} fontWeight={800} textAnchor="middle" fill="white">×</text>
+              {svgIco(PiTrashFill, asSafX + asSafW - 9, asSafCardY + LBLH / 2 + 3.5, 10, 'white')}
             </g>
           )
           els.push(
@@ -1351,10 +1539,13 @@ function renderAnswer(
         els.push(<text key={K()} x={canEdit ? asSafX + 22 : asSafX + 8} y={asSafCardY + LBLH * 0.68} fontSize={F_M} fontWeight={600} fill={p.lblT} fontFamily="ui-sans-serif,system-ui,sans-serif">{tr(asSaf.label || 'Após convergência', canEdit ? 20 : 40)}</text>)
         const asSafPkgs = asSaf.packages ?? []
         const asSafBY = asSafCardY + LBLH + BPAD
-        if (asSafPkgs.length) {
+        if (asSafPkgs.length || canEdit) {
           asSafPkgs.forEach((pkg, pi) => {
             drawPkgRow(asSafX, asSafBY + pi * PKG, PKG, asSafW, pkg, p, hit(pkg.id) || hit(pkgName(pkg)), null, null, els)
           })
+          if (!asSafPkgs.length) {
+            els.push(<text key={K()} x={asSafX + 8} y={asSafBY + NOTE_R * 0.8} fontSize={F_S} fontStyle="italic" fill={p.empty}>—</text>)
+          }
           if (canEdit) {
             const capAsSafi2 = asSafi, capAsChildRef2 = asChildRef, capAsSafLabel2 = asSaf.label
             els.push(
@@ -1363,7 +1554,7 @@ function renderAnswer(
                 onAdd: () => fire({ type: 'p_dec_add_after_pkg', ref: capAsChildRef2, afterIdx: capAsSafi2 }),
                 onMove: (idx, dir) => fire({ type: 'p_dec_move_after_pkg', ref: capAsChildRef2, afterIdx: capAsSafi2, pkgIdx: idx, dir }),
                 onRemove: (idx) => fire({ type: 'p_dec_remove_after_pkg', ref: capAsChildRef2, afterIdx: capAsSafi2, pkgIdx: idx }),
-              }, asSafHlKey)} style={{ cursor: 'pointer' }} {...tipAttrs('Gerenciar pacotes')}>
+              }, asSafHlKey)} style={{ cursor: 'pointer' }} {...tipAttrs(asSafPkgs.length ? 'Gerenciar pacotes' : 'Adicionar pacote')}>
                 <rect x={asSafX + 4} y={asSafBY - 2} width={asSafW - 8} height={Math.max(asSafPkgs.length * PKG, NOTE_R) + 4} rx={3} fill="transparent" />
               </g>
             )
@@ -1400,7 +1591,7 @@ function renderAnswer(
         els.push(
           <g key={K()} onMouseDown={stopMD} onClick={(e) => { e.stopPropagation(); fire({ type: 'p_remove_after', ref, ansIdx: ai, afterIdx: capAfi }) }} style={{ cursor: 'pointer' }} {...tipAttrs('Remover bloco')}>
             <circle cx={afX + afW - 9} cy={afCardY + LBLH / 2} r={6.5} fill="#ef4444" opacity={0.82} />
-            <text x={afX + afW - 9} y={afCardY + LBLH / 2 + 3.5} fontSize={10} fontWeight={800} textAnchor="middle" fill="white">×</text>
+            {svgIco(PiTrashFill, afX + afW - 9, afCardY + LBLH / 2 + 3.5, 10, 'white')}
           </g>
         )
         els.push(
@@ -1413,10 +1604,13 @@ function renderAnswer(
       const afPkgs = af.packages ?? []
       const afBY = afCardY + LBLH + BPAD
       const afHlKey = `chip:af:${ref.secIdx}:${ref.decIdx}:${ref.sub.join(',')}:${ai}:${afi}`
-      if (afPkgs.length) {
+      if (afPkgs.length || canEdit) {
         afPkgs.forEach((pkg, pi) => {
           drawPkgRow(afX, afBY + pi * PKG, PKG, afW, pkg, p, hit(pkg.id) || hit(pkgName(pkg)), null, null, els)
         })
+        if (!afPkgs.length) {
+          els.push(<text key={K()} x={afX + 8} y={afBY + NOTE_R * 0.8} fontSize={F_S} fontStyle="italic" fill={p.empty}>—</text>)
+        }
         if (canEdit) {
           const capAfi2 = afi, capRef3 = ref, capAi3 = ai, capAfLabel = af.label
           els.push(
@@ -1425,7 +1619,7 @@ function renderAnswer(
               onAdd: () => fire({ type: 'p_add_after_pkg', ref, ansIdx: ai, afterIdx: capAfi2 }),
               onMove: (idx, dir) => fire({ type: 'p_move_after_pkg', ref, ansIdx: ai, afterIdx: capAfi2, pkgIdx: idx, dir }),
               onRemove: (idx) => fire({ type: 'p_remove_after_pkg', ref, ansIdx: ai, afterIdx: capAfi2, pkgIdx: idx }),
-            }, afHlKey)} style={{ cursor: 'pointer' }} {...tipAttrs('Gerenciar pacotes')}>
+            }, afHlKey)} style={{ cursor: 'pointer' }} {...tipAttrs(afPkgs.length ? 'Gerenciar pacotes' : 'Adicionar pacote')}>
               <rect x={afX + 4} y={afBY - 2} width={afW - 8} height={Math.max(afPkgs.length * PKG, NOTE_R) + 4} rx={3} fill="transparent" />
             </g>
           )
@@ -1447,22 +1641,7 @@ function drawDiamond(cx: number, topY: number, w: number, text: string, _pc: PC,
   const pts = `${cx},${topY} ${x + w},${topY + DH / 2} ${cx},${topY + DH} ${x},${topY + DH / 2}`
   els.push(<polygon key={K()} points={pts} fill={dirty ? DIRTY_CARD : qd.fill} stroke={dirty ? DIRTY_STROKE : qd.stroke} strokeWidth={dirty ? 2 : (isRigQ ? 2 : 1.5)} />)
   if (isRigQ) drawDerrickIcon(cx - 62, topY + DH / 2, qd.text, els)
-  const dLines = wrapDiamondText(text)
-  if (dLines[1]) {
-    els.push(
-      <text key={K()} textAnchor="middle" fontFamily="ui-sans-serif,system-ui,sans-serif" fill={qd.text} fontSize={F_M} fontWeight={600}>
-        <tspan x={cx} y={topY + DH / 2 - 2}>{dLines[0]}</tspan>
-        <tspan x={cx} dy={12}>{dLines[1]}</tspan>
-      </text>
-    )
-  } else {
-    els.push(
-      <text key={K()} x={cx} y={topY + DH / 2 + 4} fontSize={F_M} fontWeight={600}
-        fill={qd.text} textAnchor="middle" fontFamily="ui-sans-serif,system-ui,sans-serif">
-        {dLines[0]}
-      </text>
-    )
-  }
+  drawDiamondLabel(cx, topY, text, qd.text, els)
   if (hit(text)) {
     els.push(<polygon key={K()} points={pts} fill="none" stroke={HIT_STROKE} strokeWidth={2.5} opacity={0.9} />)
   }
@@ -1483,70 +1662,6 @@ function drawNoDefaultWarn(answers: LAns[], cx: number, topY: number, w: number,
     <g key={K()} {...tipAttrs('Sem resposta padrão — marque uma resposta com ✦')}>
       <circle cx={bx} cy={by} r={7} fill="#f59e0b" />
       <text x={bx} y={by + 3.5} fontSize={10} fontWeight={800} textAnchor="middle" fill="#1c1007">!</text>
-    </g>
-  )
-}
-
-// Par de botões abaixo de uma pergunta: ‹ cria resposta à esquerda · › cria à direita.
-// Fundo sólido garante visibilidade sobre qualquer linha do fluxograma.
-function drawAddAnswerLR(cx: number, cy: number, color: string, onLeft: () => void, onRight: () => void, els: React.ReactNode[]): void {
-  if (!_editCb) return
-  const off = BTN_R + 6
-  const bgFill = _dark ? '#0c1523' : '#f0f4f8'
-  const mk = (gx: number, glyph: string, tipTxt: string, fn: () => void) => els.push(
-    <g key={K()} onMouseDown={stopMD} onClick={(e) => { e.stopPropagation(); fn() }} style={{ cursor: 'pointer' }} {...tipAttrs(tipTxt)}>
-      <circle cx={gx} cy={cy} r={BTN_R + 2} fill={bgFill} />
-      <circle cx={gx} cy={cy} r={BTN_R} fill={color} opacity={0.22} />
-      <circle cx={gx} cy={cy} r={BTN_R} fill="none" stroke={color} strokeWidth={1.3} opacity={0.8} />
-      <text x={gx} y={cy + 3.6} fontSize={12} fontWeight={800} textAnchor="middle" fill={color} opacity={0.95}>{glyph}</text>
-    </g>
-  )
-  mk(cx - off, '‹', 'Criar resposta à esquerda', onLeft)
-  mk(cx + off, '›', 'Criar resposta à direita', onRight)
-}
-
-// Botão "＋" unificado (mesmo visual do menu de ações dos cards) — usado em pontos
-// que têm uma única ação (chip pós-convergência, resposta da pergunta pós-convergência).
-function drawPlusButton(cx: number, cy: number, color: string, tipTxt: string, fn: () => void, els: React.ReactNode[]): void {
-  els.push(
-    <g key={K()} onMouseDown={stopMD} onClick={(e) => { e.stopPropagation(); fn() }} style={{ cursor: 'pointer' }} {...tipAttrs(tipTxt)}>
-      <circle cx={cx} cy={cy} r={BTN_R} fill={color} opacity={0.18} />
-      <circle cx={cx} cy={cy} r={BTN_R} fill="none" stroke={color} strokeWidth={1.2} opacity={0.65} />
-      <text x={cx} y={cy + 3.8} fontSize={12} fontWeight={700} textAnchor="middle" fill={color} opacity={0.95}>＋</text>
-    </g>
-  )
-}
-
-// Botão "＋" que abre um menu rotulado (mesmo visual do drawPlusButton). Se houver só
-// um item, dispara direto. Usado nos rodapés dos chips para "adicionar pacote / pergunta".
-function drawPlusMenu(cx: number, cy: number, color: string, title: string, tipTxt: string, items: MenuItem[], els: React.ReactNode[]): void {
-  els.push(
-    <g key={K()} onMouseDown={stopMD}
-       onClick={(e) => { e.stopPropagation(); if (items.length === 1) items[0].onClick(); else openMenu(e, title, items) }}
-       style={{ cursor: 'pointer' }} {...tipAttrs(tipTxt)}>
-      <circle cx={cx} cy={cy} r={BTN_R} fill={color} opacity={0.18} />
-      <circle cx={cx} cy={cy} r={BTN_R} fill="none" stroke={color} strokeWidth={1.2} opacity={0.65} />
-      <text x={cx} y={cy + 3.8} fontSize={12} fontWeight={700} textAnchor="middle" fill={color} opacity={0.95}>＋</text>
-    </g>
-  )
-}
-
-// Botão "＋" no vértice esquerdo de uma pergunta: insere uma nova pergunta
-// imediatamente acima (irmã) desta no fluxo. A ação específica do contexto vem em
-// `aboveAction` (decisão de topo, pergunta aninhada ou pergunta após convergência).
-function drawInsertMenu(
-  cx: number, cy: number, r: number, color: string,
-  aboveAction: EditAction, els: React.ReactNode[],
-): void {
-  const bgFill = _dark ? '#0c1523' : '#f0f4f8'
-  els.push(
-    <g key={K()} onMouseDown={stopMD}
-       onClick={(e) => { e.stopPropagation(); _editCb!(aboveAction) }}
-       style={{ cursor: 'pointer' }} {...tipAttrs('Inserir pergunta acima')}>
-      <circle cx={cx} cy={cy} r={r + 2} fill={bgFill} />
-      <circle cx={cx} cy={cy} r={r} fill={color} opacity={0.18} />
-      <circle cx={cx} cy={cy} r={r} fill="none" stroke={color} strokeWidth={1.1} opacity={0.6} />
-      <text x={cx} y={cy + 3.6} fontSize={r >= 9 ? 12 : 11} fontWeight={700} textAnchor="middle" fill={color} opacity={0.95}>＋</text>
     </g>
   )
 }
@@ -1595,15 +1710,21 @@ function drawAfterDecision(
     })
     if (edit) {
       els.push(
-        <g key={K()} onMouseDown={stopMD} onClick={(e) => openMenu(e, 'PACOTES', [
-          { label: 'Excluir chip de pacotes', glyph: '×', color: '#ef4444', danger: true, onClick: () => _editCb!({ type: 'p_clear_dec_pkgs', ref: capAdRef }) },
-        ], {
+        <g key={K()} onMouseDown={stopMD} onClick={(e) => openMenu(e, 'PACOTES', [], {
           getList: (s) => resolveRef(s, capAdRef)?.packages ?? [],
           onAdd: () => _editCb!({ type: 'p_add_dec_pkg', ref: capAdRef }),
           onMove: (idx, dir) => _editCb!({ type: 'p_move_dec_pkg', ref: capAdRef, pkgIdx: idx, dir }),
           onRemove: (idx) => _editCb!({ type: 'p_remove_dec_pkg', ref: capAdRef, pkgIdx: idx }),
         }, adPkgHlKey)} style={{ cursor: 'pointer' }} {...tipAttrs('Gerenciar pacotes da pergunta')}>
-          <rect x={achipX + 4} y={achipCardY + 4} width={achipW - 8} height={LBLH - 8} rx={2} fill="transparent" />
+          <rect x={achipX + 4} y={achipCardY + 4} width={achipW - 30} height={LBLH - 8} rx={2} fill="transparent" />
+        </g>
+      )
+      // × excluir chip de pacotes (canto direito, igual aos demais chips)
+      els.push(
+        <g key={K()} onMouseDown={stopMD} onClick={(e) => { e.stopPropagation(); _editCb!({ type: 'p_clear_dec_pkgs', ref: capAdRef }) }}
+           style={{ cursor: 'pointer' }} {...tipAttrs('Excluir chip de pacotes')}>
+          <circle cx={achipX + achipW - 9} cy={achipCardY + LBLH / 2} r={6.5} fill="#ef4444" opacity={0.82} />
+          {svgIco(PiTrashFill, achipX + achipW - 9, achipCardY + LBLH / 2 + 3.5, 10, 'white')}
         </g>
       )
       pushPkgFlagOverlays(achipX, adPkgBY, ad.packages!, p,
@@ -1621,21 +1742,7 @@ function drawAfterDecision(
   const adQd = qDec()
   els.push(<polygon key={K()} points={`${cx},${dY} ${dx + dw},${dY + DH / 2} ${cx},${dY + DH} ${dx},${dY + DH / 2}`} fill={adDirty ? DIRTY_CARD : adQd.fill} stroke={adDirty ? DIRTY_STROKE : adQd.stroke} strokeWidth={adDirty ? 2 : 1.5} />)
   drawNoDefaultWarn(ad.answers, cx, dY, dw, els)
-  const adLines = wrapDiamondText(ad.question)
-  if (adLines[1]) {
-    els.push(
-      <text key={K()} textAnchor="middle" fontFamily="ui-sans-serif,system-ui,sans-serif" fill={adQd.text} fontSize={F_M} fontWeight={600}>
-        <tspan x={cx} y={dY + DH / 2 - 2}>{adLines[0]}</tspan>
-        <tspan x={cx} dy={12}>{adLines[1]}</tspan>
-      </text>
-    )
-  } else {
-    els.push(
-      <text key={K()} x={cx} y={dY + DH / 2 + 4} fontSize={F_M} fontWeight={600} fill={adQd.text} textAnchor="middle" fontFamily="ui-sans-serif,system-ui,sans-serif">
-        {adLines[0]}
-      </text>
-    )
-  }
+  drawDiamondLabel(cx, dY, ad.question, adQd.text, els)
   if (hit(ad.question)) {
     els.push(<polygon key={K()} points={`${cx},${dY} ${dx + dw},${dY + DH / 2} ${cx},${dY + DH} ${dx},${dY + DH / 2}`} fill="none" stroke={HIT_STROKE} strokeWidth={2.5} opacity={0.9} />)
   }
@@ -1668,7 +1775,7 @@ function drawAfterDecision(
       <g key={K()} onMouseDown={stopMD} onClick={(e) => { e.stopPropagation(); _editCb!({ type: 'p_remove_dec', ref }) }}
          style={{ cursor: 'pointer' }} {...tip('Remover pergunta')}>
         <circle cx={dx + dw + 11} cy={dY + DH / 2} r={9} fill="#ef4444" opacity={0.9} />
-        <text x={dx + dw + 11} y={dY + DH / 2 + 3.5} fontSize={12} fontWeight={800} textAnchor="middle" fill="white">×</text>
+        {svgIco(PiTrashFill, dx + dw + 11, dY + DH / 2 + 3.5, 12, 'white')}
       </g>
     )
     // ⟲ "já respondida no escopo" (só em perguntas afterDec repetidas)
@@ -1720,66 +1827,125 @@ function refSourceInfo(scopeId: string): { labels: string[]; decisions: number }
   return { labels: expanded.map(s => s.label), decisions: n }
 }
 
-// Card compacto de "fluxograma incluído" (seção `ref`): mostra o escopo de origem e um
-// resumo, com controles de mover/remover no modo edição. O conteúdo NÃO é editável aqui —
-// edita-se no escopo de origem (vínculo vivo).
+// Menu de opções do bloco `ref` (botão ⋯ no header): expandir/colapsar, desanexar
+// (editar só neste escopo) e editar o bloco geral (todos os escopos que o incluem).
+function openRefBlockMenu(e: React.MouseEvent, sec: LSec, si: number): void {
+  const scopeId = sec.ref!.scopeId
+  const expanded = _expandedRefs.has(scopeId)
+  const items: MenuItem[] = [
+    { label: expanded ? 'Colapsar conteúdo' : 'Expandir conteúdo', glyph: expanded ? '↑' : '↓', color: '#818cf8',
+      onClick: () => _toggleRefExpand?.(scopeId) },
+  ]
+  if (_editCb) {
+    items.push(
+      { label: 'Editar só neste escopo (desanexar)', glyph: '⤿', color: '#f59e0b',
+        onClick: () => _editCb!({ type: 'detach_ref_section', secIdx: si }) },
+      { label: 'Editar bloco — todos os escopos', glyph: '◇', color: '#6366f1',
+        onClick: () => _editCb!({ type: 'edit_ref_block', scopeId }) },
+    )
+  }
+  openMenu(e, `Bloco: ${getScopeLabel(scopeId) ?? sec.ref!.label ?? scopeId}`, items)
+}
+
+// Card de "bloco de lógica incluído" (seção `ref`). Colapsado: resumo compacto. Expandido:
+// renderiza as seções internas read-only (vínculo vivo — não editável inline aqui). Um botão
+// ⋯ abre o menu com desanexar (editar só neste escopo) ou editar o bloco geral.
 function drawRefSection(sec: LSec, CX: number, Y: number, sw: number, si: number, total: number, els: React.ReactNode[]): void {
   const sx = CX - sw / 2
   const col = '#6366f1'
-  const info = sec.ref ? refSourceInfo(sec.ref.scopeId) : { labels: [], decisions: 0 }
-  const title = sec.ref?.label ?? sec.ref?.scopeId ?? sec.label
+  const scopeId = sec.ref!.scopeId
+  const info = refSourceInfo(scopeId)
+  // Nome VIVO do bloco (resolvido pelo scopeId) — reflete renomeações; o label cacheado no
+  // placeholder é só fallback (ex.: offline / bloco ainda não carregado).
+  const title = getScopeLabel(scopeId) ?? sec.ref?.label ?? scopeId ?? sec.label
+  const expanded = refIsExpanded(sec)
+  const totalH = sTotalH(sec)
+  const capSi = si
 
-  els.push(<rect key={K()} x={sx} y={Y} width={sw} height={REF_SEC_H} rx={10}
+  // Container (borda tracejada) + header
+  els.push(<rect key={K()} x={sx} y={Y} width={sw} height={totalH} rx={10}
     fill={_dark ? '#1e1b4b' : '#eef2ff'} stroke={col} strokeWidth={1.5} strokeDasharray="5,3" />)
   els.push(<rect key={K()} x={sx} y={Y} width={sw} height={SHH} rx={10} fill={col} />)
   els.push(<rect key={K()} x={sx} y={Y + SHH - 10} width={sw} height={10} fill={col} />)
+
+  // Header clicável → alterna expandir/colapsar. Chevron indica o estado.
+  const cy = Y + SHH / 2
   els.push(
-    <text key={K()} x={sx + SPAD} y={Y + SHH * 0.63} fontSize={F_L} fontWeight={700}
-      fill="white" fontFamily="ui-sans-serif,system-ui,sans-serif" letterSpacing={0.6}>
-      {`🔗 ${tr('Fluxograma incluído: ' + title, _editCb ? 28 : 44)}`}
-    </text>
+    <g key={K()} onMouseDown={stopMD}
+       onClick={(e) => { e.stopPropagation(); _toggleRefExpand?.(scopeId) }}
+       style={{ cursor: 'pointer' }} {...tipAttrs(expanded ? 'Clique para colapsar o bloco' : 'Clique para expandir e ver o conteúdo do bloco')}>
+      <rect x={sx} y={Y} width={sw - (_editCb ? 90 : 34)} height={SHH} fill="transparent" />
+      <text x={sx + SPAD} y={Y + SHH * 0.63} fontSize={F_L} fontWeight={700}
+        fill="white" fontFamily="ui-sans-serif,system-ui,sans-serif" letterSpacing={0.6}>
+        {`${expanded ? '▾' : '▸'} 🔗 ${tr('Bloco: ' + title, _editCb ? 26 : 42)}`}
+      </text>
+    </g>
   )
-  const bodyY = Y + SHH + 16
+
+  // Botão ⋯ (opções do bloco) — sempre presente
+  const optX = sx + sw - SPAD - 12
   els.push(
-    <text key={K()} x={sx + SPAD} y={bodyY} fontSize={F_M} fill={_dark ? '#c7d2fe' : '#4338ca'}
-      fontFamily="ui-sans-serif,system-ui,sans-serif">
-      {tr(info.labels.join(' · ') || '(escopo vazio)', Math.floor((sw - SPAD * 2) / 5.6))}
-    </text>
+    <g key={K()} onMouseDown={stopMD}
+       onClick={(e) => { e.stopPropagation(); openRefBlockMenu(e, sec, capSi) }}
+       style={{ cursor: 'pointer' }} {...tipAttrs('Opções do bloco')}>
+      <circle cx={optX} cy={cy} r={9} fill="white" opacity={0.16} />
+      {svgIco(PiListDashesFill, optX, cy + 3.5, 12, 'white')}
+    </g>
   )
-  els.push(
-    <text key={K()} x={sx + SPAD} y={bodyY + 18} fontSize={F_S} fill={_dark ? '#818cf8' : '#6366f1'}
-      fontFamily="ui-sans-serif,system-ui,sans-serif">
-      {`atualiza automaticamente · ${info.labels.length} seção(ões) · ${info.decisions} decisão(ões)`}
-    </text>
-  )
+
+  // Modo edição: mover ↑↓ à esquerda do botão de opções
   if (_editCb) {
-    const capSi = si
-    const cy = Y + SHH / 2
     els.push(
       <g key={K()} onMouseDown={stopMD}
          onClick={(e) => { if (si > 0) { e.stopPropagation(); _editCb!({ type: 'move_section', secIdx: capSi, dir: 'up' }) } }}
          style={{ cursor: si > 0 ? 'pointer' : 'default' }} {...tipAttrs('Mover para cima')}>
-        <circle cx={sx + sw - 116} cy={cy} r={8} fill={col} stroke="white" strokeWidth={0.7} opacity={si > 0 ? 0.85 : 0.3} />
-        <text x={sx + sw - 116} y={cy + 4} fontSize={11} fontWeight={700} textAnchor="middle" fill="white" opacity={si > 0 ? 1 : 0.35}>↑</text>
+        <circle cx={optX - 46} cy={cy} r={8} fill={col} stroke="white" strokeWidth={0.7} opacity={si > 0 ? 0.85 : 0.3} />
+        <text x={optX - 46} y={cy + 4} fontSize={11} fontWeight={700} textAnchor="middle" fill="white" opacity={si > 0 ? 1 : 0.35}>↑</text>
       </g>
     )
     els.push(
       <g key={K()} onMouseDown={stopMD}
          onClick={(e) => { if (si < total - 1) { e.stopPropagation(); _editCb!({ type: 'move_section', secIdx: capSi, dir: 'down' }) } }}
          style={{ cursor: si < total - 1 ? 'pointer' : 'default' }} {...tipAttrs('Mover para baixo')}>
-        <circle cx={sx + sw - 98} cy={cy} r={8} fill={col} stroke="white" strokeWidth={0.7} opacity={si < total - 1 ? 0.85 : 0.3} />
-        <text x={sx + sw - 98} y={cy + 4} fontSize={11} fontWeight={700} textAnchor="middle" fill="white" opacity={si < total - 1 ? 1 : 0.35}>↓</text>
-      </g>
-    )
-    els.push(
-      <g key={K()} onMouseDown={stopMD}
-         onClick={(e) => { e.stopPropagation(); _editCb!({ type: 'remove_section', secIdx: capSi }) }}
-         style={{ cursor: 'pointer' }} {...tipAttrs('Remover inclusão')}>
-        <circle cx={sx + sw - SPAD - 34} cy={cy} r={9} fill="#ef4444" opacity={0.88} />
-        <text x={sx + sw - SPAD - 34} y={cy + 3.5} fontSize={12} fontWeight={800} textAnchor="middle" fill="white">×</text>
+        <circle cx={optX - 26} cy={cy} r={8} fill={col} stroke="white" strokeWidth={0.7} opacity={si < total - 1 ? 0.85 : 0.3} />
+        <text x={optX - 26} y={cy + 4} fontSize={11} fontWeight={700} textAnchor="middle" fill="white" opacity={si < total - 1 ? 1 : 0.35}>↓</text>
       </g>
     )
   }
+
+  if (!expanded) {
+    // Resumo compacto (colapsado)
+    const bodyY = Y + SHH + 16
+    els.push(
+      <text key={K()} x={sx + SPAD} y={bodyY} fontSize={F_M} fill={_dark ? '#c7d2fe' : '#4338ca'}
+        fontFamily="ui-sans-serif,system-ui,sans-serif">
+        {tr(info.labels.join(' · ') || '(bloco vazio)', Math.floor((sw - SPAD * 2) / 5.6))}
+      </text>
+    )
+    els.push(
+      <text key={K()} x={sx + SPAD} y={bodyY + 18} fontSize={F_S} fill={_dark ? '#818cf8' : '#6366f1'}
+        fontFamily="ui-sans-serif,system-ui,sans-serif">
+        {`atualiza automaticamente · ${info.labels.length} seção(ões) · ${info.decisions} decisão(ões)`}
+      </text>
+    )
+    return
+  }
+
+  // Expandido: renderiza as seções internas read-only (salva/restaura _editCb e _flowIndex
+  // para não permitir edição inline nem poluir o índice de navegação do escopo pai).
+  els.push(
+    <text key={K()} x={sx + SPAD} y={Y + SHH + 18} fontSize={F_S} fill={_dark ? '#818cf8' : '#6366f1'}
+      fontFamily="ui-sans-serif,system-ui,sans-serif" fontStyle="italic">
+      somente leitura · use “⋯ › Editar bloco” para modificar
+    </text>
+  )
+  const inner = refInnerSecs(scopeId)
+  const savedCb = _editCb, savedIdx = _flowIndex
+  _editCb = null
+  _flowIndex = []
+  drawFlowColumn(inner, CX, Y + SHH + REF_EXP_TOP, els)
+  _editCb = savedCb
+  _flowIndex = savedIdx
 }
 
 // Draw a vertical flowchart (LSec[]) centered at colCX starting at topY.
@@ -1809,6 +1975,7 @@ function drawFlowColumn(secs: LSec[], colCX: number, topY: number, els: React.Re
     const sh = sTotalH(sec)
     const sw = sTotalW(sec)
     const sx = CX - sw / 2
+    _flowIndex.push({ secIdx: si, label: sec.label, phase: sec.phase, y: Y, questions: [] })
 
     if (si > 0) {
       els.push(
@@ -1825,7 +1992,7 @@ function drawFlowColumn(secs: LSec[], colCX: number, topY: number, els: React.Re
              style={{ cursor: 'pointer' }} {...tipAttrs('Inserir seção aqui')}>
             <circle cx={CX} cy={btnCY} r={12} fill="#0f172a" opacity={0.95} />
             <circle cx={CX} cy={btnCY} r={12} fill="none" stroke="#60a5fa" strokeWidth={1.4} opacity={0.75} />
-            <text x={CX} y={btnCY + 4.5} fontSize={15} fontWeight={700} textAnchor="middle" fill="#60a5fa" opacity={0.95}>+</text>
+            {svgIco(PiPlusBold, CX, btnCY + 4.5, 14, '#60a5fa', 0.95)}
           </g>
         )
       }
@@ -1875,7 +2042,6 @@ function drawFlowColumn(secs: LSec[], colCX: number, topY: number, els: React.Re
             fill={p.bT} textAnchor="middle" fontFamily="ui-sans-serif,system-ui,sans-serif">
             {sec.phase}
           </text>
-          <text x={badgeX + bl + 3} y={Y + 21} fontSize={8} fill="white" opacity={0.6}>✎</text>
         </g>
       )
       // ↑ move up
@@ -1902,7 +2068,7 @@ function drawFlowColumn(secs: LSec[], colCX: number, topY: number, els: React.Re
         <g key={K()} onMouseDown={stopMD} onClick={(e) => { e.stopPropagation(); _editCb!({ type: 'remove_section', secIdx: capSi }) }}
            style={{ cursor: 'pointer' }} {...tipAttrs('Remover seção')}>
           <circle cx={sx + sw - SPAD - 34} cy={Y + SHH / 2} r={9} fill="#ef4444" opacity={0.88} />
-          <text x={sx + sw - SPAD - 34} y={Y + SHH / 2 + 3.5} fontSize={12} fontWeight={800} textAnchor="middle" fill="white">×</text>
+          {svgIco(PiTrashFill, sx + sw - SPAD - 34, Y + SHH / 2 + 3.5, 12, 'white')}
         </g>
       )
       // Transparent overlay on label text → opens sidebar with section actions
@@ -1957,21 +2123,21 @@ function drawFlowColumn(secs: LSec[], colCX: number, topY: number, els: React.Re
         ;(sec.always ?? []).forEach((pkg, pi) => {
           drawPkgRow(chipX, pkgBY + pi * PKG, PKG, chipW, pkg, p, hit(pkg.id) || hit(pkgName(pkg)), null, null, els)
         })
-        if (_editCb) {
-          const capSi = si
-          els.push(
-            <g key={K()} onMouseDown={stopMD} onClick={(e) => openMenu(e, 'SEMPRE', [], {
-              getList: (s) => s[capSi]?.always ?? [],
-              onAdd: () => _editCb!({ type: 'add_always', secIdx: capSi }),
-              onMove: (idx, dir) => _editCb!({ type: 'move_always', secIdx: capSi, pkgIdx: idx, dir }),
-              onRemove: (idx) => _editCb!({ type: 'remove_always', secIdx: capSi, pkgIdx: idx }),
-            }, alwHlKey)} style={{ cursor: 'pointer' }} {...tipAttrs('Gerenciar pacotes SEMPRE')}>
-              <rect x={chipX + 4} y={iY + 4} width={chipW - 8} height={LBLH - 8} rx={2} fill="transparent" />
-            </g>
-          )
-        }
       } else {
         els.push(<text key={K()} x={chipX + 8} y={pkgBY + NOTE_R * 0.8} fontSize={F_S} fontStyle="italic" fill={p.empty}>—</text>)
+      }
+      if (_editCb) {
+        const capSi = si
+        els.push(
+          <g key={K()} onMouseDown={stopMD} onClick={(e) => openMenu(e, 'SEMPRE', [], {
+            getList: (s) => s[capSi]?.always ?? [],
+            onAdd: () => _editCb!({ type: 'add_always', secIdx: capSi }),
+            onMove: (idx, dir) => _editCb!({ type: 'move_always', secIdx: capSi, pkgIdx: idx, dir }),
+            onRemove: (idx) => _editCb!({ type: 'remove_always', secIdx: capSi, pkgIdx: idx }),
+          }, alwHlKey)} style={{ cursor: 'pointer' }} {...tipAttrs(n > 0 ? 'Gerenciar pacotes SEMPRE' : 'Adicionar pacote SEMPRE')}>
+            <rect x={chipX + 4} y={iY + 4} width={chipW - 8} height={LBLH - 8} rx={2} fill="transparent" />
+          </g>
+        )
       }
       chipHighlight(alwHlKey, chipX, iY, chipW, chipH, els)
       iY += sAlwH(sec)
@@ -2001,15 +2167,22 @@ function drawFlowColumn(secs: LSec[], colCX: number, topY: number, els: React.Re
         })
         if (_editCb) {
           els.push(
-            <g key={K()} onMouseDown={stopMD} onClick={(e) => openMenu(e, 'PACOTES', [
-              { label: 'Excluir chip de pacotes', glyph: '×', color: '#ef4444', danger: true, onClick: () => _editCb!({ type: 'p_clear_dec_pkgs', ref: capRefForChip }) },
-            ], {
+            <g key={K()} onMouseDown={stopMD} onClick={(e) => openMenu(e, 'PACOTES', [], {
               getList: (s) => resolveRef(s, capRefForChip)?.packages ?? [],
               onAdd: () => _editCb!({ type: 'p_add_dec_pkg', ref: capRefForChip }),
               onMove: (idx, dir) => _editCb!({ type: 'p_move_dec_pkg', ref: capRefForChip, pkgIdx: idx, dir }),
               onRemove: (idx) => _editCb!({ type: 'p_remove_dec_pkg', ref: capRefForChip, pkgIdx: idx }),
+              onCondition: (idx, condition) => _editCb!({ type: 'p_set_pkg_condition', ref: capRefForChip, pkgIdx: idx, condition }),
             }, decPkgHlKey)} style={{ cursor: 'pointer' }} {...tipAttrs('Gerenciar pacotes da pergunta')}>
-              <rect x={chipX + 4} y={chipCardY + 4} width={chipW - 8} height={LBLH - 8} rx={2} fill="transparent" />
+              <rect x={chipX + 4} y={chipCardY + 4} width={chipW - 30} height={LBLH - 8} rx={2} fill="transparent" />
+            </g>
+          )
+          // × excluir chip de pacotes (canto direito, igual aos demais chips)
+          els.push(
+            <g key={K()} onMouseDown={stopMD} onClick={(e) => { e.stopPropagation(); _editCb!({ type: 'p_clear_dec_pkgs', ref: capRefForChip }) }}
+               style={{ cursor: 'pointer' }} {...tipAttrs('Excluir chip de pacotes')}>
+              <circle cx={chipX + chipW - 9} cy={chipCardY + LBLH / 2} r={6.5} fill="#ef4444" opacity={0.82} />
+              {svgIco(PiTrashFill, chipX + chipW - 9, chipCardY + LBLH / 2 + 3.5, 10, 'white')}
             </g>
           )
           pushPkgFlagOverlays(chipX, pkgBY, dec.packages!, p,
@@ -2022,6 +2195,7 @@ function drawFlowColumn(secs: LSec[], colCX: number, topY: number, els: React.Re
       }
 
       const dY = iY + decPkgChipH
+      _flowIndex[_flowIndex.length - 1]?.questions.push({ decIdx: di, question: dec.question, y: dY, subs: collectSubQs(dec) })
 
       if (prevBotY < (decPkgChipH > 0 ? iY : dY) - 4) {
         els.push(
@@ -2071,7 +2245,7 @@ function drawFlowColumn(secs: LSec[], colCX: number, topY: number, els: React.Re
           <g key={K()} onMouseDown={stopMD} onClick={(e) => { e.stopPropagation(); _editCb!({ type: 'p_remove_dec', ref }) }}
              style={{ cursor: 'pointer' }} {...tipAttrs('Remover decisão')}>
             <circle cx={CX + DDW/2 + 11} cy={dY + DH/2} r={9} fill="#ef4444" opacity={0.9} />
-            <text x={CX + DDW/2 + 11} y={dY + DH/2 + 3.5} fontSize={12} fontWeight={800} textAnchor="middle" fill="white">×</text>
+            {svgIco(PiTrashFill, CX + DDW/2 + 11, dY + DH/2 + 3.5, 12, 'white')}
           </g>
         )
         // ⟲ "já respondida no escopo" (só em perguntas repetidas)
@@ -2169,7 +2343,7 @@ function drawFlowColumn(secs: LSec[], colCX: number, topY: number, els: React.Re
                onClick={(e) => { e.stopPropagation(); _editCb!({ type: 'remove_dec_after', secIdx: capSi, decIdx: capDi, afterIdx: capAfi }) }}
                style={{ cursor: 'pointer' }} {...tipAttrs('Remover bloco')}>
               <circle cx={aeX + aeW - 9} cy={aeCardY + LBLH / 2} r={6.5} fill="#ef4444" opacity={0.82} />
-              <text x={aeX + aeW - 9} y={aeCardY + LBLH / 2 + 3.5} fontSize={10} fontWeight={800} textAnchor="middle" fill="white">×</text>
+              {svgIco(PiTrashFill, aeX + aeW - 9, aeCardY + LBLH / 2 + 3.5, 10, 'white')}
             </g>
           )
           els.push(
@@ -2197,10 +2371,13 @@ function drawFlowColumn(secs: LSec[], colCX: number, topY: number, els: React.Re
         // Packages
         const aePkgs = ae.packages ?? []
         const aeBY = aeCardY + LBLH + BPAD
-        if (aePkgs.length > 0) {
+        if (aePkgs.length > 0 || _editCb) {
           aePkgs.forEach((pkg, pi) => {
             drawPkgRow(aeX, aeBY + pi * PKG, PKG, aeW, pkg, p, hit(pkg.id) || hit(pkgName(pkg)), null, null, els)
           })
+          if (aePkgs.length === 0) {
+            els.push(<text key={K()} x={aeX + 8} y={aeBY + NOTE_R * 0.8} fontSize={F_S} fontStyle="italic" fill={p.empty}>—</text>)
+          }
           if (_editCb) {
             const capSi = si, capDi = di, capAfi2 = afi, capAeLabel = ae.label
             els.push(
@@ -2209,7 +2386,7 @@ function drawFlowColumn(secs: LSec[], colCX: number, topY: number, els: React.Re
                 onAdd: () => _editCb!({ type: 'add_dec_after_pkg', secIdx: capSi, decIdx: capDi, afterIdx: capAfi2 }),
                 onMove: (idx, dir) => _editCb!({ type: 'move_dec_after_pkg', secIdx: capSi, decIdx: capDi, afterIdx: capAfi2, pkgIdx: idx, dir }),
                 onRemove: (idx) => _editCb!({ type: 'remove_dec_after_pkg', secIdx: capSi, decIdx: capDi, afterIdx: capAfi2, pkgIdx: idx }),
-              }, aeHlKey)} style={{ cursor: 'pointer' }} {...tipAttrs('Gerenciar pacotes')}>
+              }, aeHlKey)} style={{ cursor: 'pointer' }} {...tipAttrs(aePkgs.length > 0 ? 'Gerenciar pacotes' : 'Adicionar pacote')}>
                 <rect x={aeX + 4} y={aeBY - 2} width={aeW - 8} height={Math.max(aePkgs.length * PKG, NOTE_R) + 4} rx={3} fill="transparent" />
               </g>
             )
@@ -2239,7 +2416,7 @@ function drawFlowColumn(secs: LSec[], colCX: number, topY: number, els: React.Re
 }
 
 // Build full SVG content for a single flowchart (linear LSec[])
-function buildSvg(secs: LSec[], dark: boolean, editCb?: (a: EditAction) => void, search = '', selRef: DecRef | null = null, pickMode = false, hlKey: string | null = null): { el: React.ReactNode; svgW: number; svgH: number } {
+function buildSvg(secs: LSec[], dark: boolean, editCb?: (a: EditAction) => void, search = '', selRef: DecRef | null = null, pickMode = false, hlKey: string | null = null, expandedRefs: Set<string> = new Set()): { el: React.ReactNode; svgW: number; svgH: number; flowIndex: FlowIndexSection[] } {
   _k = 0
   _dark = dark
   _editCb = editCb ?? null
@@ -2247,13 +2424,15 @@ function buildSvg(secs: LSec[], dark: boolean, editCb?: (a: EditAction) => void,
   _selRef = selRef
   _pickMode = pickMode
   _hlKey = hlKey
+  _expandedRefs = expandedRefs
   _dupQuestions = new Set([...collectQuestionCounts(secs)].filter(([, n]) => n > 1).map(([q]) => q))
   _decPos.clear()
+  _flowIndex = []
   const els: React.ReactNode[] = []
   const maxW = Math.max(...secs.map(s => sTotalW(s)))
   const svgW = maxW + MRG * 2
   const bottom = drawFlowColumn(secs, svgW / 2, MRG, els)
-  return { el: <>{els}</>, svgW, svgH: bottom + MRG }
+  return { el: <>{els}</>, svgW, svgH: bottom + MRG, flowIndex: _flowIndex }
 }
 
 // ── Complete-view tree layout ───────────────────────────────────────────────
@@ -2400,7 +2579,7 @@ function vr(s: VS, a: VA): VS {
 function ClassicSidePanel({ title, items, pkgs, onClose, dark, pos, onTitleChange }: {
   title?: string; items: MenuItem[]; pkgs?: ResolvedPkgList; onClose: () => void; dark: boolean; pos?: { x: number; y: number }; onTitleChange?: (v: string) => void
 }) {
-  const PANEL_W = 220
+  const PANEL_W = 320
   const PANEL_MAX_H = 420
   const vw = typeof window !== 'undefined' ? window.innerWidth : 1200
   const vh = typeof window !== 'undefined' ? window.innerHeight : 800
@@ -2442,43 +2621,67 @@ function ClassicSidePanel({ title, items, pkgs, onClose, dark, pos, onTitleChang
         <button onClick={onClose}
           className="flex items-center justify-center w-5 h-5 rounded text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
           title="Fechar">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} className="w-3.5 h-3.5">
-            <path d="M18 6L6 18M6 6l12 12" />
-          </svg>
+          <PiXBold size={13} />
         </button>
       </div>
       <div className="flex-1 overflow-y-auto py-1">
-        {items.map((it, i) => (
-          <button key={i} onClick={() => { it.onClick(); onClose() }}
-            className={`w-full flex items-center gap-2.5 px-3 py-2 text-left text-xs transition-colors hover:bg-white/10 ${it.danger ? 'text-rose-300' : 'text-slate-200'}`}>
-            <span className="w-4 text-center text-[13px] shrink-0" style={{ color: it.color }}>{it.glyph}</span>
-            <span>{it.label}</span>
-          </button>
-        ))}
+        {items.map((it, i) => {
+          const Icon = it.glyph ? GLYPH_ICONS[it.glyph] : undefined
+          return (
+            <button key={i} onClick={() => { it.onClick(); onClose() }}
+              className={`w-full flex items-center gap-2.5 px-3 py-2 text-left text-xs transition-colors hover:bg-white/10 ${it.danger ? 'text-rose-300' : 'text-slate-200'}`}>
+              <span className="w-4 flex items-center justify-center shrink-0" style={{ color: it.color }}>
+                {Icon ? <Icon size={15} /> : <span className="text-[13px]">{it.glyph}</span>}
+              </span>
+              <span>{it.label}</span>
+            </button>
+          )
+        })}
         {pkgs && (
           <>
             {items.length > 0 && <div className="border-t border-white/10 my-1" />}
             <button onClick={() => pkgs.onAdd()}
               className="w-full flex items-center gap-2.5 px-3 py-2 text-left text-xs transition-colors hover:bg-white/10 text-slate-200">
-              <span className="w-4 text-center text-[13px] shrink-0" style={{ color: '#3b82f6' }}>📦</span>
+              <span className="w-4 flex items-center justify-center shrink-0" style={{ color: '#3b82f6' }}><PiLegoFill size={15} /></span>
               <span>Adicionar pacote</span>
             </button>
             {pkgs.list.length > 0 && <div className="border-t border-white/10 my-1" />}
             {pkgs.list.map((pkg, i) => (
-              <div key={i} className="flex items-center gap-1 px-3 py-1.5 group">
-                <div className="flex-1 min-w-0">
-                  <div className="font-mono text-[9px] text-blue-400 leading-tight truncate">{pkg.id}</div>
-                  <div className="text-[10px] text-slate-300 leading-tight truncate">{pkgName(pkg)}</div>
+              <div key={i} className="px-3 py-1.5 group">
+                <div className="flex items-center gap-1">
+                  <div className="flex-1 min-w-0">
+                    <div className="font-mono text-[9px] text-blue-400 leading-tight break-all">
+                      {pkg.id}
+                      {pkg.condition && <ConditionIcon condition={pkg.condition} className="inline ml-1 align-text-bottom text-blue-400" />}
+                    </div>
+                    <div className="text-[10px] text-slate-300 leading-snug break-words">{pkgName(pkg)}</div>
+                  </div>
+                  <button onClick={() => pkgs.onMove(i, 'up')}
+                    className="flex items-center justify-center w-5 h-5 rounded text-slate-400 hover:text-white hover:bg-white/10 shrink-0 text-xs"
+                    title="Mover acima">↑</button>
+                  <button onClick={() => pkgs.onMove(i, 'down')}
+                    className="flex items-center justify-center w-5 h-5 rounded text-slate-400 hover:text-white hover:bg-white/10 shrink-0 text-xs"
+                    title="Mover abaixo">↓</button>
+                  <button onClick={() => pkgs.onRemove(i)}
+                    className="flex items-center justify-center w-5 h-5 rounded text-rose-400 hover:text-rose-300 hover:bg-white/10 shrink-0 text-xs"
+                    title="Remover">×</button>
                 </div>
-                <button onClick={() => pkgs.onMove(i, 'up')}
-                  className="flex items-center justify-center w-5 h-5 rounded text-slate-400 hover:text-white hover:bg-white/10 shrink-0 text-xs"
-                  title="Mover acima">↑</button>
-                <button onClick={() => pkgs.onMove(i, 'down')}
-                  className="flex items-center justify-center w-5 h-5 rounded text-slate-400 hover:text-white hover:bg-white/10 shrink-0 text-xs"
-                  title="Mover abaixo">↓</button>
-                <button onClick={() => pkgs.onRemove(i)}
-                  className="flex items-center justify-center w-5 h-5 rounded text-rose-400 hover:text-rose-300 hover:bg-white/10 shrink-0 text-xs"
-                  title="Remover">×</button>
+                {pkgs.onCondition && (
+                  <select
+                    value={pkg.condition ?? ''}
+                    onChange={e => pkgs.onCondition!(i, e.target.value || undefined)}
+                    title="Condição de emissão — o pacote só é emitido quando a condição vale"
+                    className={`mt-1 w-full text-[9px] rounded border px-1 py-0.5 outline-none cursor-pointer ${
+                      pkg.condition
+                        ? 'border-sky-600/60 bg-sky-950/40 text-sky-300'
+                        : 'border-white/10 bg-transparent text-slate-500'
+                    }`}>
+                    <option value="">Sem condição</option>
+                    {Object.entries(CONDITION_LABELS).map(([k, lbl]) => (
+                      <option key={k} value={k}>{lbl}</option>
+                    ))}
+                  </select>
+                )}
               </div>
             ))}
           </>
@@ -2495,6 +2698,10 @@ export function LogicGraphPanel({ secs, tree, editCb, pickMode, selRef }: LogicG
   const searchRef = useRef<HTMLInputElement>(null)
   const dragRef = useRef<{ lx: number; ly: number } | null>(null)
   const containerRef = useRef<HTMLDivElement>(null)
+  // Índice de perguntas (navegação rápida)
+  const [showIndex, setShowIndex] = useState(false)
+  const [navHl, setNavHl] = useState<string | null>(null)
+  const navHlTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // Ctrl+F / Cmd+F opens search
   useEffect(() => {
@@ -2515,6 +2722,16 @@ export function LogicGraphPanel({ secs, tree, editCb, pickMode, selRef }: LogicG
   useEffect(() => { _editCb = editCb ?? null }, [editCb])
   // _pickMode é lido nos handlers de clique (em tempo de clique) → mantém sincronizado.
   useEffect(() => { _pickMode = !!pickMode }, [pickMode])
+
+  // Blocos de lógica (`ref`) expandidos inline — estado de UI. O toggle é lido em tempo de
+  // clique via _toggleRefExpand; o Set é passado ao buildSvg e entra na dep list do useMemo.
+  const [expandedRefs, setExpandedRefs] = useState<Set<string>>(() => new Set())
+  useEffect(() => {
+    _toggleRefExpand = (scopeId: string) => setExpandedRefs(prev => {
+      const n = new Set(prev); n.has(scopeId) ? n.delete(scopeId) : n.add(scopeId); return n
+    })
+    return () => { _toggleRefExpand = null }
+  }, [])
 
   const [btnTooltip, setBtnTooltip] = useState<{ text: string; x: number; y: number } | null>(null)
   useEffect(() => {
@@ -2572,13 +2789,34 @@ export function LogicGraphPanel({ secs, tree, editCb, pickMode, selRef }: LogicG
 
   const stopDrag = useCallback(() => { dragRef.current = null }, [])
 
-  const hlKey = menu?.hlKey ?? null
+  const hlKey = menu?.hlKey ?? navHl
 
-  const { el, svgW, svgH } = useMemo(
-    () => (tree ? buildTreeSvg(tree, dark, search) : buildSvg(secs ?? [], dark, editCb, search, selRef ?? null, !!pickMode, hlKey)),
+  const { el, svgW, svgH, flowIndex } = useMemo(
+    () => (tree
+      ? { ...buildTreeSvg(tree, dark, search), flowIndex: [] as FlowIndexSection[] }
+      : buildSvg(secs ?? [], dark, editCb, search, selRef ?? null, !!pickMode, hlKey, expandedRefs)),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [secs, tree, dark, editCb, search, selRef, pickMode, hlKey]
+    [secs, tree, dark, editCb, search, selRef, pickMode, hlKey, expandedRefs]
   )
+
+  // Navega até uma coordenada Y do fluxograma (coluna central), com destaque temporário.
+  const goTo = useCallback((y: number, hl: string | null) => {
+    const c = containerRef.current
+    if (!c) return
+    const s = Math.max(scale, 0.5)
+    const cx = svgW / 2
+    // O índice agora é uma sidebar docada (flex sibling): containerRef já mede só
+    // a largura do canvas, então não é preciso compensar a largura do painel.
+    dispatch({
+      type: 'center',
+      scale: s,
+      tx: c.clientWidth / 2 - cx * s,
+      ty: c.clientHeight * 0.28 - y * s,
+    })
+    if (navHlTimer.current) clearTimeout(navHlTimer.current)
+    setNavHl(hl)
+    if (hl) navHlTimer.current = setTimeout(() => setNavHl(null), 2200)
+  }, [scale, svgW])
 
   const bg = dark ? '#020617' : '#dde3ea'
   const btnCls = dark
@@ -2596,12 +2834,77 @@ export function LogicGraphPanel({ secs, tree, editCb, pickMode, selRef }: LogicG
     : 'h-7 w-48 pl-6 pr-6 rounded border border-slate-300 bg-white text-slate-700 text-[11px] placeholder-slate-400 outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500'
 
   return (
-    <div ref={containerRef} className="relative w-full h-full overflow-hidden"
-      style={{ background: bg, cursor: dragRef.current ? 'grabbing' : 'grab' }}
-      onMouseDown={onMouseDown} onMouseMove={onMouseMove}
-      onMouseUp={stopDrag} onMouseLeave={stopDrag}
-      onClick={() => setMenu(null)}
-    >
+    <div className="flex w-full h-full overflow-hidden" style={{ background: bg }}>
+      {/* Índice de navegação — sidebar docada à esquerda (seções e perguntas de nível 1) */}
+      {showIndex && !tree && (
+        <aside
+          className={`h-full w-60 shrink-0 overflow-y-auto scrollbar-custom border-r ${
+            dark ? 'bg-slate-900 border-slate-700' : 'bg-white border-slate-300'
+          }`}
+          onMouseDown={e => e.stopPropagation()}
+        >
+          <div className={`sticky top-0 z-10 flex items-center justify-between px-3 py-2 border-b ${
+            dark ? 'bg-slate-900 border-slate-700' : 'bg-white border-slate-200'
+          }`}>
+            <span className={`text-[11px] font-bold uppercase tracking-wide ${dark ? 'text-slate-300' : 'text-slate-700'}`}>Índice</span>
+            <button onClick={() => setShowIndex(false)}
+              className={`flex items-center justify-center w-5 h-5 rounded ${dark ? 'text-slate-400 hover:text-white hover:bg-slate-800' : 'text-slate-400 hover:text-slate-700 hover:bg-slate-100'}`}
+              title="Fechar índice">
+              <PiXBold size={13} />
+            </button>
+          </div>
+          {flowIndex.map(secEntry => (
+            <div key={secEntry.secIdx} className="py-1">
+              <button onClick={() => goTo(secEntry.y, null)}
+                className={`w-full text-left px-3 py-1.5 flex items-center gap-2 transition-colors ${
+                  dark ? 'hover:bg-slate-800' : 'hover:bg-slate-100'
+                }`}>
+                <span className={`flex-1 truncate text-[11px] font-bold uppercase tracking-wide ${dark ? 'text-slate-300' : 'text-slate-700'}`}>
+                  {secEntry.label}
+                </span>
+                <span className={`shrink-0 text-[9px] px-1.5 py-0.5 rounded border ${dark ? 'text-slate-500 border-slate-700' : 'text-slate-500 border-slate-300'}`}>
+                  {secEntry.phase}
+                </span>
+              </button>
+              {secEntry.questions.map(q => (
+                <div key={q.decIdx}>
+                  <button
+                    onClick={() => goTo(q.y, `q:${secEntry.secIdx}:${q.decIdx}`)}
+                    className={`w-full text-left pl-6 pr-3 py-1 text-[11px] leading-snug truncate transition-colors ${
+                      dark ? 'text-slate-400 hover:text-amber-300 hover:bg-slate-800/60' : 'text-slate-500 hover:text-amber-700 hover:bg-slate-50'
+                    }`}
+                    title={q.question}>
+                    {q.question || '(sem texto)'}
+                  </button>
+                  {q.subs.map((sub, si) => (
+                    <button key={si}
+                      onClick={() => goTo(q.y, `q:${secEntry.secIdx}:${q.decIdx}`)}
+                      style={{ paddingLeft: `${1.5 + sub.depth * 0.65}rem` }}
+                      className={`w-full text-left pr-3 py-0.5 text-[10px] leading-snug truncate transition-colors ${
+                        sub.depth === 1
+                          ? dark ? 'text-slate-500 hover:text-amber-400 hover:bg-slate-800/50' : 'text-slate-400 hover:text-amber-700 hover:bg-slate-50'
+                          : dark ? 'text-slate-600 hover:text-amber-500 hover:bg-slate-800/40' : 'text-slate-400/70 hover:text-amber-700 hover:bg-slate-50'
+                      }`}
+                      title={sub.q}>
+                      {'└ '}{sub.q || '(sem texto)'}
+                    </button>
+                  ))}
+                </div>
+              ))}
+              {secEntry.questions.length === 0 && (
+                <p className={`pl-6 pr-3 py-0.5 text-[10px] italic ${dark ? 'text-slate-700' : 'text-slate-400'}`}>sem perguntas</p>
+              )}
+            </div>
+          ))}
+        </aside>
+      )}
+
+      <div ref={containerRef} className="relative flex-1 h-full overflow-hidden"
+        style={{ cursor: dragRef.current ? 'grabbing' : 'grab' }}
+        onMouseDown={onMouseDown} onMouseMove={onMouseMove}
+        onMouseUp={stopDrag} onMouseLeave={stopDrag}
+        onClick={() => setMenu(null)}
+      >
       {/* Controls */}
       <div className="absolute top-3 left-3 z-10 flex gap-1.5 items-center pointer-events-none">
         <div className="flex gap-1 pointer-events-auto">
@@ -2614,6 +2917,13 @@ export function LogicGraphPanel({ secs, tree, editCb, pickMode, selRef }: LogicG
           <button onClick={() => dispatch({ type: 'reset' })} className={btnSm}>
             Reset
           </button>
+          {!tree && flowIndex.length > 0 && (
+            <button onClick={() => setShowIndex(v => !v)}
+              className={`${btnSm} inline-flex items-center gap-1 ${showIndex ? (dark ? '!border-amber-500 !text-amber-400' : '!border-amber-500 !text-amber-600') : ''}`}
+              title="Índice de seções e perguntas">
+              <PiListDashesFill size={13} /> Índice
+            </button>
+          )}
         </div>
         <span className={pctCls}>{Math.round(scale * 100)}%</span>
       </div>
@@ -2640,9 +2950,7 @@ export function LogicGraphPanel({ secs, tree, editCb, pickMode, selRef }: LogicG
               className="absolute right-1.5 flex items-center justify-center w-4 h-4 rounded-full text-slate-400 hover:text-slate-600"
               title="Limpar busca"
             >
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} className="w-3 h-3">
-                <path d="M18 6L6 18M6 6l12 12" />
-              </svg>
+              <PiXBold size={11} />
             </button>
           )}
         </div>
@@ -2675,7 +2983,7 @@ export function LogicGraphPanel({ secs, tree, editCb, pickMode, selRef }: LogicG
         <ClassicSidePanel
           title={menu.title}
           items={menu.items}
-          pkgs={menu.pkgs ? { list: menu.pkgs.getList(secs), onAdd: menu.pkgs.onAdd, onMove: menu.pkgs.onMove, onRemove: menu.pkgs.onRemove } : undefined}
+          pkgs={menu.pkgs ? { list: menu.pkgs.getList(secs ?? []), onAdd: menu.pkgs.onAdd, onMove: menu.pkgs.onMove, onRemove: menu.pkgs.onRemove, onCondition: menu.pkgs.onCondition } : undefined}
           onClose={() => setMenu(null)}
           dark={dark}
           pos={menu.pos}
@@ -2699,6 +3007,7 @@ export function LogicGraphPanel({ secs, tree, editCb, pickMode, selRef }: LogicG
           {el}
         </g>
       </svg>
+      </div>
     </div>
   )
 }

@@ -200,11 +200,17 @@ export function generateSchedule(inputs: WizardInputs): ScheduleItem[] {
       continue
     }
 
-    // ─── Jateamento FT para abertura de válvulas da ANM ─────────────
+    // ─── Jateamento/gabaritagem FT para abertura de válvulas da ANM ─
     if (step.packageId === 'ANM_VALVE_INJECT') {
-      const conts = inputs.anmValveContingency ?? []
-      if (conts.includes('jateamento'))
-        addItem(items, 'ABAN 125', step.phase, percentile, { isContingency: true, contingencyReason: 'Contingência: jateamento com flexitubo para abertura de válvulas da ANM' })
+      // Espelha o Python: com plug no bore de produção do TMF as válvulas não são abertas.
+      const hasProdBorePlug = !!inputs.hasTmfPlug && (inputs.tmfPlugBores ?? []).includes('production')
+      if (!hasProdBorePlug) {
+        const conts = inputs.anmValveContingency ?? []
+        if (conts.includes('jateamento'))
+          addItem(items, 'ABAN 125', step.phase, percentile, { isContingency: true, contingencyReason: 'Contingência: jateamento com flexitubo para abertura de válvulas da ANM' })
+        if (conts.includes('gabarit_ft'))
+          addItem(items, 'ABAN 124', step.phase, percentile, { isContingency: true, contingencyReason: 'Contingência: gabaritagem com motor de fundo e broca para abertura de válvulas da ANM' })
+      }
       continue
     }
 
@@ -1016,6 +1022,8 @@ export function generateSchedule(inputs: WizardInputs): ScheduleItem[] {
             if (wireMnt) addItem(items, wireMnt, step.phase, percentile, { autoInserted: true })
             currentTech = 'wireline'
           }
+          // Teste de bloco do anular da ANM adiado: executado após retirada do plug anular
+          addItem(items, 'ABAN 029', step.phase, percentile)
         }
 
         // Bore de PRODUÇÃO após troca para o bore de produção
@@ -1025,7 +1033,17 @@ export function generateSchedule(inputs: WizardInputs): ScheduleItem[] {
             if (m === 'stroker') addItem(items, 'ABAN 088', step.phase, percentile, { isContingency: true, contingencyReason: 'Contingência: retirada de plug do TMF (produção) com stroker' })
             if (m === 'ft')      addItem(items, 'ABAN 123', step.phase, percentile, { isContingency: true, contingencyReason: 'Contingência: retirada de plug do TMF (produção) com flexitubo' })
           }
+          // Teste de bloco de produção da ANM adiado: executado após retirada do plug de produção
+          addItem(items, 'ABAN 028', step.phase, percentile)
         }
+      }
+      // Plug de produção do TMF removido — injeta contingências de válvulas da ANM que foram adiadas
+      if (inputs.hasTmfPlug && (inputs.tmfPlugBores ?? []).includes('production')) {
+        const conts = inputs.anmValveContingency ?? []
+        if (conts.includes('jateamento'))
+          addItem(items, 'ABAN 125', step.phase, percentile, { isContingency: true, contingencyReason: 'Contingência: jateamento com flexitubo para abertura de válvulas da ANM' })
+        if (conts.includes('gabarit_ft'))
+          addItem(items, 'ABAN 124', step.phase, percentile, { isContingency: true, contingencyReason: 'Contingência: gabaritagem com motor de fundo e broca para abertura de válvulas da ANM' })
       }
       if (inputs.hasThPlug) {
         addItem(items, 'ABAN 052', step.phase, percentile)
@@ -1301,6 +1319,12 @@ export function generateSchedule(inputs: WizardInputs): ScheduleItem[] {
       if (effectivePkgId === 'ABAN 024' && tmfBores.includes('production')) effectivePkgId = 'ABAN 026'
       if (effectivePkgId === 'ABAN 025' && tmfBores.includes('annular'))    effectivePkgId = 'ABAN 027'
     }
+    // Teste de bloco da ANM adiado: executado após retirada do plug (injetado em PLUG_INJECT)
+    if (inputs.hasTmfPlug) {
+      const tmfBores = inputs.tmfPlugBores ?? []
+      if (effectivePkgId === 'ABAN 028' && tmfBores.includes('production')) continue
+      if (effectivePkgId === 'ABAN 029' && tmfBores.includes('annular'))    continue
+    }
     // ABAN 211 (prep CWO+TRT Fase 0, com TCap): suprimido quando não há TCap a retirar pelo WO.
     if (effectivePkgId === 'ABAN 211' &&
         (!equipments.includes('tree_cap') || inputs.tcapRemovalMethod === 'rov')) continue
@@ -1368,23 +1392,27 @@ export function generateSchedule(inputs: WizardInputs): ScheduleItem[] {
   // NB: esta reclassificação de fase é a fonte de verdade da owFase dos pacotes de mobilização
   // (DMM). A owFase deles NÃO é fixa no JSON — é derivada desta fase em AppContext (deriveOwFase
   // + FASE_TO_OW): com TCap → Fase 0/AP.0; sem TCap → Fase 1A/AP.1A; FS2 → Fase 2/AP.2.
-  // A âncora cobre as duas formas de retirar a TCap, mantendo o mesmo critério da emissão do prep
-  // (211 por coluna / 010 por ROV): retirada por coluna termina em 020 (fundeio) ou 021/022
-  // (desassentamento/superfície); retirada por ROV é o próprio 010 (Fase 0, pós-mobilização).
+  return normalizeScopePhases(applyTimeline(rebuiltItems), scopeId)
+}
+
+// Normalização final de fases (compartilhada com a logicEngine):
+// A âncora cobre as duas formas de retirar a TCap, mantendo o mesmo critério da emissão do prep
+// (211 por coluna / 010 por ROV): retirada por coluna termina em 020 (fundeio) ou 021/022
+// (desassentamento/superfície); retirada por ROV é o próprio 010 (Fase 0, pós-mobilização).
+// Tudo até a âncora (inclusive) é Fase 0; sem âncora, Fase 0 é promovida à fase inicial do escopo.
+export function normalizeScopePhases(items: ScheduleItem[], scopeId: string): ScheduleItem[] {
   const tcapUnseatingIds = new Set(['ABAN 010', 'ABAN 020', 'ABAN 021', 'ABAN 022', 'ABAN 177'])
-  const lastTcapIdx = rebuiltItems.reduce((acc, item, i) =>
+  const lastTcapIdx = items.reduce((acc, item, i) =>
     tcapUnseatingIds.has(item.packageId) ? i : acc, -1)
 
-  const timelineItems = applyTimeline(rebuiltItems)
-
   if (lastTcapIdx >= 0) {
-    return timelineItems.map((item, i) =>
+    return items.map((item, i) =>
       i <= lastTcapIdx ? { ...item, phase: 'Fase 0' as Phase } : item
     )
   }
 
   const startPhase: Phase = scopeId.startsWith('FS2') ? 'Fase 2' : 'Fase 1A'
-  return timelineItems.map(item =>
+  return items.map(item =>
     item.phase === 'Fase 0' ? { ...item, phase: startPhase } : item
   )
 }

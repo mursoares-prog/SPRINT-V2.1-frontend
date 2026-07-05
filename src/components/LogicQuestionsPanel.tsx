@@ -17,9 +17,10 @@ interface Props {
   sections: LSec[]
   answers: Record<string, string>
   onAnswer: (key: string, label: string) => void
+  showSectionLabels?: boolean
 }
 
-export function LogicQuestionsPanel({ sections, answers, onAnswer }: Props) {
+export function LogicQuestionsPanel({ sections, answers, onAnswer, showSectionLabels = false }: Props) {
   if (!sections.length) return null
 
   // Group sections by phase preserving order
@@ -42,17 +43,19 @@ export function LogicQuestionsPanel({ sections, answers, onAnswer }: Props) {
           sections={byPhase[phase]}
           answers={answers}
           onAnswer={onAnswer}
+          showSectionLabels={showSectionLabels}
         />
       ))}
     </div>
   )
 }
 
-function PhaseGroup({ phase, sections, answers, onAnswer }: {
+function PhaseGroup({ phase, sections, answers, onAnswer, showSectionLabels }: {
   phase: string
   sections: LSec[]
   answers: Record<string, string>
   onAnswer: (key: string, label: string) => void
+  showSectionLabels: boolean
 }) {
   const [collapsed, setCollapsed] = useState(false)
   const accent = PHASE_ACCENT[phase] ?? 'border-slate-400 dark:border-slate-500'
@@ -77,6 +80,7 @@ function PhaseGroup({ phase, sections, answers, onAnswer }: {
               sec={sec}
               answers={answers}
               onAnswer={onAnswer}
+              showLabel={showSectionLabels}
             />
           ))}
         </div>
@@ -85,15 +89,16 @@ function PhaseGroup({ phase, sections, answers, onAnswer }: {
   )
 }
 
-function SectionDecisions({ sec, answers, onAnswer }: {
+function SectionDecisions({ sec, answers, onAnswer, showLabel }: {
   sec: LSec
   answers: Record<string, string>
   onAnswer: (key: string, label: string) => void
+  showLabel: boolean
 }) {
   if (!sec.decisions.length) return null
   return (
     <div className="space-y-0.5">
-      {sec.label && (
+      {showLabel && sec.label && (
         <p className="text-[10px] font-semibold text-slate-400 dark:text-slate-600 uppercase tracking-wider px-2 pt-1">
           {sec.label}
         </p>

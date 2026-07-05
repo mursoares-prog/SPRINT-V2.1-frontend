@@ -28,13 +28,10 @@ export function generateSchedule(inputs: WizardInputs): ScheduleItem[] {
     if (hasDecisions(expanded)) return generateScheduleFromLogic(inputs, expanded, isCustom)
   }
 
-  // 2. Static logic definition fallback (for scopes in LOGIC_BY_SCOPE not yet saved to backend,
-  //    or where backend sections lack decisions)
-  if (isCustom) {
-    const staticLogic = LOGIC_BY_SCOPE[scopeId]
-    if (staticLogic) return generateScheduleFromLogic(inputs, staticLogic, isCustom)
-  }
+  // 2. Static logic definition (bundle scopes via LOGIC_BY_SCOPE, custom scopes too)
+  const staticLogic = LOGIC_BY_SCOPE[scopeId]
+  if (staticLogic) return generateScheduleFromLogic(inputs, staticLogic, isCustom)
 
-  // 3. Standard sequence engine for predefined bundle scopes
+  // 3. Fallback sequence engine (safety net — should not be reached for any defined scope)
   return generateScheduleBundle(inputs)
 }
