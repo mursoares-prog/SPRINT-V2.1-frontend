@@ -318,52 +318,6 @@ const _TESTE_VALV_ANULAR: LDec = {
   ]}],
 }
 
-// Transponder/DMM (DP) — compartilhado entre a mobilização de Fase 1 (SEC_MOB_DP)
-// e a de Fase 2 (SEC_MOB_FS2_DP, sem descida/conexão ANM).
-const _TRANSPONDER_DMM_DEC: LDec = {
-      question: 'Modo do transponder?',
-      answers: [
-        { label: 'ROV', active: true, packages: [
-          { id: 'ABAN 002', name: 'Recolhimento de transponder com ROV' },
-        ], sub: [{
-          question: 'DMM — equipamento subsea no fundo?',
-          answers: [
-            { label: 'Não', active: true, packages: [
-              { id: 'ABAN 003', name: 'DMM' },
-              { id: 'ABAN 007', name: 'Lançamento de transponder com ROV e calibração DP' },
-            ]},
-            { label: 'Sim — Fase 1', packages: [
-              { id: 'ABAN 004', name: 'DMM - Fase 1 / Stack-up SSUB no fundo' },
-              { id: 'ABAN 007', name: 'Lançamento de transponder com ROV e calibração DP' },
-            ]},
-            { label: 'Sim — Fase 2', packages: [
-              { id: 'ABAN 005', name: 'DMM - Fase 2 / BOP no fundo' },
-              { id: 'ABAN 007', name: 'Lançamento de transponder com ROV e calibração DP' },
-            ]},
-          ],
-        }]},
-        { label: 'COT', packages: [
-          { id: 'ABAN 001', name: 'Recolhimento de transponder com COT' },
-        ], sub: [{
-          question: 'DMM — equipamento subsea no fundo?',
-          answers: [
-            { label: 'Não', active: true, packages: [
-              { id: 'ABAN 003', name: 'DMM' },
-              { id: 'ABAN 006', name: 'Lançamento de transponder com COT e calibração DP' },
-            ]},
-            { label: 'Sim — Fase 1', packages: [
-              { id: 'ABAN 004', name: 'DMM - Fase 1 / Stack-up SSUB no fundo' },
-              { id: 'ABAN 006', name: 'Lançamento de transponder com COT e calibração DP' },
-            ]},
-            { label: 'Sim — Fase 2', packages: [
-              { id: 'ABAN 005', name: 'DMM - Fase 2 / BOP no fundo' },
-              { id: 'ABAN 006', name: 'Lançamento de transponder com COT e calibração DP' },
-            ]},
-          ],
-        }]},
-      ],
-}
-
 // ── BLOCO: MOBILIZAÇÃO / DESCIDA / CONEXÃO ───────────────────────────────────
 // ID do bloco de MOB por condicionais de sonda — declarado aqui para poder ser
 // referenciado por SEC_MOB_REF abaixo; a seção do bloco é definida mais adiante.
@@ -550,17 +504,15 @@ const SEC_MOB_DESCIDA_DP_COND: LSec = {
 
 // FS2: mobilização sem descida do WO / conexão ANM — na Fase 2 o poço já não tem
 // ANM; a engine vai de POST_MOB direto para BOP/FETH. Espelha SEQUENCES[FS2_*].
-// DP: transponder/DMM; ANC: DMA (ABAN 208). CCAP em ambos (POST_MOB_INJECT).
-const SEC_MOB_FS2_DP: LSec = {
-  id: 'mob', label: 'MOBILIZAÇÃO (DP — Fase 2)', phase: 'Fase 0', color: 'gray',
-  rigTypes: ['DP'],
-  decisions: [_TRANSPONDER_DMM_DEC, _MOB_POST_CCAP],
-}
-const SEC_MOB_FS2_ANC: LSec = {
-  id: 'mob_anc', label: 'MOBILIZAÇÃO (ANC — Fase 2)', phase: 'Fase 0', color: 'gray',
-  rigTypes: ['ANC'],
-  always: [{ id: 'ABAN 208', name: 'DMA' }],
-  decisions: [_MOB_POST_CCAP],
+// Seção ÚNICA com condicionais por tipo de sonda (rig_dp/rig_anc), agrupando o que antes
+// eram duas seções gated por `rigTypes` (DP e ANC) — mesmo padrão de SEC_MOB_DESCIDA_DP_COND:
+//   • DMA (ABAN 208) entra como `always` com condition 'rig_anc' (só ANC);
+//   • transponder/DMM usa a variante _COND (pacotes condition 'rig_dp' → só DP);
+//   • CCAP (_MOB_POST_CCAP) é comum às duas sondas.
+const SEC_MOB_FS2_COND: LSec = {
+  id: 'mob', label: 'MOBILIZAÇÃO (Fase 2 — condicionais por sonda)', phase: 'Fase 0', color: 'gray',
+  always: [{ id: 'ABAN 208', name: 'DMA', condition: 'rig_anc' }],
+  decisions: [_TRANSPONDER_DMM_COND, _MOB_POST_CCAP],
 }
 
 // DHSV: controla inclusão de ABAN 030 (teste funcional DHSV por bullheading).
@@ -1786,18 +1738,32 @@ const SEC_MOB_FS2_REF: LSec = {
   decisions: [], ref: { scopeId: BLK_MOB_FS2_ID, label: 'MOBILIZAÇÃO (Fase 2)' },
 }
 
-// Bloco C — Abertura de poço com BOP: instalação do BOP + FETH/COP.
-export const BLK_BOP_ABERTURA_ID = 'BLK_BOP_ABERTURA'
-const SEC_BOP_ABERTURA_REF: LSec = {
-  id: 'bop_abertura', label: 'BOP — ABERTURA (INSTALAÇÃO + FETH/COP)', phase: 'Fase 2', color: 'amber',
-  decisions: [], ref: { scopeId: BLK_BOP_ABERTURA_ID, label: 'BOP — ABERTURA' },
+// Bloco C1 — Instalação do BOP (separado da retirada de coluna).
+export const BLK_BOP_INSTALA_ID = 'BLK_BOP_INSTALA'
+const SEC_BOP_INSTALA_REF: LSec = {
+  id: 'bop_instala_ref', label: 'BOP — INSTALAÇÃO', phase: 'Fase 2', color: 'amber',
+  decisions: [], ref: { scopeId: BLK_BOP_INSTALA_ID, label: 'BOP — INSTALAÇÃO' },
 }
 
-// Bloco D — Fechamento de poço com BOP: isolamento/tampão + retirada do BOP.
-export const BLK_BOP_FECHAMENTO_ID = 'BLK_BOP_FECHAMENTO'
-const SEC_BOP_FECHAMENTO_REF: LSec = {
-  id: 'bop_fechamento', label: 'BOP — FECHAMENTO (ISOLAMENTO + RETIRADA)', phase: 'Fase 2', color: 'amber',
-  decisions: [], ref: { scopeId: BLK_BOP_FECHAMENTO_ID, label: 'BOP — FECHAMENTO' },
+// Bloco C2 — Retirada de coluna (FETH + COLUNA + COP).
+export const BLK_RET_COLUNA_ID = 'BLK_RET_COLUNA'
+const SEC_RET_COLUNA_REF: LSec = {
+  id: 'ret_coluna_ref', label: 'RETIRADA DE COLUNA (FETH + COP)', phase: 'Fase 2', color: 'amber',
+  decisions: [], ref: { scopeId: BLK_RET_COLUNA_ID, label: 'RETIRADA DE COLUNA' },
+}
+
+// Bloco D1 — Isolamento/tampão (separado da retirada do BOP).
+export const BLK_ISOLAMENTO_ID = 'BLK_ISOLAMENTO'
+const SEC_ISOLAMENTO_REF: LSec = {
+  id: 'isolamento_ref', label: 'ISOLAMENTO — TAMPÃO', phase: 'Fase 2', color: 'amber',
+  decisions: [], ref: { scopeId: BLK_ISOLAMENTO_ID, label: 'ISOLAMENTO — TAMPÃO' },
+}
+
+// Bloco D2 — Retirada do BOP.
+export const BLK_BOP_RETIRA_ID = 'BLK_BOP_RETIRA'
+const SEC_BOP_RETIRA_REF: LSec = {
+  id: 'bop_retira_ref', label: 'BOP — RETIRADA', phase: 'Fase 2', color: 'amber',
+  decisions: [], ref: { scopeId: BLK_BOP_RETIRA_ID, label: 'BOP — RETIRADA' },
 }
 
 export const LOGIC_BY_SCOPE: Record<string, LSec[]> = {
@@ -1820,7 +1786,7 @@ export const LOGIC_BY_SCOPE: Record<string, LSec[]> = {
     ...F1_PREFIX,
     SEC_CORTE_MEC_FS1_REF,
     ...F1_SUFFIX, SEC_RET_CONV,
-    SEC_BOP_ABERTURA_REF, SEC_BOP_FECHAMENTO_REF,
+    SEC_BOP_INSTALA_REF, SEC_RET_COLUNA_REF, SEC_ISOLAMENTO_REF, SEC_BOP_RETIRA_REF,
   ],
   FSU_Conv_RCMA: [
     ...F1_PREFIX,
@@ -1832,17 +1798,17 @@ export const LOGIC_BY_SCOPE: Record<string, LSec[]> = {
     ...F1_PREFIX,
     SEC_CORTE_MEC_FS1_REF,
     ...F1_SUFFIX, SEC_RET_CONV,
-    SEC_BOP_ABERTURA_REF, SEC_CAUDA, SEC_BOP_FECHAMENTO_REF,
+    SEC_BOP_INSTALA_REF, SEC_RET_COLUNA_REF, SEC_CAUDA, SEC_ISOLAMENTO_REF, SEC_BOP_RETIRA_REF,
   ],
   FSU_Sup_PWC: [
     ...F1_PREFIX,
     SEC_CORTE_MEC_FS1_REF,
     ...F1_SUFFIX, SEC_RET_CONV,
-    SEC_BOP_ABERTURA_REF, SEC_CAUDA, SEC_BOP_FECHAMENTO_REF,
+    SEC_BOP_INSTALA_REF, SEC_RET_COLUNA_REF, SEC_CAUDA, SEC_ISOLAMENTO_REF, SEC_BOP_RETIRA_REF,
   ],
   FS2_Conv_BOP: [
     SEC_MOB_FS2_REF,
-    SEC_BOP_ABERTURA_REF, SEC_PACKER_FISHING, SEC_BOP_FECHAMENTO_REF,
+    SEC_BOP_INSTALA_REF, SEC_RET_COLUNA_REF, SEC_PACKER_FISHING, SEC_ISOLAMENTO_REF, SEC_BOP_RETIRA_REF,
   ],
   FS2_Conv_RCMA: [
     SEC_MOB_FS2_REF,
@@ -1850,20 +1816,22 @@ export const LOGIC_BY_SCOPE: Record<string, LSec[]> = {
   ],
   FS2_Sup_COP: [
     SEC_MOB_FS2_REF,
-    SEC_BOP_ABERTURA_REF, SEC_CAUDA, SEC_PACKER_FISHING, SEC_BOP_FECHAMENTO_REF,
+    SEC_BOP_INSTALA_REF, SEC_RET_COLUNA_REF, SEC_CAUDA, SEC_PACKER_FISHING, SEC_ISOLAMENTO_REF, SEC_BOP_RETIRA_REF,
   ],
   FS2_Sup_PWC: [
     SEC_MOB_FS2_REF,
-    SEC_BOP_ABERTURA_REF, SEC_CAUDA, SEC_PACKER_FISHING, SEC_BOP_FECHAMENTO_REF,
+    SEC_BOP_INSTALA_REF, SEC_RET_COLUNA_REF, SEC_CAUDA, SEC_PACKER_FISHING, SEC_ISOLAMENTO_REF, SEC_BOP_RETIRA_REF,
   ],
   // Bloco de MOB por condicionais de sonda (rig_dp/rig_anc), incluído via `ref` no início
   // dos escopos de Fase Única/FS1. Não é escopo selecionável no gerador (BLK_).
   [BLK_MOB_DESCIDA_DP_COND_ID]: [SEC_MOB_DESCIDA_DP_COND],
   // Blocos fatorados de subsequências repetidas (ver definições acima).
   [BLK_CORTE_MEC_FS1_ID]: [SEC_FS1_CANHONEIO, SEC_FS1_CSB1, SEC_LIMP, SEC_FS1_CORTE_CSB2],
-  [BLK_MOB_FS2_ID]: [SEC_MOB_FS2_DP, SEC_MOB_FS2_ANC],
-  [BLK_BOP_ABERTURA_ID]: [SEC_BOP_INSTALA, SEC_FETH_COP],
-  [BLK_BOP_FECHAMENTO_ID]: [SEC_ISOLATION, SEC_BOP_RETIRA],
+  [BLK_MOB_FS2_ID]: [SEC_MOB_FS2_COND],
+  [BLK_BOP_INSTALA_ID]: [SEC_BOP_INSTALA],
+  [BLK_RET_COLUNA_ID]: [SEC_FETH_COP],
+  [BLK_ISOLAMENTO_ID]: [SEC_ISOLATION],
+  [BLK_BOP_RETIRA_ID]: [SEC_BOP_RETIRA],
 }
 
 // ── VISÃO COMPLETA ─────────────────────────────────────────────────────────

@@ -70,8 +70,10 @@ const BLOCK_LABELS: Record<string, string> = {
   // Blocos fatorados de subsequências repetidas entre escopos.
   BLK_CORTE_MEC_FS1: 'Corte Mecânico (FS1)',
   BLK_MOB_FS2:       'Mobilização (Fase 2)',
-  BLK_BOP_ABERTURA:  'BOP · Abertura (instalação + FETH/COP)',
-  BLK_BOP_FECHAMENTO:'BOP · Fechamento (isolamento + retirada)',
+  BLK_BOP_INSTALA:   'BOP · Instalação',
+  BLK_RET_COLUNA:    'Retirada de coluna (FETH + COP)',
+  BLK_ISOLAMENTO:    'Isolamento (tampão)',
+  BLK_BOP_RETIRA:    'BOP · Retirada',
 }
 const BLOCK_IDS = Object.keys(BLOCK_LABELS)
 
