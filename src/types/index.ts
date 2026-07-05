@@ -1,4 +1,4 @@
-export type RigType = 'ANC' | 'DP'
+export type RigType = 'ANC' | 'DP' | 'PA' | 'SPH' | 'SM' | 'SPM' | 'Rigless'
 export type OperationType = 'Generalista' | 'LWO'
 export type Technology = 'wireline' | 'ct' | 'electric' | 'workstring' | 'bop' | 'none'
 export type Phase = 'Fase 0' | 'Fase 1A' | 'Fase 1B' | 'Fase 2' | 'Extra Abandono' | 'Mobilização' | 'Desmobilização'
@@ -77,7 +77,7 @@ export interface Package {
   name: string
   category: string
   technology: Technology
-  applicableRig: ('ANC' | 'DP')[]
+  applicableRig: RigType[]
   applicableOp: ('Generalista' | 'LWO')[]
   isMountOp?: boolean
   isDismountOp?: boolean

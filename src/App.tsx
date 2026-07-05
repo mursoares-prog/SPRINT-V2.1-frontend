@@ -9,7 +9,7 @@ import { PackagesCatalogModal } from './components/PackagesCatalogModal'
 import { FlowchartModal } from './components/FlowchartModal'
 import { InputSummaryPanel } from './components/InputSummaryPanel'
 import { generateSchedule } from './engines/scheduleRouter'
-import type { ScopeId, WizardInputs } from './types'
+import type { ScopeId, WizardInputs, RigType } from './types'
 import { ArrowRight, FileText, Settings2, FolderOpen, AlertTriangle, Server } from 'lucide-react'
 import { loadProjectFromFile } from './utils/projectFile'
 import { getDefaultInputs } from './utils/defaultInputs'
@@ -64,7 +64,7 @@ function Home() {
   const [askingWell, setAskingWell] = useState(false)
   const [wellName,    setWellName]    = useState('')
   const [interventionType, setInterventionType] = useState<'abandono' | 'workover' | ''>('')
-  const [rigType,     setRigType]     = useState<'ANC' | 'DP' | 'PA' | 'SPH' | ''>('')
+  const [rigType,     setRigType]     = useState<RigType | ''>('')
   const [opType,      setOpType]      = useState<'Generalista' | 'LWO'>('Generalista')
   const [phaseFilter, setPhaseFilter] = useState<'fase_unica' | 'fase_1' | 'fase_2' | ''>('')
   const [scopeId,     setScopeId]     = useState<ScopeId | ''>('')
@@ -81,7 +81,7 @@ function Home() {
     setSelecting(true)
   }
 
-  const handleRigChange = (v: 'ANC' | 'DP' | 'PA' | 'SPH') => {
+  const handleRigChange = (v: RigType) => {
     setRigType(v)
     if (v !== 'DP') setOpType('Generalista')
     setPhaseFilter(''); setScopeId('')
@@ -98,7 +98,7 @@ function Home() {
 
   const handleGenerate = () => {
     if (!rigType || !scopeId) return
-    if (rigType !== 'ANC' && rigType !== 'DP') return   // PA/SPH ainda não têm fluxo de geração
+    if (rigType !== 'ANC' && rigType !== 'DP') return   // PA/SPH/SM/SPM/Rigless ainda não têm fluxo de geração
     const defaults = getDefaultInputs(rigType, opType, scopeId)
     dispatch({ type: 'RESET' })
     dispatch({ type: 'SET_WELL_NAME', wellName: wellName.trim() })
@@ -292,12 +292,21 @@ function Home() {
                 <SelChip active={rigType === 'SPH'} onClick={() => handleRigChange('SPH')}>
                   Prod. Hidráulica (SPH)
                 </SelChip>
+                <SelChip active={rigType === 'SM'} onClick={() => handleRigChange('SM')}>
+                  SM
+                </SelChip>
+                <SelChip active={rigType === 'SPM'} onClick={() => handleRigChange('SPM')}>
+                  SPM
+                </SelChip>
+                <SelChip active={rigType === 'Rigless'} onClick={() => handleRigChange('Rigless')}>
+                  Rigless
+                </SelChip>
               </div>
             </SelGroup>
           )}
 
-          {/* PA / SPH: em desenvolvimento */}
-          {interventionType === 'abandono' && (rigType === 'PA' || rigType === 'SPH') && (
+          {/* Sondas de Completação Seca (PA/SPH/SM/SPM/Rigless): em desenvolvimento */}
+          {interventionType === 'abandono' && rigType !== '' && rigType !== 'ANC' && rigType !== 'DP' && (
             <div className="flex items-center justify-center py-6 rounded-xl border border-dashed border-slate-300 dark:border-slate-700">
               <span className="text-xs font-bold tracking-widest text-slate-400 dark:text-slate-500 uppercase">Em desenvolvimento</span>
             </div>
