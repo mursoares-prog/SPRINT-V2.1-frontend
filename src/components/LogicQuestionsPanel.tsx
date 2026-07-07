@@ -1,6 +1,40 @@
 import { useState } from 'react'
-import type { LSec, LDec, LAns } from '../data/logicSecs'
+import type { LSec, LDec, LAns, LPkg, LSeqEntry } from '../data/logicSecs'
+import { conditionMatches } from '../data/logicSecs'
 import { buildDecisionKey } from '../engines/logicEngine'
+
+// Coleta todos os pacotes alcançáveis na subárvore de uma decisão (respostas, subs,
+// sequenciais e blocos `after`/`afterDec`). Usado para saber se a decisão tem qualquer
+// impacto no cronograma para a sonda/operação atuais.
+function collectPkgs(dec: LDec): LPkg[] {
+  const out: LPkg[] = []
+  const pushSeq = (seq?: LSeqEntry[]) => seq?.forEach(e => {
+    if (e.packages) out.push(...e.packages)
+    e.sub?.forEach(d => out.push(...collectPkgs(d)))
+    e.afterSub?.forEach(d => out.push(...collectPkgs(d)))
+  })
+  if (dec.packages) out.push(...dec.packages)
+  pushSeq(dec.after)
+  dec.afterDec?.forEach(d => out.push(...collectPkgs(d)))
+  for (const ans of dec.answers) {
+    if (ans.packages) out.push(...ans.packages)
+    ans.sub?.forEach(d => out.push(...collectPkgs(d)))
+    ans.afterSub?.forEach(d => out.push(...collectPkgs(d)))
+    pushSeq(ans.seq)
+    pushSeq(ans.after)
+  }
+  return out
+}
+
+// Uma decisão condicionada por sonda (ex.: "Modo do transponder?", pacotes rig_dp) só
+// deve aparecer na etapa 2 se pelo menos um pacote da sua subárvore for emitido para a
+// sonda/operação atuais — espelha o filtro checkCondition do engine. Decisões sem pacote
+// algum (gates estruturais) são mantidas.
+function decVisible(dec: LDec, rigType?: string, opType?: string): boolean {
+  const pkgs = collectPkgs(dec)
+  if (!pkgs.length) return true
+  return pkgs.some(p => conditionMatches(p.condition, rigType, opType))
+}
 
 // ── Fase colors matching the schedule phase palette ──────────────────────────
 const PHASE_ACCENT: Record<string, string> = {
@@ -18,9 +52,13 @@ interface Props {
   answers: Record<string, string>
   onAnswer: (key: string, label: string) => void
   showSectionLabels?: boolean
+  // Sonda/operação atuais — usadas para ocultar perguntas cujos pacotes são todos
+  // condicionados a outra sonda/operação (espelha o filtro do engine).
+  rigType?: string
+  operationType?: string
 }
 
-export function LogicQuestionsPanel({ sections, answers, onAnswer, showSectionLabels = false }: Props) {
+export function LogicQuestionsPanel({ sections, answers, onAnswer, showSectionLabels = false, rigType, operationType }: Props) {
   if (!sections.length) return null
 
   // Group sections by phase preserving order
@@ -44,18 +82,22 @@ export function LogicQuestionsPanel({ sections, answers, onAnswer, showSectionLa
           answers={answers}
           onAnswer={onAnswer}
           showSectionLabels={showSectionLabels}
+          rigType={rigType}
+          operationType={operationType}
         />
       ))}
     </div>
   )
 }
 
-function PhaseGroup({ phase, sections, answers, onAnswer, showSectionLabels }: {
+function PhaseGroup({ phase, sections, answers, onAnswer, showSectionLabels, rigType, operationType }: {
   phase: string
   sections: LSec[]
   answers: Record<string, string>
   onAnswer: (key: string, label: string) => void
   showSectionLabels: boolean
+  rigType?: string
+  operationType?: string
 }) {
   const [collapsed, setCollapsed] = useState(false)
   const accent = PHASE_ACCENT[phase] ?? 'border-slate-400 dark:border-slate-500'
@@ -81,6 +123,8 @@ function PhaseGroup({ phase, sections, answers, onAnswer, showSectionLabels }: {
               answers={answers}
               onAnswer={onAnswer}
               showLabel={showSectionLabels}
+              rigType={rigType}
+              operationType={operationType}
             />
           ))}
         </div>
@@ -89,11 +133,13 @@ function PhaseGroup({ phase, sections, answers, onAnswer, showSectionLabels }: {
   )
 }
 
-function SectionDecisions({ sec, answers, onAnswer, showLabel }: {
+function SectionDecisions({ sec, answers, onAnswer, showLabel, rigType, operationType }: {
   sec: LSec
   answers: Record<string, string>
   onAnswer: (key: string, label: string) => void
   showLabel: boolean
+  rigType?: string
+  operationType?: string
 }) {
   if (!sec.decisions.length) return null
   return (
@@ -103,28 +149,36 @@ function SectionDecisions({ sec, answers, onAnswer, showLabel }: {
           {sec.label}
         </p>
       )}
-      {sec.decisions.map((dec, i) => (
-        <DecisionRow
-          key={i}
-          dec={dec}
-          pathPrefix={sec.id}
-          decIndex={i}
-          answers={answers}
-          onAnswer={onAnswer}
-          depth={0}
-        />
-      ))}
+      {/* Índice original preservado (decIndex) mesmo ao ocultar decisões condicionadas —
+          a chave da resposta deve casar com a do engine (buildDecisionKey). */}
+      {sec.decisions.map((dec, i) =>
+        decVisible(dec, rigType, operationType) ? (
+          <DecisionRow
+            key={i}
+            dec={dec}
+            pathPrefix={sec.id}
+            decIndex={i}
+            answers={answers}
+            onAnswer={onAnswer}
+            depth={0}
+            rigType={rigType}
+            operationType={operationType}
+          />
+        ) : null
+      )}
     </div>
   )
 }
 
-function DecisionRow({ dec, pathPrefix, decIndex, answers, onAnswer, depth }: {
+function DecisionRow({ dec, pathPrefix, decIndex, answers, onAnswer, depth, rigType, operationType }: {
   dec: LDec
   pathPrefix: string
   decIndex: number
   answers: Record<string, string>
   onAnswer: (key: string, label: string) => void
   depth: number
+  rigType?: string
+  operationType?: string
 }) {
   const [isEditing, setIsEditing] = useState(false)
   // "Já respondida no escopo": pergunta repetida que herda a resposta da 1ª ocorrência —
@@ -135,6 +189,7 @@ function DecisionRow({ dec, pathPrefix, decIndex, answers, onAnswer, depth }: {
   const selectedAns: LAns | undefined = dec.answers.find(a => a.label === selected)
     ?? dec.answers.find(a => a.active)
     ?? dec.answers[0]
+  const hasDefault = dec.answers.some(a => a.active)
 
   return (
     <div className={depth > 0 ? 'ml-3 pl-2 border-l border-slate-200 dark:border-slate-700' : ''}>
@@ -144,7 +199,14 @@ function DecisionRow({ dec, pathPrefix, decIndex, answers, onAnswer, depth }: {
           className={`w-full flex justify-between items-center py-1.5 px-2 rounded-lg text-left group transition-colors
             ${isEditing ? 'bg-sky-50 dark:bg-sky-950/40' : 'hover:bg-slate-50 dark:hover:bg-slate-800'}`}
         >
-          <span className="text-xs text-slate-600 dark:text-slate-500 shrink-0 mr-2 leading-tight">
+          <span className="flex items-center gap-1.5 text-xs text-slate-600 dark:text-slate-500 shrink-0 mr-2 leading-tight">
+            {!hasDefault && (
+              <span
+                title="Sem resposta padrão definida"
+                className="shrink-0 text-amber-500 dark:text-amber-400 font-bold leading-none"
+                style={{ fontSize: 11 }}
+              >⚠</span>
+            )}
             {dec.question}
           </span>
           <span className={`text-xs font-semibold text-right flex items-center gap-1.5 shrink-0
@@ -181,32 +243,40 @@ function DecisionRow({ dec, pathPrefix, decIndex, answers, onAnswer, depth }: {
       </div>
 
       {/* Sub-decisions of the selected answer — o caminho segue pelo rótulo da resposta */}
-      {selectedAns?.sub?.map((subDec, si) => (
-        <DecisionRow
-          key={si}
-          dec={subDec}
-          pathPrefix={`${key}::${selectedAns.label}`}
-          decIndex={si}
-          answers={answers}
-          onAnswer={onAnswer}
-          depth={depth + 1}
-        />
-      ))}
+      {selectedAns?.sub?.map((subDec, si) =>
+        decVisible(subDec, rigType, operationType) ? (
+          <DecisionRow
+            key={si}
+            dec={subDec}
+            pathPrefix={`${key}::${selectedAns.label}`}
+            decIndex={si}
+            answers={answers}
+            onAnswer={onAnswer}
+            depth={depth + 1}
+            rigType={rigType}
+            operationType={operationType}
+          />
+        ) : null
+      )}
 
       {/* Perguntas após convergência (afterDec) — fluem independentemente da resposta
           escolhida; precisam aparecer no stage 2 com a MESMA chave usada pelo engine
           (pathPrefix `${key}::after`, ver walkDecisions/logicEngine). */}
-      {dec.afterDec?.map((adDec, ai) => (
-        <DecisionRow
-          key={`ad${ai}`}
-          dec={adDec}
-          pathPrefix={`${key}::after`}
-          decIndex={ai}
-          answers={answers}
-          onAnswer={onAnswer}
-          depth={depth + 1}
-        />
-      ))}
+      {dec.afterDec?.map((adDec, ai) =>
+        decVisible(adDec, rigType, operationType) ? (
+          <DecisionRow
+            key={`ad${ai}`}
+            dec={adDec}
+            pathPrefix={`${key}::after`}
+            decIndex={ai}
+            answers={answers}
+            onAnswer={onAnswer}
+            depth={depth + 1}
+            rigType={rigType}
+            operationType={operationType}
+          />
+        ) : null
+      )}
     </div>
   )
 }

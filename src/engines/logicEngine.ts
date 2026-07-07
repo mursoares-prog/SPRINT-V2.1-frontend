@@ -1,5 +1,6 @@
 import type { WizardInputs, ScheduleItem, Phase, Technology, Percentile } from '../types'
 import type { LSec, LDec, LAns, LPkg, LCondition } from '../data/logicSecs'
+import { conditionMatches } from '../data/logicSecs'
 import { getPackage, getDuration } from '../data/packages'
 import { expandScopeRefs } from '../data/logicOverrideStore'
 import { applyTransitions, applyTimeline, normalizeScopePhases } from './sequenceEngine'
@@ -8,18 +9,9 @@ let _uid = 0
 const nextUid = () => `logic-${++_uid}`
 
 function checkCondition(condition: LCondition | undefined, inputs: WizardInputs): boolean {
-  if (!condition) return true
-  switch (condition) {
-    // Variantes por sonda/operação — permitem um único fluxo cobrir ANC/DP e LWO/Generalista
-    case 'rig_anc':            return inputs.rigType === 'ANC'
-    case 'rig_dp':             return inputs.rigType === 'DP'
-    case 'op_lwo':             return inputs.operationType === 'LWO'
-    case 'op_generalista':     return inputs.operationType !== 'LWO'
-    // Compostas (sonda + Generalista): SFT/Terminal Head só em operação Generalista.
-    case 'rig_dp_generalista':  return inputs.rigType === 'DP'  && inputs.operationType !== 'LWO'
-    case 'rig_anc_generalista': return inputs.rigType === 'ANC' && inputs.operationType !== 'LWO'
-    default:                   return true
-  }
+  // Variantes por sonda/operação — permitem um único fluxo cobrir ANC/DP e LWO/Generalista.
+  // Delega para conditionMatches (fonte única compartilhada com a exibição das perguntas).
+  return conditionMatches(condition, inputs.rigType, inputs.operationType)
 }
 
 // Campos de WizardInputs utilizáveis em LAns.field (resolução automática de resposta).
@@ -170,13 +162,19 @@ const QUESTION_LABEL_RESOLVER: Record<string, (inp: WizardInputs) => string | st
     : inp.killWellFase1A === 'no' ? 'Não — poço isolado'
     : inp.killWellFase1A === 'contingency' ? 'Contingência' : 'Sim',
   // ── Perfis de investigação (espelha INVESTIGATION_INJECT; método+contingência por log) ──
+  // Gate: 'Sim' quando há qualquer perfil selecionado; abre os perfis aninhados.
+  'Investigação?': inp =>
+    (Array.isArray(inp.investigationLogs) && (inp.investigationLogs as unknown[]).length > 0) ? 'Sim' : 'Não',
   'Investigação — registro de pressão?': inp => _invLogResolver(inp, 'registro_pressao', { electric: 'Cabo elétrico', ct: 'Flexitubo' }, 'Arame'),
   'Investigação — fluxo pelo anular?':   inp => _invLogResolver(inp, 'fluxo_anular', { ct: 'Flexitubo' }, 'Arame'),
   'Investigação — furo na COP?':         inp => _invLogResolver(inp, 'furo_cop', { ct: 'Flexitubo' }, 'Arame'),
   'Investigação — caliper?':             inp => _invLogResolver(inp, 'caliper', {}, 'Sim'),
   'Investigação — imageamento?':         inp => _invLogResolver(inp, 'imageamento', {}, 'Sim'),
   'Investigação — free point?':          inp => _invLogResolver(inp, 'free_point', {}, 'Sim'),
-  // ── Pescaria de cauda (TAIL_FISHING_INJECT) — uma decisão por elemento ──
+  // ── Pescaria de cauda (TAIL_FISHING_INJECT) — gate + uma decisão por elemento ──
+  // Gate: 'Sim' quando há qualquer elemento a pescar; abre as perguntas por elemento aninhadas.
+  'Pescaria na cauda?': inp =>
+    (Array.isArray(inp.tailFishingItems) && (inp.tailFishingItems as unknown[]).length > 0) ? 'Sim' : 'Não',
   'Pescaria de cauda — STV F?':   inp => _tailResolver(inp, 'stv_f'),
   'Pescaria de cauda — plug F?':  inp => _tailResolver(inp, 'plug_f'),
   'Pescaria de cauda — BRV F?':   inp => _tailResolver(inp, 'brv_f'),
@@ -314,7 +312,7 @@ const QUESTION_LABEL_RESOLVER: Record<string, (inp: WizardInputs) => string | st
   'Avaliação de cimento antes do bombeio (RCMA)?': inp => inp.bopPwcPreLog !== false ? 'Sim (padrão)' : 'Não',
 }
 
-function resolveAnswer(dec: LDec, inputs: WizardInputs, key: string): LAns | undefined {
+function resolveAnswer(dec: LDec, inputs: WizardInputs, key: string, strict = false): LAns | undefined {
   const inp = inputs as unknown as Record<string, unknown>
 
   // 0. Check explicit user answer from custom logic UI (keyed by tree path — ver buildDecisionKey)
@@ -323,6 +321,11 @@ function resolveAnswer(dec: LDec, inputs: WizardInputs, key: string): LAns | und
     const byUser = dec.answers.find(a => a.label === userLabel)
     if (byUser) return byUser
   }
+
+  // Modo rigoroso (engine 'flowchart' da etapa 2): a resolução espelha exatamente o que a
+  // LogicQuestionsPanel exibe — logicAnswers → resposta `active` → primeira. Pula os passos
+  // de field/value e do resolver do wizard, que leem inputs não visíveis nesse modo.
+  if (strict) return dec.answers.find(a => a.active) ?? dec.answers[0]
 
   // 1. Try explicit field/value on each answer (populated by admin editor or future enrichment)
   const byField = dec.answers.find(ans => {
@@ -412,6 +415,7 @@ function walkDecisions(
   pathPrefix: string,
   isCustom: boolean,
   scopeAnswers: Map<string, string>,
+  strict = false,
   parentContingency = false,
   parentReason?: string,
 ): void {
@@ -426,7 +430,7 @@ function walkDecisions(
       const scoped = scopeAnswers.get(norm)
       ans = dec.answers.find(a => a.label === scoped) ?? dec.answers.find(a => a.active) ?? dec.answers[0]
     } else {
-      ans = resolveAnswer(dec, inputs, key)
+      ans = resolveAnswer(dec, inputs, key, strict)
       if (isCustom && ans && !scopeAnswers.has(norm)) scopeAnswers.set(norm, ans.label)
     }
     // Pacotes sempre emitidos ao atingir esta decisão (independente da resposta)
@@ -449,27 +453,31 @@ function walkDecisions(
       }
       if (ans.sub?.length) {
         // O ramo segue pela resposta resolvida — o rótulo dela estende o caminho.
-        walkDecisions(ans.sub, inputs, fallbackPhase, percentile, items, `${key}::${ans.label}`, isCustom, scopeAnswers, contingency, reason)
+        walkDecisions(ans.sub, inputs, fallbackPhase, percentile, items, `${key}::${ans.label}`, isCustom, scopeAnswers, strict, contingency, reason)
       }
       // Pacotes "após convergência" desta resposta — emitidos depois de toda a subárvore.
       for (const entry of ans.after ?? []) {
+        const entryConting = contingency || !!entry.contingency
         for (const pkg of entry.packages ?? []) {
-          const pkgIsContingency = contingency || !!pkg.isContingency
+          const pkgIsContingency = entryConting || !!pkg.isContingency
           emitPkg(pkg, fallbackPhase, percentile, items, inputs,
-            pkgIsContingency ? { reason: reason ?? 'Contingência' } : undefined)
+            pkgIsContingency ? { reason: reason ?? (entry.contingency ? `Contingência: ${entry.label}` : 'Contingência') } : undefined)
         }
       }
     }
     // Perguntas após a convergência (dec.afterDec): fluem independentemente da resposta
     // escolhida acima — avaliadas após o ramo resolvido e antes dos chips `after`.
     if (dec.afterDec?.length) {
-      walkDecisions(dec.afterDec, inputs, fallbackPhase, percentile, items, `${key}::after`, isCustom, scopeAnswers, parentContingency, parentReason)
+      walkDecisions(dec.afterDec, inputs, fallbackPhase, percentile, items, `${key}::after`, isCustom, scopeAnswers, strict, parentContingency, parentReason)
     }
     // Entradas sequenciais após a convergência das respostas (dec.after): fluem
     // independentemente da resposta escolhida — emitidas após o ramo resolvido.
     for (const entry of dec.after ?? []) {
+      const entryConting = parentContingency || !!entry.contingency
       for (const pkg of entry.packages ?? []) {
-        emitPkg(pkg, fallbackPhase, percentile, items, inputs)
+        const pkgIsContingency = entryConting || !!pkg.isContingency
+        emitPkg(pkg, fallbackPhase, percentile, items, inputs,
+          pkgIsContingency ? { reason: parentReason ?? (entry.contingency ? `Contingência: ${entry.label}` : 'Contingência') } : undefined)
       }
     }
   })
@@ -479,6 +487,7 @@ export function generateScheduleFromLogic(
   inputs: WizardInputs,
   sections: LSec[],
   isCustom = false,
+  strict = false,
 ): ScheduleItem[] {
   _uid = 0
   const { rigType, operationType, percentile } = inputs
@@ -503,7 +512,7 @@ export function generateScheduleFromLogic(
     for (const pkg of sec.always ?? []) {
       emitPkg(pkg, fallbackPhase, percentile, items, inputs)
     }
-    walkDecisions(sec.decisions, inputs, fallbackPhase, percentile, items, sec.id, isCustom, scopeAnswers)
+    walkDecisions(sec.decisions, inputs, fallbackPhase, percentile, items, sec.id, isCustom, scopeAnswers, strict)
   }
 
   const base = items.filter(i => !i.autoInserted)

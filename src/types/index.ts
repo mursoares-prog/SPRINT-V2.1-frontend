@@ -202,6 +202,10 @@ export interface WizardInputs {
   contingencyTtFt?: boolean
   perforationTestContingency?: boolean
   logicAnswers?: Record<string, string>
+  // Engine de perguntas da etapa 2: 'wizard' (painel padrão, default) ou 'flowchart'
+  // (segue rigorosamente o fluxograma do editor de lógica do escopo — perguntas
+  // idênticas e na mesma ordem, respostas via logicAnswers + defaults do fluxograma).
+  engineMode?: 'wizard' | 'flowchart'
   startDate: string
   percentile: Percentile
 }

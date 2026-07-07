@@ -35,6 +35,7 @@ import {
 import {
   PiLegoFill, PiStarFill, PiFlagPennantFill, PiPlusCircleFill,
   PiListNumbersFill, PiArrowLineUp, PiArrowUUpLeftFill, PiCopySimpleFill, PiTrashFill,
+  PiListDashesFill, PiInfoBold,
 } from 'react-icons/pi'
 import type { IconType } from 'react-icons'
 import type { LSec, LDec, LAns, LPkg, LCondition, LSeqEntry } from '../data/logicSecs'
@@ -50,6 +51,7 @@ import { updateCustomScopeMeta } from '../data/logicOverrideStore'
 import { PACKAGES } from '../data/packages'
 import { setLogicOverrides, getLogicOverride, expandScopeRefs, resolveScopeSections, setScopeLabels } from '../data/logicOverrideStore'
 import { LogicGraphPanel, type EditAction, type DecRef } from './LogicGraphPanel'
+import { LogicFlowEditor } from './LogicFlowEditor'
 import { ScopeParityChecker } from './ScopeParityChecker'
 import { ConditionAuditPanel } from './ConditionAuditPanel'
 
@@ -69,6 +71,7 @@ const BLOCK_LABELS: Record<string, string> = {
   // Bloco de MOB por condicionais de sonda — usado (via ref) no início dos escopos FSU/FS1.
   BLK_MOB_DESCIDA_DP_COND: 'MOB · Descida DP (condicionais por sonda)',
   // Blocos fatorados de subsequências repetidas entre escopos.
+  BLK_ACESSO_AMORTEC: 'Acesso inicial e amortecimento',
   BLK_CORTE_MEC_FS1: 'Corte Mecânico (FS1)',
   BLK_MOB_FS2:       'Mobilização (Fase 2)',
   BLK_BOP_INSTALA:   'BOP · Instalação',
@@ -724,6 +727,32 @@ function decInSubtree(root: LDec, target: LDec): boolean {
   return inSeq(root.after) || (root.afterDec ?? []).some(d => decInSubtree(d, target))
 }
 
+// Marca (val=true) ou desmarca (val=false) como contingência TODOS os pacotes na subárvore
+// de uma resposta: pacotes diretos, sequenciais (seq/after), e de TODAS as sub-perguntas em
+// qualquer nível. Alimenta a bandeira de contingência do cabeçalho do chip.
+function setAnswerSubtreeContingency(ans: LAns, val: boolean): void {
+  const mark = (pkgs?: LPkg[]) => (pkgs ?? []).forEach(p => { p.isContingency = val })
+  const walkSeq = (es?: LSeqEntry[]) => (es ?? []).forEach(e => {
+    mark(e.packages)
+    ;(e.sub ?? []).forEach(walkDec)
+    ;(e.afterSub ?? []).forEach(walkDec)
+  })
+  const walkAns = (a: LAns) => {
+    mark(a.packages)
+    walkSeq(a.seq)
+    walkSeq(a.after)
+    ;(a.sub ?? []).forEach(walkDec)
+    ;(a.afterSub ?? []).forEach(walkDec)
+  }
+  function walkDec(dec: LDec) {
+    mark(dec.packages)
+    walkSeq(dec.after)
+    ;(dec.afterDec ?? []).forEach(walkDec)
+    dec.answers.forEach(walkAns)
+  }
+  walkAns(ans)
+}
+
 // ─── Grupos de escopos (organização em pastas, persistido em localStorage) ───
 type ScopeGroup = { id: string; name: string; parentId: string | null }
 // `order` guarda a posição (ordinal) preferida de cada escopo DENTRO do seu grupo/sub-grupo.
@@ -773,6 +802,15 @@ export function LogicEditorPanel({ canEdit }: { canEdit: boolean }) {
   const [showAudit, setShowAudit] = useState(false)
   const [showScopePanel, setShowScopePanel] = useState(false)
   const [showScopeSidebar, setShowScopeSidebar] = useState(true)
+  const [showFlowIndex, setShowFlowIndex] = useState(false)
+  const [showFlowLegend, setShowFlowLegend] = useState(false)
+  // Modo de edição do fluxograma: 'classic' (SVG canônico) ou 'flow' (ReactFlow).
+  const [editorMode, setEditorMode] = useState<'classic' | 'flow'>(() =>
+    localStorage.getItem('lep-editor-mode') === 'flow' ? 'flow' : 'classic')
+  const pickEditorMode = (m: 'classic' | 'flow') => {
+    setEditorMode(m)
+    localStorage.setItem('lep-editor-mode', m)
+  }
   // Largura da sidebar de escopos (px), redimensionável por mouse e persistida.
   const [sidebarWidth, setSidebarWidth] = useState(() => {
     const v = Number(localStorage.getItem('lep-sidebar-w'))
@@ -830,7 +868,7 @@ export function LogicEditorPanel({ canEdit }: { canEdit: boolean }) {
   // Decision picker pending location
   // Inserção de pergunta via picker: no topo de uma seção ({secIdx, afterDecIdx}) ou em
   // qualquer nível, relativa a uma pergunta existente ({ref, offset: 0=acima, 1=abaixo}).
-  const [pendingDec, setPendingDec] = useState<{ secIdx: number; afterDecIdx: number } | { ref: DecRef; offset: 0 | 1 } | null>(null)
+  const [pendingDec, setPendingDec] = useState<{ secIdx: number; afterDecIdx: number } | { ref: DecRef; offset: 0 | 1 } | { secIdx: number; aboveSempre: boolean } | null>(null)
 
   // Phase picker
   const [phasePick, setPhasePick] = useState<{ secIdx: number; current: string } | null>(null)
@@ -1248,6 +1286,8 @@ export function LogicEditorPanel({ canEdit }: { canEdit: boolean }) {
   const selectScope = async (scopeId: string) => {
     if (dirty && !confirm('Há alterações não salvas. Descartar?')) return
     setShowScopePanel(false)
+    setShowScopeSidebar(false)
+    setShowFlowIndex(true)
     setSelectedScope(scopeId)
     setSections([])
     setPast([]); setFuture([])
@@ -1395,6 +1435,19 @@ export function LogicEditorPanel({ canEdit }: { canEdit: boolean }) {
       case 'add_blank_decision': {
         const sec = secs[action.secIdx]; if (!sec) return
         sec.decisions.splice(action.afterDecIdx + 1, 0, emptyDec())
+        break
+      }
+
+      case 'ins_near_sempre':
+        setPendingDec({ secIdx: action.secIdx, aboveSempre: action.above })
+        return
+
+      case 'p_move_sempre_pos': {
+        const sec = secs[action.secIdx]; if (!sec) return
+        const cur = sec.alwaysAfterIdx ?? -1
+        sec.alwaysAfterIdx = action.dir === 'up'
+          ? Math.max(-1, cur - 1)
+          : Math.min(sec.decisions.length - 1, cur + 1)
         break
       }
 
@@ -1633,7 +1686,11 @@ export function LogicEditorPanel({ canEdit }: { canEdit: boolean }) {
       case 'p_toggle_contingency': {
         const dec = resolveRef(secs, action.ref); if (!dec) return
         const ans = dec.answers[action.ansIdx]; if (!ans) return
-        ans.contingency = !ans.contingency
+        // A bandeira do cabeçalho é o toggle mestre do chip: propaga a contingência para
+        // TODOS os pacotes da subárvore da resposta (todos os níveis), não só os diretos.
+        const target = !ans.contingency
+        ans.contingency = target
+        setAnswerSubtreeContingency(ans, target)
         break
       }
 
@@ -1791,7 +1848,7 @@ export function LogicEditorPanel({ canEdit }: { canEdit: boolean }) {
       case 'p_add_aftersub_dec': {
         const dec = resolveRef(secs, action.ref); if (!dec) return
         const ans = dec.answers[action.ansIdx]; if (!ans) return
-        ans.afterSub = [...(ans.afterSub ?? []), emptyDec()]
+        ans.sub = [emptyDec(), ...(ans.sub ?? [])]
         break
       }
 
@@ -1982,8 +2039,8 @@ export function LogicEditorPanel({ canEdit }: { canEdit: boolean }) {
             t.question = payload.question
             t.answers = payload.answers
             for (const k of ['packages', 'after', 'afterDec', 'reuseScope'] as const) {
-              if (payload[k] !== undefined) (t as Record<string, unknown>)[k] = payload[k]
-              else delete (t as Record<string, unknown>)[k]
+              if (payload[k] !== undefined) (t as unknown as Record<string, unknown>)[k] = payload[k]
+              else delete (t as unknown as Record<string, unknown>)[k]
             }
           } else {
             const tgtHit = findDecList(secs, tgtDec!); if (!tgtHit) return
@@ -2059,7 +2116,7 @@ export function LogicEditorPanel({ canEdit }: { canEdit: boolean }) {
       }
 
       case 'add_dec_after_chip_sub': {
-        const dec = secs[action.secIdx]?.decisions[action.decIdx]; if (!dec) return
+        const dec = resolveRef(secs, action.ref); if (!dec) return
         const ae = dec.after?.[action.afterIdx]; if (!ae) return
         const newDec: LDec = { question: 'Nova pergunta', answers: [{ label: 'Sim', packages: [] }, { label: 'Não', packages: [] }] }
         if (action.isAfterSub) {
@@ -2071,7 +2128,7 @@ export function LogicEditorPanel({ canEdit }: { canEdit: boolean }) {
       }
 
       case 'remove_dec_after_chip_sub': {
-        const dec = secs[action.secIdx]?.decisions[action.decIdx]; if (!dec) return
+        const dec = resolveRef(secs, action.ref); if (!dec) return
         const ae = dec.after?.[action.afterIdx]; if (!ae) return
         if (action.isAfterSub) {
           ae.afterSub = (ae.afterSub ?? []).filter((_, i) => i !== action.subIdx)
@@ -2245,6 +2302,52 @@ export function LogicEditorPanel({ canEdit }: { canEdit: boolean }) {
         break
       }
 
+      // ── Contingência de CAMPO (LSeqEntry) ──────────────────────────────────
+      case 'p_toggle_dec_after_conting': {
+        const dec = resolveRef(secs, action.ref); if (!dec) return
+        const ae = dec.after?.[action.afterIdx]; if (!ae) return
+        ae.contingency = !ae.contingency
+        if (!ae.contingency) delete ae.contingency
+        break
+      }
+
+      case 'p_toggle_ans_after_conting': {
+        const dec = resolveRef(secs, action.ref); if (!dec) return
+        const ae = dec.answers[action.ansIdx]?.after?.[action.afterIdx]; if (!ae) return
+        ae.contingency = !ae.contingency
+        if (!ae.contingency) delete ae.contingency
+        break
+      }
+
+      case 'p_toggle_ans_seq_conting': {
+        const dec = resolveRef(secs, action.ref); if (!dec) return
+        const se = dec.answers[action.ansIdx]?.seq?.[action.seqIdx]; if (!se) return
+        se.contingency = !se.contingency
+        if (!se.contingency) delete se.contingency
+        break
+      }
+
+      // ── Colar (clipboard interno do LogicFlowEditor: Ctrl+C/Ctrl+V) ─────────
+      case 'p_paste_dec': {
+        const anchor = resolveRef(secs, action.ref); if (!anchor) return
+        const hit = findDecList(secs, anchor); if (!hit) return
+        hit.list.splice(hit.idx + 1, 0, deepClone(action.dec) as unknown as LDec)
+        break
+      }
+
+      case 'p_paste_sub_dec': {
+        const dec = resolveRef(secs, action.ref); if (!dec) return
+        const ans = dec.answers[action.ansIdx]; if (!ans) return
+        ans.sub = [...(ans.sub ?? []), deepClone(action.dec) as unknown as LDec]
+        break
+      }
+
+      case 'p_paste_ans': {
+        const dec = resolveRef(secs, action.ref); if (!dec) return
+        dec.answers.push(deepClone(action.ans) as unknown as LAns)
+        break
+      }
+
       default: return
     }
 
@@ -2268,6 +2371,13 @@ export function LogicEditorPanel({ canEdit }: { canEdit: boolean }) {
       const anchor = resolveRef(secs, pendingDec.ref); if (!anchor) return
       const hit = findDecList(secs, anchor); if (!hit) return
       hit.list.splice(hit.idx + pendingDec.offset, 0, dec)
+    } else if ('aboveSempre' in pendingDec) {
+      // Inserção relativa ao chip SEMPRE: splice após decisions[alwaysAfterIdx] e,
+      // se above=true, incrementa alwaysAfterIdx para SEMPRE ficar após a nova pergunta.
+      const sec = secs[pendingDec.secIdx]; if (!sec) return
+      const curPos = sec.alwaysAfterIdx ?? -1
+      sec.decisions.splice(curPos + 1, 0, dec)
+      if (pendingDec.aboveSempre) sec.alwaysAfterIdx = curPos + 1
     } else {
       const sec = secs[pendingDec.secIdx]; if (!sec) return
       sec.decisions.splice(pendingDec.afterDecIdx + 1, 0, dec)
@@ -2701,6 +2811,23 @@ export function LogicEditorPanel({ canEdit }: { canEdit: boolean }) {
                       )}
                     </div>
                   )}
+                  {/* Seletor do modo de edição do fluxograma */}
+                  <div className="flex items-center rounded-lg border border-slate-700 overflow-hidden shrink-0">
+                    {([['classic', 'Clássico'], ['flow', 'Fluxo']] as const).map(([m, lbl]) => (
+                      <button key={m}
+                        onClick={() => pickEditorMode(m)}
+                        title={m === 'classic'
+                          ? 'Editor clássico (SVG) — layout automático canônico'
+                          : 'Editor de fluxo (ReactFlow) — nós arrastáveis, minimapa, Ctrl+C/V'}
+                        className={`text-[10px] px-2 py-1.5 transition-colors ${
+                          editorMode === m
+                            ? 'bg-[#d97706]/15 text-[#d97706] font-semibold'
+                            : 'text-slate-400 hover:text-slate-200'
+                        }`}>
+                        {lbl}
+                      </button>
+                    ))}
+                  </div>
                   {canEdit && (
                     <div className="flex items-center gap-1">
                       <button
@@ -2735,6 +2862,24 @@ export function LogicEditorPanel({ canEdit }: { canEdit: boolean }) {
                     <BarChart3 size={10} />
                     Condições
                   </button>
+                  {editorMode === 'flow' && (
+                    <>
+                      <button
+                        onClick={() => setShowFlowIndex(v => !v)}
+                        title="Índice de perguntas (busca integrada)"
+                        className={`flex items-center gap-1 text-[10px] border rounded-lg px-2 py-1.5 transition-colors ${showFlowIndex ? 'text-amber-400 border-amber-700/50' : 'text-slate-400 hover:text-amber-300 border-slate-700 hover:border-amber-600/40'}`}>
+                        <PiListDashesFill size={10} />
+                        Índice
+                      </button>
+                      <button
+                        onClick={() => setShowFlowLegend(v => !v)}
+                        title="Símbolos de referência"
+                        className={`flex items-center gap-1 text-[10px] border rounded-lg px-2 py-1.5 transition-colors ${showFlowLegend ? 'text-amber-400 border-amber-700/50' : 'text-slate-400 hover:text-amber-300 border-slate-700 hover:border-amber-600/40'}`}>
+                        <PiInfoBold size={10} />
+                        Símbolos
+                      </button>
+                    </>
+                  )}
                   <button
                     onClick={openHistory}
                     title="Histórico de versões — voltar a um estado anterior"
@@ -2819,12 +2964,24 @@ export function LogicEditorPanel({ canEdit }: { canEdit: boolean }) {
                       </button>
                     </div>
                   )}
-                  <LogicGraphPanel
-                    secs={sections}
-                    editCb={canEdit && !previewVersionId ? handleEditAction : undefined}
-                    pickMode={!!pendingTransfer}
-                    selRef={null}
-                  />
+                  {editorMode === 'flow' ? (
+                    <LogicFlowEditor
+                      sections={sections}
+                      editCb={canEdit && !previewVersionId ? handleEditAction : undefined}
+                      pickMode={!!pendingTransfer}
+                      showIndex={showFlowIndex}
+                      onToggleIndex={() => setShowFlowIndex(v => !v)}
+                      showLegend={showFlowLegend}
+                      onToggleLegend={() => setShowFlowLegend(v => !v)}
+                    />
+                  ) : (
+                    <LogicGraphPanel
+                      secs={sections}
+                      editCb={canEdit && !previewVersionId ? handleEditAction : undefined}
+                      pickMode={!!pendingTransfer}
+                      selRef={null}
+                    />
+                  )}
                 </div>
               )}
             </div>

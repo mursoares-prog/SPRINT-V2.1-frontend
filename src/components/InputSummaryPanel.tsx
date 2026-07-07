@@ -160,9 +160,13 @@ const showRemoveANM = isTT || isFS1Mec
   const isLWIV = inputs.operationType === 'LWO'
   const ccapEffectiveMethod = inputs.ccapRemovalMethod ?? (isLWIV ? 'cable' : 'workstring')
   const isCustomScope = !!inputs.scopeId && !(inputs.scopeId in SCOPE_SHORT)
+  // Engine 'flowchart' (escopos bundle): substitui o painel wizard pelas perguntas do
+  // fluxograma do editor de lógica — idênticas e na mesma ordem do fluxograma.
+  const flowStrict = !isCustomScope && inputs.engineMode === 'flowchart'
+  const useFlowQuestions = isCustomScope || flowStrict
   // Expande seções `ref` (reuso vivo) para que as perguntas/seções do fluxograma incluído
   // (ex.: MOB_descida) também apareçam no passo 2 — mesma expansão usada na geração.
-  const customSecs = isCustomScope
+  const customSecs = useFlowQuestions
     ? expandScopeRefs(resolveScopeSections(inputs.scopeId!))
     : null
   const customScopeLabel = isCustomScope
@@ -266,9 +270,25 @@ const showRemoveANM = isTT || isFS1Mec
               />
             </Row>
           )}
+
+          {!isCustomScope && (
+            <Row label="Engine de perguntas"
+              tooltip="Origem das perguntas desta etapa: painel padrão (wizard) ou rigorosamente o fluxograma do editor de lógica do escopo — perguntas idênticas e na mesma ordem do fluxograma, com respostas e defaults do próprio fluxograma"
+              value={flowStrict ? 'Fluxograma' : 'Padrão'}
+              isEditing={isEd('engineMode')} onEdit={() => edit('engineMode')}>
+              <InlineRadio
+                options={[
+                  { value: 'wizard',    label: 'Padrão (painel wizard)' },
+                  { value: 'flowchart', label: 'Fluxograma do escopo (rigoroso)' },
+                ]}
+                value={inputs.engineMode ?? 'wizard'}
+                onChange={v => apply({ engineMode: v as WizardInputs['engineMode'] })}
+              />
+            </Row>
+          )}
         </Section>
 
-        {!isCustomScope && <>
+        {!isCustomScope && !flowStrict && <>
 
         {/* ── Fase 0 — Mobilização (só existe quando há TCap, Fase Única / Fase 1) ── */}
         {inputs.rigType && inputs.scopeId && !isFS2 && hasTC && hasSecPhase('Fase 0') && (
@@ -1880,8 +1900,8 @@ const showRemoveANM = isTT || isFS1Mec
 
         </>}
 
-        {/* ── Perguntas do fluxograma customizado ── */}
-        {isCustomScope && inputs.rigType && inputs.scopeId && (() => {
+        {/* ── Perguntas do fluxograma (escopos custom e engine 'flowchart') ── */}
+        {useFlowQuestions && inputs.rigType && inputs.scopeId && (() => {
           const secs = (customSecs ?? []).filter(sec => {
             if (sec.rigTypes?.length && !sec.rigTypes.includes(inputs.rigType!)) return false
             if (sec.opTypes?.length && !sec.opTypes.includes(inputs.operationType!)) return false
@@ -1891,6 +1911,9 @@ const showRemoveANM = isTT || isFS1Mec
           return (
             <LogicQuestionsPanel
               sections={secs}
+              showSectionLabels={flowStrict}
+              rigType={inputs.rigType}
+              operationType={inputs.operationType}
               answers={inputs.logicAnswers ?? {}}
               onAnswer={(key, label) => {
                 apply({ logicAnswers: { ...(inputs.logicAnswers ?? {}), [key]: label } }, false)

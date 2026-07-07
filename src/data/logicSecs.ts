@@ -14,6 +14,26 @@ export const CONDITION_LABELS: Record<LCondition, string> = {
   rig_anc_generalista: 'Sonda ANC + Generalista',
 }
 
+// Avalia a condição de emissão de um pacote contra sonda/operação. Fonte única de
+// verdade para o engine (checkCondition) e para a exibição das perguntas (etapa 2),
+// garantindo que decisões DP-only não apareçam em sonda ANC e vice-versa.
+export function conditionMatches(
+  condition: LCondition | undefined,
+  rigType: string | undefined,
+  opType: string | undefined,
+): boolean {
+  if (!condition) return true
+  switch (condition) {
+    case 'rig_anc':             return rigType === 'ANC'
+    case 'rig_dp':              return rigType === 'DP'
+    case 'op_lwo':              return opType === 'LWO'
+    case 'op_generalista':      return opType !== 'LWO'
+    case 'rig_dp_generalista':  return rigType === 'DP'  && opType !== 'LWO'
+    case 'rig_anc_generalista': return rigType === 'ANC' && opType !== 'LWO'
+    default:                    return true
+  }
+}
+
 export type LPkgPhase = 'Fase 0' | 'Fase 1A' | 'Fase 1B' | 'Fase 2' | 'Extra Abandono' | 'Mobilização' | 'Desmobilização'
 export type LTech = 'wireline' | 'ct' | 'electric' | 'workstring' | 'bop' | 'none'
 
@@ -29,7 +49,7 @@ export type LPkg = {
   condition?: LCondition
 }
 
-export type LSeqEntry = { label: string; note?: string; packages?: LPkg[]; sub?: LDec[]; afterSub?: LDec[] }
+export type LSeqEntry = { label: string; note?: string; packages?: LPkg[]; sub?: LDec[]; afterSub?: LDec[]; contingency?: boolean }
 
 // Posição manual de um nó no editor de fluxo (ReactFlow). Persistida junto com o
 // escopo; ausente = posição calculada pelo layout automático.
@@ -78,6 +98,7 @@ export interface LSec {
   phase: string
   color: 'gray' | 'blue' | 'amber'
   always?: LPkg[]
+  alwaysAfterIdx?: number  // posição do chip SEMPRE: -1 (ou omisso) = antes de todas decisões; N = após decisions[N]
   decisions: LDec[]
   // Filtros de execução (ausentes = aplica para todos):
   rigTypes?: ('ANC' | 'DP')[]
@@ -386,8 +407,7 @@ const _FLUIDO_RISER_SUPERFICIE_COND: LDec = {
       { id: 'ABAN 215', name: 'Posicionamento de fluido inibido no DPR/HCR', phase: 'Fase 1A', condition: 'rig_dp' },
       { id: 'ABAN 209', name: 'Posicionamento de fluido inibido no Riser Dual Bore', phase: 'Fase 1A', condition: 'rig_anc' },
     ]},
-    { label: 'Inibido (pós-conexão)', field: 'tcapSurfaceFluid', value: 'inhibited_post',
-      note: 'ABAN 216/217 posicionados após a reentrada na ANM' },
+    { label: 'Inibido (pós-conexão)', field: 'tcapSurfaceFluid', value: 'inhibited_post' },
   ],
 }
 
@@ -496,9 +516,10 @@ const SEC_MOB_DESCIDA_DP_COND: LSec = {
     _MOB_POST_CCAP,
     _MOB_TCAP_COND,
     _REENTRADA,
-    _ITF_TEST_PROD, _ITF_TEST_ANUL, _TMF_PLUG_ANUL, _TMF_PLUG_PROD,
-    _VALVE_JATEAMENTO_POS_PLUG, _VALVE_GABARIT_POS_PLUG, _TESTE_VALV_ANULAR,
-    _CONEXAO_HIDRATO, _VALVE_JATEAMENTO, _VALVE_GABARIT,
+    _ITF_TEST_PROD, _ITF_TEST_ANUL,
+    // A partir daqui (retirada de plugs do TMF, contingências de válvula, teste da válvula do
+    // anular e hidrato na ANM) o fluxo foi movido para o topo dos Blocos ANM
+    // (SEC_CONEXAO / bloco "Acesso inicial e amortecimento").
   ],
 }
 
@@ -520,6 +541,12 @@ const SEC_MOB_FS2_COND: LSec = {
 const SEC_CONEXAO: LSec = {
   id: 'conexao', label: 'DHSV / BLOCOS ANM', phase: 'Fase 1A', color: 'blue',
   decisions: [
+    // Fluxo movido do bloco de MOB (a partir de "Retirar plug do TMF — anular?" até o fim
+    // da seção) para o topo dos Blocos ANM: retirada de plugs do TMF, contingências de
+    // válvula, teste da válvula do anular e hidrato na ANM.
+    _TMF_PLUG_ANUL, _TMF_PLUG_PROD,
+    _VALVE_JATEAMENTO_POS_PLUG, _VALVE_GABARIT_POS_PLUG, _TESTE_VALV_ANULAR,
+    _CONEXAO_HIDRATO, _VALVE_JATEAMENTO, _VALVE_GABARIT,
     {
       // Testes de bloco da ANM (tabela 028/029): adiados quando há plug no bore
       // correspondente do TMF (emitidos após a retirada do plug, na seção MOB).
@@ -598,7 +625,7 @@ const SEC_CONEXAO: LSec = {
           { id: 'ABAN 030', name: 'Teste funcional de DHSV (bullheading)' },
         ]},
         { label: 'Sim', active: true },
-        { label: 'Contingência', note: 'Teste de DHSV (030) adiado para após o amortecimento' },
+        { label: 'Contingência' },
       ],
     },
   ],
@@ -660,6 +687,8 @@ const _TAIL_ELEMENTS: { key: string; label: string; pkgs: Record<'wireline' | 's
     stroker:  { id: 'ABAN 097', name: 'Pescaria de camisão (stroker)' },
     ct:       { id: 'ABAN 134', name: 'Flexitubo - Pescaria de camisão' } } },
 ]
+// Perguntas por elemento (mesmo texto/pacotes de antes — os resolvers _tailResolver casam
+// por essas perguntas). Agora aninhadas sob o gate _TAIL_FISHING_GROUP.
 const _TAIL_FISHING_DECS: LDec[] = _TAIL_ELEMENTS.map(el => ({
   question: `Pescaria de cauda — ${el.label}?`,
   answers: [
@@ -669,6 +698,86 @@ const _TAIL_FISHING_DECS: LDec[] = _TAIL_ELEMENTS.map(el => ({
     { label: 'Flexitubo', packages: [el.pkgs.ct] },
   ],
 }))
+// Gate único do grupo de pescaria de cauda: 'Sim' abre as perguntas por elemento
+// (multi-elemento — cada elemento segue independente). O resolver 'Pescaria na cauda?'
+// (logicEngine) responde 'Sim' quando há algum elemento em inputs.tailFishingItems.
+const _TAIL_FISHING_GROUP: LDec = {
+  question: 'Pescaria na cauda?',
+  answers: [
+    { label: 'Não', active: true },
+    { label: 'Sim', sub: _TAIL_FISHING_DECS },
+  ],
+}
+
+// Perfis de investigação (espelha INVESTIGATION_INJECT, na ordem da engine). Textos completos
+// mantidos — os resolvers _invLogResolver casam por essas perguntas. Aninhados sob o gate abaixo.
+const _INVESTIGATION_DECS: LDec[] = [
+  {
+    question: 'Investigação — registro de pressão?',
+    answers: [
+      { label: 'Não', active: true },
+      { label: 'Arame', packages: [{ id: 'ABAN 047', name: 'Registro de pressão e temperatura' }] },
+      { label: 'Cabo elétrico', packages: [{ id: 'ABAN 104', name: 'Registro de pressão — cabo elétrico' }] },
+      { label: 'Flexitubo', packages: [{ id: 'ABAN 147', name: 'Flexitubo - Registro de pressão' }] },
+      { label: 'Contingência — Arame', packages: [{ id: 'ABAN 047', name: 'Registro de pressão e temperatura', isContingency: true }] },
+      { label: 'Contingência — Cabo elétrico', packages: [{ id: 'ABAN 104', name: 'Registro de pressão — cabo elétrico', isContingency: true }] },
+      { label: 'Contingência — Flexitubo', packages: [{ id: 'ABAN 147', name: 'Flexitubo - Registro de pressão', isContingency: true }] },
+    ],
+  },
+  {
+    question: 'Investigação — fluxo pelo anular?',
+    answers: [
+      { label: 'Não', active: true },
+      { label: 'Arame', packages: [{ id: 'ABAN 100', name: 'Investigação de fluxo pelo anular' }] },
+      { label: 'Flexitubo', packages: [{ id: 'ABAN 151', name: 'Flexitubo - Investigação de fluxo pelo anular' }] },
+      { label: 'Contingência — Arame', packages: [{ id: 'ABAN 100', name: 'Investigação de fluxo pelo anular', isContingency: true }] },
+      { label: 'Contingência — Flexitubo', packages: [{ id: 'ABAN 151', name: 'Flexitubo - Investigação de fluxo pelo anular', isContingency: true }] },
+    ],
+  },
+  {
+    question: 'Investigação — furo na COP?',
+    answers: [
+      { label: 'Não', active: true },
+      { label: 'Arame', packages: [{ id: 'ABAN 099', name: 'Investigação de furo na COP' }] },
+      { label: 'Flexitubo', packages: [{ id: 'ABAN 152', name: 'Flexitubo - Investigação de furo na COP' }] },
+      { label: 'Contingência — Arame', packages: [{ id: 'ABAN 099', name: 'Investigação de furo na COP', isContingency: true }] },
+      { label: 'Contingência — Flexitubo', packages: [{ id: 'ABAN 152', name: 'Flexitubo - Investigação de furo na COP', isContingency: true }] },
+    ],
+  },
+  {
+    question: 'Investigação — caliper?',
+    answers: [
+      { label: 'Não', active: true },
+      { label: 'Sim', packages: [{ id: 'ABAN 111', name: 'Perfilagem caliper' }] },
+      { label: 'Contingência', packages: [{ id: 'ABAN 111', name: 'Perfilagem caliper', isContingency: true }] },
+    ],
+  },
+  {
+    question: 'Investigação — imageamento?',
+    answers: [
+      { label: 'Não', active: true },
+      { label: 'Sim', packages: [{ id: 'ABAN 112', name: 'Perfilagem de imageamento' }] },
+      { label: 'Contingência', packages: [{ id: 'ABAN 112', name: 'Perfilagem de imageamento', isContingency: true }] },
+    ],
+  },
+  {
+    question: 'Investigação — free point?',
+    answers: [
+      { label: 'Não', active: true },
+      { label: 'Sim', packages: [{ id: 'ABAN 251', name: 'Free point (investigação de prisão)' }] },
+      { label: 'Contingência', packages: [{ id: 'ABAN 251', name: 'Free point (investigação de prisão)', isContingency: true }] },
+    ],
+  },
+]
+// Gate único do grupo de investigação: 'Sim' abre os perfis (cada perfil segue independente).
+// O resolver 'Investigação?' (logicEngine) responde 'Sim' quando há perfis em inputs.investigationLogs.
+const _INVESTIGATION_GROUP: LDec = {
+  question: 'Investigação?',
+  answers: [
+    { label: 'Não', active: true },
+    { label: 'Sim', sub: _INVESTIGATION_DECS },
+  ],
+}
 
 // Sub-decisões da operação de VGL (VGL_INJECT); replace acrescenta a instalação da nova VGL.
 const _vglSubDecs = (replace: boolean): LDec[] => [
@@ -842,65 +951,10 @@ const SEC_GAB: LSec = {
         ]},
       ],
     },
-    // ── Perfis de investigação (espelha INVESTIGATION_INJECT, na ordem da engine) ──
-    {
-      question: 'Investigação — registro de pressão?',
-      answers: [
-        { label: 'Não', active: true },
-        { label: 'Arame', packages: [{ id: 'ABAN 047', name: 'Registro de pressão e temperatura' }] },
-        { label: 'Cabo elétrico', packages: [{ id: 'ABAN 104', name: 'Registro de pressão — cabo elétrico' }] },
-        { label: 'Flexitubo', packages: [{ id: 'ABAN 147', name: 'Flexitubo - Registro de pressão' }] },
-        { label: 'Contingência — Arame', packages: [{ id: 'ABAN 047', name: 'Registro de pressão e temperatura', isContingency: true }] },
-        { label: 'Contingência — Cabo elétrico', packages: [{ id: 'ABAN 104', name: 'Registro de pressão — cabo elétrico', isContingency: true }] },
-        { label: 'Contingência — Flexitubo', packages: [{ id: 'ABAN 147', name: 'Flexitubo - Registro de pressão', isContingency: true }] },
-      ],
-    },
-    {
-      question: 'Investigação — fluxo pelo anular?',
-      answers: [
-        { label: 'Não', active: true },
-        { label: 'Arame', packages: [{ id: 'ABAN 100', name: 'Investigação de fluxo pelo anular' }] },
-        { label: 'Flexitubo', packages: [{ id: 'ABAN 151', name: 'Flexitubo - Investigação de fluxo pelo anular' }] },
-        { label: 'Contingência — Arame', packages: [{ id: 'ABAN 100', name: 'Investigação de fluxo pelo anular', isContingency: true }] },
-        { label: 'Contingência — Flexitubo', packages: [{ id: 'ABAN 151', name: 'Flexitubo - Investigação de fluxo pelo anular', isContingency: true }] },
-      ],
-    },
-    {
-      question: 'Investigação — furo na COP?',
-      answers: [
-        { label: 'Não', active: true },
-        { label: 'Arame', packages: [{ id: 'ABAN 099', name: 'Investigação de furo na COP' }] },
-        { label: 'Flexitubo', packages: [{ id: 'ABAN 152', name: 'Flexitubo - Investigação de furo na COP' }] },
-        { label: 'Contingência — Arame', packages: [{ id: 'ABAN 099', name: 'Investigação de furo na COP', isContingency: true }] },
-        { label: 'Contingência — Flexitubo', packages: [{ id: 'ABAN 152', name: 'Flexitubo - Investigação de furo na COP', isContingency: true }] },
-      ],
-    },
-    {
-      question: 'Investigação — caliper?',
-      answers: [
-        { label: 'Não', active: true },
-        { label: 'Sim', packages: [{ id: 'ABAN 111', name: 'Perfilagem caliper' }] },
-        { label: 'Contingência', packages: [{ id: 'ABAN 111', name: 'Perfilagem caliper', isContingency: true }] },
-      ],
-    },
-    {
-      question: 'Investigação — imageamento?',
-      answers: [
-        { label: 'Não', active: true },
-        { label: 'Sim', packages: [{ id: 'ABAN 112', name: 'Perfilagem de imageamento' }] },
-        { label: 'Contingência', packages: [{ id: 'ABAN 112', name: 'Perfilagem de imageamento', isContingency: true }] },
-      ],
-    },
-    {
-      question: 'Investigação — free point?',
-      answers: [
-        { label: 'Não', active: true },
-        { label: 'Sim', packages: [{ id: 'ABAN 251', name: 'Free point (investigação de prisão)' }] },
-        { label: 'Contingência', packages: [{ id: 'ABAN 251', name: 'Free point (investigação de prisão)', isContingency: true }] },
-      ],
-    },
-    // ── Pescaria de cauda (espelha TAIL_FISHING_INJECT, na ordem elemento→método) ──
-    ..._TAIL_FISHING_DECS,
+    // ── Perfis de investigação (espelha INVESTIGATION_INJECT) — gate + um perfil por tipo ──
+    _INVESTIGATION_GROUP,
+    // ── Pescaria de cauda (espelha TAIL_FISHING_INJECT) — gate + perguntas por elemento ──
+    _TAIL_FISHING_GROUP,
     {
       // Espelha STDV_TEST_INJECT: teste de coluna com STDV antes do canhoneio (TT-BDC).
       question: 'Teste de coluna com STDV?',
@@ -940,7 +994,7 @@ const SEC_FLOWLINES: LSec = {
     {
       question: 'Limpar flowlines?',
       answers: [
-        { label: 'Não', active: true, note: '(bloco omitido)' },
+        { label: 'Não', active: true },
         { label: 'Sim', sub: [
           {
             // Espelha FLOWLINE_INJECT (hidrato): 171/172 ANC, 167/168 DP; firme ou
@@ -990,7 +1044,7 @@ const SEC_TMF: LSec = {
     {
       question: 'Instalar plug no TMF — anular?',
       answers: [
-        { label: 'Não', active: true, note: '(bloco omitido)' },
+        { label: 'Não', active: true },
         { label: 'Sim',
           packages: [
             { id: 'ABAN 213', name: 'Desassentamento parcial WO (plug anular TMF)' },
@@ -1157,7 +1211,7 @@ const SEC_TT_CIMENT: LSec = {
       // Espelha o campo hasPDI: Não = há PDI (corte omitido); Sim = sem PDI → corta.
       question: 'Cortar coluna abaixo do TH?',
       answers: [
-        { label: 'Não — há PDI', active: true, note: '(coluna sacável; corte omitido)' },
+        { label: 'Não — há PDI', active: true },
         { label: 'Sim — sem PDI', packages: [
           { id: 'ABAN 113', name: 'Corte de coluna (cortador mecânico)' },
         ]},
@@ -1221,7 +1275,7 @@ const SEC_BDC_BARREIRA: LSec = {
         { label: 'Plug wireline', packages: [
           { id: 'ABAN 040', name: 'Plug em nipple R 2,75"' },
         ]},
-        { label: 'Mantida (STDV instalada)', note: '(base já instalada — etapa omitida)' },
+        { label: 'Mantida (STDV instalada)' },
       ],
     },
   ],
@@ -1268,7 +1322,7 @@ const SEC_BDC: LSec = {
     {
       question: 'Cortar coluna abaixo do TH?',
       answers: [
-        { label: 'Não — há PDI', active: true, note: '(coluna sacável; corte omitido)' },
+        { label: 'Não — há PDI', active: true },
         { label: 'Sim — sem PDI', packages: [
           { id: 'ABAN 113', name: 'Corte de coluna (cortador mecânico)' },
         ]},
@@ -1310,7 +1364,7 @@ const SEC_FS1_CSB1: LSec = {
     {
       question: 'CSB Primário já instalado?',
       answers: [
-        { label: 'Sim', note: '(etapa omitida)' },
+        { label: 'Sim' },
         { label: 'Não', active: true, sub: [{
           question: 'Tipo de CSB Primário?',
           answers: [
@@ -1432,8 +1486,8 @@ const SEC_RCMA_PRINCIPAL: LSec = {
     {
       question: 'Tipo de CSB Principal RCMA?',
       answers: [
-        { label: 'Não Surgência', active: true, note: '(sem pacotes adicionais)' },
-        { label: 'Fluido + CSB', note: '(fluido eCSB — sem perfuração e sem CSB secundário no fluxo FS1)' },
+        { label: 'Não Surgência', active: true },
+        { label: 'Fluido + CSB' },
         { label: 'Tampão de cimento',
           sub: _RCMA_CEMENT_ORDER.map(pkg => ({
             question: `Cimentação RCMA — incluir ${pkg.id}?`,
@@ -1477,7 +1531,7 @@ const SEC_BOP_INSTALA: LSec = {
         { label: 'Coluna flutuada', packages: [
           { id: 'ABAN 229', name: 'Teste de BOP — coluna flutuada (FS2)' },
         ]},
-        { label: 'FETH no TH', note: 'Teste deslocado para após a descida da FETH (ABAN 241 na seção FETH + COP)' },
+        { label: 'FETH no TH' },
       ],
     },
   ],
@@ -1713,9 +1767,18 @@ const SEC_BOP_RETIRA: LSec = {
 
 // ── MONTAGEM DOS ESCOPOS ────────────────────────────────────────────────────
 
+// Bloco E — Acesso inicial e amortecimento (Fase 1A): DHSV/blocos ANM + anular/camisão.
+// Compartilhado por todos os escopos de Fase Única (FSU) e Fase 1 (FS1).
+export const BLK_ACESSO_AMORTEC_ID = 'BLK_ACESSO_AMORTEC'
+const SEC_ACESSO_AMORTEC_REF: LSec = {
+  id: 'acesso_amortec', label: 'ACESSO INICIAL E AMORTECIMENTO', phase: 'Fase 1A', color: 'blue',
+  decisions: [], ref: { scopeId: BLK_ACESSO_AMORTEC_ID, label: 'ACESSO INICIAL E AMORTECIMENTO' },
+}
+
 // MOB por condicionais de sonda incluída via bloco `ref` — editar BLK_MOB_DESCIDA_DP_COND
 // propaga para todos os escopos de Fase Única/FS1.
-const F1_PREFIX: LSec[] = [SEC_MOB_REF, SEC_CONEXAO, SEC_GAB]
+// Acesso inicial e amortecimento via bloco `ref` — editar BLK_ACESSO_AMORTEC propaga para todos.
+const F1_PREFIX: LSec[] = [SEC_MOB_REF, SEC_ACESSO_AMORTEC_REF]
 const F1_SUFFIX: LSec[] = [SEC_FLOWLINES, SEC_TMF]
 
 // ── BLOCOS REUTILIZÁVEIS (BLK_) — subsequências fatoradas via `ref` vivo ─────
@@ -1826,6 +1889,7 @@ export const LOGIC_BY_SCOPE: Record<string, LSec[]> = {
   // dos escopos de Fase Única/FS1. Não é escopo selecionável no gerador (BLK_).
   [BLK_MOB_DESCIDA_DP_COND_ID]: [SEC_MOB_DESCIDA_DP_COND],
   // Blocos fatorados de subsequências repetidas (ver definições acima).
+  [BLK_ACESSO_AMORTEC_ID]: [SEC_CONEXAO, SEC_GAB],
   [BLK_CORTE_MEC_FS1_ID]: [SEC_FS1_CANHONEIO, SEC_FS1_CSB1, SEC_LIMP, SEC_FS1_CORTE_CSB2],
   [BLK_MOB_FS2_ID]: [SEC_MOB_FS2_COND],
   [BLK_BOP_INSTALA_ID]: [SEC_BOP_INSTALA],

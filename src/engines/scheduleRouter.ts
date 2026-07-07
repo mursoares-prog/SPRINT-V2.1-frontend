@@ -17,6 +17,12 @@ export function generateSchedule(inputs: WizardInputs): ScheduleItem[] {
   // `active` do fluxograma, sem o resolver de inputs do wizard (QUESTION_LABEL_RESOLVER).
   const isCustom = !BUNDLE_SCOPES.has(scopeId)
 
+  // Engine 'flowchart' (selecionada na etapa 2): segue rigorosamente o fluxograma do
+  // escopo — perguntas idênticas e na mesma ordem do editor de lógica, respostas via
+  // logicAnswers + defaults `active` (modo strict do logicEngine, sem resolver do wizard).
+  const strictFlow = inputs.engineMode === 'flowchart'
+  const asCustom = isCustom || strictFlow
+
   // 1. Backend-saved logic override (custom scopes edited via admin)
   //    Expande seções `ref` (reuso vivo) antes de avaliar — um escopo só com placeholder
   //    de inclusão tem decisions vazio no topo, mas ganha decisões ao expandir.
@@ -25,12 +31,12 @@ export function generateSchedule(inputs: WizardInputs): ScheduleItem[] {
   const hasDecisions = (secs: LSec[]) => secs.some(s => s.decisions.length > 0 || (s.always?.length ?? 0) > 0)
   if (override?.length) {
     const expanded = expandScopeRefs(override)
-    if (hasDecisions(expanded)) return generateScheduleFromLogic(inputs, expanded, isCustom)
+    if (hasDecisions(expanded)) return generateScheduleFromLogic(inputs, expanded, asCustom, strictFlow)
   }
 
   // 2. Static logic definition (bundle scopes via LOGIC_BY_SCOPE, custom scopes too)
   const staticLogic = LOGIC_BY_SCOPE[scopeId]
-  if (staticLogic) return generateScheduleFromLogic(inputs, staticLogic, isCustom)
+  if (staticLogic) return generateScheduleFromLogic(inputs, staticLogic, asCustom, strictFlow)
 
   // 3. Fallback sequence engine (safety net — should not be reached for any defined scope)
   return generateScheduleBundle(inputs)

@@ -6,6 +6,7 @@ import {
   PiArrowLineUp, PiArrowLineDown, PiArrowFatUp, PiArrowFatDown,
   PiCopySimpleFill, PiArrowUUpLeftFill, PiListNumbersFill,
   PiStarFill, PiFlagPennantFill, PiListDashesFill, PiPlusBold, PiXBold,
+  PiPencilSimpleFill,
 } from 'react-icons/pi'
 import { SiCodeship } from 'react-icons/si'
 import { GiOffshorePlatform } from 'react-icons/gi'
@@ -14,7 +15,7 @@ import { resolveScopeSections, expandScopeRefs, getScopeLabel } from '../data/lo
 import { CONDITION_LABELS } from '../data/logicSecs'
 
 // Original/canonical package name (falls back to the flowchart's own label)
-const pkgName = (p: LPkg): string => getPackage(p.id)?.name ?? p.name
+export const pkgName = (p: LPkg): string => getPackage(p.id)?.name ?? p.name
 // Rótulo humano da condição de emissão de um pacote (fallback: chave crua)
 const condLabel = (c?: string): string | null =>
   c ? ((CONDITION_LABELS as Record<string, string>)[c] ?? c) : null
@@ -30,7 +31,8 @@ const CONDITION_ICONS: Record<string, IconType> = {
 
 // Mapa dos antigos glyphs (emoji/unicode) dos menus para ícones react-icons (Phosphor Fill).
 // A chave é o próprio glyph usado nos MenuItem, evitando alterar todos os call sites.
-const GLYPH_ICONS: Record<string, IconType> = {
+// Exportado para o LogicFlowEditor (editor ReactFlow) usar o MESMO vocabulário visual.
+export const GLYPH_ICONS: Record<string, IconType> = {
   '📦': PiLegoFill,          // adicionar pacote
   '×': PiTrashFill,          // remover
   '➕': PiPlusCircleFill,     // adicionar resposta/decisão
@@ -95,7 +97,7 @@ function toDisplayList(answers: LAns[]): DisplayAns[] {
 
 // Types compatible with AdminView.tsx (structural typing)
 type LPkg = { id: string; name: string; isContingency?: boolean; condition?: string }
-type LSeqEntry = { label: string; note?: string; packages?: LPkg[]; sub?: LDec[]; afterSub?: LDec[] }
+type LSeqEntry = { label: string; note?: string; packages?: LPkg[]; sub?: LDec[]; afterSub?: LDec[]; contingency?: boolean }
 interface LAns { label: string; active?: boolean; note?: string; packages?: LPkg[]; sub?: LDec[]; afterSub?: LDec[]; seq?: LSeqEntry[]; after?: LSeqEntry[]; goto?: string; contingency?: boolean; _dirty?: boolean }
 interface LDec { question: string; answers: LAns[]; packages?: LPkg[]; after?: LSeqEntry[]; afterDec?: LDec[]; reuseScope?: boolean; _dirty?: boolean }
 interface LSec { id: string; label: string; phase: string; color: 'gray'|'blue'|'amber'; always?: LPkg[]; decisions: LDec[]; ref?: { scopeId: string; label?: string } }
@@ -110,7 +112,7 @@ type QNode = QDecision | QLeaf | QChain
 // Endereçamento usado por todas as ações de edição de nó → profundidade ilimitada.
 export type DecRef = { secIdx: number; decIdx: number; adIdx?: number; sub: number[]; aeRef?: { afterIdx: number; isAfterSub: boolean; subIdx: number } }
 
-function resolveRef(secs: LSec[], ref: DecRef): LDec | null {
+export function resolveRef(secs: LSec[], ref: DecRef): LDec | null {
   const sec = secs[ref.secIdx]; if (!sec) return null
   let dec: LDec | null = ref.adIdx !== undefined
     ? (sec.decisions[ref.decIdx]?.afterDec?.[ref.adIdx] ?? null)
@@ -187,6 +189,10 @@ export type EditAction =
   | { type: 'remove_decision';  secIdx: number; decIdx: number }
   | { type: 'add_decision';       secIdx: number; afterDecIdx: number }
   | { type: 'add_blank_decision'; secIdx: number; afterDecIdx: number }
+  // Inserção relativa ao chip SEMPRE: abre o picker e ajusta alwaysAfterIdx atomicamente
+  | { type: 'ins_near_sempre';    secIdx: number; above: boolean }
+  // Reposicionamento do chip SEMPRE dentro da seção
+  | { type: 'p_move_sempre_pos';  secIdx: number; dir: 'up' | 'down' }
   // "Já respondida no escopo" — alterna LDec.reuseScope (pergunta repetida) em cada nível
   | { type: 'toggle_reuse_scope';         secIdx: number; decIdx: number }
   | { type: 'toggle_reuse_scope_sub';     secIdx: number; decIdx: number; ansIdx: number; subIdx: number }
@@ -274,8 +280,8 @@ export type EditAction =
   | { type: 'p_move_pkg';           ref: DecRef; ansIdx: number; pkgIdx: number; dir: 'up' | 'down' }
   | { type: 'p_add_pkg_direct';     ref: DecRef; ansIdx: number; pkgId: string; pkgName: string }
   | { type: 'p_ins_ans';            ref: DecRef; atIdx: number }
-  | { type: 'add_dec_after_chip_sub'; secIdx: number; decIdx: number; afterIdx: number; isAfterSub?: boolean }
-  | { type: 'remove_dec_after_chip_sub'; secIdx: number; decIdx: number; afterIdx: number; isAfterSub: boolean; subIdx: number }
+  | { type: 'add_dec_after_chip_sub'; ref: DecRef; afterIdx: number; isAfterSub?: boolean }
+  | { type: 'remove_dec_after_chip_sub'; ref: DecRef; afterIdx: number; isAfterSub: boolean; subIdx: number }
   // Decision-level packages (dec.packages) — chip PACOTES acima do diamante
   | { type: 'p_add_dec_pkg';         ref: DecRef }
   | { type: 'p_add_dec_pkg_direct';  ref: DecRef; pkgId: string; pkgName: string }
@@ -295,6 +301,15 @@ export type EditAction =
   | { type: 'p_set_ans_field'; ref: DecRef; ansIdx: number; field?: string; value?: unknown }
   // Condição de emissão de um pacote (LCondition) — em dec.packages ou ans.packages
   | { type: 'p_set_pkg_condition'; ref: DecRef; ansIdx?: number; pkgIdx: number; condition?: string }
+  // ── Contingência de CAMPO (LSeqEntry: dec.after / ans.after / ans.seq) ──────
+  | { type: 'p_toggle_dec_after_conting'; ref: DecRef; afterIdx: number }
+  | { type: 'p_toggle_ans_after_conting'; ref: DecRef; ansIdx: number; afterIdx: number }
+  | { type: 'p_toggle_ans_seq_conting';   ref: DecRef; ansIdx: number; seqIdx: number }
+  // ── Colar (clipboard interno do LogicFlowEditor: Ctrl+C/Ctrl+V) ─────────────
+  // O payload é um deep-clone feito na cópia; o editor clona de novo ao colar.
+  | { type: 'p_paste_dec';     ref: DecRef; dec: LDec }                 // cola pergunta como irmã abaixo de ref
+  | { type: 'p_paste_sub_dec'; ref: DecRef; ansIdx: number; dec: LDec } // cola como sub-pergunta da resposta
+  | { type: 'p_paste_ans';     ref: DecRef; ans: LAns }                 // cola resposta ao final da pergunta
 
 export type FlowNodeTarget =
   | { kind: 'sec'; secIdx: number }
@@ -304,9 +319,9 @@ export type FlowNodeTarget =
 
 export interface LogicGraphProps { secs?: LSec[]; tree?: QNode; editCb?: (a: EditAction) => void; pickMode?: boolean; selRef?: DecRef | null }
 
-// Color palettes (SVG hex values)
-type PC = 'gray'|'blue'|'amber'
-type PEntry = {
+// Color palettes (SVG hex values) — exportadas para o LogicFlowEditor (mesmas cores)
+export type PC = 'gray'|'blue'|'amber'
+export type PEntry = {
   hdr: string; hdrT: string; dec: string; decT: string
   ans: string; ansB: string; ansT: string; act: string; actT: string
   alw: string; bg: string; bgB: string; code: string
@@ -314,13 +329,13 @@ type PEntry = {
   lbl: string; lblT: string; empty: string; noteT: string
 }
 
-const PAL: Record<PC, PEntry> = {
+export const PAL: Record<PC, PEntry> = {
   gray:  { hdr:'#334155', hdrT:'#f8fafc', dec:'#475569', decT:'#f1f5f9', ans:'#f1f5f9', ansB:'#94a3b8', ansT:'#1e293b', act:'#1e3a8a', actT:'#f0f9ff', alw:'#e2e8f0', bg:'#f8fafc', bgB:'#cbd5e1', code:'#2563eb', arr:'#64748b', bb:'#cbd5e1', bT:'#1e293b', lbl:'#e2e8f0', lblT:'#1e293b', empty:'#94a3b8', noteT:'#64748b' },
   blue:  { hdr:'#312e81', hdrT:'#eef2ff',  dec:'#4338ca', decT:'#eef2ff',  ans:'#f1f5f9', ansB:'#94a3b8', ansT:'#1e293b', act:'#312e81', actT:'#eef2ff',  alw:'#e0e7ff', bg:'#eef2ff', bgB:'#a5b4fc', code:'#3730a3', arr:'#818cf8', bb:'#a5b4fc', bT:'#1e1b4b', lbl:'#e2e8f0', lblT:'#1e293b', empty:'#94a3b8', noteT:'#64748b' },
   amber: { hdr:'#92400e', hdrT:'#fff',    dec:'#b45309', decT:'#fff',    ans:'#fefce8', ansB:'#fcd34d', ansT:'#451a03', act:'#92400e', actT:'#fef3c7', alw:'#fde68a', bg:'#fffbeb', bgB:'#fcd34d', code:'#b45309', arr:'#d97706', bb:'#fcd34d', bT:'#451a03', lbl:'#fde68a', lblT:'#451a03', empty:'#d97706', noteT:'#b45309' },
 }
 
-const DARK_PAL: Record<PC, PEntry> = {
+export const DARK_PAL: Record<PC, PEntry> = {
   gray:  { hdr:'#1e293b', hdrT:'#e2e8f0', dec:'#334155', decT:'#e2e8f0', ans:'#1e293b', ansB:'#334155', ansT:'#cbd5e1', act:'#2563eb', actT:'#eff6ff', alw:'#0f172a', bg:'#0f172a', bgB:'#334155', code:'#60a5fa', arr:'#475569', bb:'#334155', bT:'#94a3b8', lbl:'#334155', lblT:'#94a3b8', empty:'#475569', noteT:'#64748b' },
   blue:  { hdr:'#1e1b4b', hdrT:'#e0e7ff',  dec:'#312e81', decT:'#e0e7ff',  ans:'#1e293b', ansB:'#334155', ansT:'#cbd5e1', act:'#4338ca', actT:'#eef2ff',  alw:'#0f0e2b', bg:'#0d0c24', bgB:'#312e81', code:'#818cf8', arr:'#4f46e5', bb:'#1e1b4b', bT:'#a5b4fc', lbl:'#334155', lblT:'#94a3b8', empty:'#475569', noteT:'#64748b' },
   amber: { hdr:'#78350f', hdrT:'#fef3c7', dec:'#92400e', decT:'#fef3c7', ans:'#1c1007', ansB:'#92400e', ansT:'#fde68a', act:'#b45309', actT:'#fef3c7', alw:'#1c1007', bg:'#0c0802', bgB:'#78350f', code:'#fbbf24', arr:'#d97706', bb:'#292010', bT:'#fcd34d', lbl:'#422006', lblT:'#fde68a', empty:'#b45309', noteT:'#f59e0b' },
@@ -389,20 +404,35 @@ let _tooltipCb: ((info: { text: string; x: number; y: number } | null) => void) 
 const _decPos = new Map<string, { cx: number; topY: number }>()
 // Índice de navegação (painel "Índice"): seções e perguntas de nível 1 com suas
 // coordenadas Y no SVG — repovoado em cada buildSvg por drawFlowColumn.
+// `ref` endereça a decisão (DecRef) para edição inline do texto da pergunta pelo índice;
+// nas sub-perguntas pode ser null quando o nó não é endereçável (afterDec aninhado).
 export type FlowIndexSection = {
   secIdx: number; label: string; phase: string; y: number
-  questions: { decIdx: number; question: string; y: number; subs: { q: string; depth: number }[] }[]
+  questions: { decIdx: number; question: string; y: number; ref: DecRef; subs: { q: string; depth: number; ref: DecRef | null }[] }[]
 }
 
 // Coleta sub-perguntas recursivamente (até maxDepth) a partir de um LDec.
-// As sub-perguntas não têm Y próprio — no índice navegam até o pai.
-function collectSubQs(dec: LDec, depth = 1, out: { q: string; depth: number }[] = [], max = 3): { q: string; depth: number }[] {
+// As sub-perguntas não têm Y próprio — no índice navegam até o pai. `base` é o DecRef da
+// decisão atual; estendido a cada nível para permitir edição inline (p_set_q) pelo índice.
+function collectSubQs(dec: LDec, base: DecRef | null, depth = 1, out: { q: string; depth: number; ref: DecRef | null }[] = [], max = 3): { q: string; depth: number; ref: DecRef | null }[] {
   if (depth > max) return out
-  for (const ans of dec.answers) {
-    for (const sub of ans.sub ?? []) { out.push({ q: sub.question, depth }); collectSubQs(sub, depth + 1, out, max) }
-    for (const sub of ans.afterSub ?? []) { out.push({ q: sub.question, depth }); collectSubQs(sub, depth + 1, out, max) }
-  }
-  for (const ad of dec.afterDec ?? []) { out.push({ q: ad.question, depth }); collectSubQs(ad, depth + 1, out, max) }
+  dec.answers.forEach((ans, ai) => {
+    (ans.sub ?? []).forEach((sub, si) => {
+      const r = base ? { ...base, sub: [...base.sub, ai, si] } : null
+      out.push({ q: sub.question, depth, ref: r }); collectSubQs(sub, r, depth + 1, out, max)
+    })
+    ;(ans.afterSub ?? []).forEach((sub, si) => {
+      const r = base ? { ...base, sub: [...base.sub, ai, -(si + 1)] } : null
+      out.push({ q: sub.question, depth, ref: r }); collectSubQs(sub, r, depth + 1, out, max)
+    })
+  })
+  ;(dec.afterDec ?? []).forEach((ad, i) => {
+    // afterDec só é endereçável por DecRef na decisão raiz (adIdx); em níveis mais
+    // profundos a entrada permanece navegável, mas sem edição inline.
+    const r = base && base.sub.length === 0 && base.adIdx === undefined && !base.aeRef
+      ? { ...base, adIdx: i } : null
+    out.push({ q: ad.question, depth, ref: r }); collectSubQs(ad, r, depth + 1, out, max)
+  })
   return out
 }
 let _flowIndex: FlowIndexSection[] = []
@@ -419,6 +449,9 @@ const hit = (s: string): boolean => !!_search && !!s && s.toLowerCase().includes
 // Prevents the pan/zoom container's onMouseDown from treating a button-click as a drag start
 function stopMD(e: React.MouseEvent) { e.stopPropagation() }
 function pal(pc: PC): PEntry { return (_dark ? DARK_PAL : PAL)[pc] }
+// Cor do código de pacote contingencial — espelha a paleta do cronograma (etapa 2):
+// #7d1935 (claro) / rose-400 (escuro). Ver ScheduleView (item.isContingency).
+function contingCode(): string { return _dark ? '#fb7185' : '#7d1935' }
 // Hover tooltip helper — spread onto any interactive <g>. Replaces native SVG `title`
 // (which renders inconsistently) with the custom floating tooltip used across the canvas.
 function tipAttrs(text: string) {
@@ -440,7 +473,7 @@ export type MenuPkgList = {
   onCondition?: (idx: number, condition?: string) => void
 }
 // Resolved version passed to ClassicSidePanel (list already computed from current secs)
-type ResolvedPkgList = {
+export type ResolvedPkgList = {
   list: LPkg[]; onAdd: () => void; onMove: (idx: number, dir: 'up' | 'down') => void
   onRemove: (idx: number) => void; onCondition?: (idx: number, condition?: string) => void
 }
@@ -455,21 +488,17 @@ function openMenu(e: React.MouseEvent, title: string, items: MenuItem[], pkgs?: 
 // Menu padrão de PERGUNTA (losango) — o MESMO conjunto de ações em todos os níveis
 // (pergunta de topo, sub-pergunta, sub após pacotes, pós-convergência, dentro de chips).
 // Todas as ações são genéricas por DecRef e resolvidas por identidade no editor.
-function qMenuItems(ref: DecRef): MenuItem[] {
-  const fire = _editCb!
+// `fireCb` permite o LogicFlowEditor reutilizar o mesmo menu com seu próprio callback.
+export function qMenuItems(ref: DecRef, fireCb?: (a: EditAction) => void, opts?: { isFirstInSection?: boolean; noAddAnswer?: boolean }): MenuItem[] {
+  const fire = fireCb ?? _editCb!
   return [
-    { label: 'Adicionar resposta', glyph: '➕', color: '#0ea5e9', onClick: () => fire({ type: 'p_add_ans', ref }) },
-    { label: 'Adicionar pacote à pergunta', glyph: '📦', color: '#f97316', onClick: () => fire({ type: 'p_add_dec_pkg', ref }) },
-    { label: 'Adicionar entrada após convergência', glyph: '⤵', color: '#7c3aed', onClick: () => fire({ type: 'p_dec_add_after', ref }) },
+    ...(!opts?.noAddAnswer ? [{ label: 'Adicionar resposta', glyph: '➕', color: '#0ea5e9', onClick: () => fire({ type: 'p_add_ans', ref }) }] : []),
+    ...(opts?.isFirstInSection ? [{ label: 'Adicionar campo acima', glyph: '📦', color: '#f97316', onClick: () => fire({ type: 'p_add_dec_pkg', ref }) }] : []),
     { label: 'Inserir pergunta acima', glyph: '↑', color: '#22d3ee', onClick: () => fire({ type: 'p_ins_dec', ref, offset: 0 }) },
-    { label: 'Inserir pergunta abaixo', glyph: '↓', color: '#22d3ee', onClick: () => fire({ type: 'p_ins_dec', ref, offset: 1 }) },
     { label: 'Mover pergunta acima', glyph: '⬆', color: '#94a3b8', onClick: () => fire({ type: 'p_move_dec', ref, dir: 'up' }) },
     { label: 'Mover pergunta abaixo', glyph: '⬇', color: '#94a3b8', onClick: () => fire({ type: 'p_move_dec', ref, dir: 'down' }) },
     { label: 'Duplicar pergunta', glyph: '⧉', color: '#14b8a6', onClick: () => fire({ type: 'p_copy_dec', ref }) },
     { label: 'Mover pergunta para cá (abaixo desta)', glyph: '⤿', color: '#a855f7', onClick: () => fire({ type: 'transfer_target_dec', mode: 'move', ref, placement: 'below' }) },
-    { label: 'Copiar pergunta para cá (abaixo desta)', glyph: '⧉', color: '#a855f7', onClick: () => fire({ type: 'transfer_target_dec', mode: 'copy', ref, placement: 'below' }) },
-    { label: 'Substituir pelo conteúdo de outra pergunta (mover)', glyph: '⤿', color: '#f59e0b', onClick: () => fire({ type: 'transfer_target_dec', mode: 'move', ref, placement: 'replace' }) },
-    { label: 'Substituir pelo conteúdo de outra pergunta (copiar)', glyph: '⧉', color: '#f59e0b', onClick: () => fire({ type: 'transfer_target_dec', mode: 'copy', ref, placement: 'replace' }) },
     { label: 'Remover pergunta', glyph: '×', color: '#ef4444', danger: true, onClick: () => fire({ type: 'p_remove_dec', ref }) },
   ]
 }
@@ -779,7 +808,13 @@ function drawPkgRow(
   els: React.ReactNode[]
 ): void {
   const full = pkgName(pkg)
-  const maxChars = Math.floor((w - 16) / 4.8)
+  // Bandeira de contingência fica à ESQUERDA do código. Reservamos um gutter quando ela
+  // pode aparecer: no modo de edição sempre (esmaecida quando não contingencial) e no modo
+  // leitura só para pacotes contingenciais. Sem bandeira, texto encosta na margem normal.
+  const hasFlag = _editCb !== null || pkg.isContingency
+  const GUT = hasFlag ? 15 : 0
+  const textX = leftX + 8 + GUT
+  const maxChars = Math.floor((w - 16 - GUT) / 4.8)
   const canWrap = rowH >= 40
   let nameLine1 = canWrap ? full : tr(full, maxChars)
   let nameLine2: string | undefined
@@ -792,9 +827,12 @@ function drawPkgRow(
   const idY    = topY + (canWrap ? 10 : rowH * 0.38)
   const nameY  = topY + (canWrap ? 23 : rowH * 0.76)
   const name2Y = topY + 36
-  // Flag position: inline after the ID code (monospace ≈5.6px/char, max 50px for ID)
-  const flagX  = leftX + 8 + Math.min(pkg.id.length * 5.6 + 4, 54)
+  // Bandeira no gutter esquerdo (mesma X usada pelo overlay clicável em pushPkgFlagOverlays).
+  const codeW  = Math.min(pkg.id.length * 5.6 + 4, 54)
+  const flagX  = leftX + 5
   const flagY  = idY
+  // Pacote contingencial: código na cor de contingência do cronograma (etapa 2).
+  const codeColor = pkg.isContingency ? contingCode() : p.code
 
   if (isHit) {
     els.push(<rect key={K()} x={leftX + 4} y={topY + 1} width={w - 8} height={rowH - 2} rx={3}
@@ -805,37 +843,38 @@ function drawPkgRow(
       <g key={K()} onMouseDown={stopMD} onClick={(e) => { e.stopPropagation(); onClick(e) }} style={{ cursor: 'pointer' }}
          {...tipAttrs(`${pkg.id}${pkg.condition ? ` · condição: ${condLabel(pkg.condition)}` : ''} — clique para opções`)}>
         <rect x={leftX + 4} y={topY + 1} width={w - 8} height={rowH - 2} rx={3} fill="transparent" />
-        <text x={leftX + 8} y={idY} fontSize={F_S} fontFamily="ui-monospace,monospace" fontWeight={600} fill={p.code}>{pkg.id}</text>
-        <text x={leftX + 8} y={nameY} fontSize={F_S - 0.5} fontFamily="ui-sans-serif,system-ui,sans-serif" fill={p.ansT} opacity={0.85}>{nameLine1}</text>
-        {nameLine2 && <text x={leftX + 8} y={name2Y} fontSize={F_S - 0.5} fontFamily="ui-sans-serif,system-ui,sans-serif" fill={p.ansT} opacity={0.72}>{nameLine2}</text>}
+        <text x={textX} y={idY} fontSize={F_S} fontFamily="ui-monospace,monospace" fontWeight={600} fill={codeColor}>{pkg.id}</text>
+        <text x={textX} y={nameY} fontSize={F_S - 0.5} fontFamily="ui-sans-serif,system-ui,sans-serif" fill={p.ansT} opacity={0.85}>{nameLine1}</text>
+        {nameLine2 && <text x={textX} y={name2Y} fontSize={F_S - 0.5} fontFamily="ui-sans-serif,system-ui,sans-serif" fill={p.ansT} opacity={0.72}>{nameLine2}</text>}
       </g>
     )
   } else {
     els.push(
       <g key={K()}>
-        <text x={leftX + 8} y={idY} fontSize={F_S} fontFamily="ui-monospace,monospace" fontWeight={600} fill={p.code}>{pkg.id}<title>{`${pkg.id} — ${full}`}</title></text>
-        <text x={leftX + 8} y={nameY} fontSize={F_S - 0.5} fontFamily="ui-sans-serif,system-ui,sans-serif" fill={p.ansT} opacity={0.85}>{nameLine1}{!nameLine2 && <title>{full}</title>}</text>
-        {nameLine2 && <text x={leftX + 8} y={name2Y} fontSize={F_S - 0.5} fontFamily="ui-sans-serif,system-ui,sans-serif" fill={p.ansT} opacity={0.72}>{nameLine2}<title>{full}</title></text>}
+        <text x={textX} y={idY} fontSize={F_S} fontFamily="ui-monospace,monospace" fontWeight={600} fill={codeColor}>{pkg.id}<title>{`${pkg.id} — ${full}`}</title></text>
+        <text x={textX} y={nameY} fontSize={F_S - 0.5} fontFamily="ui-sans-serif,system-ui,sans-serif" fill={p.ansT} opacity={0.85}>{nameLine1}{!nameLine2 && <title>{full}</title>}</text>
+        {nameLine2 && <text x={textX} y={name2Y} fontSize={F_S - 0.5} fontFamily="ui-sans-serif,system-ui,sans-serif" fill={p.ansT} opacity={0.72}>{nameLine2}<title>{full}</title></text>}
       </g>
     )
   }
-  // Flag: shown next to ID. Clickable overlay is rendered separately (after zone rect) for correct z-order.
-  // Here we only render the visual indicator for read-only mode when pkg.isContingency is already set.
+  // Bandeira à ESQUERDA do código (gutter). Overlay clicável é renderizado à parte (após o
+  // zone rect) para o z-order; aqui só o indicador visual do modo leitura (contingencial).
   if (!onFlagToggle && pkg.isContingency) {
     els.push(
       <PiFlagPennantFill key={K()} x={flagX} y={flagY - 10} size={11} color="#f97316" style={{ pointerEvents: 'none' }} />
     )
   }
-  // Condição de emissão (pkg.condition): ícone react-icons (sonda/operação) no canto
-  // direito da linha do pacote, na mesma cor azul do código do pacote (p.code).
+  // Condição de emissão (pkg.condition): ícone react-icons (sonda/operação) logo ao lado
+  // direito do código do pacote (a bandeira agora fica à esquerda). Segue a cor do código.
   if (pkg.condition) {
     const CondIcon = CONDITION_ICONS[pkg.condition]
     const ic = 12
+    const condX = textX + codeW + 3
     els.push(CondIcon
-      ? <CondIcon key={K()} x={leftX + w - 8 - ic} y={idY - ic + 2} size={ic} color={p.code}
+      ? <CondIcon key={K()} x={condX} y={idY - ic + 2} size={ic} color={codeColor}
           title={`Condicional: ${condLabel(pkg.condition)}`} style={{ pointerEvents: 'none' }} />
-      : <text key={K()} x={leftX + w - 8} y={idY} fontSize={9} fontWeight={700} textAnchor="end"
-          fill={p.code} style={{ pointerEvents: 'none' }}>
+      : <text key={K()} x={condX} y={idY} fontSize={9} fontWeight={700}
+          fill={codeColor} style={{ pointerEvents: 'none' }}>
           ◈<title>{`Condicional: ${condLabel(pkg.condition)}`}</title>
         </text>
     )
@@ -851,7 +890,7 @@ function pushPkgFlagOverlays(
 ) {
   pkgs.forEach((pkg, i) => {
     const capI = i
-    const flagX = leftX + 8 + Math.min(pkg.id.length * 5.6 + 4, 54)
+    const flagX = leftX + 5  // gutter à esquerda do código (casa com drawPkgRow)
     const flagY = bY + i * PKG + 10  // idY: PKG=44≥40 so canWrap=true
     els.push(
       <g key={K()} onMouseDown={stopMD}
@@ -989,56 +1028,60 @@ function renderAnswer(
   const cont = !!a.contingency
   const contLabel = label2 ?? (cont ? 'Contingência' : undefined)
   const lblTextX = canEdit ? x + 34 : x + 8
+  // Bandeira acionada (a.contingency): rótulo do cabeçalho na cor de contingência do
+  // cronograma (etapa 2), casando com o código dos pacotes contingenciais.
+  const headColor = cont ? contingCode() : p.lblT
   if (contLabel) {
     els.push(
       <text key={K()} x={lblTextX} y={y + LBLH * 0.68} fontSize={F_M} fontFamily="ui-sans-serif,system-ui,sans-serif">
-        <tspan fontWeight={700} fill={p.lblT}>{tr(a.label, canEdit ? 18 : 24)} / </tspan>
-        <tspan fontWeight={600} fill="#d97706" fontSize={F_M - 0.5}>{contLabel}</tspan>
+        <tspan fontWeight={700} fill={headColor}>{tr(a.label, canEdit ? 18 : 24)} / </tspan>
+        <tspan fontWeight={600} fill={cont ? contingCode() : '#d97706'} fontSize={F_M - 0.5}>{contLabel}</tspan>
       </text>
     )
   } else {
     els.push(
       <text key={K()} x={lblTextX} y={y + LBLH * 0.68} fontSize={F_M} fontWeight={700}
-        fill={p.lblT} fontFamily="ui-sans-serif,system-ui,sans-serif">
+        fill={headColor} fontFamily="ui-sans-serif,system-ui,sans-serif">
         {tr(a.label, canEdit ? 28 : 44)}
       </text>
     )
   }
   if (canEdit) {
-    // ✦ toggle-default button (left of label)
+    // ⚑ toggle-contingency button — LEFTMOST no cabeçalho do chip (como no gutter dos pacotes).
+    // Marca/desmarca como contingência TODOS os pacotes do chip, em todos os níveis.
+    // O ícone tem pointerEvents:none (svgIco); o alvo de clique é o <rect> transparente.
+    els.push(
+      <g key={K()} onMouseDown={stopMD} onClick={(e) => {
+        e.stopPropagation()
+        fire({ type: 'p_toggle_contingency', ref, ansIdx: ai })
+      }} style={{ cursor: 'pointer' }} {...tip('Marcar todos os pacotes deste chip (todos os níveis) como contingência')}>
+        <rect x={x + 3} y={y + 3} width={13} height={LBLH - 6} rx={2} fill="transparent" />
+        {svgIco(PiFlagPennantFill, x + 10, y + LBLH * 0.74, 13, cont ? '#d97706' : p.lblT, cont ? 1 : 0.35)}
+      </g>
+    )
+    // ✦ toggle-default button (à direita da bandeira).
     els.push(
       <g key={K()} onMouseDown={stopMD} onClick={(e) => {
         e.stopPropagation()
         fire({ type: 'p_toggle_default', ref, ansIdx: ai })
       }} style={{ cursor: 'pointer' }} {...tip('Marcar como padrão')}>
-        {svgIco(PiStarFill, x + 10, y + LBLH * 0.72, 13, act ? '#facc15' : p.lblT, act ? 1 : 0.35)}
-      </g>
-    )
-    // ⚑ toggle-contingency button (right of ✦) — marca a resposta como variante de contingência
-    els.push(
-      <g key={K()} onMouseDown={stopMD} onClick={(e) => {
-        e.stopPropagation()
-        fire({ type: 'p_toggle_contingency', ref, ansIdx: ai })
-      }} style={{ cursor: 'pointer' }} {...tip('Duplicar à direita como variante de contingência')}>
-        {svgIco(PiFlagPennantFill, x + 23, y + LBLH * 0.74, 13, cont ? '#d97706' : p.lblT, cont ? 1 : 0.35)}
+        <rect x={x + 17} y={y + 3} width={13} height={LBLH - 6} rx={2} fill="transparent" />
+        {svgIco(PiStarFill, x + 23, y + LBLH * 0.72, 13, act ? '#facc15' : p.lblT, act ? 1 : 0.35)}
       </g>
     )
     // Label bar click → opens sidebar with all answer actions
     const ansMenuItems: MenuItem[] = [
       { label: 'Adicionar pacote', glyph: '📦', color: '#0ea5e9', onClick: () => fire({ type: 'p_add_pkg', ref, ansIdx: ai }) },
-      { label: 'Inserir sub-pergunta acima', glyph: '↑', color: '#22d3ee', onClick: () => fire({ type: 'p_insert_sub_dec', ref, ansIdx: ai, subIdx: 0 }) },
       { label: 'Inserir sub-pergunta abaixo', glyph: '↓', color: '#22d3ee', onClick: () => fire({ type: 'p_add_aftersub_dec', ref, ansIdx: ai }) },
-      { label: 'Adicionar resposta sequencial', glyph: '⤵', color: '#7c3aed', onClick: () => fire({ type: 'p_add_seq', ref, ansIdx: ai, atIdx: 0 }) },
-      { label: 'Adicionar entrada após convergência', glyph: '⤵', color: '#6366f1', onClick: () => fire({ type: 'p_dec_add_after', ref }) },
-      { label: 'Mover resposta acima', glyph: '⬆', color: '#94a3b8', onClick: () => fire({ type: 'p_move_ans', ref, ansIdx: ai, dir: 'up' }) },
-      { label: 'Mover resposta abaixo', glyph: '⬇', color: '#94a3b8', onClick: () => fire({ type: 'p_move_ans', ref, ansIdx: ai, dir: 'down' }) },
+      { label: 'Adicionar campo após convergência', glyph: '⤵', color: '#7c3aed', onClick: () => fire({ type: 'p_dec_add_after', ref, atIdx: 0 }) },
+      { label: 'Mover resposta para a esquerda', glyph: '⬆', color: '#94a3b8', onClick: () => fire({ type: 'p_move_ans', ref, ansIdx: ai, dir: 'up' }) },
+      { label: 'Mover resposta para a direita', glyph: '⬇', color: '#94a3b8', onClick: () => fire({ type: 'p_move_ans', ref, ansIdx: ai, dir: 'down' }) },
       { label: 'Mover pergunta para cá (como sub-pergunta)', glyph: '⤿', color: '#a855f7', onClick: () => fire({ type: 'transfer_target', mode: 'move', ref, ansIdx: ai }) },
-      { label: 'Copiar pergunta para cá (como sub-pergunta)', glyph: '⧉', color: '#14b8a6', onClick: () => fire({ type: 'transfer_target', mode: 'copy', ref, ansIdx: ai }) },
       { label: 'Remover resposta', glyph: '×', color: '#ef4444', danger: true, onClick: () => fire({ type: 'p_remove_ans', ref, ansIdx: ai }) },
     ]
     const capAnsHlKey = `a:${ref.secIdx}:${ref.decIdx}:${ref.sub.join(',')}:${ai}`
     els.push(
-      <g key={K()} onMouseDown={stopMD} onClick={(e) => { e.stopPropagation(); openMenu(e, a.label, ansMenuItems, undefined, capAnsHlKey, (v) => fire({ type: 'p_set_ans', ref, ansIdx: ai, value: v })) }}
+      <g key={K()} onMouseDown={stopMD} onClick={(e) => { e.stopPropagation(); openMenu(e, undefined, ansMenuItems, undefined, capAnsHlKey) }}
          style={{ cursor: 'pointer' }} {...tip('Ações da resposta')}>
         <rect x={x + 32} y={y + 1} width={w - 44} height={LBLH - 2} rx={2} fill="transparent" />
       </g>
@@ -2299,7 +2342,8 @@ function drawFlowColumn(secs: LSec[], colCX: number, topY: number, els: React.Re
       }
 
       const dY = iY + decPkgChipH
-      _flowIndex[_flowIndex.length - 1]?.questions.push({ decIdx: di, question: dec.question, y: dY, subs: collectSubQs(dec) })
+      const idxRef: DecRef = { secIdx: si, decIdx: di, sub: [] }
+      _flowIndex[_flowIndex.length - 1]?.questions.push({ decIdx: di, question: dec.question, y: dY, ref: idxRef, subs: collectSubQs(dec, idxRef) })
 
       if (prevBotY < (decPkgChipH > 0 ? iY : dY) - 4) {
         els.push(
@@ -2321,7 +2365,7 @@ function drawFlowColumn(secs: LSec[], colCX: number, topY: number, els: React.Re
           <g key={K()} onMouseDown={stopMD} onClick={(e) => {
             e.stopPropagation()
             if (_pickMode) { _editCb!({ type: 'pick_source', ref, question: capQ }); return }
-            openMenu(e, capQ, qMenuItems(ref), undefined, decHlKey, (v) => _editCb!({ type: 'p_set_q', ref, value: v }))
+            openMenu(e, capQ, qMenuItems(ref, undefined, { isFirstInSection: di === 0 }), undefined, decHlKey, (v) => _editCb!({ type: 'p_set_q', ref, value: v }))
           }} style={{ cursor: _pickMode ? 'copy' : 'pointer' }} {...tipAttrs(_pickMode ? 'Selecionar como origem' : 'Ações da pergunta')}>
             <polygon points={`${CX},${dY} ${CX+DDW/2-14},${dY+DH/2} ${CX},${dY+DH} ${CX-DDW/2+14},${dY+DH/2}`}
               fill="transparent" />
@@ -2423,8 +2467,8 @@ function drawFlowColumn(secs: LSec[], colCX: number, topY: number, els: React.Re
           const capSi = si, capDi = di, capAfi = afi, capAeLabel = ae.label
           const aeMenuItems: MenuItem[] = [
             { label: 'Adicionar pacote', glyph: '📦', color: '#0ea5e9', onClick: () => _editCb!({ type: 'add_dec_after_pkg', secIdx: capSi, decIdx: capDi, afterIdx: capAfi }) },
-            { label: 'Inserir sub-pergunta acima', glyph: '◇', color: '#7c3aed', onClick: () => _editCb!({ type: 'add_dec_after_chip_sub', secIdx: capSi, decIdx: capDi, afterIdx: capAfi }) },
-            { label: 'Inserir sub-pergunta abaixo', glyph: '◇', color: '#7c3aed', onClick: () => _editCb!({ type: 'add_dec_after_chip_sub', secIdx: capSi, decIdx: capDi, afterIdx: capAfi, isAfterSub: true }) },
+            { label: 'Inserir sub-pergunta acima', glyph: '◇', color: '#7c3aed', onClick: () => _editCb!({ type: 'add_dec_after_chip_sub', ref: { secIdx: capSi, decIdx: capDi, sub: [] }, afterIdx: capAfi }) },
+            { label: 'Inserir sub-pergunta abaixo', glyph: '◇', color: '#7c3aed', onClick: () => _editCb!({ type: 'add_dec_after_chip_sub', ref: { secIdx: capSi, decIdx: capDi, sub: [] }, afterIdx: capAfi, isAfterSub: true }) },
             { label: 'Inserir bloco antes', glyph: '↑', color: '#22d3ee', onClick: () => _editCb!({ type: 'add_dec_after', secIdx: capSi, decIdx: capDi, atIdx: capAfi }) },
             { label: 'Inserir bloco depois', glyph: '↓', color: '#22d3ee', onClick: () => _editCb!({ type: 'add_dec_after', secIdx: capSi, decIdx: capDi, atIdx: capAfi + 1 }) },
             { label: 'Inserir pergunta acima', glyph: '◇', color: '#7c3aed', onClick: () => _editCb!({ type: 'add_dec_after_dec', secIdx: capSi, decIdx: capDi }) },
@@ -2638,7 +2682,7 @@ function buildTreeSvg(tree: QNode, dark: boolean, search = ''): { el: React.Reac
 }
 
 // Detect dark mode via Tailwind's class on <html>
-function useDark() {
+export function useDark() {
   const [dark, setDark] = useState(() => document.documentElement.classList.contains('dark'))
   useEffect(() => {
     const obs = new MutationObserver(() =>
@@ -2669,8 +2713,9 @@ function vr(s: VS, a: VA): VS {
   return { tx: 20, ty: 20, scale: 0.6 }
 }
 
-// Pan/zoom graph component
-function ClassicSidePanel({ title, items, pkgs, onClose, dark, pos, onTitleChange }: {
+// Painel lateral de ações ("menu de indicadores"). Exportado para o LogicFlowEditor
+// abrir exatamente o mesmo painel a partir dos nós ReactFlow.
+export function ClassicSidePanel({ title, items, pkgs, onClose, dark, pos, onTitleChange }: {
   title?: string; items: MenuItem[]; pkgs?: ResolvedPkgList; onClose: () => void; dark: boolean; pos?: { x: number; y: number }; onTitleChange?: (v: string) => void
 }) {
   const PANEL_W = 320
@@ -2781,6 +2826,71 @@ function ClassicSidePanel({ title, items, pkgs, onClose, dark, pos, onTitleChang
           </>
         )}
       </div>
+    </div>
+  )
+}
+
+// Linha de pergunta do painel "Índice" — navega até o nó no fluxograma e, em modo de
+// edição (editCb + ref endereçável), permite editar o texto da pergunta inline (p_set_q).
+function IndexQuestionRow({ text, prefix = '', title, btnCls, style, dark, onNav, onCommit }: {
+  text: string
+  prefix?: string
+  title: string
+  btnCls: string
+  style?: React.CSSProperties
+  dark: boolean
+  onNav: () => void
+  onCommit?: (value: string) => void
+}) {
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState(text)
+
+  const commit = () => {
+    setEditing(false)
+    const v = draft.trim()
+    if (v && v !== text) onCommit?.(v)
+  }
+
+  if (editing) {
+    return (
+      <div className="flex items-center pr-2" style={style}>
+        <input
+          autoFocus
+          value={draft}
+          onChange={e => setDraft(e.target.value)}
+          onKeyDown={e => {
+            if (e.key === 'Enter') commit()
+            if (e.key === 'Escape') setEditing(false)
+            e.stopPropagation()
+          }}
+          onBlur={commit}
+          onMouseDown={e => e.stopPropagation()}
+          className={`w-full my-0.5 px-1.5 py-0.5 rounded text-[11px] leading-snug outline-none border ${
+            dark
+              ? 'bg-slate-800 border-amber-600 text-slate-100 focus:ring-1 focus:ring-amber-500'
+              : 'bg-white border-amber-500 text-slate-800 focus:ring-1 focus:ring-amber-400'
+          }`}
+        />
+      </div>
+    )
+  }
+
+  return (
+    <div className="group/idxrow flex items-center min-w-0">
+      <button onClick={onNav} className={`${btnCls} flex-1 min-w-0 truncate`} style={style} title={title}>
+        {prefix}{text || '(sem texto)'}
+      </button>
+      {onCommit && (
+        <button
+          onClick={() => { setDraft(text); setEditing(true) }}
+          onMouseDown={e => e.stopPropagation()}
+          className={`shrink-0 mr-1.5 p-0.5 rounded opacity-0 group-hover/idxrow:opacity-100 transition-opacity ${
+            dark ? 'text-slate-500 hover:text-amber-400 hover:bg-slate-800' : 'text-slate-400 hover:text-amber-600 hover:bg-slate-100'
+          }`}
+          title="Editar texto da pergunta">
+          <PiPencilSimpleFill size={11} />
+        </button>
+      )}
     </div>
   )
 }
@@ -2962,26 +3072,31 @@ export function LogicGraphPanel({ secs, tree, editCb, pickMode, selRef }: LogicG
               </button>
               {secEntry.questions.map(q => (
                 <div key={q.decIdx}>
-                  <button
-                    onClick={() => goTo(q.y, `q:${secEntry.secIdx}:${q.decIdx}`)}
-                    className={`w-full text-left pl-6 pr-3 py-1 text-[11px] leading-snug truncate transition-colors ${
+                  <IndexQuestionRow
+                    text={q.question}
+                    title={q.question}
+                    dark={dark}
+                    onNav={() => goTo(q.y, `q:${secEntry.secIdx}:${q.decIdx}`)}
+                    onCommit={editCb ? (v => editCb({ type: 'p_set_q', ref: q.ref, value: v })) : undefined}
+                    btnCls={`text-left pl-6 pr-1 py-1 text-[11px] leading-snug transition-colors ${
                       dark ? 'text-slate-400 hover:text-amber-300 hover:bg-slate-800/60' : 'text-slate-500 hover:text-amber-700 hover:bg-slate-50'
                     }`}
-                    title={q.question}>
-                    {q.question || '(sem texto)'}
-                  </button>
+                  />
                   {q.subs.map((sub, si) => (
-                    <button key={si}
-                      onClick={() => goTo(q.y, `q:${secEntry.secIdx}:${q.decIdx}`)}
+                    <IndexQuestionRow key={si}
+                      text={sub.q}
+                      prefix="└ "
+                      title={sub.q}
+                      dark={dark}
+                      onNav={() => goTo(q.y, `q:${secEntry.secIdx}:${q.decIdx}`)}
+                      onCommit={editCb && sub.ref ? (v => editCb({ type: 'p_set_q', ref: sub.ref!, value: v })) : undefined}
                       style={{ paddingLeft: `${1.5 + sub.depth * 0.65}rem` }}
-                      className={`w-full text-left pr-3 py-0.5 text-[10px] leading-snug truncate transition-colors ${
+                      btnCls={`text-left pr-1 py-0.5 text-[10px] leading-snug transition-colors ${
                         sub.depth === 1
                           ? dark ? 'text-slate-500 hover:text-amber-400 hover:bg-slate-800/50' : 'text-slate-400 hover:text-amber-700 hover:bg-slate-50'
                           : dark ? 'text-slate-600 hover:text-amber-500 hover:bg-slate-800/40' : 'text-slate-400/70 hover:text-amber-700 hover:bg-slate-50'
                       }`}
-                      title={sub.q}>
-                      {'└ '}{sub.q || '(sem texto)'}
-                    </button>
+                    />
                   ))}
                 </div>
               ))}
