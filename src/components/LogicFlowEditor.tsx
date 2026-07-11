@@ -16,7 +16,7 @@
  * Extras do modo fluxo: arrastar nós (posições persistidas em _pos via set_node_pos),
  * minimapa, re-layout automático (clear_node_pos), Ctrl+C/Ctrl+V (p_paste_*), Delete.
  */
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import {
   ReactFlow, Controls, MiniMap, Panel,
   Handle, Position, MarkerType, applyNodeChanges, BaseEdge,
@@ -32,6 +32,18 @@ import {
   ClassicSidePanel, ConditionIcon, qMenuItems, resolveRef, useDark, pkgName,
   type EditAction, type DecRef, type FlowNodeTarget, type MenuItem, type ResolvedPkgList,
 } from './LogicGraphPanel'
+
+// ─── Context para editor inline de chip (clique esquerdo) ────────────────────
+type ChipEditorCtxValue = {
+  nodeId: string
+  title?: string
+  onTitleChange?: (v: string) => void
+  items: MenuItem[]
+  pkgs?: ResolvedPkgList
+  pkgsRefresh?: () => LPkg[]
+  onClose: () => void
+} | null
+const ChipEditorCtx = createContext<ChipEditorCtxValue>(null)
 
 // ─── Constantes de layout (mesmas proporções do clássico) ────────────────────
 const AW = 290          // largura do card de resposta e dos chips
@@ -246,26 +258,113 @@ function FrameNode({ data }: NodeProps) {
   )
 }
 
+// ─── Editor inline de pacotes — substitui o conteúdo do chip/card em modo edição ─
+// Usa a paleta do próprio nó para se integrar visualmente (não é um painel externo).
+function InlinePkgEditor({ editor, p, dark, contingency }: {
+  editor: NonNullable<ChipEditorCtxValue>; p: PEntry; dark: boolean; contingency?: boolean
+}) {
+  const pkgList = editor.pkgsRefresh ? editor.pkgsRefresh() : (editor.pkgs?.list ?? [])
+  return (
+    <div
+      className="rounded overflow-hidden"
+      style={{ background: p.ans, border: `1.5px solid #3b82f6` }}
+      onMouseDown={e => e.stopPropagation()}
+      onClick={e => e.stopPropagation()}
+      onContextMenu={e => e.preventDefault()}
+    >
+      {/* Barra de rótulo editável (só quando o chip tem título) */}
+      <div className="flex items-center gap-1 px-1.5" style={{ height: LBLH, background: p.lbl }}>
+        {editor.onTitleChange ? (
+          <input
+            className="nodrag flex-1 text-[10.5px] font-semibold bg-transparent outline-none min-w-0"
+            style={{ color: p.lblT }}
+            defaultValue={editor.title ?? ''}
+            placeholder="Rótulo…"
+            autoFocus
+            onBlur={e => editor.onTitleChange!(e.target.value)}
+            onKeyDown={e => {
+              if (e.key === 'Enter') { editor.onTitleChange!(e.currentTarget.value); editor.onClose() }
+              if (e.key === 'Escape') editor.onClose()
+            }}
+          />
+        ) : (
+          <span className="flex-1 text-[10px] font-bold truncate" style={{ color: p.lblT, opacity: 0.85 }}>
+            {editor.title ?? 'Pacotes'}
+          </span>
+        )}
+        <button className="nodrag shrink-0" title="Fechar editor"
+          onClick={e => { e.stopPropagation(); editor.onClose() }}>
+          <PiXBold size={11} color={p.lblT} style={{ opacity: 0.7 }} />
+        </button>
+      </div>
+
+      {/* Linhas de pacote com controles ↑↓× inline */}
+      <div style={{ paddingTop: BPAD, paddingBottom: BPAD }}>
+        {pkgList.map((pkg, i) => (
+          <div key={i} className="flex items-center gap-0.5 px-1" style={{ height: PKG }}>
+            <div className="flex-1 min-w-0 leading-tight">
+              <div className="flex items-center gap-1">
+                <span className="font-mono font-semibold" style={{ fontSize: 9, color: pkg.isContingency ? contingCode(dark) : p.code }}>{pkg.id}</span>
+                {pkg.condition && <ConditionIcon condition={pkg.condition} size={10} className="shrink-0" />}
+              </div>
+              <div className="truncate" style={{ fontSize: 8.5, color: p.ansT, opacity: 0.8 }} title={pkgName(pkg)}>{pkgName(pkg)}</div>
+            </div>
+            <button className="nodrag shrink-0 w-5 h-5 flex items-center justify-center rounded hover:bg-black/10"
+              title="Mover acima" onClick={e => { e.stopPropagation(); editor.pkgs!.onMove(i, 'up') }}>
+              <span style={{ fontSize: 10, color: p.lblT, opacity: 0.7 }}>↑</span>
+            </button>
+            <button className="nodrag shrink-0 w-5 h-5 flex items-center justify-center rounded hover:bg-black/10"
+              title="Mover abaixo" onClick={e => { e.stopPropagation(); editor.pkgs!.onMove(i, 'down') }}>
+              <span style={{ fontSize: 10, color: p.lblT, opacity: 0.7 }}>↓</span>
+            </button>
+            <button className="nodrag shrink-0 w-5 h-5 flex items-center justify-center rounded hover:bg-red-500/20"
+              title="Remover" onClick={e => { e.stopPropagation(); editor.pkgs!.onRemove(i) }}>
+              <span style={{ fontSize: 11, color: '#ef4444' }}>×</span>
+            </button>
+          </div>
+        ))}
+        {pkgList.length === 0 && (
+          <div className="px-2 italic" style={{ fontSize: 9.5, color: p.empty, height: NOTE }}>— vazio —</div>
+        )}
+      </div>
+
+      {/* Botão adicionar pacote */}
+      {editor.pkgs && (
+        <button
+          className="nodrag w-full flex items-center gap-1.5 px-2 border-t"
+          style={{ height: NOTE + 6, borderColor: p.ansB, color: '#3b82f6', fontSize: 9.5, background: 'transparent' }}
+          onClick={e => { e.stopPropagation(); editor.pkgs!.onAdd() }}>
+          <span style={{ fontSize: 13, lineHeight: 1 }}>+</span>
+          <span>Adicionar pacote</span>
+        </button>
+      )}
+    </div>
+  )
+}
+
 // ─── Nó CAMPO autônomo (SEMPRE da seção; campos "após convergência" da decisão) ─
 // Um campo pode conter pacotes e/ou perguntas; as perguntas do campo são renderizadas
 // como nós ligados logo abaixo dele (endereçadas via aeRef no modelo).
-function ChipNode({ data, selected }: NodeProps) {
+function ChipNode({ data, id, selected }: NodeProps) {
   const d = data as unknown as ChipData
   const p = pal(d.dark, d.pc)
+  const editor = useContext(ChipEditorCtx)
+  const isActive = !!editor && editor.nodeId === id
+
   return (
     <div style={{ width: AW }} className="rounded relative select-none">
       <Handle type="target" position={Position.Top} id="top" isConnectable={false} style={{ ...hiddenHandle, left: '50%' }} />
-      <div style={{ outline: selected ? '2px solid #fbbf24' : d.hit ? '2px solid #d97706' : 'none', outlineOffset: 2, borderRadius: 4 }}>
-        <ChipBody
-          pkgs={d.pkgs}
-          p={p}
-          dark={d.dark}
-          canEdit={d.canEdit}
-          clickable={d.clickable}
-          contingency={d.contingency}
-          onFlagPkg={d.canEdit ? d.onFlagPkg : undefined}
-        />
-      </div>
+      {isActive ? (
+        <InlinePkgEditor editor={editor} p={p} dark={d.dark} contingency={d.contingency} />
+      ) : (
+        <div style={{ outline: selected ? '2px solid #fbbf24' : d.hit ? '2px solid #d97706' : 'none', outlineOffset: 2, borderRadius: 4 }}>
+          <ChipBody
+            pkgs={d.pkgs} p={p} dark={d.dark} canEdit={d.canEdit}
+            clickable={d.clickable} contingency={d.contingency}
+            onFlagPkg={d.canEdit ? d.onFlagPkg : undefined}
+          />
+        </div>
+      )}
       <Handle type="source" position={Position.Bottom} id="bottom" isConnectable={false} style={{ ...hiddenHandle, left: '50%' }} />
     </div>
   )
@@ -322,7 +421,7 @@ function QuestionNode({ data, selected }: NodeProps) {
 }
 
 // ─── Nó de RESPOSTA (card com barra de rótulo, nota, pacotes, chips) ─────────
-function AnswerNode({ data, selected }: NodeProps) {
+function AnswerNode({ data, id, selected }: NodeProps) {
   const d = data as unknown as AData
   const a = d.ans
   const p = pal(d.dark, d.pc)
@@ -331,17 +430,23 @@ function AnswerNode({ data, selected }: NodeProps) {
   const dirty = !!a._dirty
   const barBg = dirty ? '#1e3a8a' : act ? p.act : p.lbl
   const barTx = dirty ? '#dbeafe' : act ? p.actT : p.lblT
+  const editor = useContext(ChipEditorCtx)
+  const isActive = !!editor && editor.nodeId === id
+  const pkgList = isActive && editor?.pkgsRefresh ? editor.pkgsRefresh() : pkgs
+
   return (
     <div className="select-none rounded"
       style={{
         width: AW,
         background: dirty ? '#0c2340' : p.ans,
-        border: `1.2px solid ${selected ? '#fbbf24' : dirty ? '#3b82f6' : d.hit ? '#d97706' : p.ansB}`,
+        border: `1.2px solid ${isActive ? '#3b82f6' : selected ? '#fbbf24' : dirty ? '#3b82f6' : d.hit ? '#d97706' : p.ansB}`,
         boxShadow: selected ? '0 0 0 3px rgba(251,191,36,0.15)' : '0 1px 5px rgba(0,0,0,0.25)',
       }}>
       <Handle type="target" position={Position.Top} id="top" isConnectable={false} style={{ ...hiddenHandle, left: '50%' }} />
+
+      {/* Barra de rótulo — em modo edição o texto vira input */}
       <div className="flex items-center gap-1 px-1.5 rounded-t" style={{ height: LBLH, background: barBg, color: barTx }}>
-        {d.canEdit ? (
+        {d.canEdit && !isActive ? (
           <>
             <button className="nodrag shrink-0" title={a.contingency ? 'Resposta contingencial (clique para desmarcar)' : 'Marcar como contingência'}
               onClick={(e) => { e.stopPropagation(); d.onFlag?.() }}>
@@ -358,20 +463,88 @@ function AnswerNode({ data, selected }: NodeProps) {
             {act && <PiStarFill size={12} color="#facc15" className="shrink-0" />}
           </>
         )}
-        <span className="flex-1 truncate font-semibold" style={{ fontSize: 10.5 }} title={a.label}>
-          {a.label}{d.label2 ? ` / ${d.label2}` : ''}
-        </span>
-        {a.goto && <span className="shrink-0" style={{ fontSize: 9, opacity: 0.75 }} title={`Vai para: ${a.goto}`}>↪</span>}
+        {isActive && editor?.onTitleChange ? (
+          <input
+            className="nodrag flex-1 text-[10.5px] font-semibold bg-transparent outline-none min-w-0"
+            style={{ color: barTx }}
+            defaultValue={editor.title ?? a.label}
+            placeholder="Rótulo da resposta…"
+            autoFocus
+            onBlur={e => editor.onTitleChange!(e.target.value)}
+            onKeyDown={e => {
+              if (e.key === 'Enter') { editor.onTitleChange!(e.currentTarget.value); editor.onClose() }
+              if (e.key === 'Escape') editor.onClose()
+            }}
+          />
+        ) : (
+          <span className="flex-1 truncate font-semibold" style={{ fontSize: 10.5 }} title={a.label}>
+            {a.label}{d.label2 ? ` / ${d.label2}` : ''}
+          </span>
+        )}
+        {a.goto && !isActive && <span className="shrink-0" style={{ fontSize: 9, opacity: 0.75 }} title={`Vai para: ${a.goto}`}>↪</span>}
+        {isActive && editor && (
+          <button className="nodrag shrink-0" title="Fechar editor"
+            onClick={e => { e.stopPropagation(); editor.onClose() }}>
+            <PiXBold size={11} color={barTx} style={{ opacity: 0.7 }} />
+          </button>
+        )}
       </div>
-      <div style={{ paddingTop: BPAD, paddingBottom: BPAD }}>
+
+      {/* Corpo: nota + pacotes (com controles inline em modo edição) */}
+      <div style={{ paddingTop: BPAD, paddingBottom: BPAD }}
+        onMouseDown={isActive ? e => e.stopPropagation() : undefined}
+        onClick={isActive ? e => e.stopPropagation() : undefined}
+        onContextMenu={isActive ? e => e.preventDefault() : undefined}>
         {a.note && (
           <div className="px-2 italic truncate" style={{ fontSize: 9.5, color: p.noteT, height: NOTE + 2 }} title={a.note}>{a.note}</div>
         )}
-        {pkgs.map((pkg, i) => (
-          <PkgRow key={i} pkg={pkg} p={p} dark={d.dark} canEdit={d.canEdit} onFlag={d.canEdit && d.onFlagPkg ? () => d.onFlagPkg!(i) : undefined} />
-        ))}
-        {pkgs.length === 0 && !a.note && (
-          <div className="px-2 italic" style={{ fontSize: 9.5, color: p.empty, height: NOTE }}>—</div>
+        {isActive ? (
+          <>
+            {pkgList.map((pkg, i) => (
+              <div key={i} className="flex items-center gap-0.5 px-1" style={{ height: PKG }}>
+                <div className="flex-1 min-w-0 leading-tight">
+                  <div className="flex items-center gap-1">
+                    <span className="font-mono font-semibold" style={{ fontSize: 9, color: pkg.isContingency ? contingCode(d.dark) : p.code }}>{pkg.id}</span>
+                    {pkg.condition && <ConditionIcon condition={pkg.condition} size={10} className="shrink-0" />}
+                  </div>
+                  <div className="truncate" style={{ fontSize: 8.5, color: p.ansT, opacity: 0.8 }} title={pkgName(pkg)}>{pkgName(pkg)}</div>
+                </div>
+                <button className="nodrag shrink-0 w-5 h-5 flex items-center justify-center rounded hover:bg-black/10"
+                  title="Mover acima" onClick={e => { e.stopPropagation(); editor!.pkgs!.onMove(i, 'up') }}>
+                  <span style={{ fontSize: 10, color: p.lblT, opacity: 0.7 }}>↑</span>
+                </button>
+                <button className="nodrag shrink-0 w-5 h-5 flex items-center justify-center rounded hover:bg-black/10"
+                  title="Mover abaixo" onClick={e => { e.stopPropagation(); editor!.pkgs!.onMove(i, 'down') }}>
+                  <span style={{ fontSize: 10, color: p.lblT, opacity: 0.7 }}>↓</span>
+                </button>
+                <button className="nodrag shrink-0 w-5 h-5 flex items-center justify-center rounded hover:bg-red-500/20"
+                  title="Remover" onClick={e => { e.stopPropagation(); editor!.pkgs!.onRemove(i) }}>
+                  <span style={{ fontSize: 11, color: '#ef4444' }}>×</span>
+                </button>
+              </div>
+            ))}
+            {pkgList.length === 0 && !a.note && (
+              <div className="px-2 italic" style={{ fontSize: 9.5, color: p.empty, height: NOTE }}>— vazio —</div>
+            )}
+            {editor?.pkgs && (
+              <button
+                className="nodrag w-full flex items-center gap-1.5 px-2 border-t"
+                style={{ height: NOTE + 6, borderColor: p.ansB, color: '#3b82f6', fontSize: 9.5, background: 'transparent' }}
+                onClick={e => { e.stopPropagation(); editor.pkgs!.onAdd() }}>
+                <span style={{ fontSize: 13, lineHeight: 1 }}>+</span>
+                <span>Adicionar pacote</span>
+              </button>
+            )}
+          </>
+        ) : (
+          <>
+            {pkgs.map((pkg, i) => (
+              <PkgRow key={i} pkg={pkg} p={p} dark={d.dark} canEdit={d.canEdit} onFlag={d.canEdit && d.onFlagPkg ? () => d.onFlagPkg!(i) : undefined} />
+            ))}
+            {pkgs.length === 0 && !a.note && (
+              <div className="px-2 italic" style={{ fontSize: 9.5, color: p.empty, height: NOTE }}>—</div>
+            )}
+          </>
         )}
       </div>
       <Handle type="source" position={Position.Bottom} id="bottom" isConnectable={false} style={{ ...hiddenHandle, left: '50%' }} />
@@ -537,6 +710,8 @@ export function LogicFlowEditor({ sections, editCb, pickMode, showIndex = false,
     pkgsRefresh?: () => LPkg[]  // lê sempre de sectionsRef.current → lista sempre atualizada
     pos?: { x: number; y: number }; onTitleChange?: (v: string) => void
   } | null>(null)
+  const [activeChip, setActiveChip] = useState<Omit<NonNullable<ChipEditorCtxValue>, 'onClose'> | null>(null)
+  const closeChip = useCallback(() => setActiveChip(null), [])
   const [nodes, setNodes] = useState<Node[]>([])
   const [edges, setEdges] = useState<Edge[]>([])
   const metaRef = useRef<Map<string, NodeMeta>>(new Map())
@@ -572,6 +747,111 @@ export function LogicFlowEditor({ sections, editCb, pickMode, showIndex = false,
     for (const s of sections) walk(s.decisions)
     return new Set([...counts].filter(([, n]) => n > 1).map(([q]) => q))
   }, [sections])
+
+  // ── Editor inline de chip (clique ESQUERDO em campos de pacotes) ─────────────
+  // Só gerencia pacotes — ações estruturais ficam exclusivamente no clique direito.
+  const openChipInline = useCallback((nodeId: string, m: NodeMeta) => {
+    if (m.kind === 'a') {
+      const dec = resolveRef(sections, m.ref)
+      const a = dec?.answers[m.ansIdx]
+      if (!a) return
+      setActiveChip({
+        nodeId,
+        title: a.label,
+        onTitleChange: (v) => fire({ type: 'p_set_ans', ref: m.ref, ansIdx: m.ansIdx, value: v }),
+        items: [],
+        pkgs: {
+          list: a.packages ?? [],
+          onAdd: () => fire({ type: 'p_add_pkg', ref: m.ref, ansIdx: m.ansIdx }),
+          onMove: (i, dir) => fire({ type: 'p_move_pkg', ref: m.ref, ansIdx: m.ansIdx, pkgIdx: i, dir }),
+          onRemove: (i) => fire({ type: 'p_remove_pkg', ref: m.ref, ansIdx: m.ansIdx, pkgIdx: i }),
+        },
+        pkgsRefresh: () => resolveRef(sectionsRef.current, m.ref)?.answers[m.ansIdx]?.packages ?? [],
+      })
+    } else if (m.kind === 'decpkg') {
+      const dec = resolveRef(sections, m.ref)
+      if (!dec) return
+      setActiveChip({
+        nodeId,
+        items: [],
+        pkgs: {
+          list: dec.packages ?? [],
+          onAdd: () => fire({ type: 'p_add_dec_pkg', ref: m.ref }),
+          onMove: (i, dir) => fire({ type: 'p_move_dec_pkg', ref: m.ref, pkgIdx: i, dir }),
+          onRemove: (i) => fire({ type: 'p_remove_dec_pkg', ref: m.ref, pkgIdx: i }),
+        },
+        pkgsRefresh: () => resolveRef(sectionsRef.current, m.ref)?.packages ?? [],
+      })
+    } else if (m.kind === 'sempre') {
+      const sec = sections[m.secIdx]
+      if (!sec) return
+      setActiveChip({
+        nodeId,
+        items: [],
+        pkgs: {
+          list: sec.always ?? [],
+          onAdd: () => fire({ type: 'add_always', secIdx: m.secIdx }),
+          onMove: (i, dir) => fire({ type: 'move_always', secIdx: m.secIdx, pkgIdx: i, dir }),
+          onRemove: (i) => fire({ type: 'remove_always', secIdx: m.secIdx, pkgIdx: i }),
+        },
+        pkgsRefresh: () => sectionsRef.current[m.secIdx]?.always ?? [],
+      })
+    } else if (m.kind === 'decafter') {
+      const dec = resolveRef(sections, m.ref)
+      const ae = dec?.after?.[m.afterIdx]
+      if (!ae) return
+      setActiveChip({
+        nodeId,
+        title: ae.label || 'Após convergência',
+        onTitleChange: (v) => fire({ type: 'p_set_dec_after_label', ref: m.ref, afterIdx: m.afterIdx, value: v }),
+        items: [],
+        pkgs: {
+          list: ae.packages ?? [],
+          onAdd: () => fire({ type: 'p_dec_add_after_pkg', ref: m.ref, afterIdx: m.afterIdx }),
+          onMove: (i, dir) => fire({ type: 'p_dec_move_after_pkg', ref: m.ref, afterIdx: m.afterIdx, pkgIdx: i, dir }),
+          onRemove: (i) => fire({ type: 'p_dec_remove_after_pkg', ref: m.ref, afterIdx: m.afterIdx, pkgIdx: i }),
+        },
+        pkgsRefresh: () => resolveRef(sectionsRef.current, m.ref)?.after?.[m.afterIdx]?.packages ?? [],
+      })
+    } else if (m.kind === 'ansfield') {
+      const dec = resolveRef(sections, m.ref)
+      const a = dec?.answers[m.ansIdx]
+      if (!a) return
+      if (m.ftype === 'seq') {
+        const se = a.seq?.[m.idx]
+        if (!se) return
+        setActiveChip({
+          nodeId,
+          title: se.label || 'Sequencial',
+          onTitleChange: (v) => fire({ type: 'p_set_seq_label', ref: m.ref, ansIdx: m.ansIdx, seqIdx: m.idx, value: v }),
+          items: [],
+          pkgs: {
+            list: se.packages ?? [],
+            onAdd: () => fire({ type: 'p_add_seq_pkg', ref: m.ref, ansIdx: m.ansIdx, seqIdx: m.idx }),
+            onMove: (i, dir) => fire({ type: 'p_move_seq_pkg', ref: m.ref, ansIdx: m.ansIdx, seqIdx: m.idx, pkgIdx: i, dir }),
+            onRemove: (i) => fire({ type: 'p_remove_seq_pkg', ref: m.ref, ansIdx: m.ansIdx, seqIdx: m.idx, pkgIdx: i }),
+          },
+          pkgsRefresh: () => resolveRef(sectionsRef.current, m.ref)?.answers[m.ansIdx]?.seq?.[m.idx]?.packages ?? [],
+        })
+      } else {
+        const ae = a.after?.[m.idx]
+        if (!ae) return
+        setActiveChip({
+          nodeId,
+          title: ae.label || 'Após convergência',
+          onTitleChange: (v) => fire({ type: 'p_set_after_label', ref: m.ref, ansIdx: m.ansIdx, afterIdx: m.idx, value: v }),
+          items: [],
+          pkgs: {
+            list: ae.packages ?? [],
+            onAdd: () => fire({ type: 'p_add_after_pkg', ref: m.ref, ansIdx: m.ansIdx, afterIdx: m.idx }),
+            onMove: (i, dir) => fire({ type: 'p_move_after_pkg', ref: m.ref, ansIdx: m.ansIdx, afterIdx: m.idx, pkgIdx: i, dir }),
+            onRemove: (i) => fire({ type: 'p_remove_after_pkg', ref: m.ref, ansIdx: m.ansIdx, afterIdx: m.idx, pkgIdx: i }),
+          },
+          pkgsRefresh: () => resolveRef(sectionsRef.current, m.ref)?.answers[m.ansIdx]?.after?.[m.idx]?.packages ?? [],
+        })
+      }
+    }
+  }, [sections, fire])
 
   // ── Menus (painel lateral — mesmos itens/símbolos do clássico) ──────────────
   // mode 'quick' (clique ESQUERDO) = editar rótulo + LISTA DE PACOTES (o conteúdo do nó).
@@ -763,6 +1043,7 @@ export function LogicFlowEditor({ sections, editCb, pickMode, showIndex = false,
         onAdd: () => fire({ type: 'p_dec_add_after_pkg', ref, afterIdx }),
         onMove: (i, dir) => fire({ type: 'p_dec_move_after_pkg', ref, afterIdx, pkgIdx: i, dir }),
         onRemove: (i) => fire({ type: 'p_dec_remove_after_pkg', ref, afterIdx, pkgIdx: i }),
+        onCondition: (i, condition) => fire({ type: 'p_set_dec_after_pkg_condition', ref, afterIdx, pkgIdx: i, condition }),
       } : undefined,
       pkgsRefresh: mode === 'quick' ? () => resolveRef(sectionsRef.current, ref)?.after?.[afterIdx]?.packages ?? [] : undefined,
       pos: { x: e.clientX, y: e.clientY },
@@ -794,6 +1075,7 @@ export function LogicFlowEditor({ sections, editCb, pickMode, showIndex = false,
           onAdd: () => fire({ type: 'p_add_seq_pkg', ref, ansIdx: ai, seqIdx: chip.idx }),
           onMove: (i, dir) => fire({ type: 'p_move_seq_pkg', ref, ansIdx: ai, seqIdx: chip.idx, pkgIdx: i, dir }),
           onRemove: (i) => fire({ type: 'p_remove_seq_pkg', ref, ansIdx: ai, seqIdx: chip.idx, pkgIdx: i }),
+          onCondition: (i, condition) => fire({ type: 'p_set_seq_pkg_condition', ref, ansIdx: ai, seqIdx: chip.idx, pkgIdx: i, condition }),
         } : undefined,
         pkgsRefresh: mode === 'quick' ? () => resolveRef(sectionsRef.current, ref)?.answers[ai]?.seq?.[chip.idx]?.packages ?? [] : undefined,
         pos: { x: e.clientX, y: e.clientY },
@@ -816,6 +1098,7 @@ export function LogicFlowEditor({ sections, editCb, pickMode, showIndex = false,
           onAdd: () => fire({ type: 'p_add_after_pkg', ref, ansIdx: ai, afterIdx: chip.idx }),
           onMove: (i, dir) => fire({ type: 'p_move_after_pkg', ref, ansIdx: ai, afterIdx: chip.idx, pkgIdx: i, dir }),
           onRemove: (i) => fire({ type: 'p_remove_after_pkg', ref, ansIdx: ai, afterIdx: chip.idx, pkgIdx: i }),
+          onCondition: (i, condition) => fire({ type: 'p_set_after_pkg_condition', ref, ansIdx: ai, afterIdx: chip.idx, pkgIdx: i, condition }),
         } : undefined,
         pkgsRefresh: mode === 'quick' ? () => resolveRef(sectionsRef.current, ref)?.answers[ai]?.after?.[chip.idx]?.packages ?? [] : undefined,
         pos: { x: e.clientX, y: e.clientY },
@@ -1236,7 +1519,7 @@ export function LogicFlowEditor({ sections, editCb, pickMode, showIndex = false,
     fire({ type: 'set_node_pos', target, pos: { x: Math.round(node.position.x), y: Math.round(node.position.y) } })
   }, [canEdit, fire])
 
-  // Clique ESQUERDO → ação rápida (quick): pergunta/resposta = editar texto; campo = pacotes.
+  // Clique ESQUERDO → pergunta/resposta = painel rápido; chips = editor inline no nó.
   const onNodeClick = useCallback((e: React.MouseEvent, node: Node) => {
     if (node.type === 'framenode') return  // moldura: tratada pelo próprio cabeçalho
     const m = metaRef.current.get(node.id)
@@ -1248,16 +1531,17 @@ export function LogicFlowEditor({ sections, editCb, pickMode, showIndex = false,
     }
     if (!canEdit || m.kind === 'free') return
     if (m.kind === 'q') openQMenu(e, m.ref, 'quick')
-    else if (m.kind === 'decpkg') openDecPkgMenu(e, m.ref)
-    else if (m.kind === 'a') openAMenu(e, m.ref, m.ansIdx, 'quick')
-    else if (m.kind === 'sempre') openSempreMenu(e, m.secIdx, 'quick')
-    else if (m.kind === 'decafter') openDecAfterChipMenu(e, m.ref, m.afterIdx, 'quick')
-    else if (m.kind === 'ansfield') openAnsChipMenu(e, m.ref, m.ansIdx, { type: m.ftype, idx: m.idx }, 'quick')
-  }, [pickMode, canEdit, sections, fire, openQMenu, openDecPkgMenu, openAMenu, openSempreMenu, openDecAfterChipMenu, openAnsChipMenu])
+    else {
+      // Respostas e chips de pacotes: editor inline dentro do nó
+      setActiveChip(null)
+      openChipInline(node.id, m)
+    }
+  }, [pickMode, canEdit, sections, fire, openQMenu, openChipInline])
 
   // Clique DIREITO → menu completo (full) com todas as ações.
   const onNodeContextMenu = useCallback((e: React.MouseEvent, node: Node) => {
     e.preventDefault()
+    setActiveChip(null)  // fecha editor inline se estiver aberto
     if (node.type === 'framenode') return  // moldura: tratada pelo cabeçalho (onContextMenu)
     const m = metaRef.current.get(node.id)
     if (!m || !canEdit || m.kind === 'free') return
@@ -1372,6 +1656,7 @@ export function LogicFlowEditor({ sections, editCb, pickMode, showIndex = false,
       <div className="flex flex-col flex-1 h-full overflow-hidden">
         {/* Canvas ReactFlow */}
         <div className="relative flex-1 min-h-0">
+        <ChipEditorCtx.Provider value={activeChip ? { ...activeChip, onClose: closeChip } : null}>
         <ReactFlow
           nodes={nodes}
           edges={edges}
@@ -1379,7 +1664,7 @@ export function LogicFlowEditor({ sections, editCb, pickMode, showIndex = false,
           onNodeDragStop={onNodeDragStop}
           onNodeClick={onNodeClick}
           onNodeContextMenu={onNodeContextMenu}
-          onPaneClick={() => { setMenu(null); selectedRef.current = null }}
+          onPaneClick={() => { setMenu(null); setActiveChip(null); selectedRef.current = null }}
           onPaneContextMenu={(e) => e.preventDefault()}
           nodeTypes={NODE_TYPES}
           edgeTypes={EDGE_TYPES}
@@ -1447,6 +1732,7 @@ export function LogicFlowEditor({ sections, editCb, pickMode, showIndex = false,
             </p>
           </Panel>
         </ReactFlow>
+        </ChipEditorCtx.Provider>
 
         {menu && (
           <ClassicSidePanel
