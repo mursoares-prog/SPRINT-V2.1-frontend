@@ -41,6 +41,7 @@ type ChipEditorCtxValue = {
   items: MenuItem[]
   pkgs?: ResolvedPkgList
   pkgsRefresh?: () => LPkg[]
+  onFlagPkg?: (i: number) => void   // toggle contingência por pacote (só onde suportado)
   onClose: () => void
 } | null
 const ChipEditorCtx = createContext<ChipEditorCtxValue>(null)
@@ -258,10 +259,100 @@ function FrameNode({ data }: NodeProps) {
   )
 }
 
-// ─── Editor inline de pacotes — substitui o conteúdo do chip/card em modo edição ─
-// Usa a paleta do próprio nó para se integrar visualmente (não é um painel externo).
-function InlinePkgEditor({ editor, p, dark, contingency }: {
-  editor: NonNullable<ChipEditorCtxValue>; p: PEntry; dark: boolean; contingency?: boolean
+// ─── Linhas de pacote editáveis: flag + botão-de-condição + ↑↓× ──────────────
+// Reutilizado tanto no InlinePkgEditor (ChipNode) quanto no AnswerNode inline.
+function PkgEditRows({ pkgList, p, dark, onFlagPkg, onCondition, onMove, onRemove }: {
+  pkgList: LPkg[]; p: PEntry; dark: boolean
+  onFlagPkg?: (i: number) => void
+  onCondition?: (i: number, condition?: string) => void
+  onMove: (i: number, dir: 'up' | 'down') => void
+  onRemove: (i: number) => void
+}) {
+  const [editCondIdx, setEditCondIdx] = useState<number | null>(null)
+  return (
+    <div style={{ paddingTop: BPAD, paddingBottom: BPAD }}>
+      {pkgList.map((pkg, i) => (
+        <div key={i} className="flex items-center gap-0.5 px-1" style={{ height: PKG }}>
+          {/* Bandeira: clicável quando onFlagPkg disponível; indicador somente-leitura quando isContingency */}
+          {(onFlagPkg || pkg.isContingency) && (
+            <button
+              className="nodrag shrink-0 self-start mt-[3px]"
+              title={pkg.isContingency ? 'Remover marcação de contingência' : 'Marcar pacote como contingencial'}
+              disabled={!onFlagPkg}
+              style={{ cursor: onFlagPkg ? 'pointer' : 'default' }}
+              onClick={e => { e.stopPropagation(); onFlagPkg?.(i) }}>
+              <PiFlagPennantFill size={11} color={pkg.isContingency ? '#f97316' : p.lblT}
+                style={{ opacity: pkg.isContingency ? 1 : 0.28 }} />
+            </button>
+          )}
+
+          {/* Conteúdo do pacote: código + ícone de condição (editável) + nome */}
+          <div className="flex-1 min-w-0 leading-tight">
+            {editCondIdx === i && onCondition ? (
+              // Seletor de condição em linha
+              <select
+                className="nodrag w-full rounded px-1 outline-none cursor-pointer"
+                style={{ fontSize: 9, height: PKG - 6, border: `1px solid #3b82f6`, background: p.ans, color: p.ansT }}
+                autoFocus
+                value={pkg.condition ?? ''}
+                onChange={e => { onCondition(i, e.target.value || undefined); setEditCondIdx(null) }}
+                onBlur={() => setEditCondIdx(null)}>
+                <option value="">— sem condição —</option>
+                {Object.entries(CONDITION_LABELS).map(([k, lbl]) => (
+                  <option key={k} value={k}>{lbl}</option>
+                ))}
+              </select>
+            ) : (
+              <>
+                <div className="flex items-center gap-1">
+                  <span className="font-mono font-semibold"
+                    style={{ fontSize: 9, color: pkg.isContingency ? contingCode(dark) : p.code }}>
+                    {pkg.id}
+                  </span>
+                  {/* Botão sobre o ícone de condição — abre seletor ao clicar */}
+                  <button
+                    className="nodrag shrink-0"
+                    title={pkg.condition ? 'Editar condição de emissão' : 'Definir condição de emissão'}
+                    disabled={!onCondition}
+                    style={{ cursor: onCondition ? 'pointer' : 'default' }}
+                    onClick={e => { e.stopPropagation(); if (onCondition) setEditCondIdx(i) }}>
+                    {pkg.condition
+                      ? <ConditionIcon condition={pkg.condition} size={10} />
+                      : <span style={{ fontSize: 10, opacity: onCondition ? 0.28 : 0, color: p.lblT }}>◌</span>}
+                  </button>
+                </div>
+                <div className="truncate" style={{ fontSize: 8.5, color: p.ansT, opacity: 0.8 }} title={pkgName(pkg)}>
+                  {pkgName(pkg)}
+                </div>
+              </>
+            )}
+          </div>
+
+          {/* Controles de posição e remoção */}
+          <button className="nodrag shrink-0 w-5 h-5 flex items-center justify-center rounded hover:bg-black/10"
+            title="Mover acima" onClick={e => { e.stopPropagation(); onMove(i, 'up') }}>
+            <span style={{ fontSize: 10, color: p.lblT, opacity: 0.7 }}>↑</span>
+          </button>
+          <button className="nodrag shrink-0 w-5 h-5 flex items-center justify-center rounded hover:bg-black/10"
+            title="Mover abaixo" onClick={e => { e.stopPropagation(); onMove(i, 'down') }}>
+            <span style={{ fontSize: 10, color: p.lblT, opacity: 0.7 }}>↓</span>
+          </button>
+          <button className="nodrag shrink-0 w-5 h-5 flex items-center justify-center rounded hover:bg-red-500/20"
+            title="Remover" onClick={e => { e.stopPropagation(); onRemove(i) }}>
+            <span style={{ fontSize: 11, color: '#ef4444' }}>×</span>
+          </button>
+        </div>
+      ))}
+      {pkgList.length === 0 && (
+        <div className="px-2 italic" style={{ fontSize: 9.5, color: p.empty, height: NOTE }}>— vazio —</div>
+      )}
+    </div>
+  )
+}
+
+// ─── Editor inline de pacotes — substitui o conteúdo do chip em modo edição ───
+function InlinePkgEditor({ editor, p, dark }: {
+  editor: NonNullable<ChipEditorCtxValue>; p: PEntry; dark: boolean
 }) {
   const pkgList = editor.pkgsRefresh ? editor.pkgsRefresh() : (editor.pkgs?.list ?? [])
   return (
@@ -272,7 +363,7 @@ function InlinePkgEditor({ editor, p, dark, contingency }: {
       onClick={e => e.stopPropagation()}
       onContextMenu={e => e.preventDefault()}
     >
-      {/* Barra de rótulo editável (só quando o chip tem título) */}
+      {/* Barra de rótulo editável */}
       <div className="flex items-center gap-1 px-1.5" style={{ height: LBLH, background: p.lbl }}>
         {editor.onTitleChange ? (
           <input
@@ -298,35 +389,18 @@ function InlinePkgEditor({ editor, p, dark, contingency }: {
         </button>
       </div>
 
-      {/* Linhas de pacote com controles ↑↓× inline */}
-      <div style={{ paddingTop: BPAD, paddingBottom: BPAD }}>
-        {pkgList.map((pkg, i) => (
-          <div key={i} className="flex items-center gap-0.5 px-1" style={{ height: PKG }}>
-            <div className="flex-1 min-w-0 leading-tight">
-              <div className="flex items-center gap-1">
-                <span className="font-mono font-semibold" style={{ fontSize: 9, color: pkg.isContingency ? contingCode(dark) : p.code }}>{pkg.id}</span>
-                {pkg.condition && <ConditionIcon condition={pkg.condition} size={10} className="shrink-0" />}
-              </div>
-              <div className="truncate" style={{ fontSize: 8.5, color: p.ansT, opacity: 0.8 }} title={pkgName(pkg)}>{pkgName(pkg)}</div>
-            </div>
-            <button className="nodrag shrink-0 w-5 h-5 flex items-center justify-center rounded hover:bg-black/10"
-              title="Mover acima" onClick={e => { e.stopPropagation(); editor.pkgs!.onMove(i, 'up') }}>
-              <span style={{ fontSize: 10, color: p.lblT, opacity: 0.7 }}>↑</span>
-            </button>
-            <button className="nodrag shrink-0 w-5 h-5 flex items-center justify-center rounded hover:bg-black/10"
-              title="Mover abaixo" onClick={e => { e.stopPropagation(); editor.pkgs!.onMove(i, 'down') }}>
-              <span style={{ fontSize: 10, color: p.lblT, opacity: 0.7 }}>↓</span>
-            </button>
-            <button className="nodrag shrink-0 w-5 h-5 flex items-center justify-center rounded hover:bg-red-500/20"
-              title="Remover" onClick={e => { e.stopPropagation(); editor.pkgs!.onRemove(i) }}>
-              <span style={{ fontSize: 11, color: '#ef4444' }}>×</span>
-            </button>
-          </div>
-        ))}
-        {pkgList.length === 0 && (
-          <div className="px-2 italic" style={{ fontSize: 9.5, color: p.empty, height: NOTE }}>— vazio —</div>
-        )}
-      </div>
+      {/* Linhas de pacote com flag, condição e ↑↓× */}
+      {editor.pkgs && (
+        <PkgEditRows
+          pkgList={pkgList}
+          p={p}
+          dark={dark}
+          onFlagPkg={editor.onFlagPkg}
+          onCondition={editor.pkgs.onCondition}
+          onMove={(i, dir) => editor.pkgs!.onMove(i, dir)}
+          onRemove={i => editor.pkgs!.onRemove(i)}
+        />
+      )}
 
       {/* Botão adicionar pacote */}
       {editor.pkgs && (
@@ -491,42 +565,24 @@ function AnswerNode({ data, id, selected }: NodeProps) {
       </div>
 
       {/* Corpo: nota + pacotes (com controles inline em modo edição) */}
-      <div style={{ paddingTop: BPAD, paddingBottom: BPAD }}
-        onMouseDown={isActive ? e => e.stopPropagation() : undefined}
+      <div onMouseDown={isActive ? e => e.stopPropagation() : undefined}
         onClick={isActive ? e => e.stopPropagation() : undefined}
         onContextMenu={isActive ? e => e.preventDefault() : undefined}>
         {a.note && (
-          <div className="px-2 italic truncate" style={{ fontSize: 9.5, color: p.noteT, height: NOTE + 2 }} title={a.note}>{a.note}</div>
+          <div className="px-2 italic truncate" style={{ fontSize: 9.5, color: p.noteT, height: NOTE + 2, paddingTop: BPAD }} title={a.note}>{a.note}</div>
         )}
-        {isActive ? (
+        {isActive && editor ? (
           <>
-            {pkgList.map((pkg, i) => (
-              <div key={i} className="flex items-center gap-0.5 px-1" style={{ height: PKG }}>
-                <div className="flex-1 min-w-0 leading-tight">
-                  <div className="flex items-center gap-1">
-                    <span className="font-mono font-semibold" style={{ fontSize: 9, color: pkg.isContingency ? contingCode(d.dark) : p.code }}>{pkg.id}</span>
-                    {pkg.condition && <ConditionIcon condition={pkg.condition} size={10} className="shrink-0" />}
-                  </div>
-                  <div className="truncate" style={{ fontSize: 8.5, color: p.ansT, opacity: 0.8 }} title={pkgName(pkg)}>{pkgName(pkg)}</div>
-                </div>
-                <button className="nodrag shrink-0 w-5 h-5 flex items-center justify-center rounded hover:bg-black/10"
-                  title="Mover acima" onClick={e => { e.stopPropagation(); editor!.pkgs!.onMove(i, 'up') }}>
-                  <span style={{ fontSize: 10, color: p.lblT, opacity: 0.7 }}>↑</span>
-                </button>
-                <button className="nodrag shrink-0 w-5 h-5 flex items-center justify-center rounded hover:bg-black/10"
-                  title="Mover abaixo" onClick={e => { e.stopPropagation(); editor!.pkgs!.onMove(i, 'down') }}>
-                  <span style={{ fontSize: 10, color: p.lblT, opacity: 0.7 }}>↓</span>
-                </button>
-                <button className="nodrag shrink-0 w-5 h-5 flex items-center justify-center rounded hover:bg-red-500/20"
-                  title="Remover" onClick={e => { e.stopPropagation(); editor!.pkgs!.onRemove(i) }}>
-                  <span style={{ fontSize: 11, color: '#ef4444' }}>×</span>
-                </button>
-              </div>
-            ))}
-            {pkgList.length === 0 && !a.note && (
-              <div className="px-2 italic" style={{ fontSize: 9.5, color: p.empty, height: NOTE }}>— vazio —</div>
-            )}
-            {editor?.pkgs && (
+            <PkgEditRows
+              pkgList={pkgList}
+              p={p}
+              dark={d.dark}
+              onFlagPkg={editor.onFlagPkg}
+              onCondition={editor.pkgs?.onCondition}
+              onMove={(i, dir) => editor.pkgs!.onMove(i, dir)}
+              onRemove={i => editor.pkgs!.onRemove(i)}
+            />
+            {editor.pkgs && (
               <button
                 className="nodrag w-full flex items-center gap-1.5 px-2 border-t"
                 style={{ height: NOTE + 6, borderColor: p.ansB, color: '#3b82f6', fontSize: 9.5, background: 'transparent' }}
@@ -537,14 +593,14 @@ function AnswerNode({ data, id, selected }: NodeProps) {
             )}
           </>
         ) : (
-          <>
+          <div style={{ paddingTop: a.note ? 0 : BPAD, paddingBottom: BPAD }}>
             {pkgs.map((pkg, i) => (
               <PkgRow key={i} pkg={pkg} p={p} dark={d.dark} canEdit={d.canEdit} onFlag={d.canEdit && d.onFlagPkg ? () => d.onFlagPkg!(i) : undefined} />
             ))}
             {pkgs.length === 0 && !a.note && (
               <div className="px-2 italic" style={{ fontSize: 9.5, color: p.empty, height: NOTE }}>—</div>
             )}
-          </>
+          </div>
         )}
       </div>
       <Handle type="source" position={Position.Bottom} id="bottom" isConnectable={false} style={{ ...hiddenHandle, left: '50%' }} />
@@ -765,8 +821,10 @@ export function LogicFlowEditor({ sections, editCb, pickMode, showIndex = false,
           onAdd: () => fire({ type: 'p_add_pkg', ref: m.ref, ansIdx: m.ansIdx }),
           onMove: (i, dir) => fire({ type: 'p_move_pkg', ref: m.ref, ansIdx: m.ansIdx, pkgIdx: i, dir }),
           onRemove: (i) => fire({ type: 'p_remove_pkg', ref: m.ref, ansIdx: m.ansIdx, pkgIdx: i }),
+          onCondition: (i, condition) => fire({ type: 'p_set_pkg_condition', ref: m.ref, ansIdx: m.ansIdx, pkgIdx: i, condition }),
         },
         pkgsRefresh: () => resolveRef(sectionsRef.current, m.ref)?.answers[m.ansIdx]?.packages ?? [],
+        onFlagPkg: (i) => fire({ type: 'p_toggle_ans_pkg_contingency', ref: m.ref, ansIdx: m.ansIdx, pkgIdx: i }),
       })
     } else if (m.kind === 'decpkg') {
       const dec = resolveRef(sections, m.ref)
@@ -779,6 +837,7 @@ export function LogicFlowEditor({ sections, editCb, pickMode, showIndex = false,
           onAdd: () => fire({ type: 'p_add_dec_pkg', ref: m.ref }),
           onMove: (i, dir) => fire({ type: 'p_move_dec_pkg', ref: m.ref, pkgIdx: i, dir }),
           onRemove: (i) => fire({ type: 'p_remove_dec_pkg', ref: m.ref, pkgIdx: i }),
+          onCondition: (i, condition) => fire({ type: 'p_set_pkg_condition', ref: m.ref, pkgIdx: i, condition }),
         },
         pkgsRefresh: () => resolveRef(sectionsRef.current, m.ref)?.packages ?? [],
       })
@@ -810,6 +869,7 @@ export function LogicFlowEditor({ sections, editCb, pickMode, showIndex = false,
           onAdd: () => fire({ type: 'p_dec_add_after_pkg', ref: m.ref, afterIdx: m.afterIdx }),
           onMove: (i, dir) => fire({ type: 'p_dec_move_after_pkg', ref: m.ref, afterIdx: m.afterIdx, pkgIdx: i, dir }),
           onRemove: (i) => fire({ type: 'p_dec_remove_after_pkg', ref: m.ref, afterIdx: m.afterIdx, pkgIdx: i }),
+          onCondition: (i, condition) => fire({ type: 'p_set_dec_after_pkg_condition', ref: m.ref, afterIdx: m.afterIdx, pkgIdx: i, condition }),
         },
         pkgsRefresh: () => resolveRef(sectionsRef.current, m.ref)?.after?.[m.afterIdx]?.packages ?? [],
       })
@@ -830,6 +890,7 @@ export function LogicFlowEditor({ sections, editCb, pickMode, showIndex = false,
             onAdd: () => fire({ type: 'p_add_seq_pkg', ref: m.ref, ansIdx: m.ansIdx, seqIdx: m.idx }),
             onMove: (i, dir) => fire({ type: 'p_move_seq_pkg', ref: m.ref, ansIdx: m.ansIdx, seqIdx: m.idx, pkgIdx: i, dir }),
             onRemove: (i) => fire({ type: 'p_remove_seq_pkg', ref: m.ref, ansIdx: m.ansIdx, seqIdx: m.idx, pkgIdx: i }),
+            onCondition: (i, condition) => fire({ type: 'p_set_seq_pkg_condition', ref: m.ref, ansIdx: m.ansIdx, seqIdx: m.idx, pkgIdx: i, condition }),
           },
           pkgsRefresh: () => resolveRef(sectionsRef.current, m.ref)?.answers[m.ansIdx]?.seq?.[m.idx]?.packages ?? [],
         })
@@ -846,6 +907,7 @@ export function LogicFlowEditor({ sections, editCb, pickMode, showIndex = false,
             onAdd: () => fire({ type: 'p_add_after_pkg', ref: m.ref, ansIdx: m.ansIdx, afterIdx: m.idx }),
             onMove: (i, dir) => fire({ type: 'p_move_after_pkg', ref: m.ref, ansIdx: m.ansIdx, afterIdx: m.idx, pkgIdx: i, dir }),
             onRemove: (i) => fire({ type: 'p_remove_after_pkg', ref: m.ref, ansIdx: m.ansIdx, afterIdx: m.idx, pkgIdx: i }),
+            onCondition: (i, condition) => fire({ type: 'p_set_after_pkg_condition', ref: m.ref, ansIdx: m.ansIdx, afterIdx: m.idx, pkgIdx: i, condition }),
           },
           pkgsRefresh: () => resolveRef(sectionsRef.current, m.ref)?.answers[m.ansIdx]?.after?.[m.idx]?.packages ?? [],
         })
