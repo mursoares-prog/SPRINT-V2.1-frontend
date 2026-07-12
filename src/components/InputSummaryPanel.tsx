@@ -314,8 +314,8 @@ const showRemoveANM = isTT || isFS1Mec
           )}
 
           {!isCustomScope && (
-            <Row label="Árvore de Lógica?"
-              tooltip="Usar as Árvores de Lógica do escopo como engine de perguntas"
+            <Row label="Árvore de Decisão?"
+              tooltip="Usar as Árvores de Decisão do escopo como engine de perguntas"
               value={flowStrict ? 'Sim' : inputs.engineMode === 'none' ? 'Não' : 'Engine antiga'}
               isEditing={isEd('engineMode')} onEdit={() => edit('engineMode')}>
               <InlineRadio
