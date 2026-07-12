@@ -9,8 +9,7 @@ import { PackagesCatalogModal } from './components/PackagesCatalogModal'
 import { InputSummaryPanel } from './components/InputSummaryPanel'
 import { generateSchedule } from './engines/scheduleRouter'
 import type { ScopeId, WizardInputs, RigType } from './types'
-import { ArrowRight, FileText, Settings2, AlertTriangle, FilePlus, FolderOpen } from 'lucide-react'
-import { ServerProjectsModal } from './components/ServerProjectsModal'
+import { ArrowRight, FileText, Settings2, AlertTriangle } from 'lucide-react'
 import { getDefaultInputs } from './utils/defaultInputs'
 import { isApiConfigured, getMergedPackageLines, getBaseOverrides, getBasePackageOverrides, getCustomPackages, getLogicScopes, getLogicScope } from './utils/api'
 import { getSession, clearSession } from './utils/auth'
@@ -59,7 +58,6 @@ function Home() {
   const session = getSession()
   const { dispatch } = useApp()
   const [selecting, setSelecting] = useState(false)
-  const [showProjectsModal, setShowProjectsModal] = useState(false)
   const [interventionType, setInterventionType] = useState<'abandono_molhada' | 'abandono_seca' | 'workover' | ''>('')
   const [rigType,     setRigType]     = useState<RigType | ''>('')
   const [opType,      setOpType]      = useState<'Generalista' | 'LWO'>('Generalista')
@@ -153,22 +151,6 @@ function Home() {
           </div>
         </div>
 
-        <div className="w-full max-w-lg">
-          <p className="text-[10px] font-bold text-slate-400 dark:text-slate-600 uppercase tracking-[0.2em] mb-2 text-center">ou</p>
-          <div className="grid grid-cols-2 gap-2.5">
-            <button
-              onClick={() => dispatch({ type: 'ENTER_FINE_TUNING_BLANK' })}
-              className="flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl text-center border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:border-slate-400 dark:hover:border-slate-500 hover:text-slate-800 dark:hover:text-slate-200 transition-colors shadow-sm text-xs font-semibold">
-              <FilePlus size={14} /> Cronograma em branco
-            </button>
-            <button
-              onClick={() => setShowProjectsModal(true)}
-              className="flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl text-center border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:border-slate-400 dark:hover:border-slate-500 hover:text-slate-800 dark:hover:text-slate-200 transition-colors shadow-sm text-xs font-semibold">
-              <FolderOpen size={14} /> Copiar de projeto
-            </button>
-          </div>
-        </div>
-
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 w-full max-w-lg">
           {[
             { icon: <FileText size={18} />, title: 'Escopos', value: '11' },
@@ -189,7 +171,6 @@ function Home() {
           </p>
         )}
 
-        {showProjectsModal && <ServerProjectsModal onClose={() => setShowProjectsModal(false)} />}
       </div>
     )
   }

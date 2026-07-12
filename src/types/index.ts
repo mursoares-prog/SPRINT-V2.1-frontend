@@ -181,6 +181,7 @@ export interface WizardInputs {
   installTmfPlugEndProd?: YesContingencyNo
   installTmfPlugEndAnul?: YesContingencyNo
   tcapSurfaceFluid?: TcapSurfaceFluid
+  woAtBottom?: 'tcap' | 'anm'
   bopCorrectionMethod?: 'convencional' | 'pwc'
   bopPwcPreLog?: boolean
   bopPwcValidation?: 'params' | 'perfil'
@@ -205,7 +206,7 @@ export interface WizardInputs {
   // Engine de perguntas da etapa 2: 'wizard' (painel padrão, default) ou 'flowchart'
   // (segue rigorosamente o fluxograma do editor de lógica do escopo — perguntas
   // idênticas e na mesma ordem, respostas via logicAnswers + defaults do fluxograma).
-  engineMode?: 'wizard' | 'flowchart'
+  engineMode?: 'wizard' | 'flowchart' | 'none'
   startDate: string
   percentile: Percentile
 }

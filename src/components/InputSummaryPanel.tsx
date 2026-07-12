@@ -1,6 +1,7 @@
 import { useState, useRef } from 'react'
 import { createPortal } from 'react-dom'
-import { X, ChevronLeft, ChevronRight } from 'lucide-react'
+import { X, ChevronLeft, ChevronRight, FilePlus, FolderOpen } from 'lucide-react'
+import { ServerProjectsModal } from './ServerProjectsModal'
 import { useApp } from '../context/AppContext'
 import { generateSchedule } from '../engines/scheduleRouter'
 import { resolveScopeSections, expandScopeRefs, getCustomScopesMeta } from '../data/logicOverrideStore'
@@ -99,6 +100,7 @@ export function InputSummaryPanel({ onClose }: { onClose?: () => void }) {
   const { inputs } = state
   const [editing, setEditing] = useState<string | null>(null)
   const [collapsed, setCollapsed] = useState(() => typeof window !== 'undefined' && window.innerWidth < 1400)
+  const [showProjectsModal, setShowProjectsModal] = useState(false)
 
   const apply = (data: Partial<WizardInputs>, autoClose = true) => {
     const merged = { ...inputs, ...data } as WizardInputs
@@ -162,7 +164,7 @@ const showRemoveANM = isTT || isFS1Mec
   const isCustomScope = !!inputs.scopeId && !(inputs.scopeId in SCOPE_SHORT)
   // Engine 'flowchart' (escopos bundle): substitui o painel wizard pelas perguntas do
   // fluxograma do editor de lógica — idênticas e na mesma ordem do fluxograma.
-  const flowStrict = !isCustomScope && inputs.engineMode === 'flowchart'
+  const flowStrict = !isCustomScope && (inputs.engineMode ?? 'flowchart') === 'flowchart'
   const useFlowQuestions = isCustomScope || flowStrict
   // Expande seções `ref` (reuso vivo) para que as perguntas/seções do fluxograma incluído
   // (ex.: MOB_descida) também apareçam no passo 2 — mesma expansão usada na geração.
@@ -194,7 +196,7 @@ const showRemoveANM = isTT || isFS1Mec
   return (
     <aside className={`${onClose ? 'flex-1' : 'w-96 shrink-0'} border-r border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-900 flex flex-col overflow-hidden`}>
       <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between shrink-0">
-        <span className="text-xs font-bold text-slate-700 dark:text-slate-400 uppercase tracking-widest">Painel de Abandono</span>
+        <span className="text-xs font-bold text-slate-700 dark:text-slate-400 uppercase tracking-widest">Painel de Intervenção</span>
         <div className="flex items-center gap-0.5">
           {!onClose && (
             <button onClick={() => setCollapsed(true)}
@@ -216,29 +218,69 @@ const showRemoveANM = isTT || isFS1Mec
 
         {/* ── Sonda e Escopo ── */}
         <Section label="Sonda e Escopo">
-          <Row label="Posicionamento"
-            tooltip="Tipo de posicionamento da sonda (Ancorada ou Posicionamento Dinâmico)"
-            value={inputs.rigType === 'ANC' ? 'Ancorada' : inputs.rigType === 'DP' ? 'DP' : '—'}
-            isEditing={isEd('rigType')} onEdit={() => edit('rigType')}>
+          <Row label="Tipo de intervenção"
+            tooltip="Completação molhada (ANM submersa — ANC/DP) ou completação seca (árvore de natal seca — outras sondas)"
+            value={(['ANC', 'DP'] as string[]).includes(inputs.rigType ?? '') ? 'Abandono Comp. Molhada' : inputs.rigType ? 'Abandono Comp. Seca' : '—'}
+            isEditing={isEd('abandonType')} onEdit={() => edit('abandonType')}>
             <InlineRadio
-              options={[{ value: 'ANC', label: 'Ancorada' }, { value: 'DP', label: 'DP' }]}
-              value={inputs.rigType ?? ''}
+              options={[
+                { value: 'molhada', label: 'Abandono Completação Molhada' },
+                { value: 'seca',    label: 'Abandono Completação Seca' },
+              ]}
+              value={(['ANC', 'DP'] as string[]).includes(inputs.rigType ?? '') ? 'molhada' : inputs.rigType ? 'seca' : ''}
               onChange={v => apply({
-                rigType: v as 'ANC' | 'DP',
-                operationType: v === 'ANC' ? 'Generalista' : inputs.operationType,
+                rigType: v === 'molhada' ? 'ANC' : 'Rigless',
+                operationType: 'Generalista',
               })}
             />
           </Row>
 
-          {inputs.rigType === 'DP' && (
+          {(['ANC', 'DP'] as string[]).includes(inputs.rigType ?? '') && (
             <Row label="Tipo de sonda"
-              tooltip="Tipo de sonda DP utilizada (Generalista ou LWIV NS-51/NS-52)"
-              value={inputs.operationType === 'LWO' ? 'LWIV' : inputs.operationType ?? '—'}
-              isEditing={isEd('opType')} onEdit={() => edit('opType')}>
+              tooltip="Sonda Ancorada (ANC), DP Generalista ou DP LWIV"
+              value={
+                inputs.rigType === 'ANC' ? 'ANC'
+                : inputs.operationType === 'LWO' ? 'DP LWIV'
+                : inputs.rigType === 'DP' ? 'DP Generalista'
+                : '—'
+              }
+              isEditing={isEd('rigType')} onEdit={() => edit('rigType')}>
               <InlineRadio
-                options={[{ value: 'Generalista', label: 'Generalista' }, { value: 'LWO', label: 'LWIV (NS-51 / NS-52)' }]}
-                value={inputs.operationType ?? ''}
-                onChange={v => apply({ operationType: v as 'Generalista' | 'LWO' })}
+                options={[
+                  { value: 'ANC',     label: 'ANC' },
+                  { value: 'DP_GEN',  label: 'DP Generalista' },
+                  { value: 'DP_LWIV', label: 'DP LWIV' },
+                ]}
+                value={
+                  inputs.rigType === 'ANC' ? 'ANC'
+                  : inputs.operationType === 'LWO' ? 'DP_LWIV'
+                  : inputs.rigType === 'DP' ? 'DP_GEN'
+                  : ''
+                }
+                onChange={v => apply(
+                  v === 'ANC'     ? { rigType: 'ANC', operationType: 'Generalista' }
+                  : v === 'DP_GEN'  ? { rigType: 'DP',  operationType: 'Generalista' }
+                  : /* DP_LWIV */    { rigType: 'DP',  operationType: 'LWO' }
+                )}
+              />
+            </Row>
+          )}
+
+          {!(['ANC', 'DP'] as string[]).includes(inputs.rigType ?? '') && inputs.rigType && (
+            <Row label="Tipo de sonda"
+              tooltip="Tipo de sonda para completação seca"
+              value={inputs.rigType}
+              isEditing={isEd('rigTypeSeca')} onEdit={() => edit('rigTypeSeca')}>
+              <InlineRadio
+                options={[
+                  { value: 'PA',      label: 'PA' },
+                  { value: 'SPH',     label: 'SPH' },
+                  { value: 'SM',      label: 'SM' },
+                  { value: 'SPM',     label: 'SPM' },
+                  { value: 'Rigless', label: 'Rigless' },
+                ]}
+                value={inputs.rigType ?? ''}
+                onChange={v => apply({ rigType: v as 'PA' | 'SPH' | 'SM' | 'SPM' | 'Rigless' })}
               />
             </Row>
           )}
@@ -273,17 +315,32 @@ const showRemoveANM = isTT || isFS1Mec
 
           {!isCustomScope && (
             <Row label="Engine de perguntas"
-              tooltip="Origem das perguntas desta etapa: painel padrão (wizard) ou rigorosamente o fluxograma do editor de lógica do escopo — perguntas idênticas e na mesma ordem do fluxograma, com respostas e defaults do próprio fluxograma"
-              value={flowStrict ? 'Fluxograma' : 'Padrão'}
+              tooltip="Origem das perguntas desta etapa: Árvores de Lógica, painel wizard, ou nenhum (iniciar direto na etapa 3)"
+              value={flowStrict ? 'Árvores de Lógica' : inputs.engineMode === 'none' ? 'Não' : 'Padrão'}
               isEditing={isEd('engineMode')} onEdit={() => edit('engineMode')}>
               <InlineRadio
                 options={[
+                  { value: 'flowchart', label: 'Árvores de Lógica (padrão)' },
                   { value: 'wizard',    label: 'Padrão (painel wizard)' },
-                  { value: 'flowchart', label: 'Fluxograma do escopo (rigoroso)' },
+                  { value: 'none',      label: 'Não' },
                 ]}
-                value={inputs.engineMode ?? 'wizard'}
+                value={inputs.engineMode ?? 'flowchart'}
                 onChange={v => apply({ engineMode: v as WizardInputs['engineMode'] })}
               />
+              {inputs.engineMode === 'none' && (
+                <div className="mt-2 flex flex-col gap-1.5">
+                  <button
+                    onClick={() => dispatch({ type: 'ENTER_FINE_TUNING_BLANK' })}
+                    className="flex items-center gap-2 px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:border-slate-400 dark:hover:border-slate-500 hover:text-slate-800 dark:hover:text-slate-200 transition-colors text-xs font-semibold">
+                    <FilePlus size={13} /> Cronograma em branco
+                  </button>
+                  <button
+                    onClick={() => setShowProjectsModal(true)}
+                    className="flex items-center gap-2 px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:border-slate-400 dark:hover:border-slate-500 hover:text-slate-800 dark:hover:text-slate-200 transition-colors text-xs font-semibold">
+                    <FolderOpen size={13} /> Copiar de projeto
+                  </button>
+                </div>
+              )}
             </Row>
           )}
         </Section>
@@ -1923,6 +1980,7 @@ const showRemoveANM = isTT || isFS1Mec
         })()}
 
       </div>
+      {showProjectsModal && <ServerProjectsModal onClose={() => setShowProjectsModal(false)} />}
     </aside>
   )
 }
