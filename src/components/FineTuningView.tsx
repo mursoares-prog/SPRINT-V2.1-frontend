@@ -2076,17 +2076,50 @@ function ClassicSchedulePanel({
             const at = above ? restIdx : restIdx + 1
             dispatch({ type: 'FT_REORDER', items: [...rest.slice(0, at), ...selected, ...rest.slice(at)] })
           } else if (checkedLines.size > 0 && contextMenu.kind === 'line' && contextMenu.lineId) {
-            const targetUid = contextMenu.uid
-            const targetItem = items.find(i => i.uid === targetUid)
-            if (!targetItem) return
-            const selectedInPkg = targetItem.lines.filter(l => checkedLines.has(l.id))
-            if (selectedInPkg.length === 0) return
-            const remaining = targetItem.lines.filter(l => !checkedLines.has(l.id))
-            const restIdx = remaining.findIndex(l => l.id === contextMenu.lineId)
-            if (restIdx < 0) return
-            const at = above ? restIdx : restIdx + 1
-            dispatch({ type: 'FT_REORDER_LINES', uid: targetUid, lines: [...remaining.slice(0, at), ...selectedInPkg, ...remaining.slice(at)] })
+            // Cross-package move: collect selected lines in schedule order, remove from all packages,
+            // insert at target position (which may be in a different package)
+            const allSelected: FineTuningLine[] = []
+            for (const it of items)
+              for (const l of it.lines)
+                if (checkedLines.has(l.id)) allSelected.push(l)
+
+            const newItems = items.map(it => ({ ...it, lines: it.lines.filter(l => !checkedLines.has(l.id)) }))
+            const targetItemIdx = newItems.findIndex(i => i.uid === contextMenu.uid)
+            if (targetItemIdx < 0) return
+            const targetItem = newItems[targetItemIdx]
+            const targetLineIdx = targetItem.lines.findIndex(l => l.id === contextMenu.lineId)
+            const at = targetLineIdx < 0
+              ? (above ? 0 : targetItem.lines.length)
+              : (above ? targetLineIdx : targetLineIdx + 1)
+            const moved = allSelected.map((l, i) => ({ ...l, id: `${contextMenu.uid}_mv${Date.now()}_${i}` }))
+            newItems[targetItemIdx] = { ...targetItem, expanded: true, lines: [...targetItem.lines.slice(0, at), ...moved, ...targetItem.lines.slice(at)] }
+            dispatch({ type: 'FT_REORDER', items: newItems })
+            setCheckedLines(new Set(moved.map(l => l.id)))
+            setCheckedPkgs(new Set())
           }
+          setContextMenu(null)
+        }
+
+        // Split current package at the clicked line and open picker between the two halves
+        const handleSplitInsert = (above: boolean) => {
+          if (contextMenu.kind !== 'line' || !contextMenu.lineId) return
+          const origItem = items.find(i => i.uid === contextMenu.uid)
+          if (!origItem) return
+          const lineIdx = origItem.lines.findIndex(l => l.id === contextMenu.lineId)
+          if (lineIdx < 0) return
+          const splitAt = above ? lineIdx : lineIdx + 1
+          const linesA = origItem.lines.slice(0, splitAt)
+          const linesB = origItem.lines.slice(splitAt)
+          // Edge: clicking the very first or last line → just insert at package boundary
+          if (linesA.length === 0) { setPickerAfterUid(prevPkgUid(contextMenu.uid)); setContextMenu(null); return }
+          if (linesB.length === 0) { setPickerAfterUid(contextMenu.uid); setContextMenu(null); return }
+          const uidB = `${origItem.uid}_sp${Date.now()}`
+          const pkgA = { ...origItem, lines: linesA }
+          const pkgB = { ...origItem, uid: uidB, lines: linesB.map((l, i) => ({ ...l, id: `${uidB}_l${i}` })) }
+          const pkgIdx = items.findIndex(i => i.uid === contextMenu.uid)
+          dispatch({ type: 'FT_REORDER', items: [...items.slice(0, pkgIdx), pkgA, pkgB, ...items.slice(pkgIdx + 1)] })
+          // Open picker to insert between the two halves (after pkgA = origItem.uid)
+          setPickerAfterUid(origItem.uid)
           setContextMenu(null)
         }
 
@@ -2122,6 +2155,12 @@ function ClassicSchedulePanel({
             )}
             <button className={btn} onClick={() => { setPickerAfterUid(prevPkgUid(contextMenu.uid)); setContextMenu(null) }}>↑ Inserir pacote acima</button>
             <button className={btn} onClick={() => { setPickerAfterUid(contextMenu.uid); setContextMenu(null) }}>↓ Inserir pacote abaixo</button>
+            {contextMenu.kind === 'line' && (
+              <>
+                <button className={btnSec} onClick={() => handleSplitInsert(true)}>↑ Dividir pacote e inserir acima desta linha</button>
+                <button className={btnSec} onClick={() => handleSplitInsert(false)}>↓ Dividir pacote e inserir abaixo desta linha</button>
+              </>
+            )}
             <button className={btnSec} onClick={() => { onInsertManual(prevPkgUid(contextMenu.uid)); setContextMenu(null) }}>↑ Inserir manualmente acima</button>
             <button className={btnSec} onClick={() => { onInsertManual(contextMenu.uid); setContextMenu(null) }}>↓ Inserir manualmente abaixo</button>
             {sep}
