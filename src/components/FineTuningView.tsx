@@ -970,7 +970,7 @@ function DetailIndicator({ line }: { line: FineTuningLine }) {
   )
 }
 
-function ClassicLineRow({ line, itemUid, itemPhase, subNum, onSelectLine, isChecked, onToggleCheck, pkgIsParallel, pkgIsCont, kbEditTick, isLastLine, onEnterFromLastLine, onDeleteRequest, showOntology, showEds, showCsb, bopActiveLineIds, showPkgCol, checkedLines, multiEditLeadId, currentReviewUid, matchRowId, highlightIds }: {
+function ClassicLineRow({ line, itemUid, itemPhase, subNum, onSelectLine, isChecked, onToggleCheck, pkgIsParallel, pkgIsCont, kbEditTick, isLastLine, onEnterFromLastLine, onDeleteRequest, showOntology, showEds, showCsb, bopActiveLineIds, showPkgCol, checkedLines, multiEditLeadId, currentReviewUid, matchRowId, highlightIds, onContextMenu }: {
   line: FineTuningLine; itemUid: string; itemPhase: Phase
   subNum: string
   onSelectLine: () => void
@@ -1122,7 +1122,7 @@ function ClassicLineRow({ line, itemUid, itemPhase, subNum, onSelectLine, isChec
   )
 }
 
-function ClassicPkgRow({ item, rowNum, isChecked, onToggleCheck, onSelectLine, checkedLines, multiEditLeadId, onToggleLine, kbNavLineId, kbNavTick, nameEditTick, onEnterFromLastLine, onDeleteRequest, onDeleteLine, showOntology, showEds, showCsb, bopActiveLineIds, showPkgCol, isPendingReview, currentReviewUid, matchRowId, highlightIds }: {
+function ClassicPkgRow({ item, rowNum, isChecked, onToggleCheck, onSelectLine, checkedLines, multiEditLeadId, onToggleLine, kbNavLineId, kbNavTick, nameEditTick, onEnterFromLastLine, onDeleteRequest, onDeleteLine, showOntology, showEds, showCsb, bopActiveLineIds, showPkgCol, isPendingReview, currentReviewUid, matchRowId, highlightIds, onContextMenu, onContextMenuLine }: {
   item: FineTuningItem; rowNum: number | null
   isChecked: boolean; onToggleCheck: () => void
   onSelectLine: (lineId: string) => void
