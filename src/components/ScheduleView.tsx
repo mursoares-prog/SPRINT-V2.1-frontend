@@ -3,8 +3,7 @@ import React from 'react'
 import { useApp } from '../context/AppContext'
 import type { ScheduleItem } from '../types'
 import { PACKAGES } from '../data/packages'
-import { Sliders, Undo2, Redo2, BarChart2, FilePlus, FolderOpen } from 'lucide-react'
-import { ServerProjectsModal } from './ServerProjectsModal'
+import { Sliders, Undo2, Redo2, BarChart2 } from 'lucide-react'
 
 const MOUNT_IDS = new Set(Object.values(PACKAGES).filter(p => p.isMountOp).map(p => p.id))
 const TRACKED_MOUNT_TECHS = ['wireline', 'electric', 'ct'] as const
@@ -37,8 +36,6 @@ export function ScheduleView() {
   const { state, dispatch, canUndoInputs, canRedoInputs } = useApp()
   const { schedule } = state
   const [showStats, setShowStats] = useState(() => typeof window !== 'undefined' && window.innerWidth >= 1400)
-  const [showProjectsModal, setShowProjectsModal] = useState(false)
-
   const total = schedule.reduce((a, i) => a + i.duration, 0)
   const pct: number = state.inputs.percentile ?? 75
   const showHours = state.showHours
@@ -74,18 +71,6 @@ export function ScheduleView() {
               className="flex items-center gap-1 h-8 px-2.5 rounded-lg text-xs font-semibold transition-colors border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:border-slate-300 dark:hover:border-slate-500 bg-slate-100 dark:bg-slate-800 disabled:opacity-30 disabled:cursor-not-allowed">
               <Redo2 size={13} /><span className="hidden md:inline">Refazer</span>
             </button>
-            <button
-              onClick={() => dispatch({ type: 'ENTER_FINE_TUNING_BLANK' })}
-              title="Ir para detalhamento com cronograma em branco"
-              className="flex items-center gap-1.5 h-8 px-3 rounded-lg text-xs font-semibold transition-colors border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:border-slate-300 dark:hover:border-slate-500 bg-slate-100 dark:bg-slate-800">
-              <FilePlus size={14} /><span className="hidden md:inline">Cronograma em branco</span>
-            </button>
-            <button
-              onClick={() => setShowProjectsModal(true)}
-              title="Abrir projeto salvo para copiar cronograma"
-              className="flex items-center gap-1.5 h-8 px-3 rounded-lg text-xs font-semibold transition-colors border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:border-slate-300 dark:hover:border-slate-500 bg-slate-100 dark:bg-slate-800">
-              <FolderOpen size={14} /><span className="hidden md:inline">Copiar de projeto</span>
-            </button>
             <div className="flex h-8 rounded-lg overflow-hidden border border-slate-200 dark:border-slate-600">
               <button
                 onClick={() => showHours && dispatch({ type: 'TOGGLE_HOURS' })}
@@ -118,7 +103,6 @@ export function ScheduleView() {
           onDurationChange={(uid, dur) => dispatch({ type: 'UPDATE_ITEM_DURATION', uid, duration: dur })} />
         {showStats && <ScheduleStatsPanel items={schedule} showHours={showHours} />}
       </div>
-      {showProjectsModal && <ServerProjectsModal onClose={() => setShowProjectsModal(false)} />}
     </div>
   )
 }

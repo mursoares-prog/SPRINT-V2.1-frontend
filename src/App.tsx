@@ -6,12 +6,11 @@ import { ScheduleView } from './components/ScheduleView'
 import { FineTuningView } from './components/FineTuningView'
 import { AdminView } from './components/AdminView'
 import { PackagesCatalogModal } from './components/PackagesCatalogModal'
-import { FlowchartModal } from './components/FlowchartModal'
 import { InputSummaryPanel } from './components/InputSummaryPanel'
 import { generateSchedule } from './engines/scheduleRouter'
 import type { ScopeId, WizardInputs, RigType } from './types'
-import { ArrowRight, FileText, Settings2, FolderOpen, AlertTriangle, Server } from 'lucide-react'
-import { loadProjectFromFile } from './utils/projectFile'
+import { ArrowRight, FileText, Settings2, AlertTriangle, FilePlus, FolderOpen } from 'lucide-react'
+import { ServerProjectsModal } from './components/ServerProjectsModal'
 import { getDefaultInputs } from './utils/defaultInputs'
 import { isApiConfigured, getMergedPackageLines, getBaseOverrides, getBasePackageOverrides, getCustomPackages, getLogicScopes, getLogicScope } from './utils/api'
 import { getSession, clearSession } from './utils/auth'
@@ -20,7 +19,6 @@ import { applyDetailOverrides, applyPackageOverrides } from './data/lineDetailsS
 import { setExtraPackages, metaToPackage, PACKAGES } from './data/packages'
 import { setLogicOverrides, setCustomScopesMeta, getCustomScopesMeta, isBlockScope, setScopeLabels } from './data/logicOverrideStore'
 import { SCOPE_LABEL } from './data/scopeLabels'
-import { ServerProjectsModal } from './components/ServerProjectsModal'
 
 function SemisubIcon({ size = 24, className = '' }: { size?: number; className?: string }) {
   return (
@@ -61,24 +59,15 @@ function Home() {
   const session = getSession()
   const { dispatch } = useApp()
   const [selecting, setSelecting] = useState(false)
-  const [askingWell, setAskingWell] = useState(false)
-  const [wellName,    setWellName]    = useState('')
-  const [interventionType, setInterventionType] = useState<'abandono' | 'workover' | ''>('')
+  const [showProjectsModal, setShowProjectsModal] = useState(false)
+  const [interventionType, setInterventionType] = useState<'abandono_molhada' | 'abandono_seca' | 'workover' | ''>('')
   const [rigType,     setRigType]     = useState<RigType | ''>('')
   const [opType,      setOpType]      = useState<'Generalista' | 'LWO'>('Generalista')
   const [phaseFilter, setPhaseFilter] = useState<'fase_unica' | 'fase_1' | 'fase_2' | ''>('')
   const [scopeId,     setScopeId]     = useState<ScopeId | ''>('')
-  const [openError,   setOpenError]   = useState<string | null>(null)
-  const [showServer,  setShowServer]  = useState(false)
 
   const reset = () => {
-    setInterventionType(''); setRigType(''); setOpType('Generalista'); setPhaseFilter(''); setScopeId(''); setWellName('')
-  }
-
-  const handleStartNew = () => {
-    if (!wellName.trim()) return
-    setAskingWell(false)
-    setSelecting(true)
+    setInterventionType(''); setRigType(''); setOpType('Generalista'); setPhaseFilter(''); setScopeId('')
   }
 
   const handleRigChange = (v: RigType) => {
@@ -92,8 +81,10 @@ function Home() {
   const handlePhaseChange = (v: typeof phaseFilter) => {
     setPhaseFilter(v); setScopeId('')
   }
-  const handleInterventionChange = (v: 'abandono' | 'workover') => {
-    setInterventionType(v); setRigType(''); setOpType('Generalista'); setPhaseFilter(''); setScopeId('')
+  const handleInterventionChange = (v: 'abandono_molhada' | 'abandono_seca' | 'workover') => {
+    setInterventionType(v)
+    setRigType(v === 'abandono_molhada' ? 'ANC' : v === 'abandono_seca' ? 'Rigless' : '')
+    setOpType('Generalista'); setPhaseFilter(''); setScopeId('')
   }
 
   const handleGenerate = () => {
@@ -101,31 +92,13 @@ function Home() {
     if (rigType !== 'ANC' && rigType !== 'DP') return   // PA/SPH/SM/SPM/Rigless ainda não têm fluxo de geração
     const defaults = getDefaultInputs(rigType, opType, scopeId)
     dispatch({ type: 'RESET' })
-    dispatch({ type: 'SET_WELL_NAME', wellName: wellName.trim() })
-    dispatch({ type: 'PROJECT_UPDATE_DATA', patch: { poco: wellName.trim() } })
+    dispatch({ type: 'SET_WELL_NAME', wellName: 'Poço' })
+    dispatch({ type: 'PROJECT_UPDATE_DATA', patch: { poco: 'Poço' } })
     dispatch({ type: 'UPDATE_INPUTS', inputs: defaults })
     try {
       const schedule = generateSchedule(defaults as WizardInputs)
       dispatch({ type: 'SET_SCHEDULE', schedule })
     } catch { /* incomplete state */ }
-  }
-
-  const handleOpenFile = async () => {
-    setOpenError(null)
-    try {
-      const project = await loadProjectFromFile()
-      dispatch({
-        type: 'LOAD_PROJECT',
-        wellName: project.wellName,
-        inputs: project.inputs,
-        schedule: project.schedule,
-        projectData: project.projectData,
-        fineTuningItems: project.fineTuningItems,
-      })
-    } catch (err) {
-      const msg = (err as Error).message
-      if (msg !== 'Nenhum arquivo selecionado') setOpenError(msg)
-    }
   }
 
   const scopeMap = opType === 'LWO' ? SCOPE_BY_PHASE_LWO : SCOPE_BY_PHASE
@@ -138,7 +111,7 @@ function Home() {
       return true
     })
   }, [selecting, phaseFilter, opType])
-  const canGenerate = interventionType === 'abandono' && !!rigType && !!scopeId
+  const canGenerate = interventionType === 'abandono_molhada' && !!rigType && !!scopeId
 
   if (!selecting) {
     return (
@@ -157,41 +130,50 @@ function Home() {
             Sistema de Planejamento Responsivo de Intervenções
           </p>
           <p className="text-slate-700 dark:text-slate-400 max-w-sm mx-auto text-sm leading-relaxed text-center">
-            Geração automatizada de cronogramas para intervenções de abandono e workover de poços submarinos.
+            Geração automatizada de cronogramas para intervenções de abandono e workover de poços submarinos
           </p>
         </div>
 
-        <div className="flex gap-3">
-          <button
-            onClick={() => setAskingWell(true)}
-            className="flex items-center gap-2 px-7 py-3 bg-[#0c2340] text-white rounded-xl font-semibold tracking-wide hover:bg-[#0e3a60] transition-colors shadow-lg">
-            Novo Projeto <ArrowRight size={16} />
-          </button>
-          <button
-            onClick={handleOpenFile}
-            className="flex items-center gap-2 px-5 py-3 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 rounded-xl font-semibold border border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600 transition-colors shadow-sm">
-            <FolderOpen size={16} /> Abrir
-          </button>
-          {isApiConfigured() && (
-            <button
-              onClick={() => setShowServer(true)}
-              className="flex items-center gap-2 px-5 py-3 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 rounded-xl font-semibold border border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600 transition-colors shadow-sm">
-              <Server size={16} /> Servidor
-            </button>
-          )}
+        <div className="w-full max-w-lg">
+          <p className="text-[10px] font-bold text-slate-500 dark:text-slate-500 uppercase tracking-[0.2em] mb-3 text-center">Tipo de intervenção</p>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+            {([
+              ['abandono_molhada', 'Abandono', 'Comp. Molhada'],
+              ['abandono_seca',    'Abandono', 'Comp. Seca'],
+              ['workover',         'Workover', ''],
+            ] as ['abandono_molhada' | 'abandono_seca' | 'workover', string, string][]).map(([v, title, subtitle]) => (
+              <button
+                key={v}
+                onClick={() => { handleInterventionChange(v); setSelecting(true) }}
+                className={`min-h-20 flex flex-col items-center justify-center gap-1 px-3 py-3 rounded-xl text-center border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:border-[#0c2340] hover:bg-[#0c2340] hover:text-white dark:hover:border-sky-700 dark:hover:bg-sky-900/40 dark:hover:text-white transition-colors shadow-sm ${v === 'workover' ? 'col-span-2 sm:col-span-1' : ''}`}>
+                <span className="text-sm font-semibold leading-tight">{title}</span>
+                {subtitle && <span className="text-[11px] leading-tight opacity-65">{subtitle}</span>}
+              </button>
+            ))}
+          </div>
         </div>
 
-        {showServer && <ServerProjectsModal onClose={() => setShowServer(false)} />}
-
-        {openError && (
-          <p className="text-xs text-red-500 font-semibold -mt-4">{openError}</p>
-        )}
+        <div className="w-full max-w-lg">
+          <p className="text-[10px] font-bold text-slate-400 dark:text-slate-600 uppercase tracking-[0.2em] mb-2 text-center">ou</p>
+          <div className="grid grid-cols-2 gap-2.5">
+            <button
+              onClick={() => dispatch({ type: 'ENTER_FINE_TUNING_BLANK' })}
+              className="flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl text-center border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:border-slate-400 dark:hover:border-slate-500 hover:text-slate-800 dark:hover:text-slate-200 transition-colors shadow-sm text-xs font-semibold">
+              <FilePlus size={14} /> Cronograma em branco
+            </button>
+            <button
+              onClick={() => setShowProjectsModal(true)}
+              className="flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl text-center border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:border-slate-400 dark:hover:border-slate-500 hover:text-slate-800 dark:hover:text-slate-200 transition-colors shadow-sm text-xs font-semibold">
+              <FolderOpen size={14} /> Copiar de projeto
+            </button>
+          </div>
+        </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 w-full max-w-lg">
           {[
             { icon: <FileText size={18} />, title: 'Escopos', value: '11' },
-            { icon: <Settings2 size={18} />, title: 'Pacotes ABAN', value: `${Object.keys(PACKAGES).length}` },
-            { icon: <SemisubIcon size={18} />, title: 'Tipos de sonda', value: 'ANC + DP' },
+            { icon: <Settings2 size={18} />, title: 'Pacotes', value: `${Object.keys(PACKAGES).length}` },
+            { icon: <SemisubIcon size={18} />, title: 'Tipos de sonda', value: '7' },
           ].map(card => (
             <div key={card.title} className="bg-slate-100 dark:bg-slate-800 rounded-xl p-4 border border-slate-200 dark:border-slate-700 shadow-sm text-center">
               <div className="text-[#d97706] flex justify-center mb-2">{card.icon}</div>
@@ -207,36 +189,7 @@ function Home() {
           </p>
         )}
 
-        {/* Modal: nome do poço */}
-        {askingWell && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
-            onClick={() => { setAskingWell(false); setWellName('') }}>
-            <div onClick={e => e.stopPropagation()}
-              className="bg-slate-100 dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-700 p-6 max-w-sm w-full mx-4 flex flex-col gap-4">
-              <input
-                autoFocus
-                value={wellName}
-                onChange={e => setWellName(e.target.value)}
-                onKeyDown={e => { if (e.key === 'Enter') handleStartNew() }}
-                placeholder="Nome do poço"
-                className="w-full px-3 py-2 rounded-lg text-sm bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:border-[#0c2340] dark:focus:border-sky-700" />
-              <div className="flex justify-end gap-2">
-                <button
-                  onClick={() => { setAskingWell(false); setWellName('') }}
-                  className="px-4 py-1.5 rounded-lg text-sm font-semibold border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
-                  Cancelar
-                </button>
-                <button
-                  onClick={handleStartNew}
-                  disabled={!wellName.trim()}
-                  className="flex items-center gap-2 px-4 py-1.5 rounded-lg text-sm font-semibold bg-[#0c2340] text-white hover:bg-[#0e3a60] disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
-                  Continuar <ArrowRight size={15} />
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
+        {showProjectsModal && <ServerProjectsModal onClose={() => setShowProjectsModal(false)} />}
       </div>
     )
   }
@@ -250,25 +203,18 @@ function Home() {
           <div className="w-8 h-8 rounded-lg bg-[#0c2340] flex items-center justify-center">
             <SemisubIcon size={14} className="text-[#d97706]" />
           </div>
-          <h2 style={{ fontFamily: "'Barlow Condensed', sans-serif" }}
-            className="text-2xl font-bold text-[#0c2340] dark:text-white uppercase tracking-wide">
-            Novo Cronograma
-          </h2>
+          <div>
+            <h2 style={{ fontFamily: "'Barlow Condensed', sans-serif" }}
+              className="text-2xl font-bold text-[#0c2340] dark:text-white uppercase tracking-wide leading-tight">
+              {interventionType === 'abandono_molhada' ? 'Abandono Comp. Molhada'
+                : interventionType === 'abandono_seca' ? 'Abandono Comp. Seca'
+                : interventionType === 'workover' ? 'Workover'
+                : 'Novo Cronograma'}
+            </h2>
+          </div>
         </div>
 
         <div className="bg-slate-100 dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm p-7 space-y-6">
-
-          {/* Tipo de intervenção */}
-          <SelGroup label="Tipo de intervenção">
-            <div className="flex gap-3">
-              <SelChip active={interventionType === 'abandono'} onClick={() => handleInterventionChange('abandono')}>
-                Abandono
-              </SelChip>
-              <SelChip active={interventionType === 'workover'} onClick={() => handleInterventionChange('workover')}>
-                Workover
-              </SelChip>
-            </div>
-          </SelGroup>
 
           {/* Workover: em desenvolvimento */}
           {interventionType === 'workover' && (
@@ -277,56 +223,45 @@ function Home() {
             </div>
           )}
 
-          {/* Posicionamento (somente Abandono) */}
-          {interventionType === 'abandono' && (
-            <SelGroup label="Tipo de posicionamento">
+          {/* Completação Molhada: seletor flat ANC / DP Generalista / DP LWIV */}
+          {interventionType === 'abandono_molhada' && (
+            <SelGroup label="Tipo de sonda">
               <div className="flex flex-wrap gap-3">
-                {(['ANC', 'DP'] as const).map(v => (
-                  <SelChip key={v} active={rigType === v} onClick={() => handleRigChange(v)}>
-                    {v === 'ANC' ? 'Ancorada (ANC)' : 'Posicionamento Dinâmico (DP)'}
-                  </SelChip>
-                ))}
-                <SelChip active={rigType === 'PA'} onClick={() => handleRigChange('PA')}>
-                  Auto Elevatória (PA)
+                <SelChip active={rigType === 'ANC'} onClick={() => { setRigType('ANC'); setOpType('Generalista'); setPhaseFilter(''); setScopeId('') }}>
+                  ANC
                 </SelChip>
-                <SelChip active={rigType === 'SPH'} onClick={() => handleRigChange('SPH')}>
-                  Prod. Hidráulica (SPH)
+                <SelChip active={rigType === 'DP' && opType === 'Generalista'} onClick={() => { setRigType('DP'); setOpType('Generalista'); setPhaseFilter(''); setScopeId('') }}>
+                  DP Generalista
                 </SelChip>
-                <SelChip active={rigType === 'SM'} onClick={() => handleRigChange('SM')}>
-                  SM
-                </SelChip>
-                <SelChip active={rigType === 'SPM'} onClick={() => handleRigChange('SPM')}>
-                  SPM
-                </SelChip>
-                <SelChip active={rigType === 'Rigless'} onClick={() => handleRigChange('Rigless')}>
-                  Rigless
+                <SelChip active={rigType === 'DP' && opType === 'LWO'} onClick={() => { setRigType('DP'); setOpType('LWO'); setPhaseFilter(''); setScopeId('') }}>
+                  DP LWIV
                 </SelChip>
               </div>
             </SelGroup>
           )}
 
-          {/* Sondas de Completação Seca (PA/SPH/SM/SPM/Rigless): em desenvolvimento */}
-          {interventionType === 'abandono' && rigType !== '' && rigType !== 'ANC' && rigType !== 'DP' && (
+          {/* Completação Seca: seletor PA / SPH / SM / SPM / Rigless */}
+          {interventionType === 'abandono_seca' && (
+            <SelGroup label="Tipo de sonda">
+              <div className="flex flex-wrap gap-3">
+                <SelChip active={rigType === 'PA'}      onClick={() => handleRigChange('PA')}>Auto Elevatória (PA)</SelChip>
+                <SelChip active={rigType === 'SPH'}     onClick={() => handleRigChange('SPH')}>Prod. Hidráulica (SPH)</SelChip>
+                <SelChip active={rigType === 'SM'}      onClick={() => handleRigChange('SM')}>SM</SelChip>
+                <SelChip active={rigType === 'SPM'}     onClick={() => handleRigChange('SPM')}>SPM</SelChip>
+                <SelChip active={rigType === 'Rigless'} onClick={() => handleRigChange('Rigless')}>Rigless</SelChip>
+              </div>
+            </SelGroup>
+          )}
+
+          {/* Sondas de Completação Seca: em desenvolvimento */}
+          {interventionType === 'abandono_seca' && rigType !== '' && (
             <div className="flex items-center justify-center py-6 rounded-xl border border-dashed border-slate-300 dark:border-slate-700">
               <span className="text-xs font-bold tracking-widest text-slate-400 dark:text-slate-500 uppercase">Em desenvolvimento</span>
             </div>
           )}
 
-          {/* Tipo de sonda (DP) */}
-          {interventionType === 'abandono' && rigType === 'DP' && (
-            <SelGroup label="Tipo de sonda">
-              <div className="flex flex-wrap gap-3">
-                {(['Generalista', 'LWO'] as const).map(v => (
-                  <SelChip key={v} active={opType === v} onClick={() => handleOpChange(v)}>
-                    {v === 'LWO' ? 'LWIV (NS-51 / NS-52)' : v}
-                  </SelChip>
-                ))}
-              </div>
-            </SelGroup>
-          )}
-
           {/* Fase */}
-          {interventionType === 'abandono' && (rigType === 'ANC' || rigType === 'DP') && (
+          {interventionType === 'abandono_molhada' && (rigType === 'ANC' || rigType === 'DP') && (
             <SelGroup label="Fase da intervenção">
               <div className="flex flex-wrap gap-3">
                 {([
@@ -343,7 +278,7 @@ function Home() {
           )}
 
           {/* Escopo bundle */}
-          {interventionType === 'abandono' && phaseFilter && scopeOptions.length > 0 && (
+          {interventionType === 'abandono_molhada' && phaseFilter && scopeOptions.length > 0 && (
             <SelGroup label="Escopo previsto">
               <div className="space-y-2">
                 {scopeOptions.map(id => (
@@ -362,7 +297,7 @@ function Home() {
           )}
 
           {/* Escopos customizados — filtrados por fase e tipo de sonda quando configurados */}
-          {interventionType === 'abandono' && (rigType === 'ANC' || rigType === 'DP') && filteredCustomScopes.length > 0 && (
+          {interventionType === 'abandono_molhada' && (rigType === 'ANC' || rigType === 'DP') && filteredCustomScopes.length > 0 && (
             <SelGroup label="Fluxogramas customizados">
               <div className="space-y-2">
                 {filteredCustomScopes.map(cs => (
@@ -439,9 +374,9 @@ function SelChip({ active, onClick, children }: { active: boolean; onClick: () =
 function Main({ onLogout }: { onLogout: () => void }) {
   const { state, dispatch } = useApp()
   const [isDark, setIsDark] = useState(() => localStorage.getItem('sprint_theme') !== 'light')
+  const [adminTab, setAdminTab] = useState<'vars' | 'engine'>('vars')
   const [showAdmin, setShowAdmin] = useState(false)
   const [showPackages, setShowPackages] = useState(false)
-  const [showFlowchart, setShowFlowchart] = useState(false)
   const [navWarnTarget, setNavWarnTarget] = useState<'home' | 'wizard' | 'schedule' | 'fine_tuning' | null>(null)
   const toggleDark = () => setIsDark(d => !d)
 
@@ -466,15 +401,14 @@ function Main({ onLogout }: { onLogout: () => void }) {
         <Sidebar
           isDark={isDark}
           onToggleDark={toggleDark}
-          onOpenConfig={() => setShowAdmin(true)}
+          onOpenConfig={() => { setAdminTab('vars'); setShowAdmin(true) }}
           onOpenPackages={() => setShowPackages(true)}
-          onOpenFlowchart={() => setShowFlowchart(true)}
+          onOpenLogicEditor={() => { setAdminTab('engine'); setShowAdmin(true) }}
           onBeforeStepNav={handleBeforeStepNav}
           onLogout={onLogout}
         />
-        {showAdmin && <AdminView onClose={() => setShowAdmin(false)} />}
+        {showAdmin && <AdminView initialTab={adminTab} onClose={() => setShowAdmin(false)} />}
         {showPackages && <PackagesCatalogModal onClose={() => setShowPackages(false)} />}
-        {showFlowchart && <FlowchartModal onClose={() => setShowFlowchart(false)} />}
 
         {state.view === 'schedule' && (
           <div className="flex">
