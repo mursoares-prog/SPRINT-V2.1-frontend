@@ -1,7 +1,7 @@
 ﻿import React, { useState, useRef, useEffect, useLayoutEffect, useMemo } from 'react'
 import {
   Plus, Minus, ChevronDown, ChevronRight, ChevronUp,
-  X, Trash2, Check, Undo2, Redo2, FileText, Download, Search, PencilLine, Save,
+  X, Trash2, Check, Undo2, Redo2, FileText, Download, Search, PencilLine,
   PanelLeftOpen, PanelRightClose, PanelRightOpen,
 } from 'lucide-react'
 
@@ -13,8 +13,6 @@ import { PACKAGES, getAllPackages } from '../data/packages'
 import { EDS_TYPES } from '../data/edsTypes'
 import { SCOPE_LABEL } from '../data/scopeLabels'
 import { buildProjectFacts } from '../utils/projectFacts'
-import { buildProjectFile, downloadProject } from '../utils/projectFile'
-import { CloudSaveButton } from './CloudSaveButton'
 import {
   owFases, owAtividades, owOperacoes, owEtapas,
   isOntologyMismatch, expectedOwFase, countMismatches,
@@ -34,6 +32,13 @@ const TECH_COLORS: Record<string, string> = {
   workstring: 'bg-orange-100 dark:bg-orange-950 text-orange-700 dark:text-orange-300',
   bop:        'bg-rose-100 dark:bg-rose-950 text-rose-700 dark:text-rose-300',
   none:       '',
+}
+
+type ScheduleColumn = 'number' | 'package' | 'type' | 'description' | 'firm' | 'contingency' | 'total'
+
+const MIN_COLUMN_WIDTH: Record<ScheduleColumn, number> = {
+  number: 44, package: 64, type: 36, description: 220,
+  firm: 72, contingency: 72, total: 80,
 }
 
 // ── Phase colors — full palette, mirrors step 2 ───────────────────────────────
@@ -943,68 +948,6 @@ function PackagePickerModal({ afterUid, onClose }: { afterUid: string | null; on
   )
 }
 
-function ClassicInsertPkgRow({ afterUid, onInsertManual, lineTarget }: {
-  afterUid: string | null
-  onInsertManual: (afterUid: string | null) => void
-  // Quando a faixa fica ao final de um pacote expandido, também oferece "+ linha"
-  // para acrescentar uma nova última linha nele, ao lado das opções de pacote.
-  lineTarget?: { uid: string; afterLineId: string | null } | null
-}) {
-  const { dispatch } = useApp()
-  const [hover, setHover] = useState(false)
-  const [showPicker, setShowPicker] = useState(false)
-  return (
-    <>
-      <tr onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}>
-        <td colSpan={7} className="p-0 h-1 relative">
-          {hover && (
-            <div className="absolute inset-0 flex items-center justify-center z-10 gap-1">
-              <div className="absolute inset-0 border-t border-dashed border-blue-300 dark:border-blue-700 pointer-events-none top-1/2" />
-              <button onClick={() => setShowPicker(true)}
-                className="relative flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-blue-500 text-white shadow-md hover:bg-blue-600 transition-colors">
-                <Plus size={10} /> Inserir pacote
-              </button>
-              <button onClick={() => onInsertManual(afterUid)}
-                title="Inserir item manual — digite o nome livremente"
-                className="relative flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-slate-500 text-white shadow-md hover:bg-slate-600 transition-colors">
-                <PencilLine size={10} /> Inserir manualmente
-              </button>
-              {lineTarget && (
-                <button onClick={() => dispatch({ type: 'FT_INSERT_LINE_AFTER', uid: lineTarget.uid, afterLineId: lineTarget.afterLineId })}
-                  title="Acrescentar uma nova última linha neste pacote"
-                  className="relative flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-slate-400 text-white shadow-md hover:bg-slate-500 transition-colors">
-                  <Plus size={10} /> linha
-                </button>
-              )}
-            </div>
-          )}
-        </td>
-      </tr>
-      {showPicker && <PackagePickerModal afterUid={afterUid} onClose={() => setShowPicker(false)} />}
-    </>
-  )
-}
-
-function ClassicInsertLineRow({ uid, afterLineId }: { uid: string; afterLineId: string | null }) {
-  const { dispatch } = useApp()
-  const [hover, setHover] = useState(false)
-  return (
-    <tr onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}>
-      <td colSpan={7} className="p-0 h-0.5 relative">
-        {hover && (
-          <div className="absolute inset-0 flex items-center justify-center z-10">
-            <div className="absolute inset-0 border-t border-dashed border-slate-300 dark:border-slate-600 pointer-events-none top-1/2" />
-            <button onClick={() => dispatch({ type: 'FT_INSERT_LINE_AFTER', uid, afterLineId })}
-              className="relative flex items-center gap-0.5 px-1.5 py-0 rounded-full text-[9px] font-semibold bg-slate-400 text-white shadow hover:bg-slate-500 transition-colors">
-              <Plus size={9} /> linha
-            </button>
-          </div>
-        )}
-      </td>
-    </tr>
-  )
-}
-
 // Sinaliza, no cronograma, que a linha tem algum campo de Detalhamento preenchido
 // (Referências Técnicas/Procedimentos, Detalhes ou CSBs).
 function lineDetailLabels(line: FineTuningLine): string[] {
@@ -1048,6 +991,7 @@ function ClassicLineRow({ line, itemUid, itemPhase, subNum, onSelectLine, isChec
   currentReviewUid?: string | null
   matchRowId?: string | null
   highlightIds?: Set<string> | null
+  onContextMenu?: (e: React.MouseEvent) => void
 }) {
   const { state, dispatch } = useApp()
   const showHours = state.showHours
@@ -1068,6 +1012,7 @@ function ClassicLineRow({ line, itemUid, itemPhase, subNum, onSelectLine, isChec
   return (
     <tr data-row-id={line.id}
       onClick={() => onSelectLine()}
+      onContextMenu={e => { e.preventDefault(); e.stopPropagation(); onContextMenu?.(e) }}
       className={`group border-b border-slate-100 dark:border-slate-800 cursor-pointer transition-colors ${rowBg} ${matchRowId === line.id || highlightIds?.has(line.id) ? 'outline outline-2 -outline-offset-2 outline-sky-500 dark:outline-sky-400' : ''}`}
       style={!isChecked && !isLinePending ? highlightRowStyle(line.highlight) : undefined}>
       {/* # — spacer (=chevron width) + checkbox + sub-number, aligned with package row */}
@@ -1084,7 +1029,7 @@ function ClassicLineRow({ line, itemUid, itemPhase, subNum, onSelectLine, isChec
         </div>
       </td>
       {/* Pacote — collapses to 0 when hidden */}
-      <td className={showPkgCol ? 'py-1.5 px-2' : ''} style={showPkgCol ? {} : { width: 0, maxWidth: 0, padding: 0, overflow: 'hidden' }} />
+      <td className={showPkgCol ? 'py-1.5 px-2' : 'hidden'} />
       {/* Tipo — contingencial + paralelo (icon toggles) */}
       <td className="py-1.5 px-1 text-center">
         <div className="inline-flex items-center gap-0.5">
@@ -1195,6 +1140,8 @@ function ClassicPkgRow({ item, rowNum, isChecked, onToggleCheck, onSelectLine, c
   currentReviewUid?: string | null
   matchRowId?: string | null
   highlightIds?: Set<string> | null
+  onContextMenu?: (e: React.MouseEvent) => void
+  onContextMenuLine?: (uid: string, lineId: string, x: number, y: number) => void
 }) {
   const { state, dispatch } = useApp()
   const showHours = state.showHours
@@ -1258,7 +1205,9 @@ function ClassicPkgRow({ item, rowNum, isChecked, onToggleCheck, onSelectLine, c
 
   return (
     <>
-      <tr ref={trRef} data-row-id={item.uid} className={`group border-b border-slate-100 dark:border-slate-800 transition-colors ${rowBg} ${matchRowId === item.uid ? 'outline outline-2 -outline-offset-2 outline-sky-500 dark:outline-sky-400' : ''}`}
+      <tr ref={trRef} data-row-id={item.uid}
+        onContextMenu={e => { e.preventDefault(); e.stopPropagation(); onContextMenu?.(e) }}
+        className={`group border-b border-slate-100 dark:border-slate-800 transition-colors ${rowBg} ${matchRowId === item.uid ? 'outline outline-2 -outline-offset-2 outline-sky-500 dark:outline-sky-400' : ''}`}
         style={showPkgHl ? highlightRowStyle(pkgHl) : undefined}>
         {/* # — chevron + checkbox + row number */}
         <td className="py-2 px-1">
@@ -1277,7 +1226,7 @@ function ClassicPkgRow({ item, rowNum, isChecked, onToggleCheck, onSelectLine, c
           </div>
         </td>
         {/* Pacote ID — collapses to 0 when hidden */}
-        <td className={showPkgCol ? 'py-2 px-2' : ''} style={showPkgCol ? {} : { width: 0, maxWidth: 0, padding: 0, overflow: 'hidden' }}>
+        <td className={showPkgCol ? 'py-2 px-2' : 'hidden'}>
           {showPkgCol && (
             <span className={`font-mono text-xs font-medium ${isCont ? 'text-[#7d1935] dark:text-rose-400' : 'text-[#2f5aa8] dark:text-blue-400'}`}>
               {(item.packageId === 'BLANK' || item.packageId === 'MANUAL') ? '—' : item.packageId}
@@ -1358,7 +1307,6 @@ function ClassicPkgRow({ item, rowNum, isChecked, onToggleCheck, onSelectLine, c
       {/* Expanded line rows */}
       {item.expanded && (
         <>
-          <ClassicInsertLineRow uid={item.uid} afterLineId={null} />
           {item.lines.map((line, idx) => (
             <React.Fragment key={line.id}>
               <ClassicLineRow
@@ -1383,10 +1331,8 @@ function ClassicPkgRow({ item, rowNum, isChecked, onToggleCheck, onSelectLine, c
                 currentReviewUid={currentReviewUid}
                 matchRowId={matchRowId}
                 highlightIds={highlightIds}
+                onContextMenu={e => onContextMenuLine?.(item.uid, line.id, e.clientX, e.clientY)}
               />
-              {idx < item.lines.length - 1 && (
-                <ClassicInsertLineRow uid={item.uid} afterLineId={line.id} />
-              )}
             </React.Fragment>
           ))}
         </>
@@ -1400,6 +1346,7 @@ function ClassicSchedulePanel({
   handleSelectLine, togglePkg, toggleLine, onToggleAll, kbNav, nameEdit, setDeleteTarget,
   onEnterFromLastLine, onInsertManual, activeTab, onTabChange, setShowDetail, showOntology, showEds, showCsb,
   locateTick, located, oneByOneMode, setOneByOneMode,
+  copyBuffer, setCopyBuffer, setCheckedPkgs, setCheckedLines, setSelectedLine,
 }: {
   selectedLine: { uid: string; lineId: string } | null
   checkedPkgs: Set<string>; checkedLines: Set<string>
@@ -1421,6 +1368,11 @@ function ClassicSchedulePanel({
   located: { target: LocateTarget; n: number; cursor: number } | null
   oneByOneMode: boolean
   setOneByOneMode: (v: boolean) => void
+  copyBuffer: CopyBuffer | null
+  setCopyBuffer: (buf: CopyBuffer | null) => void
+  setCheckedPkgs: (s: Set<string>) => void
+  setCheckedLines: (s: Set<string>) => void
+  setSelectedLine: (l: { uid: string; lineId: string } | null) => void
 }) {
   const { state, dispatch } = useApp()
   const items = state.fineTuningItems
@@ -1459,6 +1411,68 @@ function ClassicSchedulePanel({
   const headerRef = useRef<HTMLDivElement>(null)
   const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set())
   const [showPkgCol, setShowPkgCol] = useState(false)
+  const [columnWidths, setColumnWidths] = useState<Record<ScheduleColumn, number>>({
+    number: 52, package: 88, type: 42, description: 480,
+    firm: 84, contingency: 84, total: 92,
+  })
+  const [tableViewportWidth, setTableViewportWidth] = useState(0)
+  const resizeRef = useRef<{ column: ScheduleColumn; startX: number; startWidth: number } | null>(null)
+
+  // O cabeçalho e o corpo usam a mesma largura efetiva (a área útil do scroll,
+  // já descontada a barra vertical), eliminando o descasamento entre as tabelas.
+  useLayoutEffect(() => {
+    const el = scrollRef.current
+    if (!el) return
+    const updateWidth = () => setTableViewportWidth(el.clientWidth)
+    updateWidth()
+    const observer = new ResizeObserver(updateWidth)
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [])
+
+  useEffect(() => {
+    const handleMove = (event: MouseEvent) => {
+      const resize = resizeRef.current
+      if (!resize) return
+      const width = Math.max(MIN_COLUMN_WIDTH[resize.column], resize.startWidth + event.clientX - resize.startX)
+      setColumnWidths(current => ({ ...current, [resize.column]: width }))
+    }
+    const handleUp = () => { resizeRef.current = null }
+    window.addEventListener('mousemove', handleMove)
+    window.addEventListener('mouseup', handleUp)
+    return () => {
+      window.removeEventListener('mousemove', handleMove)
+      window.removeEventListener('mouseup', handleUp)
+    }
+  }, [])
+
+  const startColumnResize = (column: ScheduleColumn, event: React.MouseEvent) => {
+    event.preventDefault()
+    event.stopPropagation()
+    resizeRef.current = { column, startX: event.clientX, startWidth: columnWidths[column] }
+  }
+
+  const visibleColumnWidths = {
+    ...columnWidths,
+    firm: wideCols ? Math.max(columnWidths.firm, 200) : columnWidths.firm,
+    contingency: wideCols ? Math.max(columnWidths.contingency, 200) : columnWidths.contingency,
+    total: wideCols ? Math.max(columnWidths.total, 220) : columnWidths.total,
+  }
+  const tableContentWidth = visibleColumnWidths.number
+    + (showPkgCol ? visibleColumnWidths.package : 0)
+    + visibleColumnWidths.type + visibleColumnWidths.description
+    + visibleColumnWidths.firm + visibleColumnWidths.contingency + visibleColumnWidths.total
+  const tableWidth = Math.max(tableViewportWidth, tableContentWidth)
+  const tableStyle = { tableLayout: 'fixed' as const, width: tableWidth ? `${tableWidth}px` : '100%' }
+  const resizeBar = (column: ScheduleColumn) => (
+    <span
+      role="separator"
+      aria-label={`Ajustar largura da coluna ${column}`}
+      aria-orientation="vertical"
+      onMouseDown={event => startColumnResize(column, event)}
+      className="absolute -right-1 top-1 z-20 h-[calc(100%-0.5rem)] w-2 cursor-col-resize touch-none after:absolute after:left-1/2 after:top-0 after:h-full after:w-px after:-translate-x-1/2 after:bg-slate-300 after:opacity-0 after:transition-opacity hover:after:bg-[#d97706] hover:after:opacity-100 dark:after:bg-slate-600"
+    />
+  )
 
   // Ao entrar em qualquer modo de colunas (Ontologia/EDS/CSB), expande todo o cronograma:
   // os itens já são expandidos pelos botões; aqui limpamos as seções colapsadas para que
@@ -1471,6 +1485,37 @@ function ClassicSchedulePanel({
   const [findQuery, setFindQuery] = useState('')
   const [matchIdx, setMatchIdx] = useState(0)
   const [activeMatchId, setActiveMatchId] = useState<string | null>(null)
+
+  // ── Context menu ──────────────────────────────────────────────────────────
+  const [contextMenu, setContextMenu] = useState<{
+    kind: 'pkg' | 'line'
+    uid: string
+    lineId?: string
+    x: number
+    y: number
+  } | null>(null)
+  const [pickerAfterUid, setPickerAfterUid] = useState<string | null | 'NONE'>('NONE')
+
+  useEffect(() => {
+    if (!contextMenu) return
+    const dismiss = () => setContextMenu(null)
+    window.addEventListener('click', dismiss)
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setContextMenu(null) }
+    window.addEventListener('keydown', onKey)
+    return () => { window.removeEventListener('click', dismiss); window.removeEventListener('keydown', onKey) }
+  }, [contextMenu])
+
+  const prevPkgUid = (uid: string): string | null => {
+    const realItems = items.filter(i => !i.isBlank)
+    const idx = realItems.findIndex(i => i.uid === uid)
+    return idx > 0 ? realItems[idx - 1].uid : null
+  }
+  const prevLineId = (uid: string, lineId: string): string | null => {
+    const item = items.find(i => i.uid === uid)
+    if (!item) return null
+    const idx = item.lines.findIndex(l => l.id === lineId)
+    return idx > 0 ? item.lines[idx - 1].id : null
+  }
 
   const matches = useMemo(() => {
     const q = normalizeFind(findQuery.trim())
@@ -1811,20 +1856,20 @@ function ClassicSchedulePanel({
         <>
       {/* Fixed header — outside scroll container so it never shifts when scrollbar appears */}
       <div ref={headerRef} className="shrink-0 overflow-hidden">
-        <table className={`w-full ${wideCols ? 'min-w-[1100px]' : 'min-w-[780px]'} text-sm border-collapse`} style={{ tableLayout: 'fixed' }}>
+        <table className="text-sm border-collapse" style={tableStyle}>
           <colgroup>
-            <col style={{ width: 68 }} />
-            <col style={{ width: showPkgCol ? 88 : 0 }} />
-            <col style={{ width: 48 }} />
-            <col />
-            <col style={{ width: wideCols ? 200 : 84 }} />
-            <col style={{ width: wideCols ? 200 : 84 }} />
-            <col style={{ width: wideCols ? 220 : 92 }} />
+            <col style={{ width: visibleColumnWidths.number }} />
+            <col className={showPkgCol ? '' : 'hidden'} style={{ width: visibleColumnWidths.package }} />
+            <col style={{ width: visibleColumnWidths.type }} />
+            <col style={{ width: visibleColumnWidths.description }} />
+            <col style={{ width: visibleColumnWidths.firm }} />
+            <col style={{ width: visibleColumnWidths.contingency }} />
+            <col style={{ width: visibleColumnWidths.total }} />
           </colgroup>
           <thead>
             <tr className="border-b-2 border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800">
               {/* Expandir/recolher todos — também abriga restauração de colunas ocultas */}
-              <th className="text-left py-2.5 px-1 text-xs font-bold text-slate-600 dark:text-slate-500 uppercase tracking-wider">
+              <th className="group relative text-left py-2.5 px-1 text-xs font-bold text-slate-600 dark:text-slate-500 uppercase tracking-wider">
                 <div className="flex items-center gap-1">
                   <button onClick={toggleAllExpand}
                     title={allExpanded ? 'Recolher todos os pacotes' : 'Expandir todos os pacotes'}
@@ -1845,20 +1890,22 @@ function ClassicSchedulePanel({
                     </button>
                   )}
                 </div>
+                {resizeBar('number')}
               </th>
               {showPkgCol ? (
-                <th className="text-left py-2.5 px-2 text-xs font-bold text-slate-600 dark:text-slate-500 uppercase tracking-wider">
+                <th className="group relative text-left py-2.5 px-2 text-xs font-bold text-slate-600 dark:text-slate-500 uppercase tracking-wider">
                   <button onClick={() => setShowPkgCol(false)} title="Ocultar coluna Pacote"
                     className="flex items-center gap-1 group hover:text-slate-600 dark:hover:text-slate-500 transition-colors">
                     Pacote
                     <span className="opacity-0 group-hover:opacity-60 text-[9px] font-normal normal-case tracking-normal">✕</span>
                   </button>
+                  {resizeBar('package')}
                 </th>
               ) : (
-                <th style={{ width: 0, padding: 0, overflow: 'hidden', border: 'none' }} />
+                <th className="hidden" />
               )}
-              <th className="py-2.5 px-1 text-xs font-bold text-slate-600 dark:text-slate-500 uppercase tracking-wider">Tipo</th>
-              <th className="text-left py-2.5 px-3 text-xs font-bold text-slate-600 dark:text-slate-500 uppercase tracking-wider">Descrição</th>
+              <th className="group relative py-2.5 px-1 text-xs font-bold text-slate-600 dark:text-slate-500 uppercase tracking-wider">Tipo{resizeBar('type')}</th>
+              <th className="group relative text-left py-2.5 px-3 text-xs font-bold text-slate-600 dark:text-slate-500 uppercase tracking-wider">Descrição{resizeBar('description')}</th>
               {showOntology ? (
                 <th colSpan={3} className="text-left py-2.5 px-3 text-xs font-bold text-slate-600 dark:text-slate-500 uppercase tracking-wider">Ontologia (OpenWells)</th>
               ) : showEds ? (
@@ -1867,9 +1914,9 @@ function ClassicSchedulePanel({
                 <th colSpan={3} className="text-left py-2.5 px-3 text-xs font-bold text-slate-600 dark:text-slate-500 uppercase tracking-wider">CSB</th>
               ) : (
                 <>
-                  <th className="text-right py-2.5 px-3 text-xs font-bold text-blue-400 dark:text-blue-500 uppercase tracking-wider">Firme (<span className="normal-case">{unit}</span>)</th>
-                  <th className="text-right py-2.5 px-3 text-xs font-bold text-[#7d1935] dark:text-rose-400 uppercase tracking-wider">Cont. (<span className="normal-case">{unit}</span>)</th>
-                  <th className="text-right py-2.5 px-3 text-xs font-bold text-slate-600 dark:text-slate-500 uppercase tracking-wider">Total (<span className="normal-case">{unit}</span>)</th>
+                  <th className="group relative text-right py-2.5 px-3 text-xs font-bold text-blue-400 dark:text-blue-500 uppercase tracking-wider">Firme (<span className="normal-case">{unit}</span>){resizeBar('firm')}</th>
+                  <th className="group relative text-right py-2.5 px-3 text-xs font-bold text-[#7d1935] dark:text-rose-400 uppercase tracking-wider">Cont. (<span className="normal-case">{unit}</span>){resizeBar('contingency')}</th>
+                  <th className="group relative text-right py-2.5 px-3 text-xs font-bold text-slate-600 dark:text-slate-500 uppercase tracking-wider">Total (<span className="normal-case">{unit}</span>){resizeBar('total')}</th>
                 </>
               )}
             </tr>
@@ -1878,22 +1925,21 @@ function ClassicSchedulePanel({
       </div>
       {/* Scrollable body — onScroll syncs header horizontally */}
       <div ref={scrollRef} className="flex-1 overflow-auto scrollbar-custom" onScroll={handleBodyScroll}>
-        <table className={`w-full ${wideCols ? 'min-w-[1100px]' : 'min-w-[780px]'} text-sm border-collapse`} style={{ tableLayout: 'fixed' }}>
+        <table className="text-sm border-collapse" style={tableStyle}>
           <colgroup>
-            <col style={{ width: 68 }} />
-            <col style={{ width: showPkgCol ? 88 : 0 }} />
-            <col style={{ width: 48 }} />
-            <col />
-            <col style={{ width: wideCols ? 200 : 84 }} />
-            <col style={{ width: wideCols ? 200 : 84 }} />
-            <col style={{ width: wideCols ? 220 : 92 }} />
+            <col style={{ width: visibleColumnWidths.number }} />
+            <col className={showPkgCol ? '' : 'hidden'} style={{ width: visibleColumnWidths.package }} />
+            <col style={{ width: visibleColumnWidths.type }} />
+            <col style={{ width: visibleColumnWidths.description }} />
+            <col style={{ width: visibleColumnWidths.firm }} />
+            <col style={{ width: visibleColumnWidths.contingency }} />
+            <col style={{ width: visibleColumnWidths.total }} />
           </colgroup>
           <tbody>
             {(() => {
               let rowNum = 0
               return (
                 <>
-                  <ClassicInsertPkgRow afterUid={null} onInsertManual={onInsertManual} />
                   {sections.map(({ phase, sectionKey, items: sItems }) => {
                     const colors = PHASE_COLORS[phase] ?? PHASE_COLORS['Fase 0']
                     const isCollapsed = collapsedSections.has(sectionKey)
@@ -1941,11 +1987,9 @@ function ClassicSchedulePanel({
                                 currentReviewUid={currentReviewLineId}
                                 matchRowId={activeMatchId}
                                 highlightIds={locateLineIds}
+                                onContextMenu={e => setContextMenu({ kind: 'pkg', uid: item.uid, x: e.clientX, y: e.clientY })}
+                                onContextMenuLine={(uid, lineId, x, y) => setContextMenu({ kind: 'line', uid, lineId, x, y })}
                               />
-                              <ClassicInsertPkgRow afterUid={item.uid} onInsertManual={onInsertManual}
-                                lineTarget={item.expanded && !item.isBlank
-                                  ? { uid: item.uid, afterLineId: item.lines.length ? item.lines[item.lines.length - 1].id : null }
-                                  : null} />
                             </React.Fragment>
                           )
                         })}
@@ -1977,6 +2021,123 @@ function ClassicSchedulePanel({
         </table>
       </div>
         </>
+      )}
+      {/* Context menu */}
+      {contextMenu && (() => {
+        const isTargetSelected = contextMenu.kind === 'pkg'
+          ? checkedPkgs.has(contextMenu.uid)
+          : (contextMenu.lineId ? checkedLines.has(contextMenu.lineId) : false)
+        const hasSelection = checkedPkgs.size > 0 || checkedLines.size > 0
+        const showMoveOptions = !isTargetSelected && hasSelection
+
+        const handleCopyCtx = () => {
+          if (contextMenu.kind === 'pkg') {
+            const toCopy = checkedPkgs.size > 0 ? items.filter(i => checkedPkgs.has(i.uid)) : items.filter(i => i.uid === contextMenu.uid)
+            setCopyBuffer({ kind: 'pkg', items: toCopy })
+            setCheckedPkgs(new Set()); setCheckedLines(new Set())
+          } else {
+            const toCopy = checkedLines.size > 0
+              ? items.flatMap(i => i.lines).filter(l => checkedLines.has(l.id))
+              : contextMenu.lineId ? items.flatMap(i => i.lines).filter(l => l.id === contextMenu.lineId) : []
+            if (toCopy.length) { setCopyBuffer({ kind: 'line', lines: toCopy }); setCheckedLines(new Set()); setSelectedLine(null) }
+          }
+          setContextMenu(null)
+        }
+
+        const handlePasteCtx = (above: boolean) => {
+          if (!copyBuffer) return
+          if (copyBuffer.kind === 'pkg') {
+            const clones = copyBuffer.items.map(clonePkg)
+            const idx = items.findIndex(i => i.uid === contextMenu.uid)
+            const at = above ? Math.max(0, idx) : idx + 1
+            dispatch({ type: 'FT_REORDER', items: [...items.slice(0, at), ...clones, ...items.slice(at)] })
+            setCheckedPkgs(new Set(clones.map(c => c.uid))); setCheckedLines(new Set())
+          } else {
+            const targetUid = contextMenu.uid
+            const targetItem = items.find(i => i.uid === targetUid)
+            if (!targetItem || !contextMenu.lineId) return
+            const clones = copyBuffer.lines.map((l, i) => cloneLine(l, targetUid, i))
+            const lineIdx = targetItem.lines.findIndex(l => l.id === contextMenu.lineId)
+            const at = above ? lineIdx : lineIdx + 1
+            if (!targetItem.expanded) dispatch({ type: 'FT_TOGGLE_EXPAND', uid: targetUid })
+            dispatch({ type: 'FT_REORDER_LINES', uid: targetUid, lines: [...targetItem.lines.slice(0, at), ...clones, ...targetItem.lines.slice(at)] })
+            setCheckedLines(new Set(clones.map(c => c.id))); setCheckedPkgs(new Set())
+          }
+          setCopyBuffer(null); setContextMenu(null)
+        }
+
+        const handleMoveCtx = (above: boolean) => {
+          if (checkedPkgs.size > 0 && contextMenu.kind === 'pkg') {
+            const selectedUids = new Set([...checkedPkgs])
+            const selected = items.filter(i => selectedUids.has(i.uid))
+            const rest = items.filter(i => !selectedUids.has(i.uid))
+            const restIdx = rest.findIndex(i => i.uid === contextMenu.uid)
+            if (restIdx < 0) return
+            const at = above ? restIdx : restIdx + 1
+            dispatch({ type: 'FT_REORDER', items: [...rest.slice(0, at), ...selected, ...rest.slice(at)] })
+          } else if (checkedLines.size > 0 && contextMenu.kind === 'line' && contextMenu.lineId) {
+            const targetUid = contextMenu.uid
+            const targetItem = items.find(i => i.uid === targetUid)
+            if (!targetItem) return
+            const selectedInPkg = targetItem.lines.filter(l => checkedLines.has(l.id))
+            if (selectedInPkg.length === 0) return
+            const remaining = targetItem.lines.filter(l => !checkedLines.has(l.id))
+            const restIdx = remaining.findIndex(l => l.id === contextMenu.lineId)
+            if (restIdx < 0) return
+            const at = above ? restIdx : restIdx + 1
+            dispatch({ type: 'FT_REORDER_LINES', uid: targetUid, lines: [...remaining.slice(0, at), ...selectedInPkg, ...remaining.slice(at)] })
+          }
+          setContextMenu(null)
+        }
+
+        const btn = 'w-full text-left px-3 py-1.5 text-xs text-slate-700 dark:text-slate-300 hover:bg-blue-50 dark:hover:bg-blue-950/40 transition-colors'
+        const btnSec = 'w-full text-left px-3 py-1.5 text-xs text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors'
+        const btnMove = 'w-full text-left px-3 py-1.5 text-xs font-medium text-sky-700 dark:text-sky-300 hover:bg-sky-50 dark:hover:bg-sky-950/40 transition-colors'
+        const sep = <div className="border-t border-slate-200 dark:border-slate-700 my-1" />
+
+        return (
+          <div
+            className="fixed z-50 bg-slate-100 dark:bg-slate-900 rounded-lg shadow-xl border border-slate-200 dark:border-slate-700 py-1 min-w-[200px]"
+            style={{ left: contextMenu.x, top: contextMenu.y }}
+            onClick={e => e.stopPropagation()}>
+            {showMoveOptions ? (
+              <>
+                <button className={btnMove} onClick={() => handleMoveCtx(true)}>↑ Mover selecionados acima</button>
+                <button className={btnMove} onClick={() => handleMoveCtx(false)}>↓ Mover selecionados abaixo</button>
+                {sep}
+              </>
+            ) : null}
+            {contextMenu.kind === 'line' && (
+              <>
+                <button className={btn} onClick={() => {
+                  if (contextMenu.lineId) dispatch({ type: 'FT_INSERT_LINE_AFTER', uid: contextMenu.uid, afterLineId: prevLineId(contextMenu.uid, contextMenu.lineId) })
+                  setContextMenu(null)
+                }}>↑ Inserir linha acima</button>
+                <button className={btn} onClick={() => {
+                  if (contextMenu.lineId) dispatch({ type: 'FT_INSERT_LINE_AFTER', uid: contextMenu.uid, afterLineId: contextMenu.lineId })
+                  setContextMenu(null)
+                }}>↓ Inserir linha abaixo</button>
+                {sep}
+              </>
+            )}
+            <button className={btn} onClick={() => { setPickerAfterUid(prevPkgUid(contextMenu.uid)); setContextMenu(null) }}>↑ Inserir pacote acima</button>
+            <button className={btn} onClick={() => { setPickerAfterUid(contextMenu.uid); setContextMenu(null) }}>↓ Inserir pacote abaixo</button>
+            <button className={btnSec} onClick={() => { onInsertManual(prevPkgUid(contextMenu.uid)); setContextMenu(null) }}>↑ Inserir manualmente acima</button>
+            <button className={btnSec} onClick={() => { onInsertManual(contextMenu.uid); setContextMenu(null) }}>↓ Inserir manualmente abaixo</button>
+            {sep}
+            <button className={btn} onClick={handleCopyCtx}>⎘ Copiar</button>
+            {copyBuffer && (
+              <>
+                {sep}
+                <button className={btn} onClick={() => handlePasteCtx(true)}>↑ Colar acima</button>
+                <button className={btn} onClick={() => handlePasteCtx(false)}>↓ Colar abaixo</button>
+              </>
+            )}
+          </div>
+        )
+      })()}
+      {pickerAfterUid !== 'NONE' && (
+        <PackagePickerModal afterUid={pickerAfterUid as string | null} onClose={() => setPickerAfterUid('NONE')} />
       )}
     </div>
   )
@@ -2389,17 +2550,6 @@ export function FineTuningView() {
 
   const pct = state.inputs.percentile ?? 75
 
-  const handleSaveProject = () => {
-    const wn = state.wellName || 'projeto'
-    downloadProject(buildProjectFile(
-      wn,
-      state.inputs as WizardInputs,
-      state.schedule,
-      state.projectData,
-      state.fineTuningItems,
-    ))
-  }
-
   const handleExportJson = () => {
     const data = buildProjectFacts(state)
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
@@ -2503,13 +2653,6 @@ export function FineTuningView() {
               className="flex items-center gap-1 text-xs text-slate-700 hover:text-slate-700 dark:hover:text-slate-500 transition-colors px-2 py-1 rounded border border-slate-200 dark:border-slate-600 bg-slate-100 dark:bg-slate-800 disabled:opacity-30 disabled:cursor-not-allowed">
               <Redo2 size={12} /> Refazer
             </button>
-            <button
-              onClick={handleSaveProject}
-              title="Salvar projeto (cronograma + dados + detalhamento) para reabrir depois"
-              className="flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-semibold transition-colors border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:border-slate-300 dark:hover:border-slate-500 bg-slate-100 dark:bg-slate-800">
-              <Save size={14} /> Salvar
-            </button>
-            <CloudSaveButton compact />
             <div className="ml-auto flex items-center gap-2">
               <button
                 onClick={() => enterColMode('ontology')}
@@ -2660,6 +2803,11 @@ export function FineTuningView() {
           showOntology={showOntology}
           showEds={showEds}
           showCsb={showCsb}
+          copyBuffer={copyBuffer}
+          setCopyBuffer={setCopyBuffer}
+          setCheckedPkgs={setCheckedPkgs}
+          setCheckedLines={setCheckedLines}
+          setSelectedLine={setSelectedLine}
         />
       </div>
 
