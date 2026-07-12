@@ -1,11 +1,10 @@
 import { useState, useEffect, useRef } from 'react'
 import React from 'react'
 import { useApp } from '../context/AppContext'
-import type { ScheduleItem, WizardInputs } from '../types'
+import type { ScheduleItem } from '../types'
 import { PACKAGES } from '../data/packages'
-import { Save, Sliders, Undo2, Redo2, BarChart2 } from 'lucide-react'
-import { buildProjectFile, downloadProject } from '../utils/projectFile'
-import { CloudSaveButton } from './CloudSaveButton'
+import { Sliders, Undo2, Redo2, BarChart2, FilePlus, FolderOpen } from 'lucide-react'
+import { ServerProjectsModal } from './ServerProjectsModal'
 
 const MOUNT_IDS = new Set(Object.values(PACKAGES).filter(p => p.isMountOp).map(p => p.id))
 const TRACKED_MOUNT_TECHS = ['wireline', 'electric', 'ct'] as const
@@ -38,17 +37,13 @@ export function ScheduleView() {
   const { state, dispatch, canUndoInputs, canRedoInputs } = useApp()
   const { schedule } = state
   const [showStats, setShowStats] = useState(() => typeof window !== 'undefined' && window.innerWidth >= 1400)
+  const [showProjectsModal, setShowProjectsModal] = useState(false)
 
   const total = schedule.reduce((a, i) => a + i.duration, 0)
   const pct: number = state.inputs.percentile ?? 75
   const showHours = state.showHours
   const unit = showHours ? 'h' : 'd'
   const fmt = (d: number) => showHours ? (d * 24).toFixed(1) : d.toFixed(2)
-
-  const handleSave = () => {
-    const wn = state.wellName || 'projeto'
-    downloadProject(buildProjectFile(wn, state.inputs as WizardInputs, state.schedule))
-  }
 
   return (
     <div className="flex flex-col h-full">
@@ -80,12 +75,17 @@ export function ScheduleView() {
               <Redo2 size={13} /><span className="hidden md:inline">Refazer</span>
             </button>
             <button
-              onClick={handleSave}
-              title="Salvar projeto como arquivo"
+              onClick={() => dispatch({ type: 'ENTER_FINE_TUNING_BLANK' })}
+              title="Ir para detalhamento com cronograma em branco"
               className="flex items-center gap-1.5 h-8 px-3 rounded-lg text-xs font-semibold transition-colors border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:border-slate-300 dark:hover:border-slate-500 bg-slate-100 dark:bg-slate-800">
-              <Save size={14} /><span className="hidden md:inline">Salvar</span>
+              <FilePlus size={14} /><span className="hidden md:inline">Cronograma em branco</span>
             </button>
-            <CloudSaveButton />
+            <button
+              onClick={() => setShowProjectsModal(true)}
+              title="Abrir projeto salvo para copiar cronograma"
+              className="flex items-center gap-1.5 h-8 px-3 rounded-lg text-xs font-semibold transition-colors border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:border-slate-300 dark:hover:border-slate-500 bg-slate-100 dark:bg-slate-800">
+              <FolderOpen size={14} /><span className="hidden md:inline">Copiar de projeto</span>
+            </button>
             <div className="flex h-8 rounded-lg overflow-hidden border border-slate-200 dark:border-slate-600">
               <button
                 onClick={() => showHours && dispatch({ type: 'TOGGLE_HOURS' })}
@@ -118,6 +118,7 @@ export function ScheduleView() {
           onDurationChange={(uid, dur) => dispatch({ type: 'UPDATE_ITEM_DURATION', uid, duration: dur })} />
         {showStats && <ScheduleStatsPanel items={schedule} showHours={showHours} />}
       </div>
+      {showProjectsModal && <ServerProjectsModal onClose={() => setShowProjectsModal(false)} />}
     </div>
   )
 }

@@ -15,7 +15,7 @@ import { getLineDetails, type LineDetail } from '../data/lineDetailsStore'
 import { reviewItems, FASE_TO_OW } from '../utils/ontologyReview'
 
 type RawLine = {
-  text: string
+  text: string | null
   duration: number | null
   bop: 'CONNECT_BOP' | 'DISCONNECT_BOP' | null
   compensando: boolean | null
@@ -110,9 +110,10 @@ function syncDataTemplates(
     const lines = item.lines.map((l, i) => {
       const r = rawLines[i]
       if (!r) return l
+      const rawText = r.text ?? ''
       const isNavLine = isNavPkg && (NAV_ETAPAS.has(r.owEtapa ?? '') || NAV_PREP_ETAPAS.has(r.owEtapa ?? ''))
-      const navTmpl = (isNavPkg && (isNavLine || hasTokens(r.text))) ? r.text : undefined
-      const newTmpl = (!navTmpl && hasTokens(r.text)) ? r.text : undefined
+      const navTmpl = (isNavPkg && (isNavLine || hasTokens(rawText))) ? rawText : undefined
+      const newTmpl = (!navTmpl && hasTokens(rawText)) ? rawText : undefined
       if (newTmpl === l.dataTemplate) return l
       changed = true
       return {
@@ -252,14 +253,15 @@ function makeFineTuningItems(schedule: ScheduleItem[], projectData: ProjectData)
     const raw = pkgLines(item.packageId)
     const isNavPkg = NAV_ALL_PACKAGE_IDS.has(item.packageId)
     const lines: FineTuningLine[] = raw.map((r, i) => {
+      const rawText = r.text ?? ''
       const isNavLine = isNavPkg && (NAV_ETAPAS.has(r.owEtapa ?? '') || NAV_PREP_ETAPAS.has(r.owEtapa ?? ''))
-      const navTmpl = (isNavPkg && (isNavLine || hasTokens(r.text))) ? r.text : undefined
-      const dataTmpl = (!navTmpl && hasTokens(r.text)) ? r.text : undefined
+      const navTmpl = (isNavPkg && (isNavLine || hasTokens(rawText))) ? rawText : undefined
+      const dataTmpl = (!navTmpl && hasTokens(rawText)) ? rawText : undefined
       const text = navTmpl
         ? applyPlaceholders(navTmpl, { data: projectData, plan: {}, pkgId: item.packageId, pkgName: item.packageName })
         : dataTmpl
         ? applyDataPlaceholders(dataTmpl, item.uid, item.packageId, item.packageName, projectData)
-        : r.text
+        : rawText
       // packageLines.json stores durations in hours; internal unit is days
       const rawDays = r.duration != null ? r.duration / 24 : undefined
       const duration = NAV_ETAPAS.has(r.owEtapa ?? '') && navDays !== undefined
@@ -322,14 +324,15 @@ function pkgFtItem(packageId: string, phase: Phase, percentile: number, data: Pr
 
   const raw = pkgLines(packageId)
   const lines: FineTuningLine[] = raw.map((r, i) => {
+    const rawText = r.text ?? ''
     const isNavLine = isNavPkg && (NAV_ETAPAS.has(r.owEtapa ?? '') || NAV_PREP_ETAPAS.has(r.owEtapa ?? ''))
-    const navTmpl = (isNavPkg && (isNavLine || hasTokens(r.text))) ? r.text : undefined
-    const dataTmpl = (!navTmpl && hasTokens(r.text)) ? r.text : undefined
+    const navTmpl = (isNavPkg && (isNavLine || hasTokens(rawText))) ? rawText : undefined
+    const dataTmpl = (!navTmpl && hasTokens(rawText)) ? rawText : undefined
     const text = navTmpl
       ? applyPlaceholders(navTmpl, { data, plan: {}, pkgId: packageId, pkgName: packageName })
       : dataTmpl
         ? applyDataPlaceholders(dataTmpl, uid, packageId, packageName, data)
-        : r.text
+      : rawText
     const rawDays = r.duration != null ? r.duration / 24 : undefined
     const duration = NAV_ETAPAS.has(r.owEtapa ?? '') && navDays !== undefined ? navDays : rawDays
     return {
@@ -440,6 +443,7 @@ type Action =
   | { type: 'RESET' }
   // Fine Tuning — package level
   | { type: 'ENTER_FINE_TUNING' }
+  | { type: 'ENTER_FINE_TUNING_BLANK' }
   | { type: 'FT_REORDER'; items: FineTuningItem[] }
   | { type: 'FT_UPDATE_ITEM'; uid: string; patch: Partial<Pick<FineTuningItem, 'packageName' | 'duration' | 'technology' | 'isContingency' | 'isParallel' | 'procedures' | 'details' | 'normas' | 'observacoes'>> }
   | { type: 'FT_TOGGLE_PARALLEL'; uid: string }
@@ -563,6 +567,8 @@ function reducer(state: AppState, action: Action): AppState {
     }
 
     // ── Fine Tuning — package ─────────────────────────────────────────
+    case 'ENTER_FINE_TUNING_BLANK':
+      return { ...state, fineTuningItems: [], view: 'fine_tuning' }
     case 'ENTER_FINE_TUNING': {
       // Regenera fineTuningItems quando o schedule mudou (uids diferentes do que estava salvo).
       // Garante que alterações na etapa 2 sejam refletidas ao retornar à etapa 3.
