@@ -907,6 +907,37 @@ export function ProjectDataPanel({ onLocate, onClearLocate, locatedTarget, oneBy
       {/* Scrollable body */}
       <div className="flex-1 overflow-y-auto p-3 flex flex-col gap-2.5 scrollbar-custom">
 
+        {/* ── Nipples ── */}
+        {(() => {
+          const hasLines = (tf: keyof ProjectData, df: keyof ProjectData) =>
+            lineIdsForLocate({ kind: 'nipple', typeField: tf, depthField: df }, state.fineTuningItems, state.projectData).size > 0
+          const noItems = state.fineTuningItems.filter(i => !i.isBlank).length === 0
+          const rows: NippleRowConf[] = [
+            { label:'TMF (prod.)',  typeField:'nipple381',     depthField:'nipple381Depth',     name:d.nipple381,        depth:d.nipple381Depth,      onName:v=>setNipples({nipple381:v}),      onDepth:v=>setNipples({nipple381Depth:v}),      options:NIPPLE_OPTS_TMF_PROD },
+            { label:'TMF (anular)', typeField:'nipple375',     depthField:'nipple375Depth',     name:d.nipple375,        depth:d.nipple375Depth,      onName:v=>setNipples({nipple375:v}),      onDepth:v=>setNipples({nipple375Depth:v}),      options:NIPPLE_OPTS_TMF_ANULAR },
+            { label:'TH (prod.)',   typeField:'nipple281',     depthField:'nipple281Depth',     name:d.nipple281,        depth:d.nipple281Depth,      onName:v=>setNipples({nipple281:v}),      onDepth:v=>setNipples({nipple281Depth:v}),      options:NIPPLE_OPTS_TH_PROD },
+            { label:'TH (anular)',  typeField:'nippleTHanular',depthField:'nippleTHanularDepth',name:d.nippleTHanular,   depth:d.nippleTHanularDepth, onName:v=>setNipples({nippleTHanular:v}), onDepth:v=>setNipples({nippleTHanularDepth:v}), options:NIPPLE_OPTS_TH_ANULAR },
+            { label:'DHSV',         typeField:'nippleDhsv',    depthField:'nippleDhsvDepth',    name:d.nippleDhsv??'',   depth:d.nippleDhsvDepth,     onName:v=>setNipples({nippleDhsv:v}),     onDepth:v=>setNipples({nippleDhsvDepth:v}),     options:NIPPLE_OPTS_DHSV },
+            { label:'TSR',          typeField:'nipple275',     depthField:'nipple275Depth',     name:d.nipple275,        depth:d.nipple275Depth,      onName:v=>setNipples({nipple275:v}),      onDepth:v=>setNipples({nipple275Depth:v}),      options:NIPPLE_OPTS_TSR_CAUDA },
+            { label:'Cauda prod.',  typeField:'nipplesOutros', depthField:'nipplesOutrosDepth', name:d.nipplesOutros,    depth:d.nipplesOutrosDepth,  onName:v=>setNipples({nipplesOutros:v}),  onDepth:v=>setNipples({nipplesOutrosDepth:v}),  options:NIPPLE_OPTS_TSR_CAUDA },
+          ]
+          const active   = noItems ? rows : rows.filter(r => hasLines(r.typeField, r.depthField))
+          const inactive = noItems ? []   : rows.filter(r => !hasLines(r.typeField, r.depthField))
+          return (
+            <Section title="Nipples" defaultOpen={false} accent="border-l-amber-500 dark:border-l-amber-400"
+              isDirty={dirty['nipples']} onApply={applySection('nipples')} onDiscard={discardSection('nipples')} canApply={sectionAffectsLines('nipples')}>
+              <div className="space-y-0">
+                {active.map(r => (
+                  <NippleRow key={r.typeField as string} label={r.label} name={r.name} depth={r.depth}
+                    onName={r.onName} onDepth={r.onDepth} options={r.options}
+                    locate={{ kind: 'nipple', typeField: r.typeField, depthField: r.depthField }} />
+                ))}
+                {inactive.length > 0 && <InactiveNippleRows rows={inactive} />}
+              </div>
+            </Section>
+          )
+        })()}
+
         {/* ── Navegação ── */}
         <Section title="Navegação" accent="border-l-sky-400 dark:border-l-sky-500"
           isDirty={dirty['sonda']} onApply={applySection('sonda')} onDiscard={discardSection('sonda')} canApply={sectionAffectsLines('sonda')}>
@@ -981,37 +1012,6 @@ export function ProjectDataPanel({ onLocate, onClearLocate, locatedTarget, oneBy
             <Section title="Equipamentos de Superfície" accent="border-l-sky-400 dark:border-l-sky-500"
               isDirty={dirty['equipamentos_superficie']} onApply={applySection('equipamentos_superficie')} onDiscard={discardSection('equipamentos_superficie')} canApply={sectionAffectsLines('equipamentos_superficie')}>
               {entries.map(e => e.node)}
-            </Section>
-          )
-        })()}
-
-        {/* ── Nipples ── */}
-        {(() => {
-          const hasLines = (tf: keyof ProjectData, df: keyof ProjectData) =>
-            lineIdsForLocate({ kind: 'nipple', typeField: tf, depthField: df }, state.fineTuningItems, state.projectData).size > 0
-          const noItems = state.fineTuningItems.filter(i => !i.isBlank).length === 0
-          const rows: NippleRowConf[] = [
-            { label:'TMF (prod.)',  typeField:'nipple381',     depthField:'nipple381Depth',     name:d.nipple381,        depth:d.nipple381Depth,      onName:v=>setNipples({nipple381:v}),      onDepth:v=>setNipples({nipple381Depth:v}),      options:NIPPLE_OPTS_TMF_PROD },
-            { label:'TMF (anular)', typeField:'nipple375',     depthField:'nipple375Depth',     name:d.nipple375,        depth:d.nipple375Depth,      onName:v=>setNipples({nipple375:v}),      onDepth:v=>setNipples({nipple375Depth:v}),      options:NIPPLE_OPTS_TMF_ANULAR },
-            { label:'TH (prod.)',   typeField:'nipple281',     depthField:'nipple281Depth',     name:d.nipple281,        depth:d.nipple281Depth,      onName:v=>setNipples({nipple281:v}),      onDepth:v=>setNipples({nipple281Depth:v}),      options:NIPPLE_OPTS_TH_PROD },
-            { label:'TH (anular)',  typeField:'nippleTHanular',depthField:'nippleTHanularDepth',name:d.nippleTHanular,   depth:d.nippleTHanularDepth, onName:v=>setNipples({nippleTHanular:v}), onDepth:v=>setNipples({nippleTHanularDepth:v}), options:NIPPLE_OPTS_TH_ANULAR },
-            { label:'DHSV',         typeField:'nippleDhsv',    depthField:'nippleDhsvDepth',    name:d.nippleDhsv??'',   depth:d.nippleDhsvDepth,     onName:v=>setNipples({nippleDhsv:v}),     onDepth:v=>setNipples({nippleDhsvDepth:v}),     options:NIPPLE_OPTS_DHSV },
-            { label:'TSR',          typeField:'nipple275',     depthField:'nipple275Depth',     name:d.nipple275,        depth:d.nipple275Depth,      onName:v=>setNipples({nipple275:v}),      onDepth:v=>setNipples({nipple275Depth:v}),      options:NIPPLE_OPTS_TSR_CAUDA },
-            { label:'Cauda prod.',  typeField:'nipplesOutros', depthField:'nipplesOutrosDepth', name:d.nipplesOutros,    depth:d.nipplesOutrosDepth,  onName:v=>setNipples({nipplesOutros:v}),  onDepth:v=>setNipples({nipplesOutrosDepth:v}),  options:NIPPLE_OPTS_TSR_CAUDA },
-          ]
-          const active   = noItems ? rows : rows.filter(r => hasLines(r.typeField, r.depthField))
-          const inactive = noItems ? []   : rows.filter(r => !hasLines(r.typeField, r.depthField))
-          return (
-            <Section title="Nipples" defaultOpen={false} accent="border-l-sky-400 dark:border-l-sky-500"
-              isDirty={dirty['nipples']} onApply={applySection('nipples')} onDiscard={discardSection('nipples')} canApply={sectionAffectsLines('nipples')}>
-              <div className="space-y-0">
-                {active.map(r => (
-                  <NippleRow key={r.typeField as string} label={r.label} name={r.name} depth={r.depth}
-                    onName={r.onName} onDepth={r.onDepth} options={r.options}
-                    locate={{ kind: 'nipple', typeField: r.typeField, depthField: r.depthField }} />
-                ))}
-                {inactive.length > 0 && <InactiveNippleRows rows={inactive} />}
-              </div>
             </Section>
           )
         })()}

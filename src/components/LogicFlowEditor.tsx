@@ -16,7 +16,7 @@
  * Extras do modo fluxo: arrastar nós (posições persistidas em _pos via set_node_pos),
  * minimapa, re-layout automático (clear_node_pos), Ctrl+C/Ctrl+V (p_paste_*), Delete.
  */
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
+import { createContext, forwardRef, useCallback, useContext, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react'
 import {
   ReactFlow, Controls, MiniMap, Panel,
   Handle, Position, MarkerType, applyNodeChanges, BaseEdge,
@@ -128,7 +128,7 @@ type QData = {
 }
 type AData = {
   ans: LAns; ref: DecRef | null; ansIdx: number; pc: PC; dark: boolean; hit: boolean
-  canEdit: boolean; label2?: string
+  canEdit: boolean; label2?: string; secPhase?: string
   onFlagPkg?: (pkgIdx: number) => void
   onStar?: () => void
   onFlag?: () => void
@@ -142,16 +142,59 @@ type FData = {
 }
 type ChipData = {
   label: string; pkgs: LPkg[]; pc: PC; dark: boolean; canEdit: boolean; hit: boolean
-  variant: 'sempre' | 'after'
+  variant: 'sempre' | 'after'; secPhase?: string
   contingency?: boolean
   clickable?: boolean
   onFlag?: () => void
   onFlagPkg?: (i: number) => void
 }
 
+// Abreviações OW Fase para exibição compacta ao lado de cada pacote
+const PHASE_ABBREV: Record<string, string> = {
+  'Fase 0':           'Fase 0',
+  'Fase 1A':          'Fase 1A',
+  'Fase 1B':          'Fase 1B',
+  'Fase 2':           'Fase 2',
+  'Extra Abandono':   'Extra',
+  'Mobilização':      'Mob.',
+  'Desmobilização':   'Desmob.',
+}
+
+const PHASE_ORDER = ['Mobilização', 'Fase 0', 'Fase 1A', 'Fase 1B', 'Fase 2', 'Extra Abandono', 'Desmobilização']
+
+function collectSectionPhases(sec: LSec): string[] {
+  const phases = new Set<string>()
+  const scanPkgs = (pkgs?: LPkg[]) => pkgs?.forEach(p => { if (p.phase) phases.add(p.phase) })
+  const scanSeq  = (seq?: LSeqEntry[]) => seq?.forEach(e => { scanPkgs(e.packages); e.sub?.forEach(scanDec); e.afterSub?.forEach(scanDec) })
+  function scanDec(dec: LDec) {
+    scanPkgs(dec.packages)
+    scanSeq(dec.after)
+    dec.afterDec?.forEach(scanDec)
+    for (const ans of dec.answers) {
+      scanPkgs(ans.packages)
+      ans.sub?.forEach(scanDec)
+      ans.afterSub?.forEach(scanDec)
+      scanSeq(ans.seq)
+      scanSeq(ans.after)
+    }
+  }
+  scanPkgs(sec.always)
+  sec.decisions.forEach(scanDec)
+  const explicit = Array.from(phases).sort((a, b) => PHASE_ORDER.indexOf(a) - PHASE_ORDER.indexOf(b))
+  // Fases explícitas + fase-padrão da seção, deduplicadas e ordenadas.
+  const all = Array.from(new Set([sec.phase, ...explicit]))
+    .sort((a, b) => PHASE_ORDER.indexOf(a) - PHASE_ORDER.indexOf(b))
+  return all
+}
+
+function formatPhases(phases: string[]): string {
+  if (phases.length <= 1) return phases[0] ?? ''
+  return phases.slice(0, -1).join(', ') + ' e ' + phases[phases.length - 1]
+}
+
 // ─── Linha de pacote (mesma anatomia do clássico: código + condição + nome) ──
-function PkgRow({ pkg, p, dark, canEdit, onFlag }: {
-  pkg: LPkg; p: PEntry; dark: boolean; canEdit: boolean; onFlag?: () => void
+function PkgRow({ pkg, p, dark, canEdit, secPhase, onFlag }: {
+  pkg: LPkg; p: PEntry; dark: boolean; canEdit: boolean; secPhase?: string; onFlag?: () => void
 }) {
   const code = pkg.isContingency ? contingCode(dark) : p.code
   const showFlag = canEdit || pkg.isContingency
@@ -172,6 +215,14 @@ function PkgRow({ pkg, p, dark, canEdit, onFlag }: {
         <div className="flex items-center gap-1">
           <span className="font-mono font-semibold" style={{ fontSize: 9.5, color: code }}>{pkg.id}</span>
           {pkg.condition && <ConditionIcon condition={pkg.condition} size={11} className="shrink-0" />}
+          {(pkg.phase ?? secPhase) && (
+            <span style={{
+              fontSize: 7, fontWeight: 600, color: p.lblT, opacity: 0.6,
+              border: `1px solid ${p.ansB}`, borderRadius: 2,
+              padding: '0 2px', lineHeight: '11px', display: 'inline-block',
+              position: 'relative', top: -1
+            }}>{pkg.phase ?? secPhase}</span>
+          )}
         </div>
         <div className="truncate" style={{ fontSize: 9, color: p.ansT, opacity: 0.85 }} title={pkgName(pkg)}>
           {pkgName(pkg)}
@@ -183,10 +234,9 @@ function PkgRow({ pkg, p, dark, canEdit, onFlag }: {
 
 // Campo sem cabeçalho — apenas linhas de pacote dentro de um retângulo.
 // A contingência é indicada pela cor da borda (laranja) e pelo flag em cada pacote.
-function ChipBody({ pkgs, p, dark, canEdit, clickable, contingency, onFlagPkg, height }: {
+function ChipBody({ pkgs, p, dark, canEdit, clickable, contingency, secPhase, onFlagPkg, height }: {
   pkgs: LPkg[]; p: PEntry; dark: boolean; canEdit: boolean
-  clickable?: boolean
-  contingency?: boolean
+  clickable?: boolean; contingency?: boolean; secPhase?: string
   onFlagPkg?: (i: number) => void
   height?: number
 }) {
@@ -197,7 +247,7 @@ function ChipBody({ pkgs, p, dark, canEdit, clickable, contingency, onFlagPkg, h
       title={clickable ? 'Esquerdo: editar pacotes · Direito: mais ações' : undefined}>
       <div style={{ paddingTop: BPAD, paddingBottom: BPAD }}>
         {pkgs.map((pkg, i) => (
-          <PkgRow key={i} pkg={pkg} p={p} dark={dark} canEdit={canEdit} onFlag={onFlagPkg ? () => onFlagPkg(i) : undefined} />
+          <PkgRow key={i} pkg={pkg} p={p} dark={dark} canEdit={canEdit} secPhase={secPhase} onFlag={onFlagPkg ? () => onFlagPkg(i) : undefined} />
         ))}
         {pkgs.length === 0 && (
           <div className="px-2 italic" style={{ fontSize: 9.5, color: p.empty, height: NOTE }}>—</div>
@@ -240,7 +290,7 @@ function FrameNode({ data }: NodeProps) {
             {isRef ? (d.sec.ref!.label ?? d.sec.label) : d.sec.label}
           </span>
           <span className="shrink-0 rounded px-1.5 py-0.5" style={{ fontSize: 9, border: '1px solid rgba(255,255,255,0.35)' }}>
-            {d.sec.phase}
+            {formatPhases(collectSectionPhases(d.sec))}
           </span>
           {isRef && (
             <span className="shrink-0 rounded px-1.5 py-0.5 font-semibold" style={{ fontSize: 9, background: 'rgba(255,255,255,0.16)' }}
@@ -261,22 +311,48 @@ function FrameNode({ data }: NodeProps) {
 
 // ─── Linhas de pacote editáveis: flag + botão-de-condição + ↑↓× ──────────────
 // Reutilizado tanto no InlinePkgEditor (ChipNode) quanto no AnswerNode inline.
-function PkgEditRows({ pkgList, p, dark, onFlagPkg, onCondition, onMove, onRemove }: {
-  pkgList: LPkg[]; p: PEntry; dark: boolean
+// Layout idêntico ao PkgRow (px-1.5 / items-start / fontes 9.5/9) — apenas adiciona
+// controles de edição sem deslocar o conteúdo existente.
+function PkgEditRows({ pkgList, p, dark, secPhase, onFlagPkg, onCondition, onPhase, onReorder, onRemove, onAdd }: {
+  pkgList: LPkg[]; p: PEntry; dark: boolean; secPhase?: string
   onFlagPkg?: (i: number) => void
   onCondition?: (i: number, condition?: string) => void
-  onMove: (i: number, dir: 'up' | 'down') => void
+  onPhase?: (i: number, phase?: string) => void
+  onReorder?: (from: number, to: number) => void
   onRemove: (i: number) => void
+  onAdd?: () => void
 }) {
   const [editCondIdx, setEditCondIdx] = useState<number | null>(null)
+  const [editPhaseIdx, setEditPhaseIdx] = useState<number | null>(null)
+  const [dragIdx, setDragIdx] = useState<number | null>(null)
+  const [dragOverIdx, setDragOverIdx] = useState<number | null>(null)
+  // paddingBottom só quando não há botão "+" (para que o strip de adição use esse espaço)
   return (
-    <div style={{ paddingTop: BPAD, paddingBottom: BPAD }}>
+    <div style={{ paddingTop: BPAD, paddingBottom: onAdd ? 0 : BPAD }}>
       {pkgList.map((pkg, i) => (
-        <div key={i} className="flex items-center gap-0.5 px-1" style={{ height: PKG }}>
-          {/* Bandeira: clicável quando onFlagPkg disponível; indicador somente-leitura quando isContingency */}
+        // Mesmas classes do PkgRow: items-start gap-1 px-1.5 height:PKG
+        <div key={i}
+          className="flex items-start gap-1 px-1.5"
+          style={{
+            height: PKG,
+            opacity: dragIdx === i ? 0.35 : 1,
+            boxShadow: dragOverIdx === i && dragIdx !== null && dragIdx !== i ? 'inset 0 2px 0 #3b82f6' : undefined,
+          }}
+          draggable={!!onReorder}
+          onDragStart={onReorder ? e => { e.stopPropagation(); e.dataTransfer.effectAllowed = 'move'; setDragIdx(i) } : undefined}
+          onDragOver={onReorder ? e => { e.preventDefault(); e.stopPropagation(); setDragOverIdx(i) } : undefined}
+          onDrop={onReorder ? e => { e.preventDefault(); e.stopPropagation(); if (dragIdx !== null && dragIdx !== i) onReorder(dragIdx, i); setDragIdx(null); setDragOverIdx(null) } : undefined}
+          onDragEnd={onReorder ? () => { setDragIdx(null); setDragOverIdx(null) } : undefined}
+        >
+          {/* Grip de drag — visível apenas quando onReorder disponível */}
+          {onReorder && (
+            <span className="nodrag shrink-0 mt-[3px] select-none"
+              style={{ fontSize: 10, color: p.lblT, opacity: 0.35, cursor: 'grab', lineHeight: 1 }}>⠿</span>
+          )}
+          {/* Bandeira — mesma condição do PkgRow (canEdit→onFlagPkg || isContingency) */}
           {(onFlagPkg || pkg.isContingency) && (
             <button
-              className="nodrag shrink-0 self-start mt-[3px]"
+              className="nodrag shrink-0 mt-[3px]"
               title={pkg.isContingency ? 'Remover marcação de contingência' : 'Marcar pacote como contingencial'}
               disabled={!onFlagPkg}
               style={{ cursor: onFlagPkg ? 'pointer' : 'default' }}
@@ -286,14 +362,13 @@ function PkgEditRows({ pkgList, p, dark, onFlagPkg, onCondition, onMove, onRemov
             </button>
           )}
 
-          {/* Conteúdo do pacote: código + ícone de condição (editável) + nome */}
-          <div className="flex-1 min-w-0 leading-tight">
+          {/* Conteúdo do pacote: código + badges (condição, fase) + nome */}
+          <div className="min-w-0 flex-1 leading-tight">
             {editCondIdx === i && onCondition ? (
-              // Seletor de condição em linha
               <select
                 className="nodrag w-full rounded px-1 outline-none cursor-pointer"
                 style={{ fontSize: 9, height: PKG - 6, border: `1px solid #3b82f6`, background: p.ans, color: p.ansT }}
-                autoFocus
+                ref={el => { if (el) { el.focus(); try { (el as HTMLSelectElement & { showPicker(): void }).showPicker() } catch {} } }}
                 value={pkg.condition ?? ''}
                 onChange={e => { onCondition(i, e.target.value || undefined); setEditCondIdx(null) }}
                 onBlur={() => setEditCondIdx(null)}>
@@ -302,115 +377,135 @@ function PkgEditRows({ pkgList, p, dark, onFlagPkg, onCondition, onMove, onRemov
                   <option key={k} value={k}>{lbl}</option>
                 ))}
               </select>
+            ) : editPhaseIdx === i && onPhase ? (
+              <select
+                className="nodrag w-full rounded px-1 outline-none cursor-pointer"
+                style={{ fontSize: 9, height: PKG - 6, border: `1px solid #a855f7`, background: p.ans, color: p.ansT }}
+                ref={el => { if (el) { el.focus(); try { (el as HTMLSelectElement & { showPicker(): void }).showPicker() } catch {} } }}
+                value={pkg.phase ?? ''}
+                onChange={e => { onPhase(i, e.target.value || undefined); setEditPhaseIdx(null) }}
+                onBlur={() => setEditPhaseIdx(null)}>
+                <option value="">— sem fase —</option>
+                {Object.keys(PHASE_ABBREV).map(ph => (
+                  <option key={ph} value={ph}>{ph}</option>
+                ))}
+              </select>
             ) : (
               <>
                 <div className="flex items-center gap-1">
                   <span className="font-mono font-semibold"
-                    style={{ fontSize: 9, color: pkg.isContingency ? contingCode(dark) : p.code }}>
+                    style={{ fontSize: 9.5, color: pkg.isContingency ? contingCode(dark) : p.code }}>
                     {pkg.id}
                   </span>
-                  {/* Botão sobre o ícone de condição — abre seletor ao clicar */}
-                  <button
-                    className="nodrag shrink-0"
-                    title={pkg.condition ? 'Editar condição de emissão' : 'Definir condição de emissão'}
-                    disabled={!onCondition}
-                    style={{ cursor: onCondition ? 'pointer' : 'default' }}
-                    onClick={e => { e.stopPropagation(); if (onCondition) setEditCondIdx(i) }}>
-                    {pkg.condition
-                      ? <ConditionIcon condition={pkg.condition} size={10} />
-                      : <span style={{ fontSize: 10, opacity: onCondition ? 0.28 : 0, color: p.lblT }}>◌</span>}
-                  </button>
+                  {/* Badge condicional: IF (sem condição) ou ConditionIcon */}
+                  {(onCondition || pkg.condition) && (
+                    <button
+                      className="nodrag shrink-0 flex items-center"
+                      title={pkg.condition ? `Condicional: ${CONDITION_LABELS[pkg.condition] ?? pkg.condition} — clique para alterar` : 'Definir condição de emissão'}
+                      disabled={!onCondition}
+                      style={{ cursor: onCondition ? 'pointer' : 'default' }}
+                      onClick={e => { e.stopPropagation(); if (onCondition) setEditCondIdx(i) }}>
+                      {pkg.condition
+                        ? <ConditionIcon condition={pkg.condition} size={11} className="shrink-0" />
+                        : <span style={{
+                            fontSize: 7, fontWeight: 800, fontFamily: 'monospace',
+                            color: '#3b82f6', letterSpacing: '-0.5px',
+                            border: '1px solid rgba(59,130,246,0.55)', borderRadius: 2,
+                            padding: '1px 2px 0', lineHeight: 1, display: 'block',
+                            opacity: 0.75, position: 'relative', top: -1
+                          }}>IF</span>}
+                    </button>
+                  )}
+                  {/* Badge fase OW: sempre visível em modo edição, clicável quando onPhase disponível */}
+                  {(onPhase || pkg.phase || secPhase) && (
+                    <button
+                      className="nodrag shrink-0 flex items-center"
+                      title={(pkg.phase ?? secPhase) ? `Fase: ${pkg.phase ?? secPhase} — clique para alterar` : 'Definir fase OW'}
+                      disabled={!onPhase}
+                      style={{ cursor: onPhase ? 'pointer' : 'default' }}
+                      onClick={e => { e.stopPropagation(); if (onPhase) setEditPhaseIdx(i) }}>
+                      {(() => {
+                        const ph = pkg.phase ?? secPhase
+                        const isExplicit = !!pkg.phase
+                        return <span style={{
+                          fontSize: 7, fontWeight: 600,
+                          color: ph ? '#a855f7' : p.lblT,
+                          border: `1px solid ${ph ? (isExplicit ? 'rgba(168,85,247,0.55)' : 'rgba(168,85,247,0.3)') : p.ansB}`,
+                          borderRadius: 2, padding: '0 2px', lineHeight: '11px', display: 'inline-block',
+                          opacity: ph ? (isExplicit ? 0.85 : 0.5) : 0.35, position: 'relative', top: -1
+                        }}>{ph ?? '?'}</span>
+                      })()}
+                    </button>
+                  )}
                 </div>
-                <div className="truncate" style={{ fontSize: 8.5, color: p.ansT, opacity: 0.8 }} title={pkgName(pkg)}>
+                <div className="truncate" style={{ fontSize: 9, color: p.ansT, opacity: 0.85 }} title={pkgName(pkg)}>
                   {pkgName(pkg)}
                 </div>
               </>
             )}
           </div>
 
-          {/* Controles de posição e remoção */}
-          <button className="nodrag shrink-0 w-5 h-5 flex items-center justify-center rounded hover:bg-black/10"
-            title="Mover acima" onClick={e => { e.stopPropagation(); onMove(i, 'up') }}>
-            <span style={{ fontSize: 10, color: p.lblT, opacity: 0.7 }}>↑</span>
-          </button>
-          <button className="nodrag shrink-0 w-5 h-5 flex items-center justify-center rounded hover:bg-black/10"
-            title="Mover abaixo" onClick={e => { e.stopPropagation(); onMove(i, 'down') }}>
-            <span style={{ fontSize: 10, color: p.lblT, opacity: 0.7 }}>↓</span>
-          </button>
-          <button className="nodrag shrink-0 w-5 h-5 flex items-center justify-center rounded hover:bg-red-500/20"
+          {/* Botão remover */}
+          <button className="nodrag shrink-0 w-4 h-4 mt-[3px] flex items-center justify-center rounded hover:bg-red-500/20"
             title="Remover" onClick={e => { e.stopPropagation(); onRemove(i) }}>
-            <span style={{ fontSize: 11, color: '#ef4444' }}>×</span>
+            <span style={{ fontSize: 11, color: '#ef4444', lineHeight: 1 }}>×</span>
           </button>
         </div>
       ))}
+      {/* Lista vazia: ocupa NOTE+BPAD (= placeholder + padding inferior) */}
       {pkgList.length === 0 && (
-        <div className="px-2 italic" style={{ fontSize: 9.5, color: p.empty, height: NOTE }}>— vazio —</div>
+        onAdd ? (
+          <button className="nodrag w-full flex items-center gap-1 px-2"
+            style={{ height: NOTE + BPAD, color: '#3b82f6', fontSize: 9, background: 'transparent', opacity: 0.8 }}
+            onClick={e => { e.stopPropagation(); onAdd() }}>
+            <span style={{ fontSize: 12, lineHeight: 1 }}>+</span>
+            <span>Adicionar pacote</span>
+          </button>
+        ) : (
+          <div className="px-2 italic" style={{ fontSize: 9.5, color: p.empty, height: NOTE }}>—</div>
+        )
+      )}
+      {/* Strip de "adicionar" — substitui o paddingBottom quando há pacotes, mantendo a altura total */}
+      {pkgList.length > 0 && onAdd && (
+        <button className="nodrag w-full flex items-center justify-center gap-1"
+          style={{ height: BPAD, color: '#3b82f6', fontSize: 8, background: 'transparent', opacity: 0.65 }}
+          onClick={e => { e.stopPropagation(); onAdd() }}>
+          <span style={{ fontSize: 10, lineHeight: 1 }}>+</span>
+        </button>
       )}
     </div>
   )
 }
 
-// ─── Editor inline de pacotes — substitui o conteúdo do chip em modo edição ───
-function InlinePkgEditor({ editor, p, dark }: {
-  editor: NonNullable<ChipEditorCtxValue>; p: PEntry; dark: boolean
+// ─── Editor inline de pacotes — sobrepõe o conteúdo do chip em modo edição ────
+// Visualmente idêntico ao ChipBody: mesma borda, mesmo fundo, mesmo padding.
+// Apenas adiciona os controles de edição (flag, condição, ↑↓×) nas linhas já existentes.
+function InlinePkgEditor({ editor, p, dark, contingency, secPhase }: {
+  editor: NonNullable<ChipEditorCtxValue>; p: PEntry; dark: boolean; contingency?: boolean; secPhase?: string
 }) {
   const pkgList = editor.pkgsRefresh ? editor.pkgsRefresh() : (editor.pkgs?.list ?? [])
   return (
+    // Mesma borda e fundo do ChipBody — só o outline externo (no ChipNode) sinaliza seleção
     <div
       className="rounded overflow-hidden"
-      style={{ background: p.ans, border: `1.5px solid #3b82f6` }}
+      style={{ background: p.ans, border: `1px solid ${contingency ? '#f97316' : p.ansB}` }}
       onMouseDown={e => e.stopPropagation()}
       onClick={e => e.stopPropagation()}
       onContextMenu={e => e.preventDefault()}
     >
-      {/* Barra de rótulo editável */}
-      <div className="flex items-center gap-1 px-1.5" style={{ height: LBLH, background: p.lbl }}>
-        {editor.onTitleChange ? (
-          <input
-            className="nodrag flex-1 text-[10.5px] font-semibold bg-transparent outline-none min-w-0"
-            style={{ color: p.lblT }}
-            defaultValue={editor.title ?? ''}
-            placeholder="Rótulo…"
-            autoFocus
-            onBlur={e => editor.onTitleChange!(e.target.value)}
-            onKeyDown={e => {
-              if (e.key === 'Enter') { editor.onTitleChange!(e.currentTarget.value); editor.onClose() }
-              if (e.key === 'Escape') editor.onClose()
-            }}
-          />
-        ) : (
-          <span className="flex-1 text-[10px] font-bold truncate" style={{ color: p.lblT, opacity: 0.85 }}>
-            {editor.title ?? 'Pacotes'}
-          </span>
-        )}
-        <button className="nodrag shrink-0" title="Fechar editor"
-          onClick={e => { e.stopPropagation(); editor.onClose() }}>
-          <PiXBold size={11} color={p.lblT} style={{ opacity: 0.7 }} />
-        </button>
-      </div>
-
-      {/* Linhas de pacote com flag, condição e ↑↓× */}
       {editor.pkgs && (
         <PkgEditRows
           pkgList={pkgList}
           p={p}
           dark={dark}
+          secPhase={secPhase}
           onFlagPkg={editor.onFlagPkg}
           onCondition={editor.pkgs.onCondition}
-          onMove={(i, dir) => editor.pkgs!.onMove(i, dir)}
+          onPhase={editor.pkgs.onPhase}
+          onReorder={editor.pkgs.onReorder}
           onRemove={i => editor.pkgs!.onRemove(i)}
+          onAdd={editor.pkgs.onAdd}
         />
-      )}
-
-      {/* Botão adicionar pacote */}
-      {editor.pkgs && (
-        <button
-          className="nodrag w-full flex items-center gap-1.5 px-2 border-t"
-          style={{ height: NOTE + 6, borderColor: p.ansB, color: '#3b82f6', fontSize: 9.5, background: 'transparent' }}
-          onClick={e => { e.stopPropagation(); editor.pkgs!.onAdd() }}>
-          <span style={{ fontSize: 13, lineHeight: 1 }}>+</span>
-          <span>Adicionar pacote</span>
-        </button>
       )}
     </div>
   )
@@ -428,16 +523,29 @@ function ChipNode({ data, id, selected }: NodeProps) {
   return (
     <div style={{ width: AW }} className="rounded relative select-none">
       <Handle type="target" position={Position.Top} id="top" isConnectable={false} style={{ ...hiddenHandle, left: '50%' }} />
-      {isActive ? (
-        <InlinePkgEditor editor={editor} p={p} dark={d.dark} contingency={d.contingency} />
-      ) : (
-        <div style={{ outline: selected ? '2px solid #fbbf24' : d.hit ? '2px solid #d97706' : 'none', outlineOffset: 2, borderRadius: 4 }}>
+      <div style={{
+        outline: isActive ? '2px solid #3b82f6' : selected ? '2px solid #fbbf24' : d.hit ? '2px solid #d97706' : 'none',
+        outlineOffset: 2, borderRadius: 4
+      }}>
+        {isActive ? (
+          <InlinePkgEditor editor={editor} p={p} dark={d.dark} contingency={d.contingency} secPhase={d.secPhase} />
+        ) : (
           <ChipBody
             pkgs={d.pkgs} p={p} dark={d.dark} canEdit={d.canEdit}
-            clickable={d.clickable} contingency={d.contingency}
+            clickable={d.clickable} contingency={d.contingency} secPhase={d.secPhase}
             onFlagPkg={d.canEdit ? d.onFlagPkg : undefined}
           />
-        </div>
+        )}
+      </div>
+      {/* Botão fechar — posicionado fora do corpo do chip para não alterar seu layout */}
+      {isActive && editor && (
+        <button
+          className="nodrag absolute z-20 flex items-center justify-center rounded-full"
+          style={{ top: -9, right: -9, width: 18, height: 18, background: '#3b82f6', border: '1.5px solid white', cursor: 'pointer' }}
+          title="Fechar editor"
+          onClick={e => { e.stopPropagation(); editor.onClose() }}>
+          <PiXBold size={8} color="white" />
+        </button>
       )}
       <Handle type="source" position={Position.Bottom} id="bottom" isConnectable={false} style={{ ...hiddenHandle, left: '50%' }} />
     </div>
@@ -509,7 +617,7 @@ function AnswerNode({ data, id, selected }: NodeProps) {
   const pkgList = isActive && editor?.pkgsRefresh ? editor.pkgsRefresh() : pkgs
 
   return (
-    <div className="select-none rounded"
+    <div className="select-none rounded relative"
       style={{
         width: AW,
         background: dirty ? '#0c2340' : p.ans,
@@ -556,12 +664,6 @@ function AnswerNode({ data, id, selected }: NodeProps) {
           </span>
         )}
         {a.goto && !isActive && <span className="shrink-0" style={{ fontSize: 9, opacity: 0.75 }} title={`Vai para: ${a.goto}`}>↪</span>}
-        {isActive && editor && (
-          <button className="nodrag shrink-0" title="Fechar editor"
-            onClick={e => { e.stopPropagation(); editor.onClose() }}>
-            <PiXBold size={11} color={barTx} style={{ opacity: 0.7 }} />
-          </button>
-        )}
       </div>
 
       {/* Corpo: nota + pacotes (com controles inline em modo edição) */}
@@ -572,30 +674,22 @@ function AnswerNode({ data, id, selected }: NodeProps) {
           <div className="px-2 italic truncate" style={{ fontSize: 9.5, color: p.noteT, height: NOTE + 2, paddingTop: BPAD }} title={a.note}>{a.note}</div>
         )}
         {isActive && editor ? (
-          <>
-            <PkgEditRows
-              pkgList={pkgList}
-              p={p}
-              dark={d.dark}
-              onFlagPkg={editor.onFlagPkg}
-              onCondition={editor.pkgs?.onCondition}
-              onMove={(i, dir) => editor.pkgs!.onMove(i, dir)}
-              onRemove={i => editor.pkgs!.onRemove(i)}
-            />
-            {editor.pkgs && (
-              <button
-                className="nodrag w-full flex items-center gap-1.5 px-2 border-t"
-                style={{ height: NOTE + 6, borderColor: p.ansB, color: '#3b82f6', fontSize: 9.5, background: 'transparent' }}
-                onClick={e => { e.stopPropagation(); editor.pkgs!.onAdd() }}>
-                <span style={{ fontSize: 13, lineHeight: 1 }}>+</span>
-                <span>Adicionar pacote</span>
-              </button>
-            )}
-          </>
+          <PkgEditRows
+            pkgList={pkgList}
+            p={p}
+            dark={d.dark}
+            secPhase={d.secPhase}
+            onFlagPkg={editor.onFlagPkg}
+            onCondition={editor.pkgs?.onCondition}
+            onPhase={editor.pkgs?.onPhase}
+            onReorder={editor.pkgs?.onReorder}
+            onRemove={i => editor.pkgs!.onRemove(i)}
+            onAdd={editor.pkgs?.onAdd}
+          />
         ) : (
           <div style={{ paddingTop: a.note ? 0 : BPAD, paddingBottom: BPAD }}>
             {pkgs.map((pkg, i) => (
-              <PkgRow key={i} pkg={pkg} p={p} dark={d.dark} canEdit={d.canEdit} onFlag={d.canEdit && d.onFlagPkg ? () => d.onFlagPkg!(i) : undefined} />
+              <PkgRow key={i} pkg={pkg} p={p} dark={d.dark} canEdit={d.canEdit} secPhase={d.secPhase} onFlag={d.canEdit && d.onFlagPkg ? () => d.onFlagPkg!(i) : undefined} />
             ))}
             {pkgs.length === 0 && !a.note && (
               <div className="px-2 italic" style={{ fontSize: 9.5, color: p.empty, height: NOTE }}>—</div>
@@ -603,6 +697,16 @@ function AnswerNode({ data, id, selected }: NodeProps) {
           </div>
         )}
       </div>
+      {/* Botão fechar — absoluto fora do corpo para não deslocar o conteúdo */}
+      {isActive && editor && (
+        <button
+          className="nodrag absolute z-20 flex items-center justify-center rounded-full"
+          style={{ top: -9, right: -9, width: 18, height: 18, background: '#3b82f6', border: '1.5px solid white', cursor: 'pointer' }}
+          title="Fechar editor"
+          onClick={e => { e.stopPropagation(); editor.onClose() }}>
+          <PiXBold size={8} color="white" />
+        </button>
+      )}
       <Handle type="source" position={Position.Bottom} id="bottom" isConnectable={false} style={{ ...hiddenHandle, left: '50%' }} />
     </div>
   )
@@ -748,7 +852,11 @@ function IndexRow({ text, prefix = '', dark, onNav, onCommit, cls, style, warn }
 }
 
 // ─── Componente principal ─────────────────────────────────────────────────────
-export function LogicFlowEditor({ sections, editCb, pickMode, showIndex = false, onToggleIndex, showLegend = false, onToggleLegend }: {
+export interface LogicFlowEditorHandle {
+  reorganize: () => void
+}
+
+export const LogicFlowEditor = forwardRef<LogicFlowEditorHandle, {
   sections: LSec[]
   editCb?: (a: EditAction) => void
   pickMode?: boolean
@@ -756,7 +864,7 @@ export function LogicFlowEditor({ sections, editCb, pickMode, showIndex = false,
   onToggleIndex?: () => void
   showLegend?: boolean
   onToggleLegend?: () => void
-}) {
+}>(function LogicFlowEditor({ sections, editCb, pickMode, showIndex = false, onToggleIndex, showLegend = false, onToggleLegend }, fwdRef) {
   const dark = useDark()
   const canEdit = !!editCb
   const [search, setSearch] = useState('')
@@ -780,6 +888,13 @@ export function LogicFlowEditor({ sections, editCb, pickMode, showIndex = false,
   sectionsRef.current = sections
 
   const fire = useCallback((a: EditAction) => editCb?.(a), [editCb])
+
+  useImperativeHandle(fwdRef, () => ({
+    reorganize: () => {
+      fire({ type: 'clear_node_pos' })
+      setTimeout(() => rfRef.current?.fitView({ padding: 0.12, maxZoom: 0.9 }), 120)
+    },
+  }), [fire])
 
   // Índice de perguntas (idêntico ao clássico) — navega centralizando o nó no fluxo.
   const questionIndex = useMemo(() => buildQuestionIndex(sections), [sections])
@@ -820,8 +935,10 @@ export function LogicFlowEditor({ sections, editCb, pickMode, showIndex = false,
           list: a.packages ?? [],
           onAdd: () => fire({ type: 'p_add_pkg', ref: m.ref, ansIdx: m.ansIdx }),
           onMove: (i, dir) => fire({ type: 'p_move_pkg', ref: m.ref, ansIdx: m.ansIdx, pkgIdx: i, dir }),
+          onReorder: (from, to) => fire({ type: 'p_reorder_pkg', ref: m.ref, ansIdx: m.ansIdx, from, to }),
           onRemove: (i) => fire({ type: 'p_remove_pkg', ref: m.ref, ansIdx: m.ansIdx, pkgIdx: i }),
           onCondition: (i, condition) => fire({ type: 'p_set_pkg_condition', ref: m.ref, ansIdx: m.ansIdx, pkgIdx: i, condition }),
+          onPhase: (i, phase) => fire({ type: 'p_set_pkg_phase', ref: m.ref, ansIdx: m.ansIdx, pkgIdx: i, phase }),
         },
         pkgsRefresh: () => resolveRef(sectionsRef.current, m.ref)?.answers[m.ansIdx]?.packages ?? [],
         onFlagPkg: (i) => fire({ type: 'p_toggle_ans_pkg_contingency', ref: m.ref, ansIdx: m.ansIdx, pkgIdx: i }),
@@ -836,8 +953,10 @@ export function LogicFlowEditor({ sections, editCb, pickMode, showIndex = false,
           list: dec.packages ?? [],
           onAdd: () => fire({ type: 'p_add_dec_pkg', ref: m.ref }),
           onMove: (i, dir) => fire({ type: 'p_move_dec_pkg', ref: m.ref, pkgIdx: i, dir }),
+          onReorder: (from, to) => fire({ type: 'p_reorder_dec_pkg', ref: m.ref, from, to }),
           onRemove: (i) => fire({ type: 'p_remove_dec_pkg', ref: m.ref, pkgIdx: i }),
           onCondition: (i, condition) => fire({ type: 'p_set_pkg_condition', ref: m.ref, pkgIdx: i, condition }),
+          onPhase: (i, phase) => fire({ type: 'p_set_pkg_phase', ref: m.ref, pkgIdx: i, phase }),
         },
         pkgsRefresh: () => resolveRef(sectionsRef.current, m.ref)?.packages ?? [],
       })
@@ -851,6 +970,7 @@ export function LogicFlowEditor({ sections, editCb, pickMode, showIndex = false,
           list: sec.always ?? [],
           onAdd: () => fire({ type: 'add_always', secIdx: m.secIdx }),
           onMove: (i, dir) => fire({ type: 'move_always', secIdx: m.secIdx, pkgIdx: i, dir }),
+          onReorder: (from, to) => fire({ type: 'reorder_always', secIdx: m.secIdx, from, to }),
           onRemove: (i) => fire({ type: 'remove_always', secIdx: m.secIdx, pkgIdx: i }),
         },
         pkgsRefresh: () => sectionsRef.current[m.secIdx]?.always ?? [],
@@ -868,8 +988,10 @@ export function LogicFlowEditor({ sections, editCb, pickMode, showIndex = false,
           list: ae.packages ?? [],
           onAdd: () => fire({ type: 'p_dec_add_after_pkg', ref: m.ref, afterIdx: m.afterIdx }),
           onMove: (i, dir) => fire({ type: 'p_dec_move_after_pkg', ref: m.ref, afterIdx: m.afterIdx, pkgIdx: i, dir }),
+          onReorder: (from, to) => fire({ type: 'p_dec_reorder_after_pkg', ref: m.ref, afterIdx: m.afterIdx, from, to }),
           onRemove: (i) => fire({ type: 'p_dec_remove_after_pkg', ref: m.ref, afterIdx: m.afterIdx, pkgIdx: i }),
           onCondition: (i, condition) => fire({ type: 'p_set_dec_after_pkg_condition', ref: m.ref, afterIdx: m.afterIdx, pkgIdx: i, condition }),
+          onPhase: (i, phase) => fire({ type: 'p_set_dec_after_pkg_phase', ref: m.ref, afterIdx: m.afterIdx, pkgIdx: i, phase }),
         },
         pkgsRefresh: () => resolveRef(sectionsRef.current, m.ref)?.after?.[m.afterIdx]?.packages ?? [],
       })
@@ -889,8 +1011,10 @@ export function LogicFlowEditor({ sections, editCb, pickMode, showIndex = false,
             list: se.packages ?? [],
             onAdd: () => fire({ type: 'p_add_seq_pkg', ref: m.ref, ansIdx: m.ansIdx, seqIdx: m.idx }),
             onMove: (i, dir) => fire({ type: 'p_move_seq_pkg', ref: m.ref, ansIdx: m.ansIdx, seqIdx: m.idx, pkgIdx: i, dir }),
+            onReorder: (from, to) => fire({ type: 'p_reorder_seq_pkg', ref: m.ref, ansIdx: m.ansIdx, seqIdx: m.idx, from, to }),
             onRemove: (i) => fire({ type: 'p_remove_seq_pkg', ref: m.ref, ansIdx: m.ansIdx, seqIdx: m.idx, pkgIdx: i }),
             onCondition: (i, condition) => fire({ type: 'p_set_seq_pkg_condition', ref: m.ref, ansIdx: m.ansIdx, seqIdx: m.idx, pkgIdx: i, condition }),
+            onPhase: (i, phase) => fire({ type: 'p_set_seq_pkg_phase', ref: m.ref, ansIdx: m.ansIdx, seqIdx: m.idx, pkgIdx: i, phase }),
           },
           pkgsRefresh: () => resolveRef(sectionsRef.current, m.ref)?.answers[m.ansIdx]?.seq?.[m.idx]?.packages ?? [],
         })
@@ -906,8 +1030,10 @@ export function LogicFlowEditor({ sections, editCb, pickMode, showIndex = false,
             list: ae.packages ?? [],
             onAdd: () => fire({ type: 'p_add_after_pkg', ref: m.ref, ansIdx: m.ansIdx, afterIdx: m.idx }),
             onMove: (i, dir) => fire({ type: 'p_move_after_pkg', ref: m.ref, ansIdx: m.ansIdx, afterIdx: m.idx, pkgIdx: i, dir }),
+            onReorder: (from, to) => fire({ type: 'p_reorder_after_pkg', ref: m.ref, ansIdx: m.ansIdx, afterIdx: m.idx, from, to }),
             onRemove: (i) => fire({ type: 'p_remove_after_pkg', ref: m.ref, ansIdx: m.ansIdx, afterIdx: m.idx, pkgIdx: i }),
             onCondition: (i, condition) => fire({ type: 'p_set_after_pkg_condition', ref: m.ref, ansIdx: m.ansIdx, afterIdx: m.idx, pkgIdx: i, condition }),
+            onPhase: (i, phase) => fire({ type: 'p_set_after_pkg_phase', ref: m.ref, ansIdx: m.ansIdx, afterIdx: m.idx, pkgIdx: i, phase }),
           },
           pkgsRefresh: () => resolveRef(sectionsRef.current, m.ref)?.answers[m.ansIdx]?.after?.[m.idx]?.packages ?? [],
         })
@@ -1223,7 +1349,7 @@ export function LogicFlowEditor({ sections, editCb, pickMode, showIndex = false,
       } as Edge)
     }
 
-    function layoutDec(dec: LDec, cx: number, top: number, ref: DecRef | null, pc: PC, key: string): { entryId: string; exitIds: string[]; bottom: number } {
+    function layoutDec(dec: LDec, cx: number, top: number, ref: DecRef | null, pc: PC, key: string, secPhase?: string): { entryId: string; exitIds: string[]; bottom: number } {
       const qid = ref ? `q|${refKey(ref)}` : `qf|${key}`
       const decPkgs = dec.packages ?? []
       const hasPkgChip = decPkgs.length > 0
@@ -1238,7 +1364,7 @@ export function LogicFlowEditor({ sections, editCb, pickMode, showIndex = false,
           id: pkgChipId, type: 'chipnode', position: { x: cx - AW / 2, y: top },
           draggable: false, selectable: !!ref,
           data: {
-            label: 'PACOTES', pkgs: decPkgs, pc, dark, canEdit,
+            label: 'PACOTES', pkgs: decPkgs, pc, dark, canEdit, secPhase: secPhase,
             hit: !!s && pkgsHit(decPkgs, s), variant: 'after' as const,
             clickable: !!ref && canEdit, contingency: false,
             onFlag: undefined, onFlagPkg: undefined,
@@ -1273,7 +1399,7 @@ export function LogicFlowEditor({ sections, editCb, pickMode, showIndex = false,
         push({
           id: aid, type: 'anode', position: apos, draggable: canEdit && !!ref,
           data: {
-            ans: a, ref, ansIdx: ai, pc, dark, hit: !!s && ansHit(a, s), canEdit,
+            ans: a, ref, ansIdx: ai, pc, dark, hit: !!s && ansHit(a, s), canEdit, secPhase: secPhase,
             onFlagPkg: ref ? (pi: number) => fire({ type: 'p_toggle_ans_pkg_contingency', ref, ansIdx: ai, pkgIdx: pi }) : undefined,
             onStar: ref ? () => fire({ type: 'p_toggle_default', ref, ansIdx: ai }) : undefined,
             onFlag: ref ? () => fire({ type: 'p_toggle_contingency', ref, ansIdx: ai }) : undefined,
@@ -1292,7 +1418,7 @@ export function LogicFlowEditor({ sections, editCb, pickMode, showIndex = false,
           ...(a.afterSub ?? []).map((sub, si) => ({ sub, r: ref ? { ...ref, sub: [...ref.sub, ai, -(si + 1)] } : null, k: `${key}.${ai}.n${si}` })),
         ]
         for (const { sub, r, k } of subList) {
-          const res = layoutDec(sub, acx, childY, r, pc, k)
+          const res = layoutDec(sub, acx, childY, r, pc, k, secPhase)
           for (const inp of inputs) edge(inp, res.entryId)
           inputs = res.exitIds
           childY = res.bottom + V_SUB
@@ -1311,7 +1437,7 @@ export function LogicFlowEditor({ sections, editCb, pickMode, showIndex = false,
             id: fId, type: 'chipnode', position: { x: acx - AW / 2, y: childY }, draggable: false, selectable: !!ref,
             data: {
               label: entry.label || (kind === 'seq' ? 'Sequencial' : 'Após convergência'),
-              pkgs: entry.packages ?? [], pc, dark, canEdit,
+              pkgs: entry.packages ?? [], pc, dark, canEdit, secPhase: secPhase,
               hit: !!s && (entry.label.toLowerCase().includes(s) || pkgsHit(entry.packages, s)), variant: 'after',
               clickable: !!ref, contingency: !!entry.contingency,
               onFlag: ref ? () => fire(kind === 'seq'
@@ -1358,7 +1484,7 @@ export function LogicFlowEditor({ sections, editCb, pickMode, showIndex = false,
         // ae.sub aparece ACIMA do chip (igual ao editor clássico)
         for (let si = 0; si < (ae.sub ?? []).length; si++) {
           const aeDecRef: DecRef | null = ref && !ref.aeRef ? { ...ref, aeRef: { afterIdx: aeIdx, isAfterSub: false, subIdx: si } } : null
-          const res = layoutDec(ae.sub![si], cx, runY + V_DEC, aeDecRef, pc, `${key}.ae${aeIdx}.${si}`)
+          const res = layoutDec(ae.sub![si], cx, runY + V_DEC, aeDecRef, pc, `${key}.ae${aeIdx}.${si}`, secPhase)
           for (const inp of inputs) edge(inp, res.entryId)
           inputs = res.exitIds
           runY = res.bottom
@@ -1370,7 +1496,7 @@ export function LogicFlowEditor({ sections, editCb, pickMode, showIndex = false,
         push({
           id: chipId, type: 'chipnode', position: { x: cx - AW / 2, y: cy }, draggable: false, selectable: !!ref,
           data: {
-            label: ae.label || 'Após convergência', pkgs: ae.packages ?? [], pc, dark, canEdit,
+            label: ae.label || 'Após convergência', pkgs: ae.packages ?? [], pc, dark, canEdit, secPhase: secPhase,
             hit: !!s && (ae.label.toLowerCase().includes(s) || pkgsHit(ae.packages, s)), variant: 'after',
             clickable: !!ref, contingency: !!ae.contingency,
             onFlag: ref ? () => fire({ type: 'p_toggle_dec_after_conting', ref: capRefAe!, afterIdx: aeIdx }) : undefined,
@@ -1385,7 +1511,7 @@ export function LogicFlowEditor({ sections, editCb, pickMode, showIndex = false,
         // ae.afterSub aparece ABAIXO do chip
         for (let si = 0; si < (ae.afterSub ?? []).length; si++) {
           const aeDecRef: DecRef | null = ref && !ref.aeRef ? { ...ref, aeRef: { afterIdx: aeIdx, isAfterSub: true, subIdx: si } } : null
-          const res = layoutDec(ae.afterSub![si], cx, runY + V_DEC, aeDecRef, pc, `${key}.ae${aeIdx}.n${si}`)
+          const res = layoutDec(ae.afterSub![si], cx, runY + V_DEC, aeDecRef, pc, `${key}.ae${aeIdx}.n${si}`, secPhase)
           for (const inp of inputs) edge(inp, res.entryId)
           inputs = res.exitIds
           runY = res.bottom
@@ -1397,7 +1523,7 @@ export function LogicFlowEditor({ sections, editCb, pickMode, showIndex = false,
       if (isRoot && dec.afterDec?.length) {
         dec.afterDec.forEach((ad, adi) => {
           const adRef: DecRef = { secIdx: ref!.secIdx, decIdx: ref!.decIdx, adIdx: adi, sub: [] }
-          const res = layoutDec(ad, cx, runY + V_DEC, adRef, pc, `${key}.ad${adi}`)
+          const res = layoutDec(ad, cx, runY + V_DEC, adRef, pc, `${key}.ad${adi}`, secPhase)
           for (const inp of inputs) edge(inp, res.entryId)
           inputs = res.exitIds
           runY = res.bottom
@@ -1445,7 +1571,7 @@ export function LogicFlowEditor({ sections, editCb, pickMode, showIndex = false,
         // Expansão inline: renderiza as decisões do escopo referenciado sem ref editável.
         let prevExits: string[] = []
         for (let di = 0; di < refDecisions.length; di++) {
-          const res = layoutDec(refDecisions[di], 0, decTop, null, pc, `xref${si}.${di}`)
+          const res = layoutDec(refDecisions[di], 0, decTop, null, pc, `xref${si}.${di}`, sec.phase)
           if (prevExits.length) for (const inp of prevExits) edge(inp, res.entryId)
           prevExits = res.exitIds
           decTop = res.bottom + V_DEC
@@ -1458,7 +1584,7 @@ export function LogicFlowEditor({ sections, editCb, pickMode, showIndex = false,
         // Decisões[0..alwaysPos] (se alwaysPos=-1, nenhuma antes do SEMPRE)
         for (; di <= alwaysPos && di < sec.decisions.length; di++) {
           const ref: DecRef = { secIdx: si, decIdx: di, sub: [] }
-          const res = layoutDec(sec.decisions[di], 0, decTop, ref, pc, `${si}.${di}`)
+          const res = layoutDec(sec.decisions[di], 0, decTop, ref, pc, `${si}.${di}`, sec.phase)
           if (prevExits.length) for (const inp of prevExits) edge(inp, res.entryId)
           prevExits = res.exitIds
           decTop = res.bottom + V_DEC
@@ -1471,7 +1597,7 @@ export function LogicFlowEditor({ sections, editCb, pickMode, showIndex = false,
           push({
             id: semId, type: 'chipnode', position: { x: -AW / 2, y: decTop }, draggable: false, selectable: false,
             data: {
-              label: 'SEMPRE', pkgs: sec.always, pc, dark, canEdit,
+              label: 'SEMPRE', pkgs: sec.always, pc, dark, canEdit, secPhase: sec.phase,
               hit: !!s && pkgsHit(sec.always, s), variant: 'sempre',
               clickable: canEdit,
               onFlagPkg: undefined,
@@ -1485,7 +1611,7 @@ export function LogicFlowEditor({ sections, editCb, pickMode, showIndex = false,
         // Decisões[alwaysPos+1..]
         for (; di < sec.decisions.length; di++) {
           const ref: DecRef = { secIdx: si, decIdx: di, sub: [] }
-          const res = layoutDec(sec.decisions[di], 0, decTop, ref, pc, `${si}.${di}`)
+          const res = layoutDec(sec.decisions[di], 0, decTop, ref, pc, `${si}.${di}`, sec.phase)
           if (prevExits.length) for (const inp of prevExits) edge(inp, res.entryId)
           prevExits = res.exitIds
           decTop = res.bottom + V_DEC
@@ -1813,4 +1939,4 @@ export function LogicFlowEditor({ sections, editCb, pickMode, showIndex = false,
       </div>
     </div>
   )
-}
+})

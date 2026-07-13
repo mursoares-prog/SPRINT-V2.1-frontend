@@ -23,10 +23,14 @@ const condLabel = (c?: string): string | null =>
 // Ícone (react-icons) que marca a condição de emissão de um pacote, no lugar do
 // antigo losango azul ◈. Um por condição de sonda/operação.
 const CONDITION_ICONS: Record<string, IconType> = {
-  rig_anc: MdOutlineAnchor,      // Sonda ancorada (ANC)
-  rig_dp: PiFan,                 // Sonda DP
-  op_lwo: SiCodeship,            // Operação LWIV (LWO)
-  op_generalista: GiOffshorePlatform, // Operação Generalista
+  rig_anc: MdOutlineAnchor,  // Sonda ancorada (ANC)
+  rig_dp:  PiFan,            // Sonda DP (qualquer)
+}
+
+// Condições que exigem dois ícones lado a lado: [DP, específico].
+const CONDITION_ICON_PAIRS: Record<string, [IconType, IconType]> = {
+  rig_dp_gen: [PiFan, GiOffshorePlatform],  // DP Generalista
+  rig_lwo:    [PiFan, SiCodeship],          // DP LWIV
 }
 
 // Mapa dos antigos glyphs (emoji/unicode) dos menus para ícones react-icons (Phosphor Fill).
@@ -57,8 +61,17 @@ function svgIco(Icon: IconType, cx: number, cyText: number, size: number, color:
 // Ícone de condição para contexto HTML (dropdown/painéis). No SVG do fluxograma o
 // ícone é renderizado inline (com x/y/size) em drawPkgRow.
 export function ConditionIcon({ condition, className, size = 11 }: { condition: string; className?: string; size?: number }) {
-  const Ic = CONDITION_ICONS[condition]
   const title = `Condicional: ${condLabel(condition)}`
+  const pair = CONDITION_ICON_PAIRS[condition]
+  if (pair) {
+    const [A, B] = pair
+    return (
+      <span className={`inline-flex items-center gap-px ${className ?? ''}`} title={title}>
+        <A size={size} /><B size={size} />
+      </span>
+    )
+  }
+  const Ic = CONDITION_ICONS[condition]
   return Ic
     ? <Ic className={className} size={size} title={title} />
     : <span className={className} title={title}>◈</span>
@@ -278,6 +291,12 @@ export type EditAction =
   | { type: 'copy_decision';        secIdx: number; decIdx: number }
   | { type: 'p_move_ans';           ref: DecRef; ansIdx: number; dir: 'up' | 'down' }
   | { type: 'p_move_pkg';           ref: DecRef; ansIdx: number; pkgIdx: number; dir: 'up' | 'down' }
+  | { type: 'p_reorder_pkg';        ref: DecRef; ansIdx: number; from: number; to: number }
+  | { type: 'p_reorder_dec_pkg';    ref: DecRef; from: number; to: number }
+  | { type: 'reorder_always';       secIdx: number; from: number; to: number }
+  | { type: 'p_dec_reorder_after_pkg'; ref: DecRef; afterIdx: number; from: number; to: number }
+  | { type: 'p_reorder_seq_pkg';    ref: DecRef; ansIdx: number; seqIdx: number; from: number; to: number }
+  | { type: 'p_reorder_after_pkg';  ref: DecRef; ansIdx: number; afterIdx: number; from: number; to: number }
   | { type: 'p_add_pkg_direct';     ref: DecRef; ansIdx: number; pkgId: string; pkgName: string }
   | { type: 'p_ins_ans';            ref: DecRef; atIdx: number }
   | { type: 'add_dec_after_chip_sub'; ref: DecRef; afterIdx: number; isAfterSub?: boolean }
@@ -301,6 +320,15 @@ export type EditAction =
   | { type: 'p_set_ans_field'; ref: DecRef; ansIdx: number; field?: string; value?: unknown }
   // Condição de emissão de um pacote (LCondition) — em dec.packages ou ans.packages
   | { type: 'p_set_pkg_condition'; ref: DecRef; ansIdx?: number; pkgIdx: number; condition?: string }
+  // Condição de emissão de pacote em campos de campo (dec.after / ans.seq / ans.after)
+  | { type: 'p_set_dec_after_pkg_condition'; ref: DecRef; afterIdx: number; pkgIdx: number; condition?: string }
+  | { type: 'p_set_seq_pkg_condition'; ref: DecRef; ansIdx: number; seqIdx: number; pkgIdx: number; condition?: string }
+  | { type: 'p_set_after_pkg_condition'; ref: DecRef; ansIdx: number; afterIdx: number; pkgIdx: number; condition?: string }
+  // Fase OW de um pacote (LPkgPhase) — paralelo às actions de condition
+  | { type: 'p_set_pkg_phase'; ref: DecRef; ansIdx?: number; pkgIdx: number; phase?: string }
+  | { type: 'p_set_dec_after_pkg_phase'; ref: DecRef; afterIdx: number; pkgIdx: number; phase?: string }
+  | { type: 'p_set_seq_pkg_phase'; ref: DecRef; ansIdx: number; seqIdx: number; pkgIdx: number; phase?: string }
+  | { type: 'p_set_after_pkg_phase'; ref: DecRef; ansIdx: number; afterIdx: number; pkgIdx: number; phase?: string }
   // ── Contingência de CAMPO (LSeqEntry: dec.after / ans.after / ans.seq) ──────
   | { type: 'p_toggle_dec_after_conting'; ref: DecRef; afterIdx: number }
   | { type: 'p_toggle_ans_after_conting'; ref: DecRef; ansIdx: number; afterIdx: number }
@@ -476,6 +504,8 @@ export type MenuPkgList = {
 export type ResolvedPkgList = {
   list: LPkg[]; onAdd: () => void; onMove: (idx: number, dir: 'up' | 'down') => void
   onRemove: (idx: number) => void; onCondition?: (idx: number, condition?: string) => void
+  onPhase?: (idx: number, phase?: string) => void
+  onReorder?: (from: number, to: number) => void
 }
 export type MenuState = { title?: string; items: MenuItem[]; pkgs?: MenuPkgList; pos?: { x: number; y: number }; hlKey?: string; onTitleChange?: (v: string) => void }
 let _menuCb: ((m: MenuState | null) => void) | null = null
@@ -864,20 +894,29 @@ function drawPkgRow(
       <PiFlagPennantFill key={K()} x={flagX} y={flagY - 10} size={11} color="#f97316" style={{ pointerEvents: 'none' }} />
     )
   }
-  // Condição de emissão (pkg.condition): ícone react-icons (sonda/operação) logo ao lado
-  // direito do código do pacote (a bandeira agora fica à esquerda). Segue a cor do código.
+  // Condição de emissão (pkg.condition): ícone(s) react-icons logo ao lado direito do código.
   if (pkg.condition) {
+    const pair = CONDITION_ICON_PAIRS[pkg.condition]
     const CondIcon = CONDITION_ICONS[pkg.condition]
-    const ic = 12
+    const ic = 11
     const condX = textX + codeW + 3
-    els.push(CondIcon
-      ? <CondIcon key={K()} x={condX} y={idY - ic + 2} size={ic} color={codeColor}
-          title={`Condicional: ${condLabel(pkg.condition)}`} style={{ pointerEvents: 'none' }} />
-      : <text key={K()} x={condX} y={idY} fontSize={9} fontWeight={700}
-          fill={codeColor} style={{ pointerEvents: 'none' }}>
-          ◈<title>{`Condicional: ${condLabel(pkg.condition)}`}</title>
-        </text>
-    )
+    const ttl = `Condicional: ${condLabel(pkg.condition)}`
+    if (pair) {
+      const [A, B] = pair
+      els.push(
+        <A key={K()} x={condX} y={idY - ic + 2} size={ic} color={codeColor} style={{ pointerEvents: 'none' }}><title>{ttl}</title></A>,
+        <B key={K()} x={condX + ic + 1} y={idY - ic + 2} size={ic} color={codeColor} style={{ pointerEvents: 'none' }} />,
+      )
+    } else {
+      els.push(CondIcon
+        ? <CondIcon key={K()} x={condX} y={idY - ic + 2} size={ic} color={codeColor}
+            title={ttl} style={{ pointerEvents: 'none' }} />
+        : <text key={K()} x={condX} y={idY} fontSize={9} fontWeight={700}
+            fill={codeColor} style={{ pointerEvents: 'none' }}>
+            ◈<title>{ttl}</title>
+          </text>
+      )
+    }
   }
 }
 
@@ -1217,6 +1256,7 @@ function renderAnswer(
                onAdd: () => fire({ type: 'p_add_seq_pkg', ref, ansIdx: ai, seqIdx: capSei }),
                onMove: (idx, dir) => fire({ type: 'p_move_seq_pkg', ref, ansIdx: ai, seqIdx: capSei, pkgIdx: idx, dir }),
                onRemove: (idx) => fire({ type: 'p_remove_seq_pkg', ref, ansIdx: ai, seqIdx: capSei, pkgIdx: idx }),
+               onCondition: (idx, condition) => fire({ type: 'p_set_seq_pkg_condition', ref, ansIdx: ai, seqIdx: capSei, pkgIdx: idx, condition }),
              }, `chip:seq:${ref.secIdx}:${ref.decIdx}:${ref.sub.join(',')}:${ai}:${capSei}`,
              (v) => fire({ type: 'p_set_seq_label', ref, ansIdx: ai, seqIdx: capSei, value: v }))}
              style={{ cursor: 'pointer' }} {...tipAttrs('Opções do bloco')}>
@@ -1253,6 +1293,7 @@ function renderAnswer(
               onAdd: () => fire({ type: 'p_add_seq_pkg', ref, ansIdx: ai, seqIdx: capSei2 }),
               onMove: (idx, dir) => fire({ type: 'p_move_seq_pkg', ref, ansIdx: ai, seqIdx: capSei2, pkgIdx: idx, dir }),
               onRemove: (idx) => fire({ type: 'p_remove_seq_pkg', ref, ansIdx: ai, seqIdx: capSei2, pkgIdx: idx }),
+              onCondition: (idx, condition) => fire({ type: 'p_set_seq_pkg_condition', ref: capRef, ansIdx: capAi, seqIdx: capSei2, pkgIdx: idx, condition }),
             }, seqHlKey)} style={{ cursor: 'pointer' }} {...tipAttrs(sePkgs.length > 0 ? 'Gerenciar pacotes' : 'Adicionar pacote')}>
               <rect x={seX + 4} y={seBY - 2} width={seW - 8} height={seZoneH} rx={3} fill="transparent" />
             </g>
@@ -1436,6 +1477,7 @@ function renderAnswer(
               onAdd: () => fire({ type: 'p_dec_add_after_pkg', ref: capChildRef2, afterIdx: capSafi }),
               onMove: (idx, dir) => fire({ type: 'p_dec_move_after_pkg', ref: capChildRef2, afterIdx: capSafi, pkgIdx: idx, dir }),
               onRemove: (idx) => fire({ type: 'p_dec_remove_after_pkg', ref: capChildRef2, afterIdx: capSafi, pkgIdx: idx }),
+              onCondition: (idx, condition) => fire({ type: 'p_set_dec_after_pkg_condition', ref: capChildRef2, afterIdx: capSafi, pkgIdx: idx, condition }),
             }, safHlKey, (v) => fire({ type: 'p_set_dec_after_label', ref: childRef, afterIdx: capSafi, value: v }))} style={{ cursor: 'pointer' }} {...tipAttrs('Opções do bloco')}>
               <rect x={safX + 22} y={safCardY + 1} width={safW - 42} height={LBLH - 2} rx={2} fill="transparent" />
             </g>
@@ -1459,6 +1501,7 @@ function renderAnswer(
                 onAdd: () => fire({ type: 'p_dec_add_after_pkg', ref: capChildRef, afterIdx: capSafi2 }),
                 onMove: (idx, dir) => fire({ type: 'p_dec_move_after_pkg', ref: capChildRef, afterIdx: capSafi2, pkgIdx: idx, dir }),
                 onRemove: (idx) => fire({ type: 'p_dec_remove_after_pkg', ref: capChildRef, afterIdx: capSafi2, pkgIdx: idx }),
+                onCondition: (idx, condition) => fire({ type: 'p_set_dec_after_pkg_condition', ref: capChildRef, afterIdx: capSafi2, pkgIdx: idx, condition }),
               }, safHlKey)} style={{ cursor: 'pointer' }} {...tipAttrs(safPkgs.length ? 'Gerenciar pacotes' : 'Adicionar pacote')}>
                 <rect x={safX + 4} y={safBY - 2} width={safW - 8} height={Math.max(safPkgs.length * PKG, NOTE_R) + 4} rx={3} fill="transparent" />
               </g>
@@ -1652,6 +1695,7 @@ function renderAnswer(
               onAdd: () => fire({ type: 'p_dec_add_after_pkg', ref: capAsChildRef3, afterIdx: capAsSafi }),
               onMove: (idx, dir) => fire({ type: 'p_dec_move_after_pkg', ref: capAsChildRef3, afterIdx: capAsSafi, pkgIdx: idx, dir }),
               onRemove: (idx) => fire({ type: 'p_dec_remove_after_pkg', ref: capAsChildRef3, afterIdx: capAsSafi, pkgIdx: idx }),
+              onCondition: (idx, condition) => fire({ type: 'p_set_dec_after_pkg_condition', ref: capAsChildRef3, afterIdx: capAsSafi, pkgIdx: idx, condition }),
             }, asSafHlKey, (v) => fire({ type: 'p_set_dec_after_label', ref: asChildRef, afterIdx: capAsSafi, value: v }))} style={{ cursor: 'pointer' }} {...tipAttrs('Opções do bloco')}>
               <rect x={asSafX + 22} y={asSafCardY + 1} width={asSafW - 42} height={LBLH - 2} rx={2} fill="transparent" />
             </g>
@@ -1675,6 +1719,7 @@ function renderAnswer(
                 onAdd: () => fire({ type: 'p_dec_add_after_pkg', ref: capAsChildRef2, afterIdx: capAsSafi2 }),
                 onMove: (idx, dir) => fire({ type: 'p_dec_move_after_pkg', ref: capAsChildRef2, afterIdx: capAsSafi2, pkgIdx: idx, dir }),
                 onRemove: (idx) => fire({ type: 'p_dec_remove_after_pkg', ref: capAsChildRef2, afterIdx: capAsSafi2, pkgIdx: idx }),
+                onCondition: (idx, condition) => fire({ type: 'p_set_dec_after_pkg_condition', ref: capAsChildRef2, afterIdx: capAsSafi2, pkgIdx: idx, condition }),
               }, asSafHlKey)} style={{ cursor: 'pointer' }} {...tipAttrs(asSafPkgs.length ? 'Gerenciar pacotes' : 'Adicionar pacote')}>
                 <rect x={asSafX + 4} y={asSafBY - 2} width={asSafW - 8} height={Math.max(asSafPkgs.length * PKG, NOTE_R) + 4} rx={3} fill="transparent" />
               </g>
@@ -1739,6 +1784,7 @@ function renderAnswer(
                onAdd: () => fire({ type: 'p_add_after_pkg', ref, ansIdx: ai, afterIdx: capAfi }),
                onMove: (idx, dir) => fire({ type: 'p_move_after_pkg', ref, ansIdx: ai, afterIdx: capAfi, pkgIdx: idx, dir }),
                onRemove: (idx) => fire({ type: 'p_remove_after_pkg', ref, ansIdx: ai, afterIdx: capAfi, pkgIdx: idx }),
+               onCondition: (idx, condition) => fire({ type: 'p_set_after_pkg_condition', ref, ansIdx: ai, afterIdx: capAfi, pkgIdx: idx, condition }),
              }, `chip:af:${ref.secIdx}:${ref.decIdx}:${ref.sub.join(',')}:${ai}:${capAfi}`,
              (v) => fire({ type: 'p_set_after_label', ref, ansIdx: ai, afterIdx: capAfi, value: v }))}
              style={{ cursor: 'pointer' }} {...tipAttrs('Opções do bloco')}>
@@ -1765,6 +1811,7 @@ function renderAnswer(
               onAdd: () => fire({ type: 'p_add_after_pkg', ref, ansIdx: ai, afterIdx: capAfi2 }),
               onMove: (idx, dir) => fire({ type: 'p_move_after_pkg', ref, ansIdx: ai, afterIdx: capAfi2, pkgIdx: idx, dir }),
               onRemove: (idx) => fire({ type: 'p_remove_after_pkg', ref, ansIdx: ai, afterIdx: capAfi2, pkgIdx: idx }),
+              onCondition: (idx, condition) => fire({ type: 'p_set_after_pkg_condition', ref: capRef3, ansIdx: capAi3, afterIdx: capAfi2, pkgIdx: idx, condition }),
             }, afHlKey)} style={{ cursor: 'pointer' }} {...tipAttrs(afPkgs.length ? 'Gerenciar pacotes' : 'Adicionar pacote')}>
               <rect x={afX + 4} y={afBY - 2} width={afW - 8} height={Math.max(afPkgs.length * PKG, NOTE_R) + 4} rx={3} fill="transparent" />
             </g>

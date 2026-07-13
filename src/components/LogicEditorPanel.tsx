@@ -30,6 +30,7 @@ import {
   PiFolderOpenFill,
   PiFolderPlusFill,
   PiClockCounterClockwiseBold as History,
+  PiTreeStructureFill as LayoutDashboard,
 } from 'react-icons/pi'
 // Ícones da legenda de ajuda (mesmos usados no fluxograma/menus).
 import {
@@ -51,7 +52,7 @@ import { updateCustomScopeMeta } from '../data/logicOverrideStore'
 import { PACKAGES } from '../data/packages'
 import { setLogicOverrides, getLogicOverride, expandScopeRefs, resolveScopeSections, setScopeLabels } from '../data/logicOverrideStore'
 import { LogicGraphPanel, type EditAction, type DecRef } from './LogicGraphPanel'
-import { LogicFlowEditor } from './LogicFlowEditor'
+import { LogicFlowEditor, type LogicFlowEditorHandle } from './LogicFlowEditor'
 import { ScopeParityChecker } from './ScopeParityChecker'
 import { ConditionAuditPanel } from './ConditionAuditPanel'
 
@@ -804,6 +805,7 @@ export function LogicEditorPanel({ canEdit }: { canEdit: boolean }) {
   const [showScopeSidebar, setShowScopeSidebar] = useState(true)
   const [showFlowIndex, setShowFlowIndex] = useState(false)
   const [showFlowLegend, setShowFlowLegend] = useState(false)
+  const flowEditorRef = useRef<LogicFlowEditorHandle>(null)
   // Modo de edição do fluxograma: 'classic' (SVG canônico) ou 'flow' (ReactFlow).
   const [editorMode, setEditorMode] = useState<'classic' | 'flow'>(() =>
     localStorage.getItem('lep-editor-mode') === 'flow' ? 'flow' : 'classic')
@@ -1964,6 +1966,48 @@ export function LogicEditorPanel({ canEdit }: { canEdit: boolean }) {
         break
       }
 
+      case 'p_reorder_pkg': {
+        const dec = resolveRef(secs, action.ref); if (!dec) return
+        const pkgs = dec.answers[action.ansIdx]?.packages; if (!pkgs) return
+        const [item] = pkgs.splice(action.from, 1); pkgs.splice(action.to, 0, item)
+        break
+      }
+
+      case 'p_reorder_dec_pkg': {
+        const dec = resolveRef(secs, action.ref); if (!dec) return
+        const pkgs = dec.packages; if (!pkgs) return
+        const [item] = pkgs.splice(action.from, 1); pkgs.splice(action.to, 0, item)
+        break
+      }
+
+      case 'reorder_always': {
+        const sec = secs[action.secIdx]; if (!sec) return
+        const pkgs = sec.always; if (!pkgs) return
+        const [item] = pkgs.splice(action.from, 1); pkgs.splice(action.to, 0, item)
+        break
+      }
+
+      case 'p_dec_reorder_after_pkg': {
+        const dec = resolveRef(secs, action.ref); if (!dec) return
+        const pkgs = dec.after?.[action.afterIdx]?.packages; if (!pkgs) return
+        const [item] = pkgs.splice(action.from, 1); pkgs.splice(action.to, 0, item)
+        break
+      }
+
+      case 'p_reorder_seq_pkg': {
+        const dec = resolveRef(secs, action.ref); if (!dec) return
+        const pkgs = dec.answers[action.ansIdx]?.seq?.[action.seqIdx]?.packages; if (!pkgs) return
+        const [item] = pkgs.splice(action.from, 1); pkgs.splice(action.to, 0, item)
+        break
+      }
+
+      case 'p_reorder_after_pkg': {
+        const dec = resolveRef(secs, action.ref); if (!dec) return
+        const pkgs = dec.answers[action.ansIdx]?.after?.[action.afterIdx]?.packages; if (!pkgs) return
+        const [item] = pkgs.splice(action.from, 1); pkgs.splice(action.to, 0, item)
+        break
+      }
+
       case 'move_dec_after_pkg': {
         const dec = secs[action.secIdx]?.decisions[action.decIdx]; if (!dec) return
         const ae = dec.after?.[action.afterIdx]; if (!ae) return
@@ -2299,6 +2343,65 @@ export function LogicEditorPanel({ canEdit }: { canEdit: boolean }) {
         if (!pkg) return
         if (action.condition) pkg.condition = action.condition as LCondition
         else delete pkg.condition
+        break
+      }
+
+      case 'p_set_dec_after_pkg_condition': {
+        const dec = resolveRef(secs, action.ref); if (!dec) return
+        const pkg = dec.after?.[action.afterIdx]?.packages?.[action.pkgIdx]; if (!pkg) return
+        if (action.condition) pkg.condition = action.condition as LCondition
+        else delete pkg.condition
+        break
+      }
+
+      case 'p_set_seq_pkg_condition': {
+        const dec = resolveRef(secs, action.ref); if (!dec) return
+        const pkg = dec.answers[action.ansIdx]?.seq?.[action.seqIdx]?.packages?.[action.pkgIdx]; if (!pkg) return
+        if (action.condition) pkg.condition = action.condition as LCondition
+        else delete pkg.condition
+        break
+      }
+
+      case 'p_set_after_pkg_condition': {
+        const dec = resolveRef(secs, action.ref); if (!dec) return
+        const pkg = dec.answers[action.ansIdx]?.after?.[action.afterIdx]?.packages?.[action.pkgIdx]; if (!pkg) return
+        if (action.condition) pkg.condition = action.condition as LCondition
+        else delete pkg.condition
+        break
+      }
+
+      case 'p_set_pkg_phase': {
+        const dec = resolveRef(secs, action.ref); if (!dec) return
+        const pkg = action.ansIdx !== undefined
+          ? dec.answers[action.ansIdx]?.packages?.[action.pkgIdx]
+          : dec.packages?.[action.pkgIdx]
+        if (!pkg) return
+        if (action.phase) pkg.phase = action.phase as import('../data/logicSecs').LPkgPhase
+        else delete pkg.phase
+        break
+      }
+
+      case 'p_set_dec_after_pkg_phase': {
+        const dec = resolveRef(secs, action.ref); if (!dec) return
+        const pkg = dec.after?.[action.afterIdx]?.packages?.[action.pkgIdx]; if (!pkg) return
+        if (action.phase) pkg.phase = action.phase as import('../data/logicSecs').LPkgPhase
+        else delete pkg.phase
+        break
+      }
+
+      case 'p_set_seq_pkg_phase': {
+        const dec = resolveRef(secs, action.ref); if (!dec) return
+        const pkg = dec.answers[action.ansIdx]?.seq?.[action.seqIdx]?.packages?.[action.pkgIdx]; if (!pkg) return
+        if (action.phase) pkg.phase = action.phase as import('../data/logicSecs').LPkgPhase
+        else delete pkg.phase
+        break
+      }
+
+      case 'p_set_after_pkg_phase': {
+        const dec = resolveRef(secs, action.ref); if (!dec) return
+        const pkg = dec.answers[action.ansIdx]?.after?.[action.afterIdx]?.packages?.[action.pkgIdx]; if (!pkg) return
+        if (action.phase) pkg.phase = action.phase as import('../data/logicSecs').LPkgPhase
+        else delete pkg.phase
         break
       }
 
@@ -2878,6 +2981,13 @@ export function LogicEditorPanel({ canEdit }: { canEdit: boolean }) {
                         <PiInfoBold size={10} />
                         Símbolos
                       </button>
+                      <button
+                        onClick={() => flowEditorRef.current?.reorganize()}
+                        title="Reorganizar: reposiciona todos os nós automaticamente e centraliza a visão"
+                        className="flex items-center gap-1 text-[10px] text-slate-400 hover:text-emerald-300 border border-slate-700 hover:border-emerald-600/40 rounded-lg px-2 py-1.5 transition-colors">
+                        <LayoutDashboard size={10} />
+                        Reorganizar
+                      </button>
                     </>
                   )}
                   <button
@@ -2966,6 +3076,7 @@ export function LogicEditorPanel({ canEdit }: { canEdit: boolean }) {
                   )}
                   {editorMode === 'flow' ? (
                     <LogicFlowEditor
+                      ref={flowEditorRef}
                       sections={sections}
                       editCb={canEdit && !previewVersionId ? handleEditAction : undefined}
                       pickMode={!!pendingTransfer}

@@ -102,8 +102,8 @@ export function fillTokens(template: string, ctx: RuleCtx): string {
 export const applyPlaceholders = fillTokens
 
 /** A linha carrega algum token (logo, recebe template e participa da substituição). */
-export function hasTokens(text: string): boolean {
-  return text.includes('{{')
+export function hasTokens(text: string | null | undefined): boolean {
+  return typeof text === 'string' && text.includes('{{')
 }
 
 /** Algum token da linha está sem valor resolvido (linha incompleta). */

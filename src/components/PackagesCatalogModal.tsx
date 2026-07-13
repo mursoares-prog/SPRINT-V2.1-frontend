@@ -42,29 +42,48 @@ function PackageRow({ pkg, lines }: { pkg: Package; lines: string[] }) {
   )
 }
 
-function PackagesPanel({ abanList, activeLines }: {
-  abanList: Package[]; activeLines: PackageLines
+function PkgSection({ title, list, activeLines }: {
+  title: string; list: Package[]; activeLines: PackageLines
 }) {
+  const [expanded, setExpanded] = useState(true)
   const getLines = (pkgId: string) =>
     (activeLines[pkgId] ?? []).map(l => l.text).filter(Boolean)
+  if (list.length === 0) return null
+  return (
+    <section>
+      <button
+        type="button"
+        onClick={() => setExpanded(value => !value)}
+        aria-expanded={expanded}
+        className="w-full flex items-center gap-1.5 text-left text-xs font-bold uppercase tracking-widest text-slate-600 dark:text-slate-500 mb-2 rounded hover:text-slate-800 dark:hover:text-slate-300 transition-colors">
+        <ChevronDown size={14} className={`shrink-0 transition-transform duration-150 ${expanded ? '' : '-rotate-90'}`} />
+        {title}
+        <span className="font-normal normal-case tracking-normal text-slate-500 dark:text-slate-600">({list.length})</span>
+      </button>
+      {expanded && (
+        <table className="w-full">
+          <tbody>
+            {list.map(p => <PackageRow key={p.id} pkg={p} lines={getLines(p.id)} />)}
+          </tbody>
+        </table>
+      )}
+    </section>
+  )
+}
+
+function PackagesPanel({ abanList, tabList, activeLines }: {
+  abanList: Package[]; tabList: Package[]; activeLines: PackageLines
+}) {
+  const total = abanList.length + tabList.length
   return (
     <div className="px-5 py-4 space-y-6">
-      {abanList.length > 0 && (
-        <section>
-          <h3 className="text-xs font-bold uppercase tracking-widest text-slate-600 dark:text-slate-500 mb-2">
-            Pacotes ABAN
-            <span className="ml-2 font-normal normal-case tracking-normal text-slate-500 dark:text-slate-600">({abanList.length})</span>
-          </h3>
-          <table className="w-full">
-            <tbody>
-              {abanList.map(p => <PackageRow key={p.id} pkg={p} lines={getLines(p.id)} />)}
-            </tbody>
-          </table>
-        </section>
-      )}
-      {abanList.length === 0 && (
-        <p className="text-sm text-slate-600 text-center py-8">Nenhum pacote encontrado.</p>
-      )}
+      {total === 0
+        ? <p className="text-sm text-slate-600 text-center py-8">Nenhum pacote encontrado.</p>
+        : <>
+            <PkgSection title="Completação Molhada (ABAN)" list={abanList} activeLines={activeLines} />
+            <PkgSection title="Completação Seca (T-AB)" list={tabList} activeLines={activeLines} />
+          </>
+      }
     </div>
   )
 }
@@ -83,7 +102,7 @@ export function PackagesCatalogModal({ onClose }: { onClose: () => void }) {
       .catch(() => {})
   }, [])
 
-  const { abanList } = useMemo(() => {
+  const { abanList, tabList } = useMemo(() => {
     const q = query.trim().toLowerCase()
     const all = Object.values(PACKAGES) as Package[]
     const matches = (p: Package) =>
@@ -96,6 +115,7 @@ export function PackagesCatalogModal({ onClose }: { onClose: () => void }) {
       })
     return {
       abanList: sorted(all.filter(p => p.id.startsWith('ABAN'))),
+      tabList:  sorted(all.filter(p => p.id.startsWith('T-AB'))),
     }
   }, [query])
 
@@ -131,12 +151,12 @@ export function PackagesCatalogModal({ onClose }: { onClose: () => void }) {
 
         {/* Content */}
         <div className="flex-1 overflow-auto scrollbar-custom">
-          <PackagesPanel abanList={abanList} activeLines={activeLines} />
+          <PackagesPanel abanList={abanList} tabList={tabList} activeLines={activeLines} />
         </div>
 
         {/* Footer */}
         <div className="px-5 py-3 border-t border-slate-100 dark:border-slate-800 text-xs text-slate-600 shrink-0">
-          {abanList.length} pacotes encontrados
+          {abanList.length + tabList.length} pacotes encontrados · {abanList.length} ABAN · {tabList.length} T-AB
         </div>
       </div>
     </div>

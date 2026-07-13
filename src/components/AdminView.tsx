@@ -1,4 +1,4 @@
-import { X, Search, ShieldCheck, History, Table2, Pencil, Trash2, Plus, Upload, Workflow } from 'lucide-react'
+import { X, Search, ShieldCheck, History, Table2, Pencil, Trash2, Plus, Workflow } from 'lucide-react'
 import { useState, useMemo, useEffect, useCallback } from 'react'
 import {
   isApiConfigured, listChangelog, getMergedPackageLines, getBaseFields,
@@ -10,7 +10,6 @@ import { setExtraPackages, metaToPackage } from '../data/packages'
 import { setPackageLines } from '../data/packageLinesStore'
 import { applyDetailOverrides, applyPackageOverrides } from '../data/lineDetailsStore'
 import { AdminVarsEditor } from './AdminVarsEditor'
-import { ImportPackagesModal } from './ImportPackagesModal'
 import { LogicEditorPanel } from './LogicEditorPanel'
 import CHANGE_LOG from '../data/changeLog.json'
 
@@ -50,10 +49,9 @@ const TIPO_STYLE: Record<string, { label: string; cls: string; Icon: typeof Penc
 
 type Tab = 'vars' | 'log' | 'engine'
 
-export function AdminView({ onClose }: { onClose: () => void }) {
-  const [tab, setTab] = useState<Tab>('vars')
+export function AdminView({ onClose, initialTab = 'vars' }: { onClose: () => void; initialTab?: 'vars' | 'engine' }) {
+  const [tab, setTab] = useState<Tab>(initialTab)
   const [query, setQuery] = useState('')
-  const [showImport, setShowImport] = useState(false)
   // Base mesclada (bundled + overrides) e log: priorizam o servidor; caem no
   // bundle (packageLines/changeLog.json) quando não há backend ou a chamada falha.
   const [serverBase, setServerBase] = useState<PackageLines | null>(null)
@@ -127,7 +125,7 @@ export function AdminView({ onClose }: { onClose: () => void }) {
             </span>
           </TabButton>
           <TabButton active={tab === 'engine'} onClick={() => setTab('engine')} Icon={Workflow}>
-            Editor de Lógica
+            Árvores de Decisão
           </TabButton>
           <button
             onClick={onClose}
@@ -165,18 +163,6 @@ export function AdminView({ onClose }: { onClose: () => void }) {
           <LogicEditorPanel canEdit={canEdit} />
         ) : (
           <>
-            {canEdit && (
-              <div className="m-3 flex items-center gap-2 rounded-lg border border-amber-200 dark:border-amber-900/50 bg-amber-50/70 dark:bg-amber-900/15 px-3 py-2 text-[11px] text-amber-800 dark:text-amber-300">
-                <Pencil size={13} className="shrink-0" />
-                <span className="flex-1">Modo admin: abra um pacote para editar suas linhas inline (texto/placeholders, duração, recomendações, padrões, ontologia), adicionar/excluir/reordenar e copiar/colar linhas. Use <strong>Novo pacote</strong> ou <strong>Duplicar</strong> para criar pacotes customizados.</span>
-                <button
-                  onClick={() => setShowImport(true)}
-                  className="shrink-0 flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-[11px] font-semibold transition-colors">
-                  <Upload size={12} />
-                  Importar JSON
-                </button>
-              </div>
-            )}
             <AdminVarsEditor
               query={query} serverBase={serverBase} pkgOverrides={pkgOverrides}
               legacyOverrides={serverOverrides} customMetas={customMetas}
@@ -195,17 +181,6 @@ export function AdminView({ onClose }: { onClose: () => void }) {
           </div>
         )}
       </div>
-
-      {showImport && (
-        <ImportPackagesModal
-          onClose={() => setShowImport(false)}
-          onDone={() => { setShowImport(false); void reload() }}
-          existingPkgIds={[
-            ...Object.keys(serverBase ?? {}),
-            ...customMetas.map(m => m.pkgId),
-          ]}
-        />
-      )}
     </div>
   )
 }

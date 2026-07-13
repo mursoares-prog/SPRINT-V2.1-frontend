@@ -225,8 +225,8 @@ function DecisionRow({ dec, pathPrefix, decIndex, answers, onAnswer, depth, rigT
     ?? dec.answers.find(a => a.active)
     ?? dec.answers[0]
   const hasDefault = dec.answers.some(a => a.active)
-  const isEditing = openKey === key && !checkedKeys.has(key)
   const isChecked = checkedKeys.has(key)
+  const isEditing = openKey === key
 
   const handleRootCheck = () => {
     onCheck([key])
@@ -235,7 +235,7 @@ function DecisionRow({ dec, pathPrefix, decIndex, answers, onAnswer, depth, rigT
   return (
     <div>
       <div className={`rounded transition-all ${isChecked ? 'bg-emerald-50/60 dark:bg-emerald-950/20' : isEditing ? 'bg-sky-50 dark:bg-sky-950/40 ring-1 ring-sky-200 dark:ring-sky-800' : ''}`}>
-        <div className={`flex items-center w-full py-1.5 px-1 rounded transition-colors ${!isChecked && !isEditing ? 'hover:bg-slate-50 dark:hover:bg-slate-800' : ''}`}>
+        <div className={`flex items-center w-full py-1.5 px-1 rounded transition-colors ${!isEditing ? 'hover:bg-slate-50 dark:hover:bg-slate-800' : ''}`}>
 
           <button
               onClick={handleRootCheck}
@@ -251,8 +251,7 @@ function DecisionRow({ dec, pathPrefix, decIndex, answers, onAnswer, depth, rigT
 
           {/* Pergunta */}
           <button
-            onClick={() => isChecked ? undefined : setOpenKey(isEditing ? null : key)}
-            disabled={isChecked}
+            onClick={() => setOpenKey(isEditing ? null : key)}
             className="flex-1 flex justify-between items-center text-left gap-1.5 min-w-0"
           >
             <span className={`flex items-center gap-1 leading-tight min-w-0 ${

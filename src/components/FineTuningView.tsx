@@ -2,7 +2,7 @@
 import {
   Plus, Minus, ChevronDown, ChevronRight, ChevronUp,
   X, Trash2, Check, Undo2, Redo2, FileText, Download, Search, PencilLine,
-  PanelLeftOpen, PanelRightClose, PanelRightOpen,
+  PanelLeftOpen, PanelRightClose, PanelRightOpen, GripVertical,
 } from 'lucide-react'
 
 import { useApp, lineIdsForLocate, NAV_PACKAGE_IDS, type LocateTarget } from '../context/AppContext'
@@ -63,6 +63,20 @@ function cloneLine(line: FineTuningLine, pkgUid: string, salt: number): FineTuni
 type CopyBuffer =
   | { kind: 'pkg';  items: FineTuningItem[] }
   | { kind: 'line'; lines: FineTuningLine[] }
+
+// ── DnD types ─────────────────────────────────────────────────────────────────
+type DndDrag = { kind: 'pkg'; uid: string } | { kind: 'line'; uid: string; lineId: string }
+type DndDrop = { kind: 'pkg'; uid: string; pos: 'above' | 'below' } | { kind: 'line'; uid: string; lineId: string; pos: 'above' | 'below' }
+
+function DropIndicatorRow({ colSpan = 7 }: { colSpan?: number }) {
+  return (
+    <tr className="pointer-events-none select-none" aria-hidden>
+      <td colSpan={colSpan} className="p-0 h-0 relative">
+        <div className="absolute inset-x-1 top-0 h-0.5 bg-blue-500 rounded-full z-20" />
+      </td>
+    </tr>
+  )
+}
 
 // ── Inline editable field ─────────────────────────────────────────────────────
 function InlineEdit({
@@ -232,6 +246,146 @@ function DetailField({ label, value, onChange, rows = 3, resetKey = 0, grow = fa
   )
 }
 
+// ── Rich text field with toolbar and image-paste support ──────────────────────
+const RICH_COLORS: { label: string; value: string }[] = [
+  { label: 'Preto (branco no tema escuro)', value: '#ffffff' },
+  { label: 'Vermelho',                      value: '#dc2626' },
+  { label: 'Azul',                          value: '#1d4ed8' },
+]
+const RICH_FONT_SIZES: { label: string; value: string }[] = [
+  { label: '8',  value: '1' },
+  { label: '10', value: '2' },
+  { label: '12', value: '3' },
+  { label: '14', value: '4' },
+  { label: '18', value: '5' },
+  { label: '24', value: '6' },
+  { label: '36', value: '7' },
+]
+
+function RichTextField({ label, value, onChange, resetKey = 0 }: {
+  label: string; value: string; onChange: (v: string) => void; resetKey?: number
+}) {
+  const editorRef = useRef<HTMLDivElement>(null)
+  const lastValueRef = useRef(value)
+  const [fontSize, setFontSize] = useState('')
+  const [colorOpen, setColorOpen] = useState(false)
+  const colorBtnRef = useRef<HTMLButtonElement>(null)
+
+  // Initialize on mount
+  useLayoutEffect(() => {
+    const el = editorRef.current
+    if (el) { el.innerHTML = value; lastValueRef.current = value }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Sync external value when not focused
+  useEffect(() => {
+    const el = editorRef.current
+    if (!el || document.activeElement === el) return
+    if (value !== lastValueRef.current) { el.innerHTML = value; lastValueRef.current = value }
+  }, [value])
+
+  // Force reset (cancelled multi-edit)
+  useEffect(() => {
+    const el = editorRef.current
+    if (!el) return
+    el.innerHTML = value; lastValueRef.current = value
+  }, [resetKey]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const commit = () => {
+    const html = editorRef.current?.innerHTML ?? ''
+    if (html !== lastValueRef.current) { lastValueRef.current = html; onChange(html) }
+  }
+
+  const exec = (cmd: string, arg?: string) => {
+    editorRef.current?.focus()
+    document.execCommand(cmd, false, arg)
+  }
+
+  const handlePaste = (e: React.ClipboardEvent) => {
+    const imgItem = Array.from(e.clipboardData.items).find(i => i.type.startsWith('image/'))
+    if (!imgItem) return
+    e.preventDefault()
+    const file = imgItem.getAsFile()
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = ev => {
+      const src = ev.target?.result as string
+      exec('insertHTML', `<img src="${src}" style="max-width:100%;border-radius:4px;margin:4px 0;" />`)
+      commit()
+    }
+    reader.readAsDataURL(file)
+  }
+
+  return (
+    <div className="flex flex-col gap-1 flex-1 min-h-0">
+      <label className="text-[10px] font-bold text-slate-600 dark:text-slate-500 uppercase tracking-widest shrink-0">{label}</label>
+      <div className="flex flex-col flex-1 min-h-0 rounded-lg border border-slate-200 dark:border-slate-700 overflow-hidden focus-within:ring-1 focus-within:ring-blue-400">
+        {/* Toolbar */}
+        <div className="flex items-center flex-wrap gap-1 px-1.5 py-1 bg-slate-100 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 shrink-0">
+          <button type="button" title="Negrito (Ctrl+B)"
+            onMouseDown={e => { e.preventDefault(); exec('bold') }}
+            className="w-6 h-6 flex items-center justify-center rounded text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors">
+            B
+          </button>
+          <button type="button" title="Itálico (Ctrl+I)"
+            onMouseDown={e => { e.preventDefault(); exec('italic') }}
+            className="w-6 h-6 flex items-center justify-center rounded text-xs italic text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors">
+            I
+          </button>
+          <div className="w-px h-3.5 bg-slate-300 dark:bg-slate-600 shrink-0" />
+          <select value={fontSize} title="Tamanho da fonte"
+            onMouseDown={e => e.stopPropagation()}
+            onChange={e => {
+              const v = e.target.value
+              if (!v) return
+              exec('fontSize', v)
+              setFontSize('')
+              setTimeout(() => editorRef.current?.focus(), 0)
+            }}
+            className="h-6 text-[10px] rounded px-1 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 outline-none cursor-pointer">
+            <option value="">Tam.</option>
+            {RICH_FONT_SIZES.map(s => <option key={s.value} value={s.value}>{s.label}px</option>)}
+          </select>
+          <div className="w-px h-3.5 bg-slate-300 dark:bg-slate-600 shrink-0" />
+          <button ref={colorBtnRef} type="button" title="Cor do texto"
+            onMouseDown={e => { e.preventDefault(); setColorOpen(o => !o) }}
+            className={`h-6 px-1.5 flex items-center gap-1 rounded border transition-colors cursor-pointer text-[10px] ${colorOpen ? 'border-blue-400 bg-blue-50 dark:bg-blue-950 text-blue-600 dark:text-blue-300' : 'border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 hover:bg-slate-50 dark:hover:bg-slate-600 text-slate-600 dark:text-slate-300'}`}>
+            Cor
+            <svg width="8" height="5" viewBox="0 0 8 5" className="text-slate-400 shrink-0"><path d="M1 1l3 3 3-3" stroke="currentColor" strokeWidth="1.2" fill="none" strokeLinecap="round"/></svg>
+          </button>
+          {colorOpen && RICH_COLORS.map(c => (
+            <button key={c.value} type="button" title={c.label}
+              onMouseDown={e => {
+                e.preventDefault()
+                exec('foreColor', c.value)
+                setColorOpen(false)
+                setTimeout(() => editorRef.current?.focus(), 0)
+              }}
+              style={{ backgroundColor: c.value }}
+              className="w-5 h-5 rounded-full border-2 border-slate-300 dark:border-slate-500 hover:scale-110 transition-transform shadow-sm shrink-0"
+            />
+          ))}
+          <div className="w-px h-3.5 bg-slate-300 dark:bg-slate-600 shrink-0" />
+          <button type="button" title="Limpar formatação"
+            onMouseDown={e => { e.preventDefault(); exec('removeFormat') }}
+            className="h-6 px-1.5 flex items-center justify-center rounded text-[10px] text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors font-medium whitespace-nowrap">
+            Limpar
+          </button>
+        </div>
+        {/* Editable area */}
+        <div
+          ref={editorRef}
+          contentEditable
+          suppressContentEditableWarning
+          onPaste={handlePaste}
+          onBlur={commit}
+          className="flex-1 min-h-[80px] text-xs text-slate-700 dark:text-slate-200 bg-slate-50 dark:bg-slate-800 px-2 py-1.5 focus:outline-none overflow-y-auto"
+        />
+      </div>
+    </div>
+  )
+}
+
 function LineDetailPanel({ uid, lineId, checkedLines, onCollapse }: { uid: string; lineId: string; checkedLines: Set<string>; onCollapse?: () => void }) {
   const { state, dispatch } = useApp()
   const item = state.fineTuningItems.find(i => i.uid === uid)
@@ -306,7 +460,7 @@ function LineDetailPanel({ uid, lineId, checkedLines, onCollapse }: { uid: strin
         </>}
         <DetailField label="Procedimentos" grow value={fieldVal('procedures')} resetKey={resetKey}
           onChange={v => commitChange({ procedures: v }, 'Procedimentos')} />
-        <DetailField label="Recomendações" grow value={fieldVal('details')} resetKey={resetKey}
+        <RichTextField label="Recomendações" value={fieldVal('details')} resetKey={resetKey}
           onChange={v => commitChange({ details: v }, 'Recomendações')} />
       </div>
 
@@ -970,7 +1124,7 @@ function DetailIndicator({ line }: { line: FineTuningLine }) {
   )
 }
 
-function ClassicLineRow({ line, itemUid, itemPhase, subNum, onSelectLine, isChecked, onToggleCheck, pkgIsParallel, pkgIsCont, kbEditTick, isLastLine, onEnterFromLastLine, onDeleteRequest, showOntology, showEds, showCsb, bopActiveLineIds, showPkgCol, checkedLines, multiEditLeadId, currentReviewUid, matchRowId, highlightIds, onContextMenu }: {
+function ClassicLineRow({ line, itemUid, itemPhase, subNum, onSelectLine, isChecked, onToggleCheck, pkgIsParallel, pkgIsCont, kbEditTick, isLastLine, onEnterFromLastLine, onDeleteRequest, showOntology, showEds, showCsb, bopActiveLineIds, showPkgCol, checkedLines, multiEditLeadId, currentReviewUid, matchRowId, highlightIds, onContextMenu, isDragging, onDragHandleStart, onDragHandleEnd, onRowDragOver, onRowDrop }: {
   line: FineTuningLine; itemUid: string; itemPhase: Phase
   subNum: string
   onSelectLine: () => void
@@ -992,6 +1146,11 @@ function ClassicLineRow({ line, itemUid, itemPhase, subNum, onSelectLine, isChec
   matchRowId?: string | null
   highlightIds?: Set<string> | null
   onContextMenu?: (e: React.MouseEvent) => void
+  isDragging?: boolean
+  onDragHandleStart?: (e: React.DragEvent<HTMLButtonElement>) => void
+  onDragHandleEnd?: () => void
+  onRowDragOver?: (e: React.DragEvent<HTMLTableRowElement>) => void
+  onRowDrop?: (e: React.DragEvent<HTMLTableRowElement>) => void
 }) {
   const { state, dispatch } = useApp()
   const showHours = state.showHours
@@ -1013,9 +1172,11 @@ function ClassicLineRow({ line, itemUid, itemPhase, subNum, onSelectLine, isChec
     <tr data-row-id={line.id}
       onClick={() => onSelectLine()}
       onContextMenu={e => { e.preventDefault(); e.stopPropagation(); onContextMenu?.(e) }}
-      className={`group border-b border-slate-100 dark:border-slate-800 cursor-pointer transition-colors ${rowBg} ${matchRowId === line.id || highlightIds?.has(line.id) ? 'outline outline-2 -outline-offset-2 outline-sky-500 dark:outline-sky-400' : ''}`}
+      onDragOver={e => { e.preventDefault(); e.stopPropagation(); onRowDragOver?.(e) }}
+      onDrop={e => { e.preventDefault(); e.stopPropagation(); onRowDrop?.(e) }}
+      className={`group border-b border-slate-100 dark:border-slate-800 cursor-pointer transition-colors ${isDragging ? 'opacity-40' : ''} ${rowBg} ${matchRowId === line.id || highlightIds?.has(line.id) ? 'outline outline-2 -outline-offset-2 outline-sky-500 dark:outline-sky-400' : ''}`}
       style={!isChecked && !isLinePending ? highlightRowStyle(line.highlight) : undefined}>
-      {/* # — spacer (=chevron width) + checkbox + sub-number, aligned with package row */}
+      {/* # — spacer (=chevron width) + checkbox + sub-number (grip substitui o nº no hover) */}
       <td className="py-1 px-1">
         <div className="flex items-center gap-1">
           <div className="shrink-0 w-3.5" />
@@ -1025,7 +1186,17 @@ function ClassicLineRow({ line, itemUid, itemPhase, subNum, onSelectLine, isChec
             }`}>
             {isChecked && <Check size={6} strokeWidth={3} />}
           </button>
-          <span className={`font-mono text-[9px] ${isCont ? 'text-[#7d1935]/40 dark:text-rose-400/30' : 'text-slate-200 dark:text-slate-700'}`}>{subNum}</span>
+          <div className="relative w-5 flex items-center justify-center">
+            <span className={`font-mono text-[9px] transition-opacity group-hover:opacity-0 ${isCont ? 'text-[#7d1935]/40 dark:text-rose-400/30' : 'text-slate-200 dark:text-slate-700'}`}>{subNum}</span>
+            <button draggable
+              onDragStart={e => { e.stopPropagation(); onDragHandleStart?.(e) }}
+              onDragEnd={e => { e.stopPropagation(); onDragHandleEnd?.() }}
+              onClick={e => e.stopPropagation()}
+              className="absolute inset-0 flex items-center justify-center cursor-grab active:cursor-grabbing text-slate-400 hover:text-slate-600 dark:text-slate-600 dark:hover:text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity"
+              title="Arrastar para mover">
+              <GripVertical size={9} />
+            </button>
+          </div>
         </div>
       </td>
       {/* Pacote — collapses to 0 when hidden */}
@@ -1122,7 +1293,7 @@ function ClassicLineRow({ line, itemUid, itemPhase, subNum, onSelectLine, isChec
   )
 }
 
-function ClassicPkgRow({ item, rowNum, isChecked, onToggleCheck, onSelectLine, checkedLines, multiEditLeadId, onToggleLine, kbNavLineId, kbNavTick, nameEditTick, onEnterFromLastLine, onDeleteRequest, onDeleteLine, showOntology, showEds, showCsb, bopActiveLineIds, showPkgCol, isPendingReview, currentReviewUid, matchRowId, highlightIds, onContextMenu, onContextMenuLine }: {
+function ClassicPkgRow({ item, rowNum, isChecked, onToggleCheck, onSelectLine, checkedLines, multiEditLeadId, onToggleLine, kbNavLineId, kbNavTick, nameEditTick, onEnterFromLastLine, onDeleteRequest, onDeleteLine, showOntology, showEds, showCsb, bopActiveLineIds, showPkgCol, isPendingReview, currentReviewUid, matchRowId, highlightIds, onContextMenu, onContextMenuLine, isDragging, onDragHandleStart, onDragHandleEnd, onRowDragOver, onRowDrop, lineDropTarget, onLineDragHandleStart, onLineDragHandleEnd, onLineDragOver, onLineDrop, isDraggingLine }: {
   item: FineTuningItem; rowNum: number | null
   isChecked: boolean; onToggleCheck: () => void
   onSelectLine: (lineId: string) => void
@@ -1142,6 +1313,17 @@ function ClassicPkgRow({ item, rowNum, isChecked, onToggleCheck, onSelectLine, c
   highlightIds?: Set<string> | null
   onContextMenu?: (e: React.MouseEvent) => void
   onContextMenuLine?: (uid: string, lineId: string, x: number, y: number) => void
+  isDragging?: boolean
+  onDragHandleStart?: (e: React.DragEvent<HTMLButtonElement>) => void
+  onDragHandleEnd?: () => void
+  onRowDragOver?: (e: React.DragEvent<HTMLTableRowElement>) => void
+  onRowDrop?: (e: React.DragEvent<HTMLTableRowElement>) => void
+  lineDropTarget?: { lineId: string; pos: 'above' | 'below' } | null
+  onLineDragHandleStart?: (e: React.DragEvent<HTMLButtonElement>, lineId: string) => void
+  onLineDragHandleEnd?: () => void
+  onLineDragOver?: (e: React.DragEvent<HTMLTableRowElement>, lineId: string) => void
+  onLineDrop?: (e: React.DragEvent<HTMLTableRowElement>, lineId: string) => void
+  isDraggingLine?: (lineId: string) => boolean
 }) {
   const { state, dispatch } = useApp()
   const showHours = state.showHours
@@ -1207,9 +1389,11 @@ function ClassicPkgRow({ item, rowNum, isChecked, onToggleCheck, onSelectLine, c
     <>
       <tr ref={trRef} data-row-id={item.uid}
         onContextMenu={e => { e.preventDefault(); e.stopPropagation(); onContextMenu?.(e) }}
-        className={`group border-b border-slate-100 dark:border-slate-800 transition-colors ${rowBg} ${matchRowId === item.uid ? 'outline outline-2 -outline-offset-2 outline-sky-500 dark:outline-sky-400' : ''}`}
+        onDragOver={e => { e.preventDefault(); e.stopPropagation(); onRowDragOver?.(e) }}
+        onDrop={e => { e.preventDefault(); e.stopPropagation(); onRowDrop?.(e) }}
+        className={`group border-b border-slate-100 dark:border-slate-800 transition-colors ${isDragging ? 'opacity-40' : ''} ${rowBg} ${matchRowId === item.uid ? 'outline outline-2 -outline-offset-2 outline-sky-500 dark:outline-sky-400' : ''}`}
         style={showPkgHl ? highlightRowStyle(pkgHl) : undefined}>
-        {/* # — chevron + checkbox + row number */}
+        {/* # — chevron + checkbox + row number (grip substitui o nº no hover) */}
         <td className="py-2 px-1">
           <div className="flex items-center gap-1">
             <button onClick={handleExpand} title={item.expanded ? 'Recolher' : 'Expandir'}
@@ -1222,7 +1406,17 @@ function ClassicPkgRow({ item, rowNum, isChecked, onToggleCheck, onSelectLine, c
               }`}>
               {isChecked && <Check size={6} strokeWidth={3} />}
             </button>
-            <span className={`font-mono text-xs ${isCont ? 'text-[#7d1935]/50 dark:text-rose-400/40' : 'text-slate-500 dark:text-slate-600'}`}>{rowNum}</span>
+            <div className="relative w-5 flex items-center justify-center">
+              <span className={`font-mono text-xs transition-opacity group-hover:opacity-0 ${isCont ? 'text-[#7d1935]/50 dark:text-rose-400/40' : 'text-slate-500 dark:text-slate-600'}`}>{rowNum}</span>
+              <button draggable
+                onDragStart={e => { e.stopPropagation(); onDragHandleStart?.(e) }}
+                onDragEnd={e => { e.stopPropagation(); onDragHandleEnd?.() }}
+                onClick={e => e.stopPropagation()}
+                className="absolute inset-0 flex items-center justify-center cursor-grab active:cursor-grabbing text-slate-400 hover:text-slate-600 dark:text-slate-600 dark:hover:text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity"
+                title="Arrastar para reposicionar">
+                <GripVertical size={11} />
+              </button>
+            </div>
           </div>
         </td>
         {/* Pacote ID — collapses to 0 when hidden */}
@@ -1309,6 +1503,7 @@ function ClassicPkgRow({ item, rowNum, isChecked, onToggleCheck, onSelectLine, c
         <>
           {item.lines.map((line, idx) => (
             <React.Fragment key={line.id}>
+              {lineDropTarget?.lineId === line.id && lineDropTarget.pos === 'above' && <DropIndicatorRow />}
               <ClassicLineRow
                 line={line} itemUid={item.uid} itemPhase={item.phase}
                 subNum={`${rowNum}.${idx + 1}`}
@@ -1332,7 +1527,13 @@ function ClassicPkgRow({ item, rowNum, isChecked, onToggleCheck, onSelectLine, c
                 matchRowId={matchRowId}
                 highlightIds={highlightIds}
                 onContextMenu={e => onContextMenuLine?.(item.uid, line.id, e.clientX, e.clientY)}
+                isDragging={isDraggingLine?.(line.id)}
+                onDragHandleStart={e => onLineDragHandleStart?.(e, line.id)}
+                onDragHandleEnd={onLineDragHandleEnd}
+                onRowDragOver={e => onLineDragOver?.(e, line.id)}
+                onRowDrop={e => onLineDrop?.(e, line.id)}
               />
+              {lineDropTarget?.lineId === line.id && lineDropTarget.pos === 'below' && <DropIndicatorRow />}
             </React.Fragment>
           ))}
         </>
@@ -1495,6 +1696,121 @@ function ClassicSchedulePanel({
     y: number
   } | null>(null)
   const [pickerAfterUid, setPickerAfterUid] = useState<string | null | 'NONE'>('NONE')
+
+  // ── Drag-and-drop ─────────────────────────────────────────────────────────
+  // dndDragRef: fonte de verdade usada nos handlers (evita stale closure);
+  // dndDrag / dndDrop: estado para re-render visual (indicadores e opacidade).
+  const dndDragRef = useRef<DndDrag | null>(null)
+  const [dndDrag, setDndDrag] = useState<DndDrag | null>(null)
+  const [dndDrop, setDndDrop] = useState<DndDrop | null>(null)
+
+  const endDnd = () => { dndDragRef.current = null; setDndDrag(null); setDndDrop(null) }
+  const rowMidPos = (e: React.DragEvent): 'above' | 'below' => {
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
+    return e.clientY < rect.top + rect.height / 2 ? 'above' : 'below'
+  }
+
+  const handlePkgDragStart = (e: React.DragEvent<HTMLButtonElement>, uid: string) => {
+    e.dataTransfer.effectAllowed = 'move'
+    e.dataTransfer.setData('text/plain', uid)
+    const drag: DndDrag = { kind: 'pkg', uid }
+    dndDragRef.current = drag
+    setDndDrag(drag)
+    // Ícone de arrasto mostrando quantos pacotes serão movidos
+    const count = checkedPkgs.size > 1 && checkedPkgs.has(uid) ? checkedPkgs.size : 1
+    if (count > 1) {
+      const ghost = document.createElement('div')
+      ghost.textContent = `${count} pacotes`
+      ghost.style.cssText = 'position:fixed;top:-1000px;padding:3px 10px;background:#3b82f6;color:#fff;border-radius:6px;font-size:12px;font-family:sans-serif;white-space:nowrap;'
+      document.body.appendChild(ghost)
+      e.dataTransfer.setDragImage(ghost, ghost.offsetWidth / 2, 14)
+      setTimeout(() => document.body.removeChild(ghost), 0)
+    }
+  }
+  const handlePkgDragOver = (e: React.DragEvent<HTMLTableRowElement>, uid: string) => {
+    e.preventDefault(); e.stopPropagation()
+    const drag = dndDragRef.current
+    if (!drag) return
+    const pos = drag.kind === 'pkg' ? rowMidPos(e) : 'below'
+    setDndDrop({ kind: 'pkg', uid, pos })
+  }
+  const handlePkgDrop = (e: React.DragEvent<HTMLTableRowElement>, uid: string) => {
+    e.preventDefault(); e.stopPropagation()
+    const drag = dndDragRef.current
+    if (!drag) { endDnd(); return }
+    const pos = rowMidPos(e)
+    if (drag.kind === 'pkg') {
+      const draggedUids = checkedPkgs.size > 0 && checkedPkgs.has(drag.uid)
+        ? new Set([...checkedPkgs]) : new Set([drag.uid])
+      const selected = items.filter(i => draggedUids.has(i.uid))
+      const rest = items.filter(i => !draggedUids.has(i.uid))
+      const targetIdx = rest.findIndex(i => i.uid === uid)
+      if (targetIdx >= 0) {
+        const at = pos === 'above' ? targetIdx : targetIdx + 1
+        dispatch({ type: 'FT_REORDER', items: [...rest.slice(0, at), ...selected, ...rest.slice(at)] })
+      }
+    } else {
+      // Linha arrastada para cima de um pacote → anexa ao final
+      const allDraggedIds = checkedLines.size > 0 && checkedLines.has(drag.lineId)
+        ? new Set([...checkedLines]) : new Set([drag.lineId])
+      const allDragged: FineTuningLine[] = []
+      for (const it of items) for (const l of it.lines) if (allDraggedIds.has(l.id)) allDragged.push(l)
+      const newItems = items.map(it => ({ ...it, lines: it.lines.filter(l => !allDraggedIds.has(l.id)) }))
+      const targetItemIdx = newItems.findIndex(i => i.uid === uid)
+      if (targetItemIdx >= 0) {
+        const targetItem = newItems[targetItemIdx]
+        const moved = allDragged.map((l, i) => ({ ...l, id: `${uid}_mv${Date.now()}_${i}` }))
+        newItems[targetItemIdx] = { ...targetItem, expanded: true, lines: [...targetItem.lines, ...moved] }
+        dispatch({ type: 'FT_REORDER', items: newItems })
+        setCheckedLines(new Set(moved.map(l => l.id))); setCheckedPkgs(new Set())
+      }
+    }
+    endDnd()
+  }
+  const handleLineDragStart = (e: React.DragEvent<HTMLButtonElement>, uid: string, lineId: string) => {
+    e.dataTransfer.effectAllowed = 'move'
+    e.dataTransfer.setData('text/plain', `${uid}:${lineId}`)
+    const drag: DndDrag = { kind: 'line', uid, lineId }
+    dndDragRef.current = drag
+    setDndDrag(drag)
+    const count = checkedLines.size > 1 && checkedLines.has(lineId) ? checkedLines.size : 1
+    if (count > 1) {
+      const ghost = document.createElement('div')
+      ghost.textContent = `${count} linhas`
+      ghost.style.cssText = 'position:fixed;top:-1000px;padding:3px 10px;background:#6366f1;color:#fff;border-radius:6px;font-size:12px;font-family:sans-serif;white-space:nowrap;'
+      document.body.appendChild(ghost)
+      e.dataTransfer.setDragImage(ghost, ghost.offsetWidth / 2, 14)
+      setTimeout(() => document.body.removeChild(ghost), 0)
+    }
+  }
+  const handleLineDragOver = (e: React.DragEvent<HTMLTableRowElement>, uid: string, lineId: string) => {
+    e.preventDefault(); e.stopPropagation()
+    if (dndDragRef.current?.kind !== 'line') return
+    const pos = rowMidPos(e)
+    setDndDrop({ kind: 'line', uid, lineId, pos })
+  }
+  const handleLineDrop = (e: React.DragEvent<HTMLTableRowElement>, targetUid: string, targetLineId: string) => {
+    e.preventDefault(); e.stopPropagation()
+    const drag = dndDragRef.current
+    if (!drag || drag.kind !== 'line') { endDnd(); return }
+    const pos = rowMidPos(e)
+    const allDraggedIds = checkedLines.size > 0 && checkedLines.has(drag.lineId)
+      ? new Set([...checkedLines]) : new Set([drag.lineId])
+    const allDragged: FineTuningLine[] = []
+    for (const it of items) for (const l of it.lines) if (allDraggedIds.has(l.id)) allDragged.push(l)
+    const newItems = items.map(it => ({ ...it, lines: it.lines.filter(l => !allDraggedIds.has(l.id)) }))
+    const targetItemIdx = newItems.findIndex(i => i.uid === targetUid)
+    if (targetItemIdx >= 0) {
+      const targetItem = newItems[targetItemIdx]
+      const targetLineIdx = targetItem.lines.findIndex(l => l.id === targetLineId)
+      const at = targetLineIdx < 0 ? targetItem.lines.length : (pos === 'above' ? targetLineIdx : targetLineIdx + 1)
+      const moved = allDragged.map((l, i) => ({ ...l, id: `${targetUid}_mv${Date.now()}_${i}` }))
+      newItems[targetItemIdx] = { ...targetItem, expanded: true, lines: [...targetItem.lines.slice(0, at), ...moved, ...targetItem.lines.slice(at)] }
+      dispatch({ type: 'FT_REORDER', items: newItems })
+      setCheckedLines(new Set(moved.map(l => l.id))); setCheckedPkgs(new Set())
+    }
+    endDnd()
+  }
 
   useEffect(() => {
     if (!contextMenu) return
@@ -1958,8 +2274,17 @@ function ClassicSchedulePanel({
                         </tr>
                         {!isCollapsed && sItems.map(item => {
                           const rn = item.isBlank ? null : ++rowNum
+                          const isPkgBeingDragged = dndDrag?.kind === 'pkg' && (
+                            dndDrag.uid === item.uid || (checkedPkgs.has(dndDrag.uid) && checkedPkgs.has(item.uid))
+                          )
+                          const pkgDropAbove = dndDrop?.kind === 'pkg' && dndDrop.uid === item.uid && dndDrop.pos === 'above'
+                          const pkgDropBelow = dndDrop?.kind === 'pkg' && dndDrop.uid === item.uid && dndDrop.pos === 'below'
+                          const lineDropTarget = (dndDrop?.kind === 'line' && dndDrop.uid === item.uid)
+                            ? { lineId: dndDrop.lineId, pos: dndDrop.pos }
+                            : null
                           return (
                             <React.Fragment key={item.uid}>
+                              {pkgDropAbove && <DropIndicatorRow />}
                               <ClassicPkgRow
                                 item={item}
                                 rowNum={rn}
@@ -1989,7 +2314,21 @@ function ClassicSchedulePanel({
                                 highlightIds={locateLineIds}
                                 onContextMenu={e => setContextMenu({ kind: 'pkg', uid: item.uid, x: e.clientX, y: e.clientY })}
                                 onContextMenuLine={(uid, lineId, x, y) => setContextMenu({ kind: 'line', uid, lineId, x, y })}
+                                isDragging={isPkgBeingDragged}
+                                onDragHandleStart={e => handlePkgDragStart(e, item.uid)}
+                                onDragHandleEnd={endDnd}
+                                onRowDragOver={e => handlePkgDragOver(e, item.uid)}
+                                onRowDrop={e => handlePkgDrop(e, item.uid)}
+                                lineDropTarget={lineDropTarget}
+                                onLineDragHandleStart={(e, lineId) => handleLineDragStart(e, item.uid, lineId)}
+                                onLineDragHandleEnd={endDnd}
+                                onLineDragOver={(e, lineId) => handleLineDragOver(e, item.uid, lineId)}
+                                onLineDrop={(e, lineId) => handleLineDrop(e, item.uid, lineId)}
+                                isDraggingLine={lineId => dndDrag?.kind === 'line' && (
+                                  dndDrag.lineId === lineId || (checkedLines.has(dndDrag.lineId) && checkedLines.has(lineId))
+                                )}
                               />
+                              {pkgDropBelow && <DropIndicatorRow />}
                             </React.Fragment>
                           )
                         })}

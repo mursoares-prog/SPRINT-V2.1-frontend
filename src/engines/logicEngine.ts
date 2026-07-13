@@ -1,5 +1,5 @@
 import type { WizardInputs, ScheduleItem, Phase, Technology, Percentile } from '../types'
-import type { LSec, LDec, LAns, LPkg, LCondition } from '../data/logicSecs'
+import type { LSec, LDec, LAns, LPkg, LSeqEntry, LCondition } from '../data/logicSecs'
 import { conditionMatches } from '../data/logicSecs'
 import { getPackage, getDuration } from '../data/packages'
 import { expandScopeRefs } from '../data/logicOverrideStore'
@@ -34,7 +34,7 @@ export const WIZARD_LOGIC_FIELDS: string[] = [
   'jatearCopCoi', 'killWellFase1A', 'loggingMode', 'operationType',
   'perforationTestContingency', 'rcmaCsbPrincipal', 'removeANM', 'rigType', 'riserFluid',
   'stdvDispositionAfterTest', 'subseaEquipments', 'supIntermTailFishing', 'supIntermTailMethod',
-  'tcapDisposition', 'tcapRemovalMethod', 'tcapSurfaceFluid', 'testColumnWithStdv',
+  'tcapDisposition', 'tcapRemovalMethod', 'tcapSurfaceFluid', 'testColumnWithStdv', 'woAtBottom',
   'thPlugContingency', 'tmfPlugBores', 'tmfPlugContingencyAnul', 'tmfPlugContingencyProd',
   'transponderMode', 'treeCapBeforeIntervention', 'ttFtCementMode', 'tubingPerfMethod',
   'vglAction', 'vglContingency', 'vglFishingMethod', 'vglInstallStv', 'vglRemoveStv',
@@ -107,6 +107,7 @@ const QUESTION_LABEL_RESOLVER: Record<string, (inp: WizardInputs) => string | st
     inp.tcapSurfaceFluid === 'inhibited_pre' ? 'Inibido (pré-conexão)'
     : inp.tcapSurfaceFluid === 'inhibited_post' ? 'Inibido (pós-conexão)' : 'N₂',
   // ── DESCIDA ─────────────────────────────────────────────────────────────────
+  'Conjunto de WO no fundo?':          inp => inp.woAtBottom ? 'Sim' : 'Não',
   'Fluido de riser inibido?':          inp => inp.riserFluid === 'inhibited' ? 'Sim' : 'N₂ / sem fluido',
   // ── CONEXÃO ─────────────────────────────────────────────────────────────────
   'Hidrato na ANM?':                   inp => inp.anmHydrate === 'contingency' ? 'Contingência' : inp.anmHydrate === 'yes' ? 'Sim' : 'Não',
@@ -406,6 +407,42 @@ export function buildDecisionKey(pathPrefix: string, decIndex: number, question:
   return `${pathPrefix}::${decIndex}::${question}`
 }
 
+// Emite pacotes e caminha sub-decisões de uma lista de LSeqEntry (chips `seq`, `after`
+// ou `decafter`). Centraliza o tratamento de condicionais e contingência para esses chips.
+function walkSeqEntries(
+  entries: LSeqEntry[],
+  inputs: WizardInputs,
+  fallbackPhase: Phase,
+  percentile: Percentile,
+  items: ScheduleItem[],
+  pathPrefix: string,
+  isCustom: boolean,
+  scopeAnswers: Map<string, string>,
+  strict: boolean,
+  parentContingency: boolean,
+  parentReason?: string,
+): void {
+  for (const entry of entries) {
+    const entryConting = parentContingency || !!entry.contingency
+    const reason = entryConting
+      ? (parentReason ?? (entry.contingency ? `Contingência: ${entry.label}` : 'Contingência'))
+      : undefined
+    for (const pkg of entry.packages ?? []) {
+      const pkgIsContingency = entryConting || !!pkg.isContingency
+      emitPkg(pkg, fallbackPhase, percentile, items, inputs,
+        pkgIsContingency ? { reason: reason ?? 'Contingência' } : undefined)
+    }
+    if (entry.sub?.length) {
+      walkDecisions(entry.sub, inputs, fallbackPhase, percentile, items,
+        `${pathPrefix}::${entry.label}`, isCustom, scopeAnswers, strict, entryConting, reason)
+    }
+    if (entry.afterSub?.length) {
+      walkDecisions(entry.afterSub, inputs, fallbackPhase, percentile, items,
+        `${pathPrefix}::${entry.label}::afterSub`, isCustom, scopeAnswers, strict, entryConting, reason)
+    }
+  }
+}
+
 function walkDecisions(
   decisions: LDec[],
   inputs: WizardInputs,
@@ -451,35 +488,32 @@ function walkDecisions(
         emitPkg(pkg, fallbackPhase, percentile, items, inputs,
           pkgIsContingency ? { reason: reason ?? 'Contingência' } : undefined)
       }
+      // Chips sequenciais desta resposta (ansfield-seq): emitidos em ordem antes da convergência.
+      if (ans.seq?.length) {
+        walkSeqEntries(ans.seq, inputs, fallbackPhase, percentile, items,
+          `${key}::${ans.label}::seq`, isCustom, scopeAnswers, strict, contingency, reason)
+      }
       if (ans.sub?.length) {
         // O ramo segue pela resposta resolvida — o rótulo dela estende o caminho.
         walkDecisions(ans.sub, inputs, fallbackPhase, percentile, items, `${key}::${ans.label}`, isCustom, scopeAnswers, strict, contingency, reason)
       }
-      // Pacotes "após convergência" desta resposta — emitidos depois de toda a subárvore.
-      for (const entry of ans.after ?? []) {
-        const entryConting = contingency || !!entry.contingency
-        for (const pkg of entry.packages ?? []) {
-          const pkgIsContingency = entryConting || !!pkg.isContingency
-          emitPkg(pkg, fallbackPhase, percentile, items, inputs,
-            pkgIsContingency ? { reason: reason ?? (entry.contingency ? `Contingência: ${entry.label}` : 'Contingência') } : undefined)
-        }
+      // Sub-decisões após convergência da subárvore desta resposta (ans.afterSub).
+      if (ans.afterSub?.length) {
+        walkDecisions(ans.afterSub, inputs, fallbackPhase, percentile, items,
+          `${key}::${ans.label}::afterSub`, isCustom, scopeAnswers, strict, contingency, reason)
       }
+      // Chips após convergência desta resposta (ansfield-after): condicionais respeitados.
+      walkSeqEntries(ans.after ?? [], inputs, fallbackPhase, percentile, items,
+        `${key}::${ans.label}::after`, isCustom, scopeAnswers, strict, contingency, reason)
     }
     // Perguntas após a convergência (dec.afterDec): fluem independentemente da resposta
     // escolhida acima — avaliadas após o ramo resolvido e antes dos chips `after`.
     if (dec.afterDec?.length) {
       walkDecisions(dec.afterDec, inputs, fallbackPhase, percentile, items, `${key}::after`, isCustom, scopeAnswers, strict, parentContingency, parentReason)
     }
-    // Entradas sequenciais após a convergência das respostas (dec.after): fluem
-    // independentemente da resposta escolhida — emitidas após o ramo resolvido.
-    for (const entry of dec.after ?? []) {
-      const entryConting = parentContingency || !!entry.contingency
-      for (const pkg of entry.packages ?? []) {
-        const pkgIsContingency = entryConting || !!pkg.isContingency
-        emitPkg(pkg, fallbackPhase, percentile, items, inputs,
-          pkgIsContingency ? { reason: parentReason ?? (entry.contingency ? `Contingência: ${entry.label}` : 'Contingência') } : undefined)
-      }
-    }
+    // Chips após convergência da decisão (decafter): condicionais respeitados.
+    walkSeqEntries(dec.after ?? [], inputs, fallbackPhase, percentile, items,
+      `${key}::decafter`, isCustom, scopeAnswers, strict, parentContingency, parentReason)
   })
 }
 

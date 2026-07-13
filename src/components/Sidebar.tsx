@@ -42,26 +42,29 @@ function viewToStep(view: string): number {
   return 1
 }
 
-export function Sidebar({ isDark, onToggleDark, onOpenConfig, onOpenPackages, onOpenFlowchart, onBeforeStepNav, onLogout }: {
+export function Sidebar({ isDark, onToggleDark, onOpenConfig, onOpenPackages, onOpenLogicEditor, onBeforeStepNav, onLogout }: {
   isDark: boolean; onToggleDark: () => void; onOpenConfig?: () => void
-  onOpenPackages?: () => void; onOpenFlowchart?: () => void
+  onOpenPackages?: () => void; onOpenLogicEditor?: () => void
   onBeforeStepNav?: (targetView: string) => boolean
   onLogout?: () => void
 }) {
   const { state, dispatch } = useApp()
   const activeStep = viewToStep(state.view)
   const hasSchedule = state.schedule.length > 0
-  const hasFt = state.fineTuningItems.length > 0
 
   const canClick = (num: number) => {
     if (num === 1) return true
     if (num === 2) return hasSchedule
-    if (num === 3) return hasSchedule && hasFt
+    if (num === 3) return hasSchedule
     return false
   }
 
   const handleStepClick = (num: number) => {
     if (!canClick(num)) return
+    if (num === 3) {
+      dispatch({ type: 'ENTER_FINE_TUNING' })
+      return
+    }
     const targetView = num === 1 ? 'wizard' : num === 2 ? 'schedule' : num === 3 ? 'fine_tuning' : null
     if (!targetView) return
     if (onBeforeStepNav && !onBeforeStepNav(targetView)) return
@@ -128,8 +131,8 @@ export function Sidebar({ isDark, onToggleDark, onOpenConfig, onOpenPackages, on
           <LegoIcon size={19} />
         </button>
         <button
-            onClick={() => onOpenFlowchart?.()}
-            title="Fluxograma"
+            onClick={() => onOpenLogicEditor?.()}
+            title="Árvores de Decisão"
             className="w-10 h-10 rounded-xl flex items-center justify-center transition-colors"
             style={{ color: '#64748b' }}
             onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = '#94a3b8' }}

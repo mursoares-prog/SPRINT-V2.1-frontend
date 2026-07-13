@@ -1,22 +1,18 @@
-﻿export type LCondition =
-  | 'rig_anc' | 'rig_dp' | 'op_lwo' | 'op_generalista'
-  // Compostas (sonda + operação): necessárias p/ pacotes de arranjo de superfície
-  // Generalista específicos por sonda (SFT 246 = DP+Gen; Terminal Head 247 = ANC+Gen).
-  | 'rig_dp_generalista' | 'rig_anc_generalista'
+﻿export type LCondition = 'rig_anc' | 'rig_dp' | 'rig_lwo' | 'rig_dp_gen'
 
 // Rótulos humanos das condições de emissão de pacote (editor/admin).
 export const CONDITION_LABELS: Record<LCondition, string> = {
   rig_anc: 'Sonda ANC',
   rig_dp: 'Sonda DP',
-  op_lwo: 'Operação LWO',
-  op_generalista: 'Operação Generalista',
-  rig_dp_generalista: 'Sonda DP + Generalista',
-  rig_anc_generalista: 'Sonda ANC + Generalista',
+  rig_lwo: 'Sonda DP LWIV',
+  rig_dp_gen: 'Sonda DP Generalista',
 }
 
 // Avalia a condição de emissão de um pacote contra sonda/operação. Fonte única de
 // verdade para o engine (checkCondition) e para a exibição das perguntas (etapa 2),
 // garantindo que decisões DP-only não apareçam em sonda ANC e vice-versa.
+// rig_dp = qualquer DP (generalista ou LWIV); rig_dp_gen = DP generalista (sem LWIV);
+// rig_lwo = DP LWIV (opType=LWO); rig_anc = sonda ancorada.
 export function conditionMatches(
   condition: LCondition | undefined,
   rigType: string | undefined,
@@ -24,13 +20,11 @@ export function conditionMatches(
 ): boolean {
   if (!condition) return true
   switch (condition) {
-    case 'rig_anc':             return rigType === 'ANC'
-    case 'rig_dp':              return rigType === 'DP'
-    case 'op_lwo':              return opType === 'LWO'
-    case 'op_generalista':      return opType !== 'LWO'
-    case 'rig_dp_generalista':  return rigType === 'DP'  && opType !== 'LWO'
-    case 'rig_anc_generalista': return rigType === 'ANC' && opType !== 'LWO'
-    default:                    return true
+    case 'rig_anc':    return rigType === 'ANC'
+    case 'rig_dp':     return rigType === 'DP'
+    case 'rig_dp_gen': return rigType === 'DP' && opType !== 'LWO'
+    case 'rig_lwo':    return opType === 'LWO'
+    default:           return true
   }
 }
 
@@ -88,6 +82,10 @@ export interface LDec {
                         // (não pergunta de novo), mas o ramo resolvido continua emitindo pacotes.
   _pos?: LPos           // posição manual do nó de pergunta no editor de fluxo
   _convPos?: LPos       // posição manual do nó de convergência desta pergunta
+  // Editor MANUAL: decisão de topo "flutuante" — desconectada do encadeamento visual da seção
+  // (linha de entrada cortada). Continua no array da seção (executa em ordem), mas sem aresta
+  // de sequência desenhada, até ser religada por gesto.
+  _float?: boolean
   // Transiente (UI): pergunta alterada/criada desde o último salvamento. Removido ao salvar.
   _dirty?: boolean
 }
@@ -134,50 +132,9 @@ const _MOB_POST_CCAP: LDec = {
 // Hidrato na ANM: pacotes de dissociação diferem por rig (165/166 DP; 169/170 ANC),
 // resolvidos por condition. Firme/contingencial conforme o valor de anmHydrate
 // (só emitido quando anmValveContingency inclui 'hydrate' — espelha ANM_HYDRATE_INJECT).
-const _ANM_HYDRATE_REASON_P = 'Contingência: dissociação de hidrato na ANM — bloco de produção'
-const _ANM_HYDRATE_REASON_A = 'Contingência: dissociação de hidrato na ANM — bloco de anular'
-const _anmHydratePkgs = (conting: boolean): LPkg[] => [
-  { id: 'ABAN 169', name: 'Dissociação hidrato — prod. (ANC)', phase: 'Fase 1A', condition: 'rig_anc',
-    ...(conting ? { isContingency: true, contingencyReason: _ANM_HYDRATE_REASON_P } : {}) },
-  { id: 'ABAN 165', name: 'Dissociação hidrato — prod. (DP)', phase: 'Fase 1A', condition: 'rig_dp',
-    ...(conting ? { isContingency: true, contingencyReason: _ANM_HYDRATE_REASON_P } : {}) },
-  { id: 'ABAN 170', name: 'Dissociação hidrato — anular (ANC)', phase: 'Fase 1A', condition: 'rig_anc',
-    ...(conting ? { isContingency: true, contingencyReason: _ANM_HYDRATE_REASON_A } : {}) },
-  { id: 'ABAN 166', name: 'Dissociação hidrato — anular (DP)', phase: 'Fase 1A', condition: 'rig_dp',
-    ...(conting ? { isContingency: true, contingencyReason: _ANM_HYDRATE_REASON_A } : {}) },
-]
-const _CONEXAO_HIDRATO: LDec = {
-  question: 'Hidrato na ANM?',
-  answers: [
-    { label: 'Não', active: true },
-    { label: 'Sim', field: 'anmHydrate', value: 'yes', packages: _anmHydratePkgs(false) },
-    { label: 'Contingência', field: 'anmHydrate', value: 'contingency', packages: _anmHydratePkgs(true) },
-  ],
-}
 // Contingências de abertura de válvulas da ANM (espelha ANM_VALVE_INJECT):
 // jateamento (125) e gabaritagem FT (124) são independentes e sempre contingenciais.
 // Sem field/value: o resolver aplica o guard "adiadas quando há plug de produção no TMF".
-const _VALVE_JATEAMENTO: LDec = {
-  question: 'Contingência de jateamento (válvulas ANM)?',
-  answers: [
-    { label: 'Não', active: true },
-    { label: 'Sim', packages: [
-      { id: 'ABAN 125', name: 'Flexitubo - Jateamento (SpinCat) + Gabaritagem', phase: 'Fase 1A',
-        isContingency: true, contingencyReason: 'Contingência: jateamento com flexitubo para abertura de válvulas da ANM' },
-    ]},
-  ],
-}
-const _VALVE_GABARIT: LDec = {
-  question: 'Contingência de gabaritagem FT (válvulas ANM)?',
-  answers: [
-    { label: 'Não', active: true },
-    { label: 'Sim', packages: [
-      { id: 'ABAN 124', name: 'Flexitubo - Gabaritagem', phase: 'Fase 1A',
-        isContingency: true, contingencyReason: 'Contingência: gabaritagem com motor de fundo e broca para abertura de válvulas da ANM' },
-    ]},
-  ],
-}
-
 // ── MOB/TCap — espelha a engine (tabela 211/212/011 + TCAP_INJECT + ITF/RISER_FLUID) ──
 // Fases: pacotes até a âncora da TCap (010/020/021/022/177) herdam a Fase 0 da seção;
 // tudo o que vem depois leva phase 'Fase 1A' explícita (normalizeScopePhases cuida do resto).
@@ -199,6 +156,8 @@ const _HIDRATO_TCAP_DEC: LDec = {
 
 // Reentrada + fluido pós-conexão (comum a DP e ANC via conditions). Os testes de
 // interface/válvula seguem em decisões próprias (a retirada de plugs do TMF entra entre eles).
+// Embarcado como sub-decisão nos ramos que terminam com conexão na ANM; ausente no
+// ramo "conjunto no fundo → conectar na TCap" (sem reentrada na ANM).
 const _REENTRADA: LDec = {
   question: 'Reentrada e conexão na ANM?',
   answers: [{
@@ -244,113 +203,20 @@ const _ITF_TEST_ANUL: LDec = {
 // Retirada de plugs do TMF (espelha PLUG_INJECT Fase 1A): anular (035 + contingências +
 // limpeza FT no DP + teste de bloco adiado 029) e produção (034 + contingências + 028),
 // seguidos das contingências de válvula adiadas (125/124).
-const _TMF_PLUG_ANUL: LDec = {
-  question: 'Retirar plug do TMF — anular?',
-  answers: [
-    { label: 'Não', active: true },
-    { label: 'Sim', packages: [
-      { id: 'ABAN 035', name: 'Retirada de plug do TMF (bore anular)', phase: 'Fase 1A' },
-    ], sub: [
-      {
-        question: 'Conting. plug anular — stroker?',
-        answers: [
-          { label: 'Não', active: true },
-          { label: 'Sim', field: 'tmfPlugContingencyAnul', value: 'stroker', packages: [
-            { id: 'ABAN 089', name: 'Retirada de plug do TMF (anular) com stroker', phase: 'Fase 1A',
-              isContingency: true, contingencyReason: 'Contingência: retirada de plug do TMF (anular) com stroker' },
-          ]},
-        ],
-      },
-      {
-        question: 'Conting. plug anular — flexitubo?',
-        answers: [
-          { label: 'Não', active: true },
-          { label: 'Sim', field: 'tmfPlugContingencyAnul', value: 'ft', packages: [
-            { id: 'ABAN 122', name: 'Flexitubo - Retirada de plug do TMF (anular)', phase: 'Fase 1A',
-              isContingency: true, contingencyReason: 'Contingência: retirada de plug do TMF (anular) com flexitubo' },
-          ]},
-        ],
-      },
-    ], after: [{ label: 'Limpeza do anular + teste de bloco', packages: [
-      { id: 'ABAN 125', name: 'Flexitubo - Jateamento (SpinCat) + Gabaritagem', phase: 'Fase 1A', condition: 'rig_dp' },
-      { id: 'ABAN 162', name: 'Flexitubo - BPP inflável', phase: 'Fase 1A', condition: 'rig_dp' },
-      { id: 'ABAN 029', name: 'Teste bloco anular da ANM', phase: 'Fase 1A' },
-    ]}]},
-  ],
-}
-const _TMF_PLUG_PROD: LDec = {
-  question: 'Retirar plug do TMF — produção?',
-  answers: [
-    { label: 'Não', active: true },
-    { label: 'Sim', packages: [
-      { id: 'ABAN 034', name: 'Retirada de plug do TMF (bore produção)', phase: 'Fase 1A' },
-    ], sub: [
-      {
-        question: 'Conting. plug produção — stroker?',
-        answers: [
-          { label: 'Não', active: true },
-          { label: 'Sim', field: 'tmfPlugContingencyProd', value: 'stroker', packages: [
-            { id: 'ABAN 088', name: 'Retirada de plug do TMF (produção) com stroker', phase: 'Fase 1A',
-              isContingency: true, contingencyReason: 'Contingência: retirada de plug do TMF (produção) com stroker' },
-          ]},
-        ],
-      },
-      {
-        question: 'Conting. plug produção — flexitubo?',
-        answers: [
-          { label: 'Não', active: true },
-          { label: 'Sim', field: 'tmfPlugContingencyProd', value: 'ft', packages: [
-            { id: 'ABAN 123', name: 'Flexitubo - Retirada de plug do TMF (produção)', phase: 'Fase 1A',
-              isContingency: true, contingencyReason: 'Contingência: retirada de plug do TMF (produção) com flexitubo' },
-          ]},
-        ],
-      },
-    ], after: [{ label: 'Teste de bloco de produção', packages: [
-      { id: 'ABAN 028', name: 'Teste bloco produção da ANM', phase: 'Fase 1A' },
-    ]}]},
-  ],
-}
 // Contingências de válvula adiadas para depois da retirada do plug de produção.
-const _VALVE_JATEAMENTO_POS_PLUG: LDec = {
-  question: 'Conting. jateamento (pós-plug)?',
-  answers: [
-    { label: 'Não', active: true },
-    { label: 'Sim', packages: [
-      { id: 'ABAN 125', name: 'Flexitubo - Jateamento (SpinCat) + Gabaritagem', phase: 'Fase 1A',
-        isContingency: true, contingencyReason: 'Contingência: jateamento com flexitubo para abertura de válvulas da ANM' },
-    ]},
-  ],
-}
-const _VALVE_GABARIT_POS_PLUG: LDec = {
-  question: 'Conting. gabaritagem FT (pós-plug)?',
-  answers: [
-    { label: 'Não', active: true },
-    { label: 'Sim', packages: [
-      { id: 'ABAN 124', name: 'Flexitubo - Gabaritagem', phase: 'Fase 1A',
-        isContingency: true, contingencyReason: 'Contingência: gabaritagem com motor de fundo e broca para abertura de válvulas da ANM' },
-    ]},
-  ],
-}
 // Teste da válvula do anular (218) — após interface/plugs, antes do hidrato.
-const _TESTE_VALV_ANULAR: LDec = {
-  question: 'Teste da válvula do anular?',
-  answers: [{ label: 'Executar', active: true, packages: [
-    { id: 'ABAN 218', name: 'Teste funcional — válvula anular', phase: 'Fase 1A' },
-  ]}],
-}
-
 // ── BLOCO: MOBILIZAÇÃO / DESCIDA / CONEXÃO ───────────────────────────────────
-// ID do bloco de MOB por condicionais de sonda — declarado aqui para poder ser
-// referenciado por SEC_MOB_REF abaixo; a seção do bloco é definida mais adiante.
-export const BLK_MOB_DESCIDA_DP_COND_ID = 'BLK_MOB_DESCIDA_DP_COND'
+// V1: bloco original (ID mantido para compatibilidade com overrides salvos no backend).
+// V2: inclui "Conjunto de WO no fundo?" e ramo "Modo ANM" — usado pelos escopos ativos.
+export const BLK_MOB_DESCIDA_DP_COND_ID    = 'BLK_MOB_DESCIDA_DP_COND'
+export const BLK_MOB_DESCIDA_DP_COND_V2_ID = 'BLK_MOB_DESCIDA_DP_COND_V2'
 
-// Placeholder de inclusão viva do bloco nos escopos base (reuso via `ref`).
-// Fase Única / Fase 1 usam o bloco de MOB por CONDICIONAIS de sonda (rig_dp/rig_anc),
-// sem as perguntas "Tipo de sonda?". Editar o bloco propaga a todos os FSU/FS1.
-const SEC_MOB_REF: LSec = {
+// Placeholder V1 — mantido apenas para o bloco legado (sobrescrito por override no backend).
+// Placeholder V2 — aponta para o bloco com lógica de conjunto no fundo / modo ANM.
+const SEC_MOB_REF_V2: LSec = {
   id: 'mob', label: 'MOBILIZAÇÃO / DESCIDA / CONEXÃO', phase: 'Fase 0', color: 'gray',
   decisions: [],
-  ref: { scopeId: BLK_MOB_DESCIDA_DP_COND_ID, label: 'MOB · Descida DP (condicionais por sonda)' },
+  ref: { scopeId: BLK_MOB_DESCIDA_DP_COND_V2_ID, label: 'MOB · Descida DP v2 (conjunto no fundo / modo ANM)' },
 }
 
 // ── BLOCO: MOBILIZAÇÃO / DESCIDA / CONEXÃO — Condicionais por tipo de sonda ──
@@ -365,9 +231,9 @@ const SEC_MOB_REF: LSec = {
 // 246/247 são de operação Generalista — usam condition composta (sonda + Generalista)
 // para não emitir junto com o ITF (206) em operações LWO. O flush (014/015) é só por sonda.
 const _ARRANJO_FLUSH_COND: LPkg[] = [
-  { id: 'ABAN 246', name: 'Montagem do SFT (DP Generalista)', phase: 'Fase 1A', condition: 'rig_dp_generalista' },
-  { id: 'ABAN 247', name: 'Montagem do Terminal Head (ANC)', phase: 'Fase 1A', condition: 'rig_anc_generalista' },
-  { id: 'ABAN 206', name: 'Montagem de ITF (LWO)', phase: 'Fase 1A', condition: 'op_lwo' },
+  { id: 'ABAN 246', name: 'Montagem do SFT (DP Generalista)', phase: 'Fase 1A', condition: 'rig_dp_gen' },
+  { id: 'ABAN 247', name: 'Montagem do Terminal Head (ANC)', phase: 'Fase 1A', condition: 'rig_anc' },
+  { id: 'ABAN 206', name: 'Montagem de ITF (LWO)', phase: 'Fase 1A', condition: 'rig_lwo' },
   { id: 'ABAN 014', name: 'Flush do DPR/HCR', phase: 'Fase 1A', condition: 'rig_dp' },
   { id: 'ABAN 015', name: 'Flush Riser Dual Bore com agmar', phase: 'Fase 1A', condition: 'rig_anc' },
 ]
@@ -411,17 +277,43 @@ const _FLUIDO_RISER_SUPERFICIE_COND: LDec = {
   ],
 }
 
-// Decisão de TCap unificada: mesma estrutura do _MOB_TCAP_DP, mas pacotes DP/ANC
-// diferenciados por condition em vez de ramificados em "Tipo de sonda?".
-const _MOB_TCAP_COND: LDec = {
-  question: 'Retirar TCap?',
+// Quando o conjunto de WO já está no fundo (woAtBottom definido), pulamos preparação e
+// descida. O usuário escolhe entre conectar na TCap (ABAN 018) ou montar arranjo+flush+ANM.
+// "Movimentar e conectar na TCap": sem reentrada na ANM — _REENTRADA não é embutido.
+// "Montar arranjo + flush + ANM": segue com fluido de riser e depois reentrada na ANM.
+const _CONJUNTO_NO_FUNDO_OPS_DEC: LDec = {
+  question: 'Operação com conjunto no fundo?',
   answers: [
-    { label: 'Não / N.A.', active: true, packages: [
+    { label: 'Movimentar e conectar na TCap', field: 'woAtBottom', value: 'tcap',
+      packages: [{ id: 'ABAN 018', name: 'Movimentação e conexão na TCap', phase: 'Fase 1A' }],
+    },
+    { label: 'Montar arranjo + flush + ANM', active: true, field: 'woAtBottom', value: 'anm',
+      packages: [..._ARRANJO_FLUSH_COND],
+      sub: [_FLUIDO_RISER_COND, _REENTRADA],
+    },
+  ],
+}
+
+const _CONJUNTO_NO_FUNDO_DEC: LDec = {
+  question: 'Conjunto de WO no fundo?',
+  answers: [
+    { label: 'Não', active: true, packages: [
       { id: 'ABAN 212', name: 'Preparação do Conjunto de WO + TRT (reentrada, sem TCap)', phase: 'Fase 1A' },
       { id: 'ABAN 011', name: 'Descida do conjunto de WO (DPR/HCR)', phase: 'Fase 1A', condition: 'rig_dp' },
       { id: 'ABAN 012', name: 'Descida do Conjunto de WO com Riser Dual Bore', phase: 'Fase 1A', condition: 'rig_anc' },
       ..._ARRANJO_FLUSH_COND,
-    ], sub: [_FLUIDO_RISER_COND] },
+    ], sub: [_FLUIDO_RISER_COND, _REENTRADA] },
+    { label: 'Sim', sub: [_CONJUNTO_NO_FUNDO_OPS_DEC] },
+  ],
+}
+
+// Decisão de TCap unificada: mesma estrutura do _MOB_TCAP_DP, mas pacotes DP/ANC
+// diferenciados por condition em vez de ramificados em "Tipo de sonda?".
+// _REENTRADA embarcado no final de cada ramo que termina com conexão na ANM.
+const _MOB_TCAP_COND: LDec = {
+  question: 'Retirar TCap?',
+  answers: [
+    { label: 'Não / N.A.', active: true, sub: [_CONJUNTO_NO_FUNDO_DEC] },
     { label: 'Sim', sub: [{
       question: 'Método de retirada da TCap?',
       answers: [
@@ -431,7 +323,7 @@ const _MOB_TCAP_COND: LDec = {
           { id: 'ABAN 011', name: 'Descida do conjunto de WO (DPR/HCR)', phase: 'Fase 1A', condition: 'rig_dp' },
           { id: 'ABAN 012', name: 'Descida do Conjunto de WO com Riser Dual Bore', phase: 'Fase 1A', condition: 'rig_anc' },
           ..._ARRANJO_FLUSH_COND,
-        ], sub: [_FLUIDO_RISER_COND] },
+        ], sub: [_FLUIDO_RISER_COND, _REENTRADA] },
         { label: 'Coluna (TRT)', active: true, field: 'tcapRemovalMethod', value: 'workstring', packages: [
           { id: 'ABAN 211', name: 'Preparação do Conjunto de WO + TRT para retirada/fundeio da TCap' },
           { id: 'ABAN 244', name: 'Descida do Conjunto de WO com DPR/HCR para retirada/fundeio da TCap', condition: 'rig_dp' },
@@ -443,11 +335,11 @@ const _MOB_TCAP_COND: LDec = {
           answers: [
             { label: 'Fundeio', active: true, field: 'tcapDisposition', value: 'bottom', packages: [
               { id: 'ABAN 020', name: 'Desassentamento de TCap e fundeio no leito marinho' },
-            ], sub: [_HIDRATO_TCAP_DEC, _FLUIDO_POS_TCAP_COND] },
+            ], sub: [_HIDRATO_TCAP_DEC, _FLUIDO_POS_TCAP_COND, _REENTRADA] },
             { label: 'Superfície', field: 'tcapDisposition', value: 'surface', packages: [
               { id: 'ABAN 021', name: 'Desassentamento de TCap e retirada até a superfície com DPR/HCR', condition: 'rig_dp' },
               { id: 'ABAN 022', name: 'Desassentamento de TCap e retirada até a superfície com Riser Dual Bore', condition: 'rig_anc' },
-            ], sub: [_HIDRATO_TCAP_DEC, _FLUIDO_RISER_SUPERFICIE_COND] },
+            ], sub: [_HIDRATO_TCAP_DEC, _FLUIDO_RISER_SUPERFICIE_COND, _REENTRADA] },
           ],
         }]},
       ],
@@ -515,11 +407,58 @@ const SEC_MOB_DESCIDA_DP_COND: LSec = {
     _TRANSPONDER_DMM_COND,
     _MOB_POST_CCAP,
     _MOB_TCAP_COND,
-    _REENTRADA,
     _ITF_TEST_PROD, _ITF_TEST_ANUL,
     // A partir daqui (retirada de plugs do TMF, contingências de válvula, teste da válvula do
     // anular e hidrato na ANM) o fluxo foi movido para o topo dos Blocos ANM
     // (SEC_CONEXAO / bloco "Acesso inicial e amortecimento").
+  ],
+}
+
+// ── BLOCO: MOBILIZAÇÃO E REENTRADA (modo ANM — navegação com conjunto no fundo) ──
+// Variante do MOB para quando se prevê NAVEGAR COM O CONJUNTO DE WO NO FUNDO: o conjunto
+// já está pronto e no fundo, então NÃO há preparação (211/212) nem descida (011/012/244/245).
+// O passo seguinte é, se houver TCap, conectar nela (coluna: 018+019; ROV: 010) ou ir direto
+// às preparações de reentrada na ANM (arranjo SFT/Terminal Head/ITF + flush + fluido de riser
+// + reentrada). Daí em diante o fluxo é idêntico ao MOB padrão (testes de interface etc.).
+// Reusa as condicionais por sonda existentes (_ARRANJO_FLUSH_COND / _FLUIDO_RISER_COND /
+// _REENTRADA) — sem criar novas conditions. 018/019/010 em Fase 1A (mesma convenção do
+// ramo "conjunto no fundo" do MOB v2).
+export const BLK_MOB_REENTRADA_ANM_ID = 'BLK_MOB_REENTRADA_ANM'
+
+const _REENTRADA_ANM_CONJUNTO_FUNDO: LDec = {
+  question: 'TCap a conectar (conjunto no fundo)?',
+  answers: [
+    { label: 'Sim — conectar na TCap', field: 'woAtBottom', value: 'tcap', sub: [{
+      question: 'Método de retirada da TCap?',
+      answers: [
+        { label: 'Coluna (TRT)', active: true, field: 'tcapRemovalMethod', value: 'workstring', packages: [
+          { id: 'ABAN 018', name: 'Movimentação e conexão na Tcap', phase: 'Fase 1A' },
+          { id: 'ABAN 019', name: 'Ventilação de TCap', phase: 'Fase 1A' },
+        ]},
+        { label: 'ROV', field: 'tcapRemovalMethod', value: 'rov', packages: [
+          { id: 'ABAN 010', name: 'Retirar TCap com ROV', phase: 'Fase 1A' },
+        ]},
+      ],
+    }]},
+    { label: 'Não — preparar reentrada na ANM', active: true, field: 'woAtBottom', value: 'anm',
+      packages: [..._ARRANJO_FLUSH_COND],
+      sub: [_FLUIDO_RISER_COND, _REENTRADA],
+    },
+  ],
+}
+
+const SEC_MOB_REENTRADA_ANM: LSec = {
+  id: 'mob_reentrada_anm',
+  label: 'MOBILIZAÇÃO E REENTRADA (modo ANM — conjunto no fundo)',
+  phase: 'Fase 0',
+  color: 'gray',
+  // DMA (ANC) e transponder/DMM (DP) idênticos ao MOB padrão — filtrados por condition.
+  always: [{ id: 'ABAN 208', name: 'DMA', condition: 'rig_anc' }],
+  decisions: [
+    _TRANSPONDER_DMM_COND,
+    _MOB_POST_CCAP,
+    _REENTRADA_ANM_CONJUNTO_FUNDO,
+    _ITF_TEST_PROD, _ITF_TEST_ANUL,
   ],
 }
 
@@ -538,98 +477,237 @@ const SEC_MOB_FS2_COND: LSec = {
 
 // DHSV: controla inclusão de ABAN 030 (teste funcional DHSV por bullheading).
 // Reentrada ANM, testes funcionais e hidrato foram absorvidos em SEC_MOB_DP/ANC.
+// SEC_CONEXAO — gerado do override BLK_ACESSO_AMORTEC (promovido a padrão)
 const SEC_CONEXAO: LSec = {
   id: 'conexao', label: 'DHSV / BLOCOS ANM', phase: 'Fase 1A', color: 'blue',
   decisions: [
-    // Fluxo movido do bloco de MOB (a partir de "Retirar plug do TMF — anular?" até o fim
-    // da seção) para o topo dos Blocos ANM: retirada de plugs do TMF, contingências de
-    // válvula, teste da válvula do anular e hidrato na ANM.
-    _TMF_PLUG_ANUL, _TMF_PLUG_PROD,
-    _VALVE_JATEAMENTO_POS_PLUG, _VALVE_GABARIT_POS_PLUG, _TESTE_VALV_ANULAR,
-    _CONEXAO_HIDRATO, _VALVE_JATEAMENTO, _VALVE_GABARIT,
     {
-      // Testes de bloco da ANM (tabela 028/029): adiados quando há plug no bore
-      // correspondente do TMF (emitidos após a retirada do plug, na seção MOB).
-      question: 'Teste de bloco de produção da ANM?',
+      question: 'Retirar plug do TMF — anular?',
       answers: [
-        { label: 'Executar', active: true, packages: [
-          { id: 'ABAN 028', name: 'Teste bloco produção da ANM' },
-        ]},
-        { label: 'Adiado (plug no TMF)' },
+        {
+          label: 'Não',
+          active: true,
+        },
+        {
+          label: 'Sim',
+          packages: [
+            { id: 'ABAN 035', name: 'Retirada de plug do TMF (bore anular)', phase: 'Fase 1A' },
+          ],
+          sub: [
+            {
+              question: 'Conting. plug anular — stroker?',
+              answers: [
+                {
+                  label: 'Não',
+                  active: true,
+                },
+                {
+                  label: 'Sim',
+                  field: 'tmfPlugContingencyAnul',
+                  value: 'stroker',
+                  packages: [
+                    { id: 'ABAN 089', name: 'Retirada de plug do TMF (anular) com stroker', phase: 'Fase 1A', isContingency: true, contingencyReason: 'Contingência: retirada de plug do TMF (anular) com stroker' },
+                  ],
+                },
+              ],
+            },
+            {
+              question: 'Conting. plug anular — flexitubo?',
+              answers: [
+                {
+                  label: 'Não',
+                  active: true,
+                },
+                {
+                  label: 'Sim',
+                  field: 'tmfPlugContingencyAnul',
+                  value: 'ft',
+                  packages: [
+                    { id: 'ABAN 122', name: 'Flexitubo - Retirada de plug do TMF (anular)', phase: 'Fase 1A', isContingency: true, contingencyReason: 'Contingência: retirada de plug do TMF (anular) com flexitubo' },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
       ],
     },
     {
-      question: 'Teste de bloco do anular da ANM?',
+      question: 'Retirar plug do TMF — produção?',
       answers: [
-        { label: 'Executar', active: true, packages: [
-          { id: 'ABAN 029', name: 'Teste bloco anular da ANM' },
-        ]},
-        { label: 'Adiado (plug no TMF)' },
+        {
+          label: 'Não',
+          active: true,
+        },
+        {
+          label: 'Sim',
+          packages: [
+            { id: 'ABAN 034', name: 'Retirada de plug do TMF (bore produção)', phase: 'Fase 1A' },
+          ],
+          sub: [
+            {
+              question: 'Conting. plug produção — stroker?',
+              answers: [
+                {
+                  label: 'Não',
+                  active: true,
+                },
+                {
+                  label: 'Sim',
+                  field: 'tmfPlugContingencyProd',
+                  value: 'stroker',
+                  packages: [
+                    { id: 'ABAN 088', name: 'Retirada de plug do TMF (produção) com stroker', phase: 'Fase 1A', isContingency: true, contingencyReason: 'Contingência: retirada de plug do TMF (produção) com stroker' },
+                  ],
+                },
+              ],
+            },
+            {
+              question: 'Conting. plug produção — flexitubo?',
+              answers: [
+                {
+                  label: 'Não',
+                  active: true,
+                },
+                {
+                  label: 'Sim',
+                  field: 'tmfPlugContingencyProd',
+                  value: 'ft',
+                  packages: [
+                    { id: 'ABAN 123', name: 'Flexitubo - Retirada de plug do TMF (produção)', phase: 'Fase 1A', isContingency: true, contingencyReason: 'Contingência: retirada de plug do TMF (produção) com flexitubo' },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
       ],
     },
     {
-      // Espelha ANM_FORCE_INJECT: martelete (143) e motor+broca (124) independentes,
-      // firmes ou contingenciais conforme anmForceOpen.
+      question: 'Hidrato na ANM?',
+      answers: [
+        {
+          label: 'Não',
+          active: true,
+        },
+        {
+          label: 'Sim',
+          field: 'anmHydrate',
+          value: 'yes',
+          packages: [
+            { id: 'ABAN 169', name: 'Dissociação hidrato — prod. (ANC)', phase: 'Fase 1A', condition: 'rig_anc' },
+            { id: 'ABAN 165', name: 'Dissociação hidrato — prod. (DP)', phase: 'Fase 1A', condition: 'rig_dp' },
+            { id: 'ABAN 170', name: 'Dissociação hidrato — anular (ANC)', phase: 'Fase 1A', condition: 'rig_anc' },
+            { id: 'ABAN 166', name: 'Dissociação hidrato — anular (DP)', phase: 'Fase 1A', condition: 'rig_dp' },
+          ],
+        },
+        {
+          label: 'Contingência',
+          field: 'anmHydrate',
+          value: 'contingency',
+          packages: [
+            { id: 'ABAN 169', name: 'Dissociação hidrato — prod. (ANC)', phase: 'Fase 1A', condition: 'rig_anc', isContingency: true, contingencyReason: 'Contingência: dissociação de hidrato na ANM — bloco de produção' },
+            { id: 'ABAN 165', name: 'Dissociação hidrato — prod. (DP)', phase: 'Fase 1A', condition: 'rig_dp', isContingency: true, contingencyReason: 'Contingência: dissociação de hidrato na ANM — bloco de produção' },
+            { id: 'ABAN 170', name: 'Dissociação hidrato — anular (ANC)', phase: 'Fase 1A', condition: 'rig_anc', isContingency: true, contingencyReason: 'Contingência: dissociação de hidrato na ANM — bloco de anular' },
+            { id: 'ABAN 166', name: 'Dissociação hidrato — anular (DP)', phase: 'Fase 1A', condition: 'rig_dp', isContingency: true, contingencyReason: 'Contingência: dissociação de hidrato na ANM — bloco de anular' },
+          ],
+        },
+      ],
+    },
+    {
       question: 'Abrir válvula da ANM com FT?',
       answers: [
-        { label: 'Não', active: true },
-        { label: 'Sim', field: 'anmForceOpen', value: 'yes', sub: [
-          {
-            question: 'Força com martelete?',
-            answers: [
-              { label: 'Não', active: true },
-              { label: 'Sim', field: 'anmForceMethod', value: 'hammer', packages: [
-                { id: 'ABAN 143', name: 'Flexitubo — Martelete para abertura de válvula ANM' },
-              ]},
-            ],
-          },
-          {
-            question: 'Força com motor + broca?',
-            answers: [
-              { label: 'Não', active: true },
-              { label: 'Sim', field: 'anmForceMethod', value: 'motor_broca', packages: [
-                { id: 'ABAN 124', name: 'Flexitubo - Gabaritagem' },
-              ]},
-            ],
-          },
-        ]},
-        { label: 'Contingência', field: 'anmForceOpen', value: 'contingency', sub: [
-          {
-            question: 'Força com martelete?',
-            answers: [
-              { label: 'Não', active: true },
-              { label: 'Sim', field: 'anmForceMethod', value: 'hammer', packages: [
-                { id: 'ABAN 143', name: 'Flexitubo — Martelete para abertura de válvula ANM',
-                  isContingency: true, contingencyReason: 'Contingência: abertura de válvula da ANM com martelete (FT)' },
-              ]},
-            ],
-          },
-          {
-            question: 'Força com motor + broca?',
-            answers: [
-              { label: 'Não', active: true },
-              { label: 'Sim', field: 'anmForceMethod', value: 'motor_broca', packages: [
-                { id: 'ABAN 124', name: 'Flexitubo - Gabaritagem',
-                  isContingency: true, contingencyReason: 'Contingência: gabaritagem com motor de fundo e broca para abertura de válvulas da ANM' },
-              ]},
-            ],
-          },
-        ]},
-      ],
-    },
-    {
-      // ABAN 030 firme (condição dhsv_no_sleeve da tabela): só quando não há camisão.
-      question: 'Instalação de camisão na DHSV?',
-      answers: [
-        { label: 'Não', packages: [
-          { id: 'ABAN 030', name: 'Teste funcional de DHSV (bullheading)' },
-        ]},
-        { label: 'Sim', active: true },
-        { label: 'Contingência' },
+        {
+          label: 'Não',
+          active: true,
+        },
+        {
+          label: 'Sim',
+          field: 'anmForceOpen',
+          value: 'yes',
+          sub: [
+            {
+              question: 'Martelete de FT?',
+              answers: [
+                {
+                  label: 'Não',
+                },
+                {
+                  label: 'Sim',
+                  active: true,
+                  field: 'anmForceMethod',
+                  value: 'hammer',
+                  packages: [
+                    { id: 'ABAN 143', name: 'Flexitubo — Martelete para abertura de válvula ANM' },
+                  ],
+                },
+              ],
+            },
+            {
+              question: 'Motor + broca?',
+              answers: [
+                {
+                  label: 'Não',
+                },
+                {
+                  label: 'Sim',
+                  active: true,
+                  field: 'anmForceMethod',
+                  value: 'motor_broca',
+                  packages: [
+                    { id: 'ABAN 124', name: 'Flexitubo - Gabaritagem' },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+        {
+          label: 'Contingência',
+          field: 'anmForceOpen',
+          value: 'contingency',
+          sub: [
+            {
+              question: 'Martelete de FT?',
+              answers: [
+                {
+                  label: 'Não',
+                },
+                {
+                  label: 'Sim',
+                  active: true,
+                  field: 'anmForceMethod',
+                  value: 'hammer',
+                  packages: [
+                    { id: 'ABAN 143', name: 'Flexitubo — Martelete para abertura de válvula ANM', isContingency: true, contingencyReason: 'Contingência: abertura de válvula da ANM com martelete (FT)' },
+                  ],
+                },
+              ],
+            },
+            {
+              question: 'Motor + broca?',
+              answers: [
+                {
+                  label: 'Não',
+                },
+                {
+                  label: 'Sim',
+                  active: true,
+                  field: 'anmForceMethod',
+                  value: 'motor_broca',
+                  packages: [
+                    { id: 'ABAN 124', name: 'Flexitubo - Gabaritagem', isContingency: true, contingencyReason: 'Contingência: gabaritagem com motor de fundo e broca para abertura de válvulas da ANM' },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
       ],
     },
   ],
 }
+
 
 // Amortecimento COP/COI (LIMPEZA_INJECT): fluido conforme initialFillFluid; poço isolado
 // (killWellFase1A 'no') suprime; 'contingency' marca como contingencial. Usado 2× (pré e
@@ -657,330 +735,899 @@ const _AMORT_COP_ANSWERS: LAns[] = [
 
 // Pescaria de cauda (TAIL_FISHING_INJECT): uma decisão por elemento, na ordem da engine;
 // método define o pacote (arame/stroker/FT). Resolvida de inputs.tailFishingItems.
-const _TAIL_ELEMENTS: { key: string; label: string; pkgs: Record<'wireline' | 'stroker' | 'ct', { id: string; name: string }> }[] = [
-  { key: 'stv_f', label: 'STV F', pkgs: {
-    wireline: { id: 'ABAN 049', name: 'Pescaria de STV F (arame)' },
-    stroker:  { id: 'ABAN 091', name: 'Pescaria de STV F (stroker)' },
-    ct:       { id: 'ABAN 137', name: 'Flexitubo - Pescaria de STV F' } } },
-  { key: 'plug_f', label: 'plug F', pkgs: {
-    wireline: { id: 'ABAN 051', name: 'Pescaria de plug F (arame)' },
-    stroker:  { id: 'ABAN 093', name: 'Pescaria de plug F (stroker)' },
-    ct:       { id: 'ABAN 139', name: 'Flexitubo - Pescaria de plug F' } } },
-  { key: 'brv_f', label: 'BRV F', pkgs: {
-    wireline: { id: 'ABAN 053', name: 'Pescaria de BRV F (arame)' },
-    stroker:  { id: 'ABAN 095', name: 'Pescaria de BRV F (stroker)' },
-    ct:       { id: 'ABAN 141', name: 'Flexitubo - Pescaria de BRV F' } } },
-  { key: 'stv_r', label: 'STV R', pkgs: {
-    wireline: { id: 'ABAN 048', name: 'Pescaria de STV R (arame)' },
-    stroker:  { id: 'ABAN 090', name: 'Pescaria de STV R (stroker)' },
-    ct:       { id: 'ABAN 136', name: 'Flexitubo - Pescaria de STV R' } } },
-  { key: 'plug_r', label: 'plug R', pkgs: {
-    wireline: { id: 'ABAN 050', name: 'Pescaria de plug R (arame)' },
-    stroker:  { id: 'ABAN 092', name: 'Pescaria de plug R (stroker)' },
-    ct:       { id: 'ABAN 138', name: 'Flexitubo - Pescaria de plug R' } } },
-  { key: 'brv_r', label: 'BRV R', pkgs: {
-    wireline: { id: 'ABAN 054', name: 'Pescaria de BRV R (arame)' },
-    stroker:  { id: 'ABAN 096', name: 'Pescaria de BRV R (stroker)' },
-    ct:       { id: 'ABAN 142', name: 'Flexitubo - Pescaria de BRV R' } } },
-  { key: 'camisao', label: 'camisão', pkgs: {
-    wireline: { id: 'ABAN 055', name: 'Pescaria de camisão (arame)' },
-    stroker:  { id: 'ABAN 097', name: 'Pescaria de camisão (stroker)' },
-    ct:       { id: 'ABAN 134', name: 'Flexitubo - Pescaria de camisão' } } },
-]
 // Perguntas por elemento (mesmo texto/pacotes de antes — os resolvers _tailResolver casam
 // por essas perguntas). Agora aninhadas sob o gate _TAIL_FISHING_GROUP.
-const _TAIL_FISHING_DECS: LDec[] = _TAIL_ELEMENTS.map(el => ({
-  question: `Pescaria de cauda — ${el.label}?`,
-  answers: [
-    { label: 'Não', active: true },
-    { label: 'Arame', packages: [el.pkgs.wireline] },
-    { label: 'Stroker', packages: [el.pkgs.stroker] },
-    { label: 'Flexitubo', packages: [el.pkgs.ct] },
-  ],
-}))
 // Gate único do grupo de pescaria de cauda: 'Sim' abre as perguntas por elemento
 // (multi-elemento — cada elemento segue independente). O resolver 'Pescaria na cauda?'
 // (logicEngine) responde 'Sim' quando há algum elemento em inputs.tailFishingItems.
-const _TAIL_FISHING_GROUP: LDec = {
-  question: 'Pescaria na cauda?',
-  answers: [
-    { label: 'Não', active: true },
-    { label: 'Sim', sub: _TAIL_FISHING_DECS },
-  ],
-}
-
 // Perfis de investigação (espelha INVESTIGATION_INJECT, na ordem da engine). Textos completos
 // mantidos — os resolvers _invLogResolver casam por essas perguntas. Aninhados sob o gate abaixo.
-const _INVESTIGATION_DECS: LDec[] = [
-  {
-    question: 'Investigação — registro de pressão?',
-    answers: [
-      { label: 'Não', active: true },
-      { label: 'Arame', packages: [{ id: 'ABAN 047', name: 'Registro de pressão e temperatura' }] },
-      { label: 'Cabo elétrico', packages: [{ id: 'ABAN 104', name: 'Registro de pressão — cabo elétrico' }] },
-      { label: 'Flexitubo', packages: [{ id: 'ABAN 147', name: 'Flexitubo - Registro de pressão' }] },
-      { label: 'Contingência — Arame', packages: [{ id: 'ABAN 047', name: 'Registro de pressão e temperatura', isContingency: true }] },
-      { label: 'Contingência — Cabo elétrico', packages: [{ id: 'ABAN 104', name: 'Registro de pressão — cabo elétrico', isContingency: true }] },
-      { label: 'Contingência — Flexitubo', packages: [{ id: 'ABAN 147', name: 'Flexitubo - Registro de pressão', isContingency: true }] },
-    ],
-  },
-  {
-    question: 'Investigação — fluxo pelo anular?',
-    answers: [
-      { label: 'Não', active: true },
-      { label: 'Arame', packages: [{ id: 'ABAN 100', name: 'Investigação de fluxo pelo anular' }] },
-      { label: 'Flexitubo', packages: [{ id: 'ABAN 151', name: 'Flexitubo - Investigação de fluxo pelo anular' }] },
-      { label: 'Contingência — Arame', packages: [{ id: 'ABAN 100', name: 'Investigação de fluxo pelo anular', isContingency: true }] },
-      { label: 'Contingência — Flexitubo', packages: [{ id: 'ABAN 151', name: 'Flexitubo - Investigação de fluxo pelo anular', isContingency: true }] },
-    ],
-  },
-  {
-    question: 'Investigação — furo na COP?',
-    answers: [
-      { label: 'Não', active: true },
-      { label: 'Arame', packages: [{ id: 'ABAN 099', name: 'Investigação de furo na COP' }] },
-      { label: 'Flexitubo', packages: [{ id: 'ABAN 152', name: 'Flexitubo - Investigação de furo na COP' }] },
-      { label: 'Contingência — Arame', packages: [{ id: 'ABAN 099', name: 'Investigação de furo na COP', isContingency: true }] },
-      { label: 'Contingência — Flexitubo', packages: [{ id: 'ABAN 152', name: 'Flexitubo - Investigação de furo na COP', isContingency: true }] },
-    ],
-  },
-  {
-    question: 'Investigação — caliper?',
-    answers: [
-      { label: 'Não', active: true },
-      { label: 'Sim', packages: [{ id: 'ABAN 111', name: 'Perfilagem caliper' }] },
-      { label: 'Contingência', packages: [{ id: 'ABAN 111', name: 'Perfilagem caliper', isContingency: true }] },
-    ],
-  },
-  {
-    question: 'Investigação — imageamento?',
-    answers: [
-      { label: 'Não', active: true },
-      { label: 'Sim', packages: [{ id: 'ABAN 112', name: 'Perfilagem de imageamento' }] },
-      { label: 'Contingência', packages: [{ id: 'ABAN 112', name: 'Perfilagem de imageamento', isContingency: true }] },
-    ],
-  },
-  {
-    question: 'Investigação — free point?',
-    answers: [
-      { label: 'Não', active: true },
-      { label: 'Sim', packages: [{ id: 'ABAN 251', name: 'Free point (investigação de prisão)' }] },
-      { label: 'Contingência', packages: [{ id: 'ABAN 251', name: 'Free point (investigação de prisão)', isContingency: true }] },
-    ],
-  },
-]
 // Gate único do grupo de investigação: 'Sim' abre os perfis (cada perfil segue independente).
 // O resolver 'Investigação?' (logicEngine) responde 'Sim' quando há perfis em inputs.investigationLogs.
-const _INVESTIGATION_GROUP: LDec = {
-  question: 'Investigação?',
-  answers: [
-    { label: 'Não', active: true },
-    { label: 'Sim', sub: _INVESTIGATION_DECS },
-  ],
-}
-
 // Sub-decisões da operação de VGL (VGL_INJECT); replace acrescenta a instalação da nova VGL.
-const _vglSubDecs = (replace: boolean): LDec[] => [
-  {
-    question: 'Descer STV para a operação de VGL?',
-    answers: [
-      { label: 'Não', active: true },
-      { label: 'Sim', packages: [{ id: 'ABAN 038', name: 'STV em nipple R 2,75"' }] },
-    ],
-  },
-  {
-    question: 'Retirar camisão para a VGL?',
-    answers: [
-      { label: 'Não', active: true },
-      { label: 'Arame', packages: [{ id: 'ABAN 055', name: 'Pescaria de camisão (arame)' }] },
-      { label: 'Flexitubo', packages: [{ id: 'ABAN 134', name: 'Flexitubo - Pescaria de camisão' }] },
-    ],
-  },
-  {
-    question: 'Método de pescaria da VGL?',
-    answers: [
-      { label: 'Arame', active: true, field: 'vglFishingMethod', value: 'wireline', packages: [
-        { id: 'ABAN 056', name: 'Pescaria de VGL (arame)' },
-      ]},
-      { label: 'Stroker', field: 'vglFishingMethod', value: 'stroker', packages: [
-        { id: 'ABAN 114', name: 'Pescaria de VGL (stroker)' },
-      ]},
-    ],
-    ...(replace ? { after: [{ label: 'Instalação da nova VGL', packages: [
-      { id: 'ABAN 057', name: 'Instalação de nova VGL' },
-    ]}] } : {}),
-  },
-  {
-    question: 'Reinstalar camisão pós-VGL?',
-    answers: [
-      { label: 'Não', active: true },
-      { label: 'Arame', packages: [{ id: 'ABAN 037', name: 'Instalação de camisão na DHSV (arame)' }] },
-      { label: 'Flexitubo', packages: [{ id: 'ABAN 126', name: 'Flexitubo - Instalação de camisão na DHSV' }] },
-    ],
-  },
-  {
-    question: 'Retirar STV pós-VGL?',
-    answers: [
-      { label: 'Não', active: true },
-      { label: 'Sim', packages: [{ id: 'ABAN 048', name: 'Pescaria de STV R (arame)' }] },
-    ],
-  },
-]
-
+// SEC_GAB — gerado do override BLK_ACESSO_AMORTEC (promovido a padrão)
 const SEC_GAB: LSec = {
   id: 'gab', label: 'ANULAR / CAMISÃO / GABARITAGEM', phase: 'Fase 1A', color: 'blue',
   decisions: [
     {
       question: 'Plug no TH?',
       answers: [
-        { label: 'Não', active: true },
-        { label: 'Sim', packages: [
-          { id: 'ABAN 052', name: 'Retirada de plug 3,75" no TH' },
-        ]},
+        {
+          label: 'Não',
+          active: true,
+        },
+        {
+          label: 'Sim',
+          packages: [
+            { id: 'ABAN 052', name: 'Retirada de plug 3,75" no TH' },
+          ],
+        },
       ],
     },
     {
-      // Espelha ANULAR_A_INJECT: poço isolado → só estanqueidade (226); contingência →
-      // 226 firme + amortecimento contingencial; senão o pacote conforme pressão/fluido.
-      question: 'Pressão no anular A?',
+      question: 'Remover gás do anular A?',
       answers: [
-        { label: 'Poço isolado (não amortecer)', field: 'killWellFase1A', value: 'no', packages: [
-          { id: 'ABAN 226', name: 'Confirmação de estanqueidade do poço' },
-        ]},
-        { label: 'Zero', active: true, packages: [
-          { id: 'ABAN 063', name: 'Amort. anular A (despressurização total + bullheading FCBA)' },
-        ]},
-        { label: 'Top kill — diesel', packages: [
-          { id: 'ABAN 064', name: 'Amort. anular A (steps depress. + top kill diesel)' },
-        ]},
-        { label: 'Top kill — MEG', packages: [
-          { id: 'ABAN 065', name: 'Amort. anular A (steps depress. + top kill MEG/FCBA)' },
-        ]},
-        { label: 'Não / N.A.' },
-        { label: 'Contingência — zero', packages: [
-          { id: 'ABAN 226', name: 'Confirmação de estanqueidade do poço' },
-          { id: 'ABAN 063', name: 'Amort. anular A (despressurização total + bullheading FCBA)',
-            isContingency: true, contingencyReason: 'Contingência: despressurização/preenchimento do anular A' },
-        ]},
-        { label: 'Contingência — top kill diesel', packages: [
-          { id: 'ABAN 226', name: 'Confirmação de estanqueidade do poço' },
-          { id: 'ABAN 064', name: 'Amort. anular A (steps depress. + top kill diesel)',
-            isContingency: true, contingencyReason: 'Contingência: despressurização/preenchimento do anular A' },
-        ]},
-        { label: 'Contingência — top kill MEG', packages: [
-          { id: 'ABAN 226', name: 'Confirmação de estanqueidade do poço' },
-          { id: 'ABAN 065', name: 'Amort. anular A (steps depress. + top kill MEG/FCBA)',
-            isContingency: true, contingencyReason: 'Contingência: despressurização/preenchimento do anular A' },
-        ]},
+        {
+          label: 'Sim',
+          active: true,
+          sub: [
+            {
+              question: 'Pressão no anular (prof. ANM) pode ser zerada?',
+              answers: [
+                {
+                  label: 'Sim',
+                  active: true,
+                  packages: [
+                    { id: 'ABAN 063', name: 'Limpeza e Amortecimento - Anular A (Despressurização total + bullheading FCBA)' },
+                  ],
+                },
+                {
+                  label: 'Não, E.O. restrito (mín. > 0)',
+                  sub: [
+                    {
+                      question: 'Top kill?',
+                      answers: [
+                        {
+                          label: 'Top kill — Fluido inibido',
+                          active: true,
+                          packages: [
+                            { id: 'ABAN 065', name: 'Amort. anular A (steps depress. + top kill MEG/FCBA)' },
+                          ],
+                        },
+                        {
+                          label: 'Top kill — diesel',
+                          packages: [
+                            { id: 'ABAN 064', name: 'Amort. anular A (steps depress. + top kill diesel)' },
+                          ],
+                        },
+                      ],
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+        {
+          label: 'Não',
+        },
       ],
     },
-    { question: 'Amortecimento COP — fluido?', answers: _AMORT_COP_ANSWERS },
     {
-      // Espelha DHSV_TEST_INJECT: teste funcional de DHSV pós-amortecimento quando o
-      // camisão é contingencial (o 030 firme sai na conexão via dhsv_no_sleeve).
+      question: 'Amortecimento COP — fluido?',
+      answers: [
+        {
+          label: 'Diesel + FCBA',
+          active: true,
+          packages: [
+            { id: 'ABAN 061', name: 'Limpeza e Amort. COP (bullheading diesel + FCBA)' },
+          ],
+        },
+        {
+          label: 'MEG + FCBA',
+          packages: [
+            { id: 'ABAN 062', name: 'Limpeza e Amort. COP (bullheading MEG + FCBA)' },
+          ],
+        },
+        {
+          label: 'Diesel puro',
+          packages: [
+            { id: 'ABAN 219', name: 'Preenchimento de anular A e coluna com diesel' },
+          ],
+        },
+        {
+          label: 'Não / N.A.',
+        },
+        {
+          label: 'Contingência — Diesel + FCBA',
+          packages: [
+            { id: 'ABAN 061', name: 'Limpeza e Amort. COP (bullheading diesel + FCBA)', isContingency: true, contingencyReason: 'Contingência: amortecimento da COP/COI' },
+          ],
+        },
+        {
+          label: 'Contingência — MEG + FCBA',
+          packages: [
+            { id: 'ABAN 062', name: 'Limpeza e Amort. COP (bullheading MEG + FCBA)', isContingency: true, contingencyReason: 'Contingência: amortecimento da COP/COI' },
+          ],
+        },
+      ],
+    },
+    {
       question: 'Teste funcional de DHSV pós-amortecimento?',
       answers: [
-        { label: 'Não', active: true },
-        { label: 'Sim', field: 'installCamisao', value: 'contingency', packages: [
-          { id: 'ABAN 030', name: 'Teste funcional de DHSV (bullheading)' },
-        ]},
+        {
+          label: 'Não',
+          active: true,
+        },
+        {
+          label: 'Sim',
+          field: 'installCamisao',
+          value: 'contingency',
+          packages: [
+            { id: 'ABAN 030', name: 'Teste funcional de DHSV (bullheading)' },
+          ],
+        },
       ],
     },
     {
-      // Espelha CAMISAO_INJECT (slot firme): instalação de camisão na DHSV por arame ou FT.
       question: 'Instalar camisão na DHSV (firme)?',
       answers: [
-        { label: 'Não', active: true },
-        { label: 'Sim', field: 'installCamisao', value: 'yes', sub: [{
-          question: 'Método de instalação do camisão?',
-          answers: [
-            { label: 'Arame', active: true, packages: [
-              { id: 'ABAN 037', name: 'Instalação de camisão na DHSV (arame)' },
-            ]},
-            { label: 'Flexitubo', field: 'camisaoMethod', value: 'ct', packages: [
-              { id: 'ABAN 126', name: 'Flexitubo - Instalação de camisão na DHSV' },
-            ]},
+        {
+          label: 'Não',
+          active: true,
+        },
+        {
+          label: 'Sim',
+          field: 'installCamisao',
+          value: 'yes',
+          sub: [
+            {
+              question: 'Método de instalação do camisão?',
+              answers: [
+                {
+                  label: 'Arame',
+                  active: true,
+                  packages: [
+                    { id: 'ABAN 037', name: 'Instalação de camisão na DHSV (arame)' },
+                  ],
+                },
+                {
+                  label: 'Flexitubo',
+                  field: 'camisaoMethod',
+                  value: 'ct',
+                  packages: [
+                    { id: 'ABAN 126', name: 'Flexitubo - Instalação de camisão na DHSV' },
+                  ],
+                },
+              ],
+            },
           ],
-        }]},
+        },
       ],
     },
     {
-      // Slot contingencial de camisão (pode coexistir com o firme — installCamisao é array).
       question: 'Instalar camisão na DHSV (contingência)?',
       answers: [
-        { label: 'Não', active: true },
-        { label: 'Sim', field: 'installCamisao', value: 'contingency', sub: [{
-          question: 'Método do camisão (contingência)?',
-          answers: [
-            { label: 'Arame', active: true, packages: [
-              { id: 'ABAN 037', name: 'Instalação de camisão na DHSV (arame)', isContingency: true },
-            ]},
-            { label: 'Flexitubo', field: 'camisaoMethod', value: 'ct', packages: [
-              { id: 'ABAN 126', name: 'Flexitubo - Instalação de camisão na DHSV', isContingency: true },
-            ]},
+        {
+          label: 'Não',
+          active: true,
+        },
+        {
+          label: 'Sim',
+          field: 'installCamisao',
+          value: 'contingency',
+          sub: [
+            {
+              question: 'Método do camisão (contingência)?',
+              answers: [
+                {
+                  label: 'Arame',
+                  active: true,
+                  packages: [
+                    { id: 'ABAN 037', name: 'Instalação de camisão na DHSV (arame)', isContingency: true },
+                  ],
+                },
+                {
+                  label: 'Flexitubo',
+                  field: 'camisaoMethod',
+                  value: 'ct',
+                  packages: [
+                    { id: 'ABAN 126', name: 'Flexitubo - Instalação de camisão na DHSV', isContingency: true },
+                  ],
+                },
+              ],
+            },
           ],
-        }]},
+        },
       ],
     },
     {
       question: 'Gabaritar coluna?',
       answers: [
-        { label: 'Arame', active: true, packages: [
-          { id: 'ABAN 036', name: 'Gabaritagem da coluna (arame)' },
-        ]},
-        { label: 'Perfilagem', packages: [
-          { id: 'ABAN 098', name: 'Perfilagem caliper — cabo elétrico' },
-        ]},
-        { label: 'Flexitubo', packages: [
-          { id: 'ABAN 124', name: 'Flexitubo - Gabaritagem' },
-        ]},
-        { label: 'Não' },
+        {
+          label: 'Arame',
+          active: true,
+          packages: [
+            { id: 'ABAN 036', name: 'Gabaritagem da coluna (arame)' },
+          ],
+        },
+        {
+          label: 'Perfilagem',
+          packages: [
+            { id: 'ABAN 098', name: 'Perfilagem caliper — cabo elétrico' },
+          ],
+        },
+        {
+          label: 'Flexitubo',
+          packages: [
+            { id: 'ABAN 124', name: 'Flexitubo - Gabaritagem' },
+          ],
+        },
+        {
+          label: 'Não',
+        },
       ],
     },
     {
-      // Espelha o bloco contingencyGabaritFT do CAMISAO_INJECT.
       question: 'Contingência de gabaritagem com FT?',
       answers: [
-        { label: 'Não', active: true },
-        { label: 'Sim', field: 'contingencyGabaritFT', value: 'yes', packages: [
-          { id: 'ABAN 124', name: 'Flexitubo - Gabaritagem' },
-        ]},
-        { label: 'Contingência', field: 'contingencyGabaritFT', value: 'contingency', packages: [
-          { id: 'ABAN 124', name: 'Flexitubo - Gabaritagem', isContingency: true,
-            contingencyReason: 'Contingência: gabaritagem com motor de fundo e broca via flexitubo' },
-        ]},
+        {
+          label: 'Não',
+          active: true,
+        },
+        {
+          label: 'Sim',
+          field: 'contingencyGabaritFT',
+          value: 'yes',
+          packages: [
+            { id: 'ABAN 124', name: 'Flexitubo - Gabaritagem' },
+          ],
+        },
+        {
+          label: 'Contingência',
+          field: 'contingencyGabaritFT',
+          value: 'contingency',
+          packages: [
+            { id: 'ABAN 124', name: 'Flexitubo - Gabaritagem', isContingency: true, contingencyReason: 'Contingência: gabaritagem com motor de fundo e broca via flexitubo' },
+          ],
+        },
       ],
     },
-    // ── Perfis de investigação (espelha INVESTIGATION_INJECT) — gate + um perfil por tipo ──
-    _INVESTIGATION_GROUP,
-    // ── Pescaria de cauda (espelha TAIL_FISHING_INJECT) — gate + perguntas por elemento ──
-    _TAIL_FISHING_GROUP,
     {
-      // Espelha STDV_TEST_INJECT: teste de coluna com STDV antes do canhoneio (TT-BDC).
+      question: 'Investigação?',
+      answers: [
+        {
+          label: 'Não',
+          active: true,
+        },
+        {
+          label: 'Sim',
+          sub: [
+            {
+              question: 'Investigação — registro de pressão?',
+              answers: [
+                {
+                  label: 'Não',
+                  active: true,
+                },
+                {
+                  label: 'Arame',
+                  packages: [
+                    { id: 'ABAN 047', name: 'Registro de pressão e temperatura' },
+                  ],
+                },
+                {
+                  label: 'Cabo elétrico',
+                  packages: [
+                    { id: 'ABAN 104', name: 'Registro de pressão — cabo elétrico' },
+                  ],
+                },
+                {
+                  label: 'Flexitubo',
+                  packages: [
+                    { id: 'ABAN 147', name: 'Flexitubo - Registro de pressão' },
+                  ],
+                },
+                {
+                  label: 'Contingência — Arame',
+                  packages: [
+                    { id: 'ABAN 047', name: 'Registro de pressão e temperatura', isContingency: true },
+                  ],
+                },
+                {
+                  label: 'Contingência — Cabo elétrico',
+                  packages: [
+                    { id: 'ABAN 104', name: 'Registro de pressão — cabo elétrico', isContingency: true },
+                  ],
+                },
+                {
+                  label: 'Contingência — Flexitubo',
+                  packages: [
+                    { id: 'ABAN 147', name: 'Flexitubo - Registro de pressão', isContingency: true },
+                  ],
+                },
+              ],
+            },
+            {
+              question: 'Investigação — fluxo pelo anular?',
+              answers: [
+                {
+                  label: 'Não',
+                  active: true,
+                },
+                {
+                  label: 'Arame',
+                  packages: [
+                    { id: 'ABAN 100', name: 'Investigação de fluxo pelo anular' },
+                  ],
+                },
+                {
+                  label: 'Flexitubo',
+                  packages: [
+                    { id: 'ABAN 151', name: 'Flexitubo - Investigação de fluxo pelo anular' },
+                  ],
+                },
+                {
+                  label: 'Contingência — Arame',
+                  packages: [
+                    { id: 'ABAN 100', name: 'Investigação de fluxo pelo anular', isContingency: true },
+                  ],
+                },
+                {
+                  label: 'Contingência — Flexitubo',
+                  packages: [
+                    { id: 'ABAN 151', name: 'Flexitubo - Investigação de fluxo pelo anular', isContingency: true },
+                  ],
+                },
+              ],
+            },
+            {
+              question: 'Investigação — furo na COP?',
+              answers: [
+                {
+                  label: 'Não',
+                  active: true,
+                },
+                {
+                  label: 'Arame',
+                  packages: [
+                    { id: 'ABAN 099', name: 'Investigação de furo na COP' },
+                  ],
+                },
+                {
+                  label: 'Flexitubo',
+                  packages: [
+                    { id: 'ABAN 152', name: 'Flexitubo - Investigação de furo na COP' },
+                  ],
+                },
+                {
+                  label: 'Contingência — Arame',
+                  packages: [
+                    { id: 'ABAN 099', name: 'Investigação de furo na COP', isContingency: true },
+                  ],
+                },
+                {
+                  label: 'Contingência — Flexitubo',
+                  packages: [
+                    { id: 'ABAN 152', name: 'Flexitubo - Investigação de furo na COP', isContingency: true },
+                  ],
+                },
+              ],
+            },
+            {
+              question: 'Investigação — caliper?',
+              answers: [
+                {
+                  label: 'Não',
+                  active: true,
+                },
+                {
+                  label: 'Sim',
+                  packages: [
+                    { id: 'ABAN 111', name: 'Perfilagem caliper' },
+                  ],
+                },
+                {
+                  label: 'Contingência',
+                  packages: [
+                    { id: 'ABAN 111', name: 'Perfilagem caliper', isContingency: true },
+                  ],
+                },
+              ],
+            },
+            {
+              question: 'Investigação — imageamento?',
+              answers: [
+                {
+                  label: 'Não',
+                  active: true,
+                },
+                {
+                  label: 'Sim',
+                  packages: [
+                    { id: 'ABAN 112', name: 'Perfilagem de imageamento' },
+                  ],
+                },
+                {
+                  label: 'Contingência',
+                  packages: [
+                    { id: 'ABAN 112', name: 'Perfilagem de imageamento', isContingency: true },
+                  ],
+                },
+              ],
+            },
+            {
+              question: 'Investigação — free point?',
+              answers: [
+                {
+                  label: 'Não',
+                  active: true,
+                },
+                {
+                  label: 'Sim',
+                  packages: [
+                    { id: 'ABAN 251', name: 'Free point (investigação de prisão)' },
+                  ],
+                },
+                {
+                  label: 'Contingência',
+                  packages: [
+                    { id: 'ABAN 251', name: 'Free point (investigação de prisão)', isContingency: true },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    },
+    {
+      question: 'Pescaria na cauda?',
+      answers: [
+        {
+          label: 'Não',
+          active: true,
+        },
+        {
+          label: 'Sim',
+          sub: [
+            {
+              question: 'Pescaria de cauda — STV F?',
+              answers: [
+                {
+                  label: 'Não',
+                  active: true,
+                },
+                {
+                  label: 'Arame',
+                  packages: [
+                    { id: 'ABAN 049', name: 'Pescaria de STV F (arame)' },
+                  ],
+                },
+                {
+                  label: 'Stroker',
+                  packages: [
+                    { id: 'ABAN 091', name: 'Pescaria de STV F (stroker)' },
+                  ],
+                },
+                {
+                  label: 'Flexitubo',
+                  packages: [
+                    { id: 'ABAN 137', name: 'Flexitubo - Pescaria de STV F' },
+                  ],
+                },
+              ],
+            },
+            {
+              question: 'Pescaria de cauda — plug F?',
+              answers: [
+                {
+                  label: 'Não',
+                  active: true,
+                },
+                {
+                  label: 'Arame',
+                  packages: [
+                    { id: 'ABAN 051', name: 'Pescaria de plug F (arame)' },
+                  ],
+                },
+                {
+                  label: 'Stroker',
+                  packages: [
+                    { id: 'ABAN 093', name: 'Pescaria de plug F (stroker)' },
+                  ],
+                },
+                {
+                  label: 'Flexitubo',
+                  packages: [
+                    { id: 'ABAN 139', name: 'Flexitubo - Pescaria de plug F' },
+                  ],
+                },
+              ],
+            },
+            {
+              question: 'Pescaria de cauda — BRV F?',
+              answers: [
+                {
+                  label: 'Não',
+                  active: true,
+                },
+                {
+                  label: 'Arame',
+                  packages: [
+                    { id: 'ABAN 053', name: 'Pescaria de BRV F (arame)' },
+                  ],
+                },
+                {
+                  label: 'Stroker',
+                  packages: [
+                    { id: 'ABAN 095', name: 'Pescaria de BRV F (stroker)' },
+                  ],
+                },
+                {
+                  label: 'Flexitubo',
+                  packages: [
+                    { id: 'ABAN 141', name: 'Flexitubo - Pescaria de BRV F' },
+                  ],
+                },
+              ],
+            },
+            {
+              question: 'Pescaria de cauda — STV R?',
+              answers: [
+                {
+                  label: 'Não',
+                  active: true,
+                },
+                {
+                  label: 'Arame',
+                  packages: [
+                    { id: 'ABAN 048', name: 'Pescaria de STV R (arame)' },
+                  ],
+                },
+                {
+                  label: 'Stroker',
+                  packages: [
+                    { id: 'ABAN 090', name: 'Pescaria de STV R (stroker)' },
+                  ],
+                },
+                {
+                  label: 'Flexitubo',
+                  packages: [
+                    { id: 'ABAN 136', name: 'Flexitubo - Pescaria de STV R' },
+                  ],
+                },
+              ],
+            },
+            {
+              question: 'Pescaria de cauda — plug R?',
+              answers: [
+                {
+                  label: 'Não',
+                  active: true,
+                },
+                {
+                  label: 'Arame',
+                  packages: [
+                    { id: 'ABAN 050', name: 'Pescaria de plug R (arame)' },
+                  ],
+                },
+                {
+                  label: 'Stroker',
+                  packages: [
+                    { id: 'ABAN 092', name: 'Pescaria de plug R (stroker)' },
+                  ],
+                },
+                {
+                  label: 'Flexitubo',
+                  packages: [
+                    { id: 'ABAN 138', name: 'Flexitubo - Pescaria de plug R' },
+                  ],
+                },
+              ],
+            },
+            {
+              question: 'Pescaria de cauda — BRV R?',
+              answers: [
+                {
+                  label: 'Não',
+                  active: true,
+                },
+                {
+                  label: 'Arame',
+                  packages: [
+                    { id: 'ABAN 054', name: 'Pescaria de BRV R (arame)' },
+                  ],
+                },
+                {
+                  label: 'Stroker',
+                  packages: [
+                    { id: 'ABAN 096', name: 'Pescaria de BRV R (stroker)' },
+                  ],
+                },
+                {
+                  label: 'Flexitubo',
+                  packages: [
+                    { id: 'ABAN 142', name: 'Flexitubo - Pescaria de BRV R' },
+                  ],
+                },
+              ],
+            },
+            {
+              question: 'Pescaria de cauda — camisão?',
+              answers: [
+                {
+                  label: 'Não',
+                  active: true,
+                },
+                {
+                  label: 'Arame',
+                  packages: [
+                    { id: 'ABAN 055', name: 'Pescaria de camisão (arame)' },
+                  ],
+                },
+                {
+                  label: 'Stroker',
+                  packages: [
+                    { id: 'ABAN 097', name: 'Pescaria de camisão (stroker)' },
+                  ],
+                },
+                {
+                  label: 'Flexitubo',
+                  packages: [
+                    { id: 'ABAN 134', name: 'Flexitubo - Pescaria de camisão' },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    },
+    {
       question: 'Teste de coluna com STDV?',
       answers: [
-        { label: 'Não', active: true },
-        { label: 'Sim — manter instalada', packages: [
-          { id: 'ABAN 038', name: 'STV em nipple R 2,75"' },
-        ]},
-        { label: 'Sim — retirar após teste', packages: [
-          { id: 'ABAN 038', name: 'STV em nipple R 2,75"' },
-          { id: 'ABAN 048', name: 'Pescaria de STV R (arame)' },
-        ]},
+        {
+          label: 'Não',
+          active: true,
+        },
+        {
+          label: 'Sim — manter instalada',
+          packages: [
+            { id: 'ABAN 038', name: 'STV em nipple R 2,75"' },
+          ],
+        },
+        {
+          label: 'Sim — retirar após teste',
+          packages: [
+            { id: 'ABAN 038', name: 'STV em nipple R 2,75"' },
+            { id: 'ABAN 048', name: 'Pescaria de STV R (arame)' },
+          ],
+        },
       ],
     },
     {
-      // Espelha VGL_INJECT: STV opcional → retirada do camisão → pescaria → [nova VGL]
-      // → reinstalação do camisão → retirada do STV.
       question: 'Operação de VGL?',
       answers: [
-        { label: 'Não', active: true },
-        { label: 'Retirar', field: 'vglAction', value: 'remove', sub: _vglSubDecs(false) },
-        { label: 'Substituir', field: 'vglAction', value: 'replace', sub: _vglSubDecs(true) },
+        {
+          label: 'Não',
+          active: true,
+        },
+        {
+          label: 'Retirar',
+          field: 'vglAction',
+          value: 'remove',
+          sub: [
+            {
+              question: 'Descer STV para a operação de VGL?',
+              answers: [
+                {
+                  label: 'Não',
+                  active: true,
+                },
+                {
+                  label: 'Sim',
+                  packages: [
+                    { id: 'ABAN 038', name: 'STV em nipple R 2,75"' },
+                  ],
+                },
+              ],
+            },
+            {
+              question: 'Retirar camisão para a VGL?',
+              answers: [
+                {
+                  label: 'Não',
+                  active: true,
+                },
+                {
+                  label: 'Arame',
+                  packages: [
+                    { id: 'ABAN 055', name: 'Pescaria de camisão (arame)' },
+                  ],
+                },
+                {
+                  label: 'Flexitubo',
+                  packages: [
+                    { id: 'ABAN 134', name: 'Flexitubo - Pescaria de camisão' },
+                  ],
+                },
+              ],
+            },
+            {
+              question: 'Método de pescaria da VGL?',
+              answers: [
+                {
+                  label: 'Arame',
+                  active: true,
+                  field: 'vglFishingMethod',
+                  value: 'wireline',
+                  packages: [
+                    { id: 'ABAN 056', name: 'Pescaria de VGL (arame)' },
+                  ],
+                },
+                {
+                  label: 'Stroker',
+                  field: 'vglFishingMethod',
+                  value: 'stroker',
+                  packages: [
+                    { id: 'ABAN 114', name: 'Pescaria de VGL (stroker)' },
+                  ],
+                },
+              ],
+            },
+            {
+              question: 'Reinstalar camisão pós-VGL?',
+              answers: [
+                {
+                  label: 'Não',
+                  active: true,
+                },
+                {
+                  label: 'Arame',
+                  packages: [
+                    { id: 'ABAN 037', name: 'Instalação de camisão na DHSV (arame)' },
+                  ],
+                },
+                {
+                  label: 'Flexitubo',
+                  packages: [
+                    { id: 'ABAN 126', name: 'Flexitubo - Instalação de camisão na DHSV' },
+                  ],
+                },
+              ],
+            },
+            {
+              question: 'Retirar STV pós-VGL?',
+              answers: [
+                {
+                  label: 'Não',
+                  active: true,
+                },
+                {
+                  label: 'Sim',
+                  packages: [
+                    { id: 'ABAN 048', name: 'Pescaria de STV R (arame)' },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+        {
+          label: 'Substituir',
+          field: 'vglAction',
+          value: 'replace',
+          sub: [
+            {
+              question: 'Descer STV para a operação de VGL?',
+              answers: [
+                {
+                  label: 'Não',
+                  active: true,
+                },
+                {
+                  label: 'Sim',
+                  packages: [
+                    { id: 'ABAN 038', name: 'STV em nipple R 2,75"' },
+                  ],
+                },
+              ],
+            },
+            {
+              question: 'Retirar camisão para a VGL?',
+              answers: [
+                {
+                  label: 'Não',
+                  active: true,
+                },
+                {
+                  label: 'Arame',
+                  packages: [
+                    { id: 'ABAN 055', name: 'Pescaria de camisão (arame)' },
+                  ],
+                },
+                {
+                  label: 'Flexitubo',
+                  packages: [
+                    { id: 'ABAN 134', name: 'Flexitubo - Pescaria de camisão' },
+                  ],
+                },
+              ],
+            },
+            {
+              question: 'Método de pescaria da VGL?',
+              answers: [
+                {
+                  label: 'Arame',
+                  active: true,
+                  field: 'vglFishingMethod',
+                  value: 'wireline',
+                  packages: [
+                    { id: 'ABAN 056', name: 'Pescaria de VGL (arame)' },
+                  ],
+                },
+                {
+                  label: 'Stroker',
+                  field: 'vglFishingMethod',
+                  value: 'stroker',
+                  packages: [
+                    { id: 'ABAN 114', name: 'Pescaria de VGL (stroker)' },
+                  ],
+                },
+              ],
+              after: [
+                {
+                  label: '',
+                  packages: [
+                    { id: 'ABAN 057', name: 'Instalação de nova VGL' },
+                  ],
+                },
+              ],
+            },
+            {
+              question: 'Reinstalar camisão pós-VGL?',
+              answers: [
+                {
+                  label: 'Não',
+                  active: true,
+                },
+                {
+                  label: 'Arame',
+                  packages: [
+                    { id: 'ABAN 037', name: 'Instalação de camisão na DHSV (arame)' },
+                  ],
+                },
+                {
+                  label: 'Flexitubo',
+                  packages: [
+                    { id: 'ABAN 126', name: 'Flexitubo - Instalação de camisão na DHSV' },
+                  ],
+                },
+              ],
+            },
+            {
+              question: 'Retirar STV pós-VGL?',
+              answers: [
+                {
+                  label: 'Não',
+                  active: true,
+                },
+                {
+                  label: 'Sim',
+                  packages: [
+                    { id: 'ABAN 048', name: 'Pescaria de STV R (arame)' },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
       ],
     },
   ],
 }
+
 
 const SEC_LIMP: LSec = {
   id: 'limp', label: 'LIMPEZA / CONFIRMAÇÃO', phase: 'Fase 1A', color: 'blue',
@@ -1571,10 +2218,10 @@ const _fs2CutBranch = (conting: boolean): Pick<LAns, 'packages' | 'sub'> => ({
         ]},
         { label: 'Flexitubo', field: 'fs2CopCutMethod', value: 'ct', packages: [
           _fs2CutPkg('ABAN 121', 'Flexitubo - Montagem e teste da unidade sobre Terminal Head - Bore de produção', conting, { condition: 'rig_anc' }),
-          _fs2CutPkg('ABAN 119', 'Flexitubo - Montagem e teste da unidade sobre SFT', conting, { condition: 'rig_dp' }),
+          _fs2CutPkg('ABAN 119', 'Flexitubo - Montagem e teste da unidade sobre SFT', conting, { condition: 'rig_dp_gen' }),
           _fs2CutPkg('ABAN 150', 'Flexitubo - Corte de coluna', conting),
-          _fs2CutPkg('ABAN 148', 'Flexitubo - Desmobilização (sonda LWO)', conting, { condition: 'op_lwo' }),
-          _fs2CutPkg('ABAN 161', 'Flexitubo - Desmobilização (sonda generalista)', conting, { condition: 'op_generalista' }),
+          _fs2CutPkg('ABAN 148', 'Flexitubo - Desmobilização (sonda LWO)', conting, { condition: 'rig_lwo' }),
+          _fs2CutPkg('ABAN 161', 'Flexitubo - Desmobilização (sonda generalista)', conting, { condition: 'rig_dp_gen' }),
         ]},
         { label: 'Slip shot', field: 'fs2CopCutMethod', value: 'slip_shot', packages: [
           _fs2CutPkg('ABAN 115', 'Perfilagem/Cabo elétrico - Split shot', conting),
@@ -1775,10 +2422,9 @@ const SEC_ACESSO_AMORTEC_REF: LSec = {
   decisions: [], ref: { scopeId: BLK_ACESSO_AMORTEC_ID, label: 'ACESSO INICIAL E AMORTECIMENTO' },
 }
 
-// MOB por condicionais de sonda incluída via bloco `ref` — editar BLK_MOB_DESCIDA_DP_COND
-// propaga para todos os escopos de Fase Única/FS1.
+// MOB v2 (conjunto no fundo / modo ANM) — editar BLK_MOB_DESCIDA_DP_COND_V2 propaga para todos.
 // Acesso inicial e amortecimento via bloco `ref` — editar BLK_ACESSO_AMORTEC propaga para todos.
-const F1_PREFIX: LSec[] = [SEC_MOB_REF, SEC_ACESSO_AMORTEC_REF]
+const F1_PREFIX: LSec[] = [SEC_MOB_REF_V2, SEC_ACESSO_AMORTEC_REF]
 const F1_SUFFIX: LSec[] = [SEC_FLOWLINES, SEC_TMF]
 
 // ── BLOCOS REUTILIZÁVEIS (BLK_) — subsequências fatoradas via `ref` vivo ─────
@@ -1888,6 +2534,10 @@ export const LOGIC_BY_SCOPE: Record<string, LSec[]> = {
   // Bloco de MOB por condicionais de sonda (rig_dp/rig_anc), incluído via `ref` no início
   // dos escopos de Fase Única/FS1. Não é escopo selecionável no gerador (BLK_).
   [BLK_MOB_DESCIDA_DP_COND_ID]: [SEC_MOB_DESCIDA_DP_COND],
+  // V2: bloco com "Conjunto de WO no fundo?" e modo ANM — usado pelos escopos ativos.
+  [BLK_MOB_DESCIDA_DP_COND_V2_ID]: [SEC_MOB_DESCIDA_DP_COND],
+  // Reentrada modo ANM (premissa: conjunto navega no fundo — sem preparação/descida do WO).
+  [BLK_MOB_REENTRADA_ANM_ID]: [SEC_MOB_REENTRADA_ANM],
   // Blocos fatorados de subsequências repetidas (ver definições acima).
   [BLK_ACESSO_AMORTEC_ID]: [SEC_CONEXAO, SEC_GAB],
   [BLK_CORTE_MEC_FS1_ID]: [SEC_FS1_CANHONEIO, SEC_FS1_CSB1, SEC_LIMP, SEC_FS1_CORTE_CSB2],
