@@ -395,15 +395,15 @@ function PackageList({ items, showHours, onDurationChange }: {
     }
   }
   return (
-    <div ref={containerRef} className="overflow-auto flex-1 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-900 scrollbar-custom">
-      <table className="w-full min-w-[660px] text-sm border-collapse">
+    <div ref={containerRef} className="overflow-auto flex-1 min-w-0 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-900 scrollbar-custom">
+      <table className="table-fixed w-full min-w-[1040px] text-sm border-collapse">
         <thead>
           <tr className="border-b-2 border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800">
             <th className="text-left py-2.5 px-3 text-xs font-bold text-slate-600 dark:text-slate-500 uppercase tracking-wider w-10">#</th>
             <th className="text-left py-2.5 px-3 text-xs font-bold text-slate-600 dark:text-slate-500 uppercase tracking-wider w-24">Pacote</th>
             <th className="py-2.5 px-2 text-xs font-bold text-slate-600 dark:text-slate-500 uppercase tracking-wider w-12">Tech</th>
             <th className="py-2.5 px-2 text-xs font-bold text-slate-600 dark:text-slate-500 uppercase tracking-wider w-14">Tipo</th>
-            <th className="text-left py-2.5 px-3 text-xs font-bold text-slate-600 dark:text-slate-500 uppercase tracking-wider">Descrição</th>
+            <th className="text-left py-2.5 px-3 text-xs font-bold text-slate-600 dark:text-slate-500 uppercase tracking-wider w-[560px]">Descrição</th>
             <th className="text-right py-2.5 px-3 text-xs font-bold text-blue-400 dark:text-blue-500 uppercase tracking-wider w-20">Firme (<span className="normal-case">{unit}</span>)</th>
             <th className="text-right py-2.5 px-3 text-xs font-bold text-[#7d1935] dark:text-rose-400 uppercase tracking-wider w-20">Cont. (<span className="normal-case">{unit}</span>)</th>
             <th className="text-right py-2.5 px-3 text-xs font-bold text-slate-600 dark:text-slate-500 uppercase tracking-wider w-20">Total (<span className="normal-case">{unit}</span>)</th>

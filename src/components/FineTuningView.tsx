@@ -1613,23 +1613,10 @@ function ClassicSchedulePanel({
   const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set())
   const [showPkgCol, setShowPkgCol] = useState(false)
   const [columnWidths, setColumnWidths] = useState<Record<ScheduleColumn, number>>({
-    number: 52, package: 88, type: 42, description: 480,
+    number: 52, package: 88, type: 42, description: 640,
     firm: 84, contingency: 84, total: 92,
   })
-  const [tableViewportWidth, setTableViewportWidth] = useState(0)
   const resizeRef = useRef<{ column: ScheduleColumn; startX: number; startWidth: number } | null>(null)
-
-  // O cabeçalho e o corpo usam a mesma largura efetiva (a área útil do scroll,
-  // já descontada a barra vertical), eliminando o descasamento entre as tabelas.
-  useLayoutEffect(() => {
-    const el = scrollRef.current
-    if (!el) return
-    const updateWidth = () => setTableViewportWidth(el.clientWidth)
-    updateWidth()
-    const observer = new ResizeObserver(updateWidth)
-    observer.observe(el)
-    return () => observer.disconnect()
-  }, [])
 
   useEffect(() => {
     const handleMove = (event: MouseEvent) => {
@@ -1663,8 +1650,11 @@ function ClassicSchedulePanel({
     + (showPkgCol ? visibleColumnWidths.package : 0)
     + visibleColumnWidths.type + visibleColumnWidths.description
     + visibleColumnWidths.firm + visibleColumnWidths.contingency + visibleColumnWidths.total
-  const tableWidth = Math.max(tableViewportWidth, tableContentWidth)
-  const tableStyle = { tableLayout: 'fixed' as const, width: tableWidth ? `${tableWidth}px` : '100%' }
+  // Largura fixa pelo conteúdo (soma das colunas), independente da janela: o
+  // cronograma não é mais esticado para preencher a viewport, então a barra de
+  // rolagem horizontal aparece sempre que o painel for mais estreito que a
+  // tabela e rola até o fim revelando todas as colunas.
+  const tableStyle = { tableLayout: 'fixed' as const, minWidth: `${tableContentWidth}px`, width: '100%' }
   const resizeBar = (column: ScheduleColumn) => (
     <span
       role="separator"
@@ -2177,7 +2167,7 @@ function ClassicSchedulePanel({
             <col style={{ width: visibleColumnWidths.number }} />
             <col className={showPkgCol ? '' : 'hidden'} style={{ width: visibleColumnWidths.package }} />
             <col style={{ width: visibleColumnWidths.type }} />
-            <col style={{ width: visibleColumnWidths.description }} />
+            <col />
             <col style={{ width: visibleColumnWidths.firm }} />
             <col style={{ width: visibleColumnWidths.contingency }} />
             <col style={{ width: visibleColumnWidths.total }} />
@@ -2246,7 +2236,7 @@ function ClassicSchedulePanel({
             <col style={{ width: visibleColumnWidths.number }} />
             <col className={showPkgCol ? '' : 'hidden'} style={{ width: visibleColumnWidths.package }} />
             <col style={{ width: visibleColumnWidths.type }} />
-            <col style={{ width: visibleColumnWidths.description }} />
+            <col />
             <col style={{ width: visibleColumnWidths.firm }} />
             <col style={{ width: visibleColumnWidths.contingency }} />
             <col style={{ width: visibleColumnWidths.total }} />

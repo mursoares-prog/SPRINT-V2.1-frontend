@@ -375,7 +375,7 @@ function Main({ onLogout }: { onLogout: () => void }) {
   }, [isDark])
 
   return (
-    <div className="flex flex-col h-[100dvh] overflow-hidden bg-[#e4e9e3] dark:bg-slate-950">
+    <div className="flex flex-col h-[100dvh] overflow-y-hidden overflow-x-auto bg-[#e4e9e3] dark:bg-slate-950">
 
       {/* Content row */}
       <div className="flex flex-1 min-h-0 overflow-hidden">
@@ -392,12 +392,12 @@ function Main({ onLogout }: { onLogout: () => void }) {
         {showPackages && <PackagesCatalogModal onClose={() => setShowPackages(false)} />}
 
         {state.view === 'schedule' && (
-          <div className="flex">
+          <div className="flex shrink-0">
             <InputSummaryPanel />
           </div>
         )}
 
-        <main className={`flex-1 overflow-hidden flex flex-col bg-[#e4e9e3] dark:bg-slate-950${state.view !== 'fine_tuning' ? ' p-4 md:p-8' : ''}`}>
+        <main className={`grow min-w-0 overflow-hidden flex flex-col bg-[#e4e9e3] dark:bg-slate-950${state.view !== 'fine_tuning' ? ' p-4 md:p-8' : ''}`}>
           {(state.view === 'home' || state.view === 'wizard') && (
             <div className="flex-1 overflow-y-auto scrollbar-custom"><Home /></div>
           )}
