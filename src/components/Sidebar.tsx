@@ -73,12 +73,12 @@ export function Sidebar({ isDark, onToggleDark, onOpenConfig, onOpenPackages, on
 
   return (
     <aside className="w-16 flex flex-col items-center py-5 h-full shrink-0"
-      style={{ background: '#0c2340' }}>
+      style={{ background: '#008542' }}>
 
       {/* Logo */}
       <div className="w-9 h-9 rounded-lg flex items-center justify-center mb-5"
-        style={{ background: '#d97706' }}>
-        <SemisubIcon size={18} className="text-white" />
+        style={{ background: '#ffffff' }}>
+        <SemisubIcon size={18} style={{ color: '#008542' }} />
       </div>
 
       {/* Vertical step indicators */}
@@ -96,16 +96,15 @@ export function Sidebar({ isDark, onToggleDark, onOpenConfig, onOpenPackages, on
                 className="w-7 h-7 rounded-full flex items-center justify-center transition-all"
                 style={{
                   background:
-                    status === 'done'   ? '#1a3a5c' :
-                    status === 'active' ? '#d97706' : 'transparent',
-                  border: status === 'next' ? '1.5px solid #374151' : 'none',
+                    status === 'done'   ? '#ffffff' :
+                    status === 'active' ? '#ffffff' : 'transparent',
+                  border: status === 'active' ? '1.5px solid #008542' : status === 'next' ? '1.5px solid #374151' : 'none',
                   cursor: clickable ? 'pointer' : 'default',
                 }}>
                 {status === 'done'
-                  ? <Check size={12} strokeWidth={3} className="text-sky-400" />
-                  : <span className={`text-[11px] font-bold select-none ${
-                      status === 'active' ? 'text-white' : 'text-slate-700'
-                    }`}>{num}</span>
+                  ? <Check size={12} strokeWidth={3} style={{ color: '#008542' }} />
+                  : <span className={`text-[11px] font-bold select-none`}
+                      style={{ color: status === 'active' ? '#008542' : '#9ca3af' }}>{num}</span>
                 }
               </button>
 
@@ -125,36 +124,36 @@ export function Sidebar({ isDark, onToggleDark, onOpenConfig, onOpenPackages, on
           onClick={() => onOpenPackages?.()}
           title="Lista de pacotes"
           className="w-10 h-10 rounded-xl flex items-center justify-center transition-colors"
-          style={{ color: '#64748b' }}
-          onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = '#94a3b8' }}
-          onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = '#64748b' }}>
+          style={{ color: '#ffffff' }}
+          onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = 'rgba(255, 255, 255, 0.7)' }}
+          onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = '#ffffff' }}>
           <LegoIcon size={19} />
         </button>
         <button
             onClick={() => onOpenLogicEditor?.()}
             title="Árvores de Decisão"
             className="w-10 h-10 rounded-xl flex items-center justify-center transition-colors"
-            style={{ color: '#64748b' }}
-            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = '#94a3b8' }}
-            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = '#64748b' }}>
+            style={{ color: '#ffffff' }}
+            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = 'rgba(255, 255, 255, 0.7)' }}
+            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = '#ffffff' }}>
             <Network size={19} />
           </button>
         <button
           onClick={() => onOpenConfig?.()}
           title="Configurações"
           className="w-10 h-10 rounded-xl flex items-center justify-center transition-colors"
-          style={{ color: '#64748b' }}
-          onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = '#94a3b8' }}
-          onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = '#64748b' }}>
+          style={{ color: '#ffffff' }}
+          onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = 'rgba(255, 255, 255, 0.7)' }}
+          onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = '#ffffff' }}>
           <Settings size={19} />
         </button>
         <button
           onClick={onToggleDark}
           title={isDark ? 'Tema claro' : 'Tema escuro'}
           className="w-10 h-10 rounded-xl flex items-center justify-center transition-colors"
-          style={{ color: '#64748b' }}
-          onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = '#94a3b8' }}
-          onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = '#64748b' }}>
+          style={{ color: '#ffffff' }}
+          onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = 'rgba(255, 255, 255, 0.7)' }}
+          onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = '#ffffff' }}>
           {isDark ? <Sun size={19} /> : <Moon size={19} />}
         </button>
         {onLogout && (
@@ -162,9 +161,9 @@ export function Sidebar({ isDark, onToggleDark, onOpenConfig, onOpenPackages, on
             onClick={onLogout}
             title="Sair"
             className="w-10 h-10 rounded-xl flex items-center justify-center transition-colors"
-            style={{ color: '#64748b' }}
+            style={{ color: '#ffffff' }}
             onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = '#f87171' }}
-            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = '#64748b' }}>
+            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = '#ffffff' }}>
             <LogOut size={19} />
           </button>
         )}

@@ -92,7 +92,7 @@ export function ScheduleView() {
             <button
               onClick={() => dispatch({ type: 'ENTER_FINE_TUNING' })}
               className="flex items-center gap-1.5 h-8 px-4 rounded-lg text-sm font-semibold text-white transition-opacity hover:opacity-90"
-              style={{ background: '#d97706' }}>
+              style={{ background: '#008542' }}>
               <Sliders size={14} /><span className="hidden lg:inline">Ir para Detalhamento do cronograma</span><span className="lg:hidden">Detalhamento</span>
             </button>
           </div>

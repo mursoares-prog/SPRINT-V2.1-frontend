@@ -3109,7 +3109,7 @@ export function FineTuningView() {
               <button
                 onClick={handleExportJson}
                 className="flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-semibold text-white transition-opacity hover:opacity-90"
-                style={{ background: '#d97706' }}>
+                style={{ background: '#008542' }}>
                 <Download size={14} /> Exportar JSON
               </button>
             </div>

@@ -116,19 +116,13 @@ function Home() {
       <div className="flex flex-col items-center justify-center min-h-full gap-8 py-10 px-4 sm:gap-10 sm:py-16 sm:px-0">
         <div className="text-center">
           <div className="flex flex-col items-center gap-3 mb-5">
-            <div className="w-14 h-14 rounded-2xl bg-[#0c2340] flex items-center justify-center shadow-lg">
-              <SemisubIcon size={28} className="text-[#d97706]" />
-            </div>
             <h1 style={{ fontFamily: "'Barlow Condensed', sans-serif" }}
               className="text-5xl font-bold tracking-[0.15em] text-[#0c2340] dark:text-white uppercase">
               SPRINT
             </h1>
           </div>
-          <p className="text-xs font-semibold tracking-[0.2em] text-[#d97706] uppercase mb-3">
+          <p className="text-xs font-semibold tracking-[0.2em] text-[#008542] uppercase mb-3">
             Sistema de Planejamento Responsivo de Intervenções
-          </p>
-          <p className="text-slate-700 dark:text-slate-400 max-w-sm mx-auto text-sm leading-relaxed text-center">
-            Geração automatizada de cronogramas para intervenções de abandono e workover de poços submarinos
           </p>
         </div>
 
@@ -158,7 +152,7 @@ function Home() {
             { icon: <SemisubIcon size={18} />, title: 'Tipos de sonda', value: '7' },
           ].map(card => (
             <div key={card.title} className="bg-slate-100 dark:bg-slate-800 rounded-xl p-4 border border-slate-200 dark:border-slate-700 shadow-sm text-center">
-              <div className="text-[#d97706] flex justify-center mb-2">{card.icon}</div>
+              <div className="text-[#008542] flex justify-center mb-2">{card.icon}</div>
               <p className="text-lg font-bold text-[#0c2340] dark:text-white">{card.value}</p>
               <p className="text-xs font-bold text-[#0c2340] dark:text-white mt-0.5">{card.title}</p>
             </div>
@@ -182,7 +176,7 @@ function Home() {
         {/* Header */}
         <div className="flex items-center gap-3 mb-8">
           <div className="w-8 h-8 rounded-lg bg-[#0c2340] flex items-center justify-center">
-            <SemisubIcon size={14} className="text-[#d97706]" />
+            <SemisubIcon size={14} style={{ color: '#ffffff' }} />
           </div>
           <div>
             <h2 style={{ fontFamily: "'Barlow Condensed', sans-serif" }}
