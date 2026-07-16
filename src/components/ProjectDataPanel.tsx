@@ -57,8 +57,8 @@ function Field({ label, value, onChange, placeholder, unit, readOnly, locate }: 
   const active = showLocate && locateEq(ctx!.active, locate!)
   const highlighted = !!(filter && normalizeFilter(label).includes(normalizeFilter(filter)))
   return (
-    <div className={`flex items-center justify-between gap-2 py-1 border-b border-slate-100 dark:border-slate-800 last:border-0 rounded ${highlighted ? 'bg-yellow-50 dark:bg-yellow-900/20' : ''}`}>
-      <span className={`text-xs shrink-0 leading-snug flex items-center gap-1 min-w-0 ${highlighted ? 'text-yellow-800 dark:text-yellow-300 font-semibold' : 'text-slate-600 dark:text-slate-500'}`}>
+    <div className={`flex items-center justify-between gap-2 py-1 border-b border-slate-100 dark:border-slate-800 last:border-0 rounded ${highlighted ? 'bg-sky-50 dark:bg-sky-900/30' : ''}`}>
+      <span className={`text-xs shrink-0 leading-snug flex items-center gap-1 min-w-0 ${highlighted ? 'text-sky-800 dark:text-sky-300 font-semibold' : 'text-slate-600 dark:text-slate-500'}`}>
         {showLocate && (
           <button type="button"
             onClick={() => ctx!.onLocate!(locate!)}
@@ -97,7 +97,7 @@ function LocateRow({ children, target }: { children: React.ReactNode; target?: L
   const text = typeof children === 'string' ? children : ''
   const highlighted = !!(filter && text && normalizeFilter(text).includes(normalizeFilter(filter)))
   return (
-    <div className={`text-xs py-0.5 flex items-center gap-1 rounded ${highlighted ? 'bg-yellow-50 dark:bg-yellow-900/20 text-yellow-800 dark:text-yellow-300 font-semibold' : 'text-slate-700 dark:text-slate-300'}`}>
+    <div className={`text-xs py-0.5 flex items-center gap-1 rounded ${highlighted ? 'bg-sky-50 dark:bg-sky-900/30 text-sky-800 dark:text-sky-300 font-semibold' : 'text-slate-700 dark:text-slate-300'}`}>
       {showLocate && (
         <button type="button"
           onClick={() => ctx!.onLocate!(target!)}
