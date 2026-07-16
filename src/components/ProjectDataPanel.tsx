@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useLayoutEffect, createContext, useContext } from 'react'
+import React, { useState, useEffect, useRef, useLayoutEffect, createContext, useContext } from 'react'
 import { createPortal } from 'react-dom'
 import { Plus, X, Crosshair, PanelLeftClose, ChevronDown, Search } from 'lucide-react'
 import { useApp, lineIdsForLocate, SLWLFT_HIGH_PKG_IDS, type LocateTarget } from '../context/AppContext'
@@ -10,6 +10,19 @@ import { bhaDerivedDepth, camisaoDhsvFields, gabaritoFields } from '../engines/n
 const SectionFilterCtx = createContext('')
 const normalizeFilter = (s: string) =>
   s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
+
+// Extrai recursivamente todos os labels de Field (e texto de filhos React)
+function extractFieldLabels(node: React.ReactNode): string {
+  let text = ''
+  React.Children.forEach(node, child => {
+    if (child === null || child === undefined || typeof child === 'boolean') return
+    if (!React.isValidElement(child)) return
+    const props = child.props as Record<string, unknown>
+    if (typeof props.label === 'string') text += ' ' + props.label
+    if (props.children != null) text += ' ' + extractFieldLabels(props.children as React.ReactNode)
+  })
+  return text
+}
 
 // ── Localizar campo → realça linhas relacionadas no cronograma ────────────────
 const LocateCtx = createContext<{
@@ -374,7 +387,8 @@ function Section({ title, searchText, children, defaultOpen = false, isDirty = f
   const filter = useContext(SectionFilterCtx)
   const [collapsed, setCollapsed] = useState(!defaultOpen)
 
-  const matches = !filter || normalizeFilter(title + ' ' + (searchText ?? '')).includes(normalizeFilter(filter))
+  const childLabels = filter ? extractFieldLabels(children) : ''
+  const matches = !filter || normalizeFilter(title + ' ' + (searchText ?? '') + childLabels).includes(normalizeFilter(filter))
   if (!matches) return null
 
   // When searching, force expanded so fields are visible for highlighting
