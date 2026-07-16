@@ -17,6 +17,7 @@ import {
   owFases, owAtividades, owOperacoes, owEtapas,
   isOntologyMismatch, expectedOwFase, countMismatches,
 } from '../utils/ontologyReview'
+import { BiDetail } from 'react-icons/bi'
 // ── Constants ─────────────────────────────────────────────────────────────────
 // Corretor de ontologia (correção automática via "Revisar ontologia" → FT_REVIEW_ONTOLOGY)
 // desativado temporariamente. O alerta de erro na fase (realce âmbar do campo OW Fase em
@@ -36,20 +37,15 @@ const TECH_COLORS: Record<string, string> = {
 
 type ScheduleColumn = 'number' | 'package' | 'type' | 'description' | 'firm' | 'contingency' | 'total'
 
-const MIN_COLUMN_WIDTH: Record<ScheduleColumn, number> = {
-  number: 44, package: 64, type: 36, description: 220,
-  firm: 72, contingency: 72, total: 80,
-}
-
 // ── Phase colors — full palette, mirrors step 2 ───────────────────────────────
 const PHASE_COLORS: Record<string, { bg: string; text: string; bar: string }> = {
-  'Mobilização':    { bg: 'bg-slate-100 dark:bg-slate-800',   text: 'text-slate-600 dark:text-slate-300',   bar: 'bg-slate-400'  },
-  'Fase 0':         { bg: 'bg-slate-50 dark:bg-slate-950',    text: 'text-slate-700 dark:text-slate-400',   bar: 'bg-slate-600'  },
+  'Mobilização':    { bg: 'bg-[#f5f5f5] dark:bg-slate-800',   text: 'text-slate-600 dark:text-slate-300',   bar: 'bg-slate-400'  },
+  'Fase 0':         { bg: 'bg-[#fafafa] dark:bg-slate-950',    text: 'text-slate-700 dark:text-slate-400',   bar: 'bg-slate-600'  },
   'Fase 1A':        { bg: 'bg-sky-50 dark:bg-sky-950',        text: 'text-sky-800 dark:text-sky-400',       bar: 'bg-sky-600'    },
   'Fase 1B':        { bg: 'bg-cyan-50 dark:bg-cyan-950',      text: 'text-cyan-800 dark:text-cyan-400',     bar: 'bg-cyan-500'   },
   'Fase 2':         { bg: 'bg-teal-50 dark:bg-teal-950',      text: 'text-teal-800 dark:text-teal-400',     bar: 'bg-teal-500'   },
   'Extra Abandono': { bg: 'bg-violet-50 dark:bg-violet-950',  text: 'text-violet-800 dark:text-violet-400', bar: 'bg-violet-500' },
-  'Desmobilização': { bg: 'bg-slate-100 dark:bg-slate-800',   text: 'text-slate-600 dark:text-slate-300',   bar: 'bg-slate-400'  },
+  'Desmobilização': { bg: 'bg-[#f5f5f5] dark:bg-slate-800',   text: 'text-slate-600 dark:text-slate-300',   bar: 'bg-slate-400'  },
 }
 
 // ── Clone helpers ─────────────────────────────────────────────────────────────
@@ -122,7 +118,7 @@ function InlineEdit({
         if (e.key === 'Enter') { commit(); onEnterCommit?.() }
         if (e.key === 'Escape') setEditing(false)
       }}
-      className={`outline-none border border-blue-400 rounded px-1 bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-100 ${inputClassName}`}
+      className={`outline-none border border-blue-400 rounded px-1 bg-[#f5f5f5] dark:bg-slate-800 text-slate-800 dark:text-slate-100 ${inputClassName}`}
     />
   )
 }
@@ -142,6 +138,12 @@ function lineIsCont(line: FineTuningLine, pkgIsCont: boolean): boolean {
   return pkgIsCont || !!line.isContingency
 }
 
+// Retorna true quando todas as linhas não-nav do pacote estão marcadas como paralelas.
+function allLinesParallel(item: FineTuningItem): boolean {
+  const opLines = item.lines.filter(l => !l.isNavLine)
+  return opLines.length > 0 && opLines.every(l => l.isParallel)
+}
+
 function pkgFirme(item: FineTuningItem): number {
   if (item.isBlank) return 0
   if (item.isContingency) return 0
@@ -149,7 +151,9 @@ function pkgFirme(item: FineTuningItem): number {
   if (NAV_PACKAGE_IDS.has(item.packageId)) return 0
   if (item.lines.length === 0) return item.duration
   const hasTime = item.lines.some(l => (l.duration ?? 0) > 0)
-  if (!hasTime) return item.duration
+  // Quando nenhuma linha tem duração individual: se todas as linhas forem paralelas,
+  // o pacote não contribui com tempo firme.
+  if (!hasTime) return allLinesParallel(item) ? 0 : item.duration
   return item.lines.filter(l => !lineIsCont(l, false) && !l.isParallel).reduce((s, l) => s + (l.duration ?? 0), 0)
 }
 function pkgCont(item: FineTuningItem): number {
@@ -157,12 +161,18 @@ function pkgCont(item: FineTuningItem): number {
   if (item.isParallel) return 0
   if (item.lines.length === 0) return item.isContingency ? item.duration : 0
   const hasTime = item.lines.some(l => (l.duration ?? 0) > 0)
-  if (!hasTime) return item.isContingency ? item.duration : 0
+  if (!hasTime) return (!allLinesParallel(item) && item.isContingency) ? item.duration : 0
   if (item.isContingency) return item.lines.filter(l => !l.isParallel).reduce((s, l) => s + (l.duration ?? 0), 0)
   return item.lines.filter(l => l.isContingency && !l.isParallel).reduce((s, l) => s + (l.duration ?? 0), 0)
 }
 
 const CONTING_TEXT = 'text-[#7d1935] dark:text-rose-400'
+
+function hasIncompleteOntology(line: FineTuningLine, phase: Phase): boolean {
+  if (line.isNavLine) return false
+  if (!expectedOwFase(phase)) return false
+  return !line.owFase || !line.owAtividade || !line.owOperacao || !line.owEtapa
+}
 
 // ── Row highlight colors ───────────────────────────────────────────────────────
 // Tema claro: o realce pinta o FUNDO da linha (bg). Tema escuro: pinta o TEXTO
@@ -239,7 +249,7 @@ function DetailField({ label, value, onChange, rows = 3, resetKey = 0, grow = fa
         onChange={e => setDraft(e.target.value)}
         onBlur={() => { if (draft !== value) onChange(draft) }}
         rows={grow ? undefined : rows}
-        className={`text-xs text-slate-700 dark:text-slate-200 bg-slate-50 dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 px-2 py-1.5 resize-none focus:outline-none focus:ring-1 focus:ring-blue-400 placeholder:text-slate-500 dark:placeholder:text-slate-600 ${grow ? 'flex-1 min-h-0' : ''}`}
+        className={`text-xs text-slate-700 dark:text-slate-200 bg-[#fafafa] dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 px-2 py-1.5 resize-none focus:outline-none focus:ring-1 focus:ring-blue-400 placeholder:text-slate-500 dark:placeholder:text-slate-600 ${grow ? 'flex-1 min-h-0' : ''}`}
         placeholder="..."
       />
     </div>
@@ -321,7 +331,7 @@ function RichTextField({ label, value, onChange, resetKey = 0 }: {
       <label className="text-[10px] font-bold text-slate-600 dark:text-slate-500 uppercase tracking-widest shrink-0">{label}</label>
       <div className="flex flex-col flex-1 min-h-0 rounded-lg border border-slate-200 dark:border-slate-700 overflow-hidden focus-within:ring-1 focus-within:ring-blue-400">
         {/* Toolbar */}
-        <div className="flex items-center flex-wrap gap-1 px-1.5 py-1 bg-slate-100 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 shrink-0">
+        <div className="flex items-center flex-wrap gap-1 px-1.5 py-1 bg-[#f5f5f5] dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 shrink-0">
           <button type="button" title="Negrito (Ctrl+B)"
             onMouseDown={e => { e.preventDefault(); exec('bold') }}
             className="w-6 h-6 flex items-center justify-center rounded text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors">
@@ -379,7 +389,7 @@ function RichTextField({ label, value, onChange, resetKey = 0 }: {
           suppressContentEditableWarning
           onPaste={handlePaste}
           onBlur={commit}
-          className="flex-1 min-h-[80px] text-xs text-slate-700 dark:text-slate-200 bg-slate-50 dark:bg-slate-800 px-2 py-1.5 focus:outline-none overflow-y-auto"
+          className="flex-1 min-h-[80px] text-xs text-slate-700 dark:text-slate-200 bg-[#fafafa] dark:bg-slate-800 px-2 py-1.5 focus:outline-none overflow-y-auto"
         />
       </div>
     </div>
@@ -466,7 +476,7 @@ function LineDetailPanel({ uid, lineId, checkedLines, onCollapse }: { uid: strin
 
       {pendingEdit && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-          <div className="bg-slate-100 dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-700 p-5 max-w-xs w-full mx-4 flex flex-col gap-4">
+          <div className="bg-[#f5f5f5] dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-700 p-5 max-w-xs w-full mx-4 flex flex-col gap-4">
             <div>
               <p className="text-sm font-bold text-slate-800 dark:text-slate-100 mb-1">
                 Aplicar a {checkedLines.size} linhas?
@@ -493,20 +503,24 @@ function LineDetailPanel({ uid, lineId, checkedLines, onCollapse }: { uid: strin
 }
 
 // ── Ontology inline cells (schedule line rows, replaces time columns) ─────────
-function OntSelect({ label, value, options, onChange, width, mismatch, title }: { label: string; value: string; options: string[]; onChange: (v: string) => void; width: number; mismatch?: boolean; title?: string }) {
+function OntSelect({ label, value, options, onChange, width, mismatch, empty, title }: { label: string; value: string; options: string[]; onChange: (v: string) => void; width: number; mismatch?: boolean; empty?: boolean; title?: string }) {
   return (
     <label className="flex flex-col gap-0.5 shrink-0" style={{ width }} onClick={e => e.stopPropagation()} title={title}>
-      <span className={`text-[8px] font-bold uppercase tracking-wider truncate leading-none ${mismatch ? 'text-amber-600 dark:text-amber-400' : 'text-slate-500 dark:text-slate-600'}`}>{label}</span>
-      <select value={value} onChange={e => onChange(e.target.value)}
-        className={`w-full text-[11px] rounded px-1 py-0.5 outline-none focus:ring-1 focus:ring-blue-400 cursor-pointer ${
-          mismatch
-            ? 'text-amber-800 dark:text-amber-200 bg-amber-50 dark:bg-amber-950 border border-amber-400 dark:border-amber-600 ring-1 ring-amber-400'
-            : 'text-slate-700 dark:text-slate-200 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700'
-        }`}>
-        <option value="">—</option>
-        {value && !options.includes(value) && <option value={value}>{value}</option>}
-        {options.map(opt => <option key={opt} value={opt}>{opt}</option>)}
-      </select>
+      <span className={`text-[8px] font-bold uppercase tracking-wider truncate leading-none ${mismatch ? 'text-amber-600 dark:text-amber-400' : empty ? 'text-amber-500 dark:text-amber-500' : 'text-slate-500 dark:text-slate-600'}`}>{label}</span>
+      <div className={`rounded ${mismatch ? 'ring-2 ring-amber-400 dark:ring-amber-500' : empty ? 'ring-2 ring-amber-300 dark:ring-amber-600' : ''}`}>
+        <select value={value} onChange={e => onChange(e.target.value)}
+          className={`w-full text-[11px] rounded px-1 py-0.5 outline-none focus:ring-1 focus:ring-blue-400 cursor-pointer ${
+            mismatch
+              ? 'text-amber-800 dark:text-amber-200 bg-amber-50 dark:bg-amber-950 border border-amber-400 dark:border-amber-600'
+              : empty
+                ? 'bg-amber-50 dark:bg-amber-950/40 text-slate-700 dark:text-slate-200 border border-amber-300 dark:border-amber-600/70'
+                : 'text-slate-700 dark:text-slate-200 bg-[#fafafa] dark:bg-slate-800 border border-slate-200 dark:border-slate-700'
+          }`}>
+          <option value="">—</option>
+          {value && !options.includes(value) && <option value={value}>{value}</option>}
+          {options.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+        </select>
+      </div>
     </label>
   )
 }
@@ -536,6 +550,7 @@ function LineOntologyCell({ uid, line, phase, targets }: { uid: string; line: Fi
   const mismatchTitle = mismatch
     ? `Fase OW (${line.owFase}) difere da fase do cronograma (${phase} → esperado ${expectedOwFase(phase)})`
     : undefined
+  const showEmpty = !multi && !!expectedOwFase(phase)
   const upd = (patch: Partial<Pick<FineTuningLine, 'owFase' | 'owAtividade' | 'owOperacao' | 'owEtapa'>>) => {
     for (const t of src) dispatch({ type: 'FT_UPDATE_LINE_FIELDS', uid: t.uid, lineId: t.line.id, patch })
   }
@@ -544,10 +559,10 @@ function LineOntologyCell({ uid, line, phase, targets }: { uid: string; line: Fi
       <div className="flex gap-x-1.5" onClick={e => e.stopPropagation()}>
         {multi && <MultiEditBadge count={src.length} />}
         {/* Cascata: mudar o pai limpa os filhos */}
-        <OntSelect width={85}  label="OW Fase"      options={owFases()}        value={f} mismatch={mismatch} title={mismatchTitle} onChange={v => upd({ owFase: v, owAtividade: '', owOperacao: '', owEtapa: '' })} />
-        <OntSelect width={130} label="OW Atividade" options={owAtividades(f)}  value={a} onChange={v => upd({ owAtividade: v, owOperacao: '', owEtapa: '' })} />
-        <OntSelect width={190} label="OW Operação"  options={owOperacoes(f, a)} value={o} onChange={v => upd({ owOperacao: v, owEtapa: '' })} />
-        <OntSelect width={190} label="OW Etapa"     options={owEtapas(f, a, o)} value={val('owEtapa')} onChange={v => upd({ owEtapa: v })} />
+        <OntSelect width={85}  label="OW Fase"      options={owFases()}        value={f} mismatch={mismatch} empty={showEmpty && !f} title={mismatchTitle} onChange={v => upd({ owFase: v, owAtividade: '', owOperacao: '', owEtapa: '' })} />
+        <OntSelect width={130} label="OW Atividade" options={owAtividades(f)}  value={a} empty={showEmpty && !a} onChange={v => upd({ owAtividade: v, owOperacao: '', owEtapa: '' })} />
+        <OntSelect width={190} label="OW Operação"  options={owOperacoes(f, a)} value={o} empty={showEmpty && !o} onChange={v => upd({ owOperacao: v, owEtapa: '' })} />
+        <OntSelect width={190} label="OW Etapa"     options={owEtapas(f, a, o)} value={val('owEtapa')} empty={showEmpty && !val('owEtapa')} onChange={v => upd({ owEtapa: v })} />
       </div>
     </td>
   )
@@ -555,7 +570,7 @@ function LineOntologyCell({ uid, line, phase, targets }: { uid: string; line: Fi
 
 // ── Inline cells (schedule line rows, replaces time columns) — EDS / CSB ──────
 const CELL_LABEL = 'text-[8px] font-bold uppercase tracking-wider truncate leading-none text-slate-500 dark:text-slate-600'
-const CELL_INPUT = 'w-full text-[11px] rounded px-1 py-0.5 outline-none focus:ring-1 focus:ring-blue-400 text-slate-700 dark:text-slate-200 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700'
+const CELL_INPUT = 'w-full text-[11px] rounded px-1 py-0.5 outline-none focus:ring-1 focus:ring-blue-400 text-slate-700 dark:text-slate-200 bg-[#fafafa] dark:bg-slate-800 border border-slate-200 dark:border-slate-700'
 
 function CellText({ label, value, onCommit, width }: { label: string; value: string; onCommit: (v: string) => void; width: number }) {
   const [draft, setDraft] = useState(value)
@@ -671,7 +686,7 @@ function TimeAdjustRow({ label, currentDays, unit, fmt, kind }: {
         </div>
       </div>
       <div className="flex items-center gap-1.5">
-        <div className={`flex-1 flex items-center rounded-lg border px-2 py-1 gap-1 bg-slate-100 dark:bg-slate-900 transition-colors ${error ? 'border-red-400' : 'border-slate-200 dark:border-slate-700 focus-within:border-blue-400'}`}>
+        <div className={`flex-1 flex items-center rounded-lg border px-2 py-1 gap-1 bg-[#f5f5f5] dark:bg-slate-900 transition-colors ${error ? 'border-red-400' : 'border-slate-200 dark:border-slate-700 focus-within:border-blue-400'}`}>
           <input
             type="number" min="0" step="0.01"
             value={draft}
@@ -684,7 +699,7 @@ function TimeAdjustRow({ label, currentDays, unit, fmt, kind }: {
         </div>
         <button
           onClick={apply}
-          className="shrink-0 px-2 py-1 rounded-lg text-[10px] font-bold bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-blue-500 hover:text-white transition-colors">
+          className="shrink-0 px-2 py-1 rounded-lg text-[10px] font-bold bg-[#f5f5f5] dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-blue-500 hover:text-white transition-colors">
           ↵
         </button>
       </div>
@@ -734,7 +749,7 @@ function StatsPanel({ onCollapse }: { onCollapse?: () => void }) {
         TRACKED_MOUNT_TECHS.map(tech => [
           tech,
           items
-            .filter(i => i.phase === phase && i.technology === tech && !i.isContingency && matches(i))
+            .filter(i => i.phase === phase && i.technology === tech && !i.isContingency && !i.isParallel && !allLinesParallel(i) && matches(i))
             .reduce((sum, i) => sum + nRuns(i), 0),
         ])
       ) as Record<string, number>
@@ -745,10 +760,10 @@ function StatsPanel({ onCollapse }: { onCollapse?: () => void }) {
     const contingTotals = Object.fromEntries(
       TRACKED_MOUNT_TECHS.map(tech => {
         const fromContItems = items
-          .filter(i => i.technology === tech && i.isContingency && matches(i))
+          .filter(i => i.technology === tech && i.isContingency && !i.isParallel && !allLinesParallel(i) && matches(i))
           .reduce((sum, i) => sum + nRuns(i), 0)
         const fromSubruns = items
-          .filter(i => i.technology === tech && !i.isContingency && matches(i))
+          .filter(i => i.technology === tech && !i.isContingency && !i.isParallel && !allLinesParallel(i) && matches(i))
           .reduce((sum, i) => sum + nContSubruns(i), 0)
         return [tech, fromContItems + fromSubruns]
       })
@@ -797,7 +812,7 @@ function StatsPanel({ onCollapse }: { onCollapse?: () => void }) {
         {/* ── Ajuste de Tempos ── */}
         <div>
           <p className="text-[10px] font-bold text-slate-600 dark:text-slate-500 uppercase tracking-widest mb-2">Ajuste de Tempos</p>
-          <div className="rounded-lg bg-slate-50 dark:bg-slate-800 px-3 py-3 flex flex-col gap-3">
+          <div className="rounded-lg bg-[#fafafa] dark:bg-slate-800 px-3 py-3 flex flex-col gap-3">
             <TimeAdjustRow label="Firme" currentDays={grandFirme} unit={unit} fmt={fmt} kind="firme" />
             {grandCont > 0 && (
               <>
@@ -855,7 +870,7 @@ function StatsPanel({ onCollapse }: { onCollapse?: () => void }) {
         {phaseOrder.length > 0 && (
           <div>
             <p className="text-[10px] font-bold text-slate-600 dark:text-slate-500 uppercase tracking-widest mb-2">Resumo de Tempos</p>
-            <div className="rounded-lg bg-slate-50 dark:bg-slate-800 overflow-hidden">
+            <div className="rounded-lg bg-[#fafafa] dark:bg-slate-800 overflow-hidden">
               <table className="w-full border-collapse">
                 <thead>
                   <tr className="border-b border-slate-200 dark:border-slate-700">
@@ -942,7 +957,7 @@ function TechCountSection({
   return (
     <div>
       <p className="text-[10px] font-bold text-slate-600 dark:text-slate-500 uppercase tracking-widest mb-2">{title}</p>
-      <div className="rounded-lg bg-slate-50 dark:bg-slate-800 px-3 py-2.5">
+      <div className="rounded-lg bg-[#fafafa] dark:bg-slate-800 px-3 py-2.5">
         <div className="grid grid-cols-4 gap-x-1 mb-1.5">
           <span className="col-span-1" />
           {TRACKED_MOUNT_TECHS.map(t => (
@@ -1035,7 +1050,7 @@ function PackagePickerModal({ afterUid, onClose }: { afterUid: string | null; on
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" onClick={onClose}>
       <div
-        className="bg-slate-100 dark:bg-slate-900 rounded-xl shadow-2xl w-[min(720px,92vw)] max-h-[80vh] flex flex-col border border-slate-200 dark:border-slate-700"
+        className="bg-[#f5f5f5] dark:bg-slate-900 rounded-xl shadow-2xl w-[min(720px,92vw)] max-h-[80vh] flex flex-col border border-slate-200 dark:border-slate-700"
         onClick={e => e.stopPropagation()}
       >
         {/* Header */}
@@ -1052,7 +1067,7 @@ function PackagePickerModal({ afterUid, onClose }: { afterUid: string | null; on
         </div>
         {/* Search */}
         <div className="px-4 py-2 border-b border-slate-100 dark:border-slate-800">
-          <div className="flex items-center gap-2 bg-slate-50 dark:bg-slate-800 rounded-lg px-3 py-2 border border-slate-200 dark:border-slate-700 focus-within:border-blue-400 dark:focus-within:border-blue-500 transition-colors">
+          <div className="flex items-center gap-2 bg-[#fafafa] dark:bg-slate-800 rounded-lg px-3 py-2 border border-slate-200 dark:border-slate-700 focus-within:border-blue-400 dark:focus-within:border-blue-500 transition-colors">
             <Search size={14} className="text-slate-600 dark:text-slate-500 shrink-0" />
             <input
               ref={inputRef}
@@ -1075,7 +1090,7 @@ function PackagePickerModal({ afterUid, onClose }: { afterUid: string | null; on
             <div className="text-center text-xs text-slate-600 dark:text-slate-500 py-8">Nenhum pacote encontrado.</div>
           ) : grouped.map(({ category, items }) => (
             <div key={category} className="mb-3">
-              <div className="px-2 py-1 text-[10px] font-bold text-slate-600 dark:text-slate-500 uppercase tracking-widest sticky top-0 bg-slate-100 dark:bg-slate-900 z-10">
+              <div className="px-2 py-1 text-[10px] font-bold text-slate-600 dark:text-slate-500 uppercase tracking-widest sticky top-0 bg-[#f5f5f5] dark:bg-slate-900 z-10">
                 {category}
               </div>
               {items.map(pkg => {
@@ -1116,10 +1131,10 @@ function DetailIndicator({ line }: { line: FineTuningLine }) {
   if (labels.length === 0) return null
   return (
     <span
-      className="absolute left-1 top-1/2 -translate-y-1/2 text-[11px] font-bold leading-none text-sky-600 dark:text-sky-400 pointer-events-none select-none"
+      className="absolute left-1 top-1/2 -translate-y-1/2 leading-none text-[#005889] dark:text-sky-400 pointer-events-none select-none"
       title={`Detalhamento preenchido: ${labels.join(', ')}`}
       aria-label="Detalhamento preenchido">
-      D
+      <BiDetail size={12} />
     </span>
   )
 }
@@ -1199,8 +1214,7 @@ function ClassicLineRow({ line, itemUid, itemPhase, subNum, onSelectLine, isChec
           </div>
         </div>
       </td>
-      {/* Pacote — collapses to 0 when hidden */}
-      <td className={showPkgCol ? 'py-1.5 px-2' : 'hidden'} />
+      {showPkgCol && <td className="py-1.5 px-2" />}
       {/* Tipo — contingencial + paralelo (icon toggles) */}
       <td className="py-1.5 px-1 text-center">
         <div className="inline-flex items-center gap-0.5">
@@ -1229,9 +1243,9 @@ function ClassicLineRow({ line, itemUid, itemPhase, subNum, onSelectLine, isChec
           onCommit={text => dispatch({ type: 'FT_UPDATE_LINE', uid: itemUid, lineId: line.id, text })}
           className={`text-xs leading-snug ${
             isCont ? CONTING_TEXT
-            : (line.isParallel || pkgIsParallel) ? 'text-slate-600 dark:text-slate-500'
+            : (line.isParallel || pkgIsParallel) ? 'text-slate-400 dark:text-slate-500'
             : isLinePending ? 'text-slate-700 dark:text-slate-300'
-            : 'text-[#2f5aa8] dark:text-blue-400'
+            : 'text-[#0c2340] dark:text-blue-400'
           }`}
           style={!isChecked && !isLinePending ? highlightTextStyle(line.highlight) : undefined}
           inputClassName="text-xs w-full"
@@ -1264,28 +1278,23 @@ function ClassicLineRow({ line, itemUid, itemPhase, subNum, onSelectLine, isChec
             {!isCont ? (
               <InlineEdit value={fmt(dur)} type="number"
                 onCommit={v => { const n = parseFloat(v); if (!isNaN(n) && n >= 0) dispatch({ type: 'FT_UPDATE_LINE_FIELDS', uid: itemUid, lineId: line.id, patch: { duration: showHours ? n / 24 : n } }) }}
-                className={`font-mono text-xs ${(line.isParallel || pkgIsParallel) ? 'text-slate-500 dark:text-slate-600' : 'text-[#2f5aa8] dark:text-blue-400'}`}
-                inputClassName="text-xs w-14 text-right font-mono"
+                className={`text-xs ${(line.isParallel || pkgIsParallel) ? 'text-slate-400 dark:text-slate-600' : 'text-[#0c2340] dark:text-blue-400'}`}
+                inputClassName="text-xs w-14 text-right"
               />
-            ) : <span className="text-xs font-mono text-slate-200 dark:text-slate-700 select-none">—</span>}
+            ) : <span className="text-xs text-slate-200 dark:text-slate-700 select-none">—</span>}
           </td>
           {/* Cont */}
           <td className="py-1.5 px-3 text-right">
             {isCont ? (
               <InlineEdit value={fmt(dur)} type="number"
                 onCommit={v => { const n = parseFloat(v); if (!isNaN(n) && n >= 0) dispatch({ type: 'FT_UPDATE_LINE_FIELDS', uid: itemUid, lineId: line.id, patch: { duration: showHours ? n / 24 : n } }) }}
-                className={`font-mono text-xs ${CONTING_TEXT} ${(line.isParallel || pkgIsParallel) ? 'opacity-60' : ''}`}
-                inputClassName="text-xs w-14 text-right font-mono"
+                className={`text-xs ${CONTING_TEXT} ${(line.isParallel || pkgIsParallel) ? 'opacity-60' : ''}`}
+                inputClassName="text-xs w-14 text-right"
               />
-            ) : <span className="text-xs font-mono text-slate-200 dark:text-slate-700 select-none">—</span>}
+            ) : <span className="text-xs text-slate-200 dark:text-slate-700 select-none">—</span>}
           </td>
-          {/* Total + delete on hover */}
-          <td className="py-1.5 px-3 text-right relative">
-            <span className={`font-mono text-xs ${isCont ? 'text-[#7d1935] dark:text-rose-400' : 'text-slate-700 dark:text-slate-400'}`}>{fmt(dur)}</span>
-            <button onClick={e => { e.stopPropagation(); onDeleteRequest() }} title="Remover linha"
-              className="absolute right-1 top-1/2 -translate-y-1/2 w-5 h-5 flex items-center justify-center rounded transition-all opacity-0 group-hover:opacity-100 text-slate-500 dark:text-slate-600 hover:text-red-400">
-              <X size={10} />
-            </button>
+          <td className="py-1.5 px-3 text-right">
+            <span className={`text-xs ${isCont ? 'text-[#7d1935] dark:text-rose-400' : 'text-slate-700 dark:text-slate-400'}`}>{fmt(dur)}</span>
           </td>
         </>
       )}
@@ -1353,17 +1362,12 @@ function ClassicPkgRow({ item, rowNum, isChecked, onToggleCheck, onSelectLine, c
 
   if (item.isBlank) return (
     <tr ref={trRef} data-row-id={item.uid} className="group border-b border-slate-100 dark:border-slate-800 hover:bg-slate-50/60 dark:hover:bg-slate-800/30">
-      <td colSpan={6} className="py-2 px-3">
+      <td colSpan={showPkgCol ? 6 : 5} className="py-2 px-3">
         <InlineEdit value={item.packageName} placeholder="Nota / linha em branco..."
           onCommit={v => dispatch({ type: 'FT_UPDATE_ITEM', uid: item.uid, patch: { packageName: v } })}
           className="text-xs text-slate-600 italic" inputClassName="text-xs w-full" />
       </td>
-      <td className="py-2 px-2 text-right">
-        <button onClick={() => onDeleteRequest()} title="Remover"
-          className="opacity-0 group-hover:opacity-100 text-slate-500 dark:text-slate-600 hover:text-red-400 transition-all">
-          <X size={12} />
-        </button>
-      </td>
+      <td className="py-2 px-2 text-right" />
     </tr>
   )
 
@@ -1419,14 +1423,13 @@ function ClassicPkgRow({ item, rowNum, isChecked, onToggleCheck, onSelectLine, c
             </div>
           </div>
         </td>
-        {/* Pacote ID — collapses to 0 when hidden */}
-        <td className={showPkgCol ? 'py-2 px-2' : 'hidden'}>
-          {showPkgCol && (
-            <span className={`font-mono text-xs font-medium ${isCont ? 'text-[#7d1935] dark:text-rose-400' : 'text-[#2f5aa8] dark:text-blue-400'}`}>
+        {showPkgCol && (
+          <td className="py-2 px-2">
+            <span className={`font-mono text-xs font-medium ${isCont ? 'text-[#7d1935] dark:text-rose-400' : 'text-[#0c2340] dark:text-blue-400'}`}>
               {(item.packageId === 'BLANK' || item.packageId === 'MANUAL') ? '—' : item.packageId}
             </span>
-          )}
-        </td>
+          </td>
+        )}
         {/* Tipo — contingencial + paralelo (icon toggles) */}
         <td className="py-2 px-1 text-center">
           <div className="inline-flex items-center gap-0.5">
@@ -1453,47 +1456,38 @@ function ClassicPkgRow({ item, rowNum, isChecked, onToggleCheck, onSelectLine, c
           <InlineEdit value={item.packageName} placeholder={item.packageId === 'MANUAL' ? 'Descrever' : 'Nome do pacote...'}
             editKey={nameEditTick}
             onCommit={v => dispatch({ type: 'FT_UPDATE_ITEM', uid: item.uid, patch: { packageName: v } })}
-            className={`text-sm font-medium ${
+            className={`text-xs ${
               isCont ? CONTING_TEXT
-              : item.isParallel ? 'text-slate-600 dark:text-slate-500'
+              : item.isParallel ? 'text-slate-400 dark:text-slate-500'
               : isPendingReview ? 'text-slate-700 dark:text-slate-300'
-              : 'text-[#2f5aa8] dark:text-blue-400'
+              : 'text-[#0c2340] dark:text-blue-400'
             }`}
             style={showPkgHl ? highlightTextStyle(pkgHl) : undefined}
-            inputClassName="text-sm w-full" />
+            inputClassName="text-xs w-full" />
         </td>
         {(showOntology || showEds || showCsb) ? (
-          <td colSpan={3} className="py-2 px-3 text-right relative">
-            <button onClick={() => onDeleteRequest()} title="Remover pacote"
-              className="absolute right-1 top-1/2 -translate-y-1/2 w-5 h-5 flex items-center justify-center rounded hover:bg-red-50 dark:hover:bg-red-950/30 transition-all opacity-0 group-hover:opacity-100 text-slate-500 dark:text-slate-600 hover:text-red-500">
-              <Trash2 size={11} />
-            </button>
-          </td>
+          <td colSpan={3} className="py-2 px-3 text-right" />
         ) : (
           <>
             {/* Firme */}
             <td className="py-2 px-3 text-right">
               {firme > 0
-                ? <span className="font-mono text-sm text-[#2f5aa8] dark:text-blue-400">{fmt(firme)}</span>
-                : <span className="text-xs font-mono text-slate-200 dark:text-slate-700 select-none">—</span>
+                ? <span className="text-xs text-[#0c2340] dark:text-blue-400">{fmt(firme)}</span>
+                : <span className="text-xs text-slate-200 dark:text-slate-700 select-none">—</span>
               }
             </td>
             {/* Cont */}
             <td className="py-2 px-3 text-right">
               {cont > 0
-                ? <span className="font-mono text-sm text-[#7d1935] dark:text-rose-400">{fmt(cont)}</span>
-                : <span className="text-xs font-mono text-slate-200 dark:text-slate-700 select-none">—</span>
+                ? <span className="text-xs text-[#7d1935] dark:text-rose-400">{fmt(cont)}</span>
+                : <span className="text-xs text-slate-200 dark:text-slate-700 select-none">—</span>
               }
             </td>
-            {/* Total + delete on hover */}
-            <td className="py-2 px-3 text-right relative">
-              <span className={`font-mono text-sm font-semibold ${isCont ? 'text-[#7d1935] dark:text-rose-400' : 'text-slate-700 dark:text-slate-200'}`}>
+            {/* Total */}
+            <td className="py-2 px-3 text-right">
+              <span className={`text-xs ${isCont ? 'text-[#7d1935] dark:text-rose-400' : 'text-slate-700 dark:text-slate-200'}`}>
                 {fmt(total)}
               </span>
-              <button onClick={() => onDeleteRequest()} title="Remover pacote"
-                className="absolute right-1 top-1/2 -translate-y-1/2 w-5 h-5 flex items-center justify-center rounded hover:bg-red-50 dark:hover:bg-red-950/30 transition-all opacity-0 group-hover:opacity-100 text-slate-500 dark:text-slate-600 hover:text-red-500">
-                <Trash2 size={11} />
-              </button>
             </td>
           </>
         )}
@@ -1503,7 +1497,7 @@ function ClassicPkgRow({ item, rowNum, isChecked, onToggleCheck, onSelectLine, c
         <>
           {item.lines.map((line, idx) => (
             <React.Fragment key={line.id}>
-              {lineDropTarget?.lineId === line.id && lineDropTarget.pos === 'above' && <DropIndicatorRow />}
+              {lineDropTarget?.lineId === line.id && lineDropTarget.pos === 'above' && <DropIndicatorRow colSpan={showPkgCol ? 7 : 6} />}
               <ClassicLineRow
                 line={line} itemUid={item.uid} itemPhase={item.phase}
                 subNum={`${rowNum}.${idx + 1}`}
@@ -1533,7 +1527,7 @@ function ClassicPkgRow({ item, rowNum, isChecked, onToggleCheck, onSelectLine, c
                 onRowDragOver={e => onLineDragOver?.(e, line.id)}
                 onRowDrop={e => onLineDrop?.(e, line.id)}
               />
-              {lineDropTarget?.lineId === line.id && lineDropTarget.pos === 'below' && <DropIndicatorRow />}
+              {lineDropTarget?.lineId === line.id && lineDropTarget.pos === 'below' && <DropIndicatorRow colSpan={showPkgCol ? 7 : 6} />}
             </React.Fragment>
           ))}
         </>
@@ -1548,6 +1542,7 @@ function ClassicSchedulePanel({
   onEnterFromLastLine, onInsertManual, activeTab, onTabChange, setShowDetail, showOntology, showEds, showCsb,
   locateTick, located, oneByOneMode, setOneByOneMode,
   copyBuffer, setCopyBuffer, setCheckedPkgs, setCheckedLines, setSelectedLine,
+  findQuery, setFindQuery, gotoMatchRef, onMatchChange,
 }: {
   selectedLine: { uid: string; lineId: string } | null
   checkedPkgs: Set<string>; checkedLines: Set<string>
@@ -1574,6 +1569,10 @@ function ClassicSchedulePanel({
   setCheckedPkgs: (s: Set<string>) => void
   setCheckedLines: (s: Set<string>) => void
   setSelectedLine: (l: { uid: string; lineId: string } | null) => void
+  findQuery: string
+  setFindQuery: (q: string) => void
+  gotoMatchRef: React.MutableRefObject<((idx: number) => void) | null>
+  onMatchChange: (count: number, idx: number) => void
 }) {
   const { state, dispatch } = useApp()
   const items = state.fineTuningItems
@@ -1609,35 +1608,12 @@ function ClassicSchedulePanel({
   const unit = showHours ? 'h' : 'd'
   const fmt = (d: number) => showHours ? (d * 24).toFixed(1) : d.toFixed(2)
   const scrollRef = useRef<HTMLDivElement>(null)
-  const headerRef = useRef<HTMLDivElement>(null)
+  const headerScrollRef = useRef<HTMLDivElement>(null)
   const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set())
   const [showPkgCol, setShowPkgCol] = useState(false)
-  const [columnWidths, setColumnWidths] = useState<Record<ScheduleColumn, number>>({
+  const columnWidths: Record<ScheduleColumn, number> = {
     number: 52, package: 88, type: 42, description: 640,
     firm: 84, contingency: 84, total: 92,
-  })
-  const resizeRef = useRef<{ column: ScheduleColumn; startX: number; startWidth: number } | null>(null)
-
-  useEffect(() => {
-    const handleMove = (event: MouseEvent) => {
-      const resize = resizeRef.current
-      if (!resize) return
-      const width = Math.max(MIN_COLUMN_WIDTH[resize.column], resize.startWidth + event.clientX - resize.startX)
-      setColumnWidths(current => ({ ...current, [resize.column]: width }))
-    }
-    const handleUp = () => { resizeRef.current = null }
-    window.addEventListener('mousemove', handleMove)
-    window.addEventListener('mouseup', handleUp)
-    return () => {
-      window.removeEventListener('mousemove', handleMove)
-      window.removeEventListener('mouseup', handleUp)
-    }
-  }, [])
-
-  const startColumnResize = (column: ScheduleColumn, event: React.MouseEvent) => {
-    event.preventDefault()
-    event.stopPropagation()
-    resizeRef.current = { column, startX: event.clientX, startWidth: columnWidths[column] }
   }
 
   const visibleColumnWidths = {
@@ -1646,24 +1622,31 @@ function ClassicSchedulePanel({
     contingency: wideCols ? Math.max(columnWidths.contingency, 200) : columnWidths.contingency,
     total: wideCols ? Math.max(columnWidths.total, 220) : columnWidths.total,
   }
-  const tableContentWidth = visibleColumnWidths.number
+  // Soma das colunas exceto "Descrição" (a flexível).
+  const fixedColsWidth = visibleColumnWidths.number
     + (showPkgCol ? visibleColumnWidths.package : 0)
-    + visibleColumnWidths.type + visibleColumnWidths.description
+    + visibleColumnWidths.type
     + visibleColumnWidths.firm + visibleColumnWidths.contingency + visibleColumnWidths.total
-  // Largura fixa pelo conteúdo (soma das colunas), independente da janela: o
-  // cronograma não é mais esticado para preencher a viewport, então a barra de
-  // rolagem horizontal aparece sempre que o painel for mais estreito que a
-  // tabela e rola até o fim revelando todas as colunas.
-  const tableStyle = { tableLayout: 'fixed' as const, minWidth: `${tableContentWidth}px`, width: '100%' }
-  const resizeBar = (column: ScheduleColumn) => (
-    <span
-      role="separator"
-      aria-label={`Ajustar largura da coluna ${column}`}
-      aria-orientation="vertical"
-      onMouseDown={event => startColumnResize(column, event)}
-      className="absolute -right-1 top-1 z-20 h-[calc(100%-0.5rem)] w-2 cursor-col-resize touch-none after:absolute after:left-1/2 after:top-0 after:h-full after:w-px after:-translate-x-1/2 after:bg-slate-300 after:opacity-0 after:transition-opacity hover:after:bg-[#d97706] hover:after:opacity-100 dark:after:bg-slate-600"
-    />
-  )
+
+  // Largura do container (rolagem) observada — determina a largura da coluna
+  // "Descrição". Calcular em JS evita o bug do table-layout:fixed, que sob min-width
+  // não expande a coluna auto para preencher, deixando espaço vazio à direita.
+  const [containerW, setContainerW] = useState(0)
+  useLayoutEffect(() => {
+    const el = scrollRef.current
+    if (!el) return
+    const update = () => setContainerW(el.clientWidth)
+    update()
+    const ro = new ResizeObserver(update)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
+
+  // Descrição preenche a folga quando o painel é largo; abaixo do mínimo, mantém a
+  // largura padrão e a tabela rola horizontalmente.
+  const descriptionWidth = Math.max(visibleColumnWidths.description, containerW - fixedColsWidth)
+  const tableContentWidth = fixedColsWidth + descriptionWidth
+  const tableStyle = { tableLayout: 'fixed' as const, width: `${tableContentWidth}px` }
 
   // Ao entrar em qualquer modo de colunas (Ontologia/EDS/CSB), expande todo o cronograma:
   // os itens já são expandidos pelos botões; aqui limpamos as seções colapsadas para que
@@ -1673,7 +1656,6 @@ function ClassicSchedulePanel({
   }, [showOntology, showEds, showCsb])
 
   // ── Localizar (busca por pacote / linha) ──────────────────────────────────
-  const [findQuery, setFindQuery] = useState('')
   const [matchIdx, setMatchIdx] = useState(0)
   const [activeMatchId, setActiveMatchId] = useState<string | null>(null)
 
@@ -1881,6 +1863,11 @@ function ClassicSchedulePanel({
     gotoMatch(0)
   }, [findQuery])
 
+  // Mantém a referência sempre atual (captura o closure mais recente)
+  useEffect(() => { gotoMatchRef.current = gotoMatch })
+  // Reporta contagem e índice ao pai apenas quando mudam
+  useEffect(() => { onMatchChange(matches.length, matchIdx) }, [matches.length, matchIdx])
+
   // Scroll até o resultado ativo (com retry: a expansão do pacote é assíncrona)
   useEffect(() => {
     if (!activeMatchId) return
@@ -2009,11 +1996,6 @@ function ClassicSchedulePanel({
     return () => { cancelled = true; clearTimeout(t) }
   }, [located?.n])
 
-  const handleBodyScroll = () => {
-    if (headerRef.current && scrollRef.current)
-      headerRef.current.scrollLeft = scrollRef.current.scrollLeft
-  }
-
   // Group items by phase (sections); blank items attach to last section
   type Section = { phase: string; sectionKey: string; items: FineTuningItem[] }
   const sections: Section[] = []
@@ -2073,113 +2055,33 @@ function ClassicSchedulePanel({
   }
 
   return (
-    <div className="flex-1 overflow-hidden rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-900 flex flex-col min-w-0">
-      {/* Toolbar: Lista/Gantt toggle left, bulk delete, expand/collapse right */}
-      <div className="shrink-0 flex items-center px-2 py-1 border-b border-slate-100 dark:border-slate-800 gap-2">
-        <div className="flex rounded-lg overflow-hidden border border-slate-200 dark:border-slate-600 shrink-0">
-          <button onClick={() => onTabChange('list')}
-            className={`px-2.5 py-1 text-xs font-bold transition-colors ${activeTab === 'list' ? 'bg-[#0c2340] text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700'}`}>
-            Lista
-          </button>
-          <button onClick={() => onTabChange('gantt')}
-            className={`px-2.5 py-1 text-xs font-bold transition-colors ${activeTab === 'gantt' ? 'bg-[#0c2340] text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700'}`}>
-            Gantt
-          </button>
-        </div>
-        {activeTab === 'list' && (checkedPkgs.size > 0 || checkedLines.size > 0) && (
-          <button
-            onClick={() => setDeleteTarget({ kind: 'bulk', pkgCount: checkedPkgs.size, lineCount: checkedLines.size })}
-            title="Excluir selecionados"
-            className="flex items-center gap-1 text-xs text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 px-2 py-1 rounded border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950/30 transition-colors">
-            <Trash2 size={11} />
-            <span>{checkedPkgs.size + checkedLines.size}</span>
-          </button>
-        )}
-        {activeTab === 'list' && (checkedLines.size > 0 || checkedPkgs.size > 0) && (
-          <div className="flex items-center gap-1 pl-1 border-l border-slate-200 dark:border-slate-700">
-            {HIGHLIGHT_KEYS.map(key => {
-              const c = getHighlightColors()[key]
-              return (
-                <button
-                  key={key}
-                  onClick={() => applyHighlight(key)}
-                  title={c.label}
-                  style={{ backgroundColor: isDarkMode() ? c.text : c.bg, boxShadow: `0 0 0 1.5px ${c.ring}` }}
-                  className="w-4 h-4 rounded-full transition-transform hover:scale-110 focus:outline-none shrink-0"
-                />
-              )
-            })}
-            <button
-              onClick={() => applyHighlight(undefined)}
-              title="Remover cor"
-              className="w-4 h-4 rounded-full flex items-center justify-center border border-slate-300 dark:border-slate-600 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors bg-white dark:bg-slate-800 shrink-0"
-            >
-              <X size={8} />
-            </button>
-          </div>
-        )}
-        {activeTab === 'list' && (
-          <div className="ml-auto flex items-center gap-2">
-            <div className="flex items-center gap-1 px-2 py-1 rounded border border-slate-200 dark:border-slate-600 bg-slate-100 dark:bg-slate-800">
-              <Search size={12} className="shrink-0 text-slate-500 dark:text-slate-500" />
-              <input
-                value={findQuery}
-                onChange={e => setFindQuery(e.target.value)}
-                onKeyDown={e => {
-                  if (e.key === 'Enter') { e.preventDefault(); gotoMatch(e.shiftKey ? matchIdx - 1 : matchIdx + 1) }
-                  else if (e.key === 'Escape') { e.preventDefault(); setFindQuery('') }
-                }}
-                placeholder="Localizar..."
-                className="w-36 bg-transparent text-xs text-slate-700 dark:text-slate-200 outline-none placeholder:text-slate-500 dark:placeholder:text-slate-600" />
-              {findQuery && (
-                <>
-                  <span className="shrink-0 text-[10px] font-mono tabular-nums text-slate-500 dark:text-slate-500">
-                    {matches.length ? `${matchIdx + 1}/${matches.length}` : '0/0'}
-                  </span>
-                  <button onClick={() => gotoMatch(matchIdx - 1)} disabled={!matches.length} title="Anterior (Shift+Enter)"
-                    className="shrink-0 text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 disabled:opacity-30 transition-colors">
-                    <ChevronUp size={13} />
-                  </button>
-                  <button onClick={() => gotoMatch(matchIdx + 1)} disabled={!matches.length} title="Próximo (Enter)"
-                    className="shrink-0 text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 disabled:opacity-30 transition-colors">
-                    <ChevronDown size={13} />
-                  </button>
-                  <button onClick={() => setFindQuery('')} title="Limpar (Esc)"
-                    className="shrink-0 text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition-colors">
-                    <X size={12} />
-                  </button>
-                </>
-              )}
-            </div>
-          </div>
-        )}
-      </div>
+    <div className="flex-1 overflow-hidden rounded-xl border border-slate-200 dark:border-slate-700 bg-[#f5f5f5] dark:bg-slate-900 flex flex-col min-w-0">
       {activeTab === 'gantt' ? (
         <div className="flex-1 overflow-hidden min-h-0">
           <GanttChart items={state.schedule} />
         </div>
       ) : (
         <>
-      {/* Fixed header — outside scroll container so it never shifts when scrollbar appears */}
-      <div ref={headerRef} className="shrink-0 overflow-hidden">
-        <table className="text-sm border-collapse" style={tableStyle}>
+      {/* Cabeçalho separado do scroll para que a barra vertical comece abaixo do azul */}
+      <div ref={headerScrollRef} className="shrink-0 overflow-hidden">
+        <table className="text-xs border-collapse" style={tableStyle}>
           <colgroup>
             <col style={{ width: visibleColumnWidths.number }} />
-            <col className={showPkgCol ? '' : 'hidden'} style={{ width: visibleColumnWidths.package }} />
+            {showPkgCol && <col style={{ width: visibleColumnWidths.package }} />}
             <col style={{ width: visibleColumnWidths.type }} />
-            <col />
+            <col style={{ width: descriptionWidth }} />
             <col style={{ width: visibleColumnWidths.firm }} />
             <col style={{ width: visibleColumnWidths.contingency }} />
             <col style={{ width: visibleColumnWidths.total }} />
           </colgroup>
           <thead>
-            <tr className="border-b-2 border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800">
+            <tr className="border-b-2 border-[#004070] dark:border-slate-700 bg-[#005889] dark:bg-[#0c2340]">
               {/* Expandir/recolher todos — também abriga restauração de colunas ocultas */}
-              <th className="group relative text-left py-2.5 px-1 text-xs font-bold text-slate-600 dark:text-slate-500 uppercase tracking-wider">
+              <th className="text-left py-1 px-1 text-xs font-bold text-white dark:text-slate-300">
                 <div className="flex items-center gap-1">
                   <button onClick={toggleAllExpand}
                     title={allExpanded ? 'Recolher todos os pacotes' : 'Expandir todos os pacotes'}
-                    className="shrink-0 w-3.5 h-3.5 flex items-center justify-center rounded text-slate-500 dark:text-slate-400 hover:text-[#0c2340] dark:hover:text-blue-400 transition-colors">
+                    className="shrink-0 w-3.5 h-3.5 flex items-center justify-center rounded text-white/70 hover:text-white dark:text-slate-400 dark:hover:text-blue-400 transition-colors">
                     {allExpanded ? <Minus size={12} strokeWidth={3} /> : <Plus size={12} strokeWidth={3} />}
                   </button>
                   <button onClick={onToggleAll}
@@ -2191,52 +2093,49 @@ function ClassicSchedulePanel({
                   </button>
                   {!showPkgCol && (
                     <button onClick={() => setShowPkgCol(true)} title="Mostrar coluna Pacote"
-                      className="text-[7px] font-bold text-slate-500 dark:text-slate-600 hover:text-slate-700 dark:hover:text-slate-600 transition-colors select-none ml-0.5">
+                      className="text-[7px] font-bold text-white/60 hover:text-white dark:text-slate-600 dark:hover:text-slate-400 transition-colors select-none ml-0.5">
                       ▸P
                     </button>
                   )}
                 </div>
-                {resizeBar('number')}
               </th>
-              {showPkgCol ? (
-                <th className="group relative text-left py-2.5 px-2 text-xs font-bold text-slate-600 dark:text-slate-500 uppercase tracking-wider">
+              {showPkgCol && (
+                <th className="text-left py-1 px-2 text-xs font-bold text-white dark:text-slate-300">
                   <button onClick={() => setShowPkgCol(false)} title="Ocultar coluna Pacote"
                     className="flex items-center gap-1 group hover:text-slate-600 dark:hover:text-slate-500 transition-colors">
                     Pacote
                     <span className="opacity-0 group-hover:opacity-60 text-[9px] font-normal normal-case tracking-normal">✕</span>
                   </button>
-                  {resizeBar('package')}
                 </th>
-              ) : (
-                <th className="hidden" />
               )}
-              <th className="group relative py-2.5 px-1 text-xs font-bold text-slate-600 dark:text-slate-500 uppercase tracking-wider">Tipo{resizeBar('type')}</th>
-              <th className="group relative text-left py-2.5 px-3 text-xs font-bold text-slate-600 dark:text-slate-500 uppercase tracking-wider">Descrição{resizeBar('description')}</th>
+              <th className="py-1 px-1 text-xs font-bold text-white dark:text-slate-300">Tipo</th>
+              <th className="text-left py-1 px-3 text-xs font-bold text-white dark:text-slate-300">Descrição</th>
               {showOntology ? (
-                <th colSpan={3} className="text-left py-2.5 px-3 text-xs font-bold text-slate-600 dark:text-slate-500 uppercase tracking-wider">Ontologia (OpenWells)</th>
+                <th colSpan={3} className="text-left py-1 px-3 text-xs font-bold text-white dark:text-slate-300">Ontologia (OpenWells)</th>
               ) : showEds ? (
-                <th colSpan={3} className="text-left py-2.5 px-3 text-xs font-bold text-slate-600 dark:text-slate-500 uppercase tracking-wider">EDS</th>
+                <th colSpan={3} className="text-left py-1 px-3 text-xs font-bold text-white dark:text-slate-300">EDS</th>
               ) : showCsb ? (
-                <th colSpan={3} className="text-left py-2.5 px-3 text-xs font-bold text-slate-600 dark:text-slate-500 uppercase tracking-wider">CSB</th>
+                <th colSpan={3} className="text-left py-1 px-3 text-xs font-bold text-white dark:text-slate-300">CSB</th>
               ) : (
                 <>
-                  <th className="group relative text-right py-2.5 px-3 text-xs font-bold text-blue-400 dark:text-blue-500 uppercase tracking-wider">Firme (<span className="normal-case">{unit}</span>){resizeBar('firm')}</th>
-                  <th className="group relative text-right py-2.5 px-3 text-xs font-bold text-[#7d1935] dark:text-rose-400 uppercase tracking-wider">Cont. (<span className="normal-case">{unit}</span>){resizeBar('contingency')}</th>
-                  <th className="group relative text-right py-2.5 px-3 text-xs font-bold text-slate-600 dark:text-slate-500 uppercase tracking-wider">Total (<span className="normal-case">{unit}</span>){resizeBar('total')}</th>
+                  <th className="text-right py-1 px-3 text-xs font-bold text-white dark:text-blue-400">F ({unit})</th>
+                  <th className="text-right py-1 px-3 text-xs font-bold text-white dark:text-rose-400">C ({unit})</th>
+                  <th className="text-right py-1 px-3 text-xs font-bold text-white dark:text-slate-300">Total ({unit})</th>
                 </>
               )}
             </tr>
           </thead>
         </table>
       </div>
-      {/* Scrollable body — onScroll syncs header horizontally */}
-      <div ref={scrollRef} className="flex-1 overflow-auto scrollbar-custom" onScroll={handleBodyScroll}>
-        <table className="text-sm border-collapse" style={tableStyle}>
+      {/* Corpo scrollável — barra vertical começa aqui, abaixo do cabeçalho */}
+      <div ref={scrollRef} className="flex-1 overflow-auto scrollbar-custom"
+        onScroll={e => { if (headerScrollRef.current) headerScrollRef.current.scrollLeft = (e.target as HTMLElement).scrollLeft }}>
+        <table className="text-xs border-collapse" style={tableStyle}>
           <colgroup>
             <col style={{ width: visibleColumnWidths.number }} />
-            <col className={showPkgCol ? '' : 'hidden'} style={{ width: visibleColumnWidths.package }} />
+            {showPkgCol && <col style={{ width: visibleColumnWidths.package }} />}
             <col style={{ width: visibleColumnWidths.type }} />
-            <col />
+            <col style={{ width: descriptionWidth }} />
             <col style={{ width: visibleColumnWidths.firm }} />
             <col style={{ width: visibleColumnWidths.contingency }} />
             <col style={{ width: visibleColumnWidths.total }} />
@@ -2253,12 +2152,11 @@ function ClassicSchedulePanel({
                       <React.Fragment key={sectionKey}>
                         {/* Phase header — apenas a fase atual fica fixa no topo (sticky). */}
                         <tr onClick={() => toggleSection(sectionKey)} className="cursor-pointer select-none">
-                          <td colSpan={7}
-                            className={`sticky top-0 z-10 py-2 px-3 ${colors.bg} border-y border-slate-100 dark:border-slate-700`}>
+                          <td colSpan={showPkgCol ? 7 : 6}
+                            className="py-2 px-3 bg-[#ebebeb] dark:bg-slate-800 border-y border-slate-300 dark:border-slate-700">
                             <span className="flex items-center gap-1.5">
-                              <span className={`font-bold text-sm leading-none ${colors.text}`}>{isCollapsed ? '+' : '−'}</span>
-                              <span className={`text-xs font-bold uppercase tracking-widest ${colors.text}`}
-                                style={{ fontFamily: "'Barlow Condensed', sans-serif", letterSpacing: '0.1em' }}>{phase}</span>
+                              <span className="font-bold text-xs leading-none text-slate-600 dark:text-slate-400">{isCollapsed ? '+' : '−'}</span>
+                              <span className="text-xs font-bold uppercase tracking-widest text-slate-700 dark:text-slate-300">{phase}</span>
                             </span>
                           </td>
                         </tr>
@@ -2274,7 +2172,7 @@ function ClassicSchedulePanel({
                             : null
                           return (
                             <React.Fragment key={item.uid}>
-                              {pkgDropAbove && <DropIndicatorRow />}
+                              {pkgDropAbove && <DropIndicatorRow colSpan={showPkgCol ? 7 : 6} />}
                               <ClassicPkgRow
                                 item={item}
                                 rowNum={rn}
@@ -2318,7 +2216,7 @@ function ClassicSchedulePanel({
                                   dndDrag.lineId === lineId || (checkedLines.has(dndDrag.lineId) && checkedLines.has(lineId))
                                 )}
                               />
-                              {pkgDropBelow && <DropIndicatorRow />}
+                              {pkgDropBelow && <DropIndicatorRow colSpan={showPkgCol ? 7 : 6} />}
                             </React.Fragment>
                           )
                         })}
@@ -2329,20 +2227,20 @@ function ClassicSchedulePanel({
               )
             })()}
           </tbody>
-          {!showOntology && items.some(i => !i.isBlank) && (
+          {!showOntology && !showEds && !showCsb && items.some(i => !i.isBlank) && (
             <tfoot>
-              <tr className="border-t-2 border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800">
-                <td colSpan={4} className="py-3 px-3 text-sm font-bold text-slate-600 dark:text-slate-400 text-right uppercase tracking-wide">
+              <tr className="border-t-2 border-slate-200 dark:border-slate-700 bg-[#fafafa] dark:bg-slate-800">
+                <td colSpan={showPkgCol ? 4 : 3} className="py-2 px-3 text-xs font-bold text-slate-600 dark:text-slate-400 text-right uppercase tracking-wide">
                   Total
                 </td>
-                <td className="py-3 px-3 text-right text-base font-bold font-mono text-[#2f5aa8] dark:text-blue-400">
-                  {fmt(grandFirme)} {unit}
+                <td className="py-2 px-3 text-right text-xs font-bold font-mono text-[#0c2340] dark:text-blue-400">
+                  {grandFirme > 0 ? <>{fmt(grandFirme)}<span className="text-[9px] ml-0.5 text-slate-500 dark:text-slate-600 font-normal">{unit}</span></> : <span className="text-slate-300 dark:text-slate-700 select-none">—</span>}
                 </td>
-                <td className="py-3 px-3 text-right text-base font-bold font-mono text-[#7d1935] dark:text-rose-400">
-                  {grandCont > 0 ? `${fmt(grandCont)} ${unit}` : '—'}
+                <td className="py-2 px-3 text-right text-xs font-bold font-mono text-[#7d1935] dark:text-rose-400">
+                  {grandCont > 0 ? <>{fmt(grandCont)}<span className="text-[9px] ml-0.5 text-slate-500 dark:text-slate-600 font-normal">{unit}</span></> : <span className="text-slate-300 dark:text-slate-700 select-none">—</span>}
                 </td>
-                <td className="py-3 px-3 text-right text-base font-bold font-mono text-[#0c2340] dark:text-white">
-                  {fmt(grandTotal)} {unit}
+                <td className="py-2 px-3 text-right text-xs font-bold font-mono text-[#0c2340] dark:text-white">
+                  {fmt(grandTotal)}<span className="text-[9px] ml-0.5 text-slate-500 dark:text-slate-600 font-normal">{unit}</span>
                 </td>
               </tr>
             </tfoot>
@@ -2459,7 +2357,7 @@ function ClassicSchedulePanel({
 
         return (
           <div
-            className="fixed z-50 bg-slate-100 dark:bg-slate-900 rounded-lg shadow-xl border border-slate-200 dark:border-slate-700 py-1 min-w-[200px]"
+            className="fixed z-50 bg-[#f5f5f5] dark:bg-slate-900 rounded-lg shadow-xl border border-slate-200 dark:border-slate-700 py-1 min-w-[200px]"
             style={{ left: contextMenu.x, top: contextMenu.y }}
             onClick={e => e.stopPropagation()}>
             {showMoveOptions ? (
@@ -2501,6 +2399,63 @@ function ClassicSchedulePanel({
                 <button className={btn} onClick={() => handlePasteCtx(false)}>↓ Colar abaixo</button>
               </>
             )}
+            {/* Cores de realce */}
+            {(checkedPkgs.size > 0 || checkedLines.size > 0) && (
+              <>
+                {sep}
+                <div className="px-3 py-1.5 flex items-center gap-1.5">
+                  <span className="text-[10px] font-bold text-slate-500 dark:text-slate-500 uppercase tracking-wider shrink-0">Cor</span>
+                  {HIGHLIGHT_KEYS.map(key => {
+                    const c = getHighlightColors()[key]
+                    return (
+                      <button
+                        key={key}
+                        onClick={() => { applyHighlight(key); setContextMenu(null) }}
+                        title={c.label}
+                        style={{ backgroundColor: isDarkMode() ? c.text : c.bg, boxShadow: `0 0 0 1.5px ${c.ring}` }}
+                        className="w-4 h-4 rounded-full transition-transform hover:scale-110 focus:outline-none shrink-0"
+                      />
+                    )
+                  })}
+                  <button
+                    onClick={() => { applyHighlight(undefined); setContextMenu(null) }}
+                    title="Remover cor"
+                    className="w-4 h-4 rounded-full flex items-center justify-center border border-slate-300 dark:border-slate-600 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors bg-white dark:bg-slate-800 shrink-0"
+                  >
+                    <X size={8} />
+                  </button>
+                </div>
+              </>
+            )}
+            {/* Excluir */}
+            {sep}
+            {isTargetSelected && (checkedPkgs.size > 0 || checkedLines.size > 0) ? (
+              <button
+                className="w-full text-left px-3 py-1.5 text-xs text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors"
+                onClick={() => { setDeleteTarget({ kind: 'bulk', pkgCount: checkedPkgs.size, lineCount: checkedLines.size }); setContextMenu(null) }}>
+                <span className="flex items-center gap-1.5"><Trash2 size={11} /> Excluir selecionados ({checkedPkgs.size + checkedLines.size})</span>
+              </button>
+            ) : contextMenu.kind === 'pkg' ? (
+              <button
+                className="w-full text-left px-3 py-1.5 text-xs text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors"
+                onClick={() => {
+                  const item = items.find(i => i.uid === contextMenu.uid)
+                  if (item) setDeleteTarget({ kind: 'pkg', uid: contextMenu.uid, name: item.packageName })
+                  setContextMenu(null)
+                }}>
+                <span className="flex items-center gap-1.5"><Trash2 size={11} /> Excluir pacote</span>
+              </button>
+            ) : contextMenu.lineId ? (
+              <button
+                className="w-full text-left px-3 py-1.5 text-xs text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors"
+                onClick={() => {
+                  const line = items.find(i => i.uid === contextMenu.uid)?.lines.find(l => l.id === contextMenu.lineId)
+                  if (line) setDeleteTarget({ kind: 'line', uid: contextMenu.uid, lineId: contextMenu.lineId!, text: line.text })
+                  setContextMenu(null)
+                }}>
+                <span className="flex items-center gap-1.5"><Trash2 size={11} /> Excluir linha</span>
+              </button>
+            ) : null}
           </div>
         )
       })()}
@@ -2532,6 +2487,10 @@ export function FineTuningView() {
   const [nameEdit,      setNameEdit]      = useState<{ uid: string; tick: number } | null>(null)
   const [deleteTarget,  setDeleteTarget]  = useState<DeleteTarget | null>(null)
   const [activeTab,     setActiveTab]     = useState<'list' | 'gantt'>('list')
+  const [findQuery,     setFindQuery]     = useState('')
+  const [matchCount,    setMatchCount]    = useState(0)
+  const [matchIdx,      setMatchIdx]      = useState(0)
+  const gotoMatchRef = useRef<((idx: number) => void) | null>(null)
   const [showDetail,    setShowDetail]    = useState(false)
   const [showStats,     setShowStats]     = useState(false)
   const [showOntology,  setShowOntology]  = useState(false)
@@ -2570,15 +2529,13 @@ export function FineTuningView() {
   }, [selectedLine, checkedLines, items])
 
   // ── Contagens de atenção para os botões Ontologia / EDS / CSB ────────────────
-  // Ontologia: linhas em fases mapeadas (Fase 0/1A/1B/2) com owFase vazia ou divergente.
+  // Ontologia: linhas em fases mapeadas com qualquer campo (fase/atividade/operação/etapa) vazio.
   const nOntology = useMemo(() => {
     let n = 0
     for (const item of items) {
       if (item.isBlank) continue
-      const expected = expectedOwFase(item.phase)
-      if (!expected) continue
       for (const line of item.lines)
-        if (!line.isNavLine && (!line.owFase || line.owFase !== expected)) n++
+        if (hasIncompleteOntology(line, item.phase)) n++
     }
     return n
   }, [items])
@@ -2613,6 +2570,11 @@ export function FineTuningView() {
   useEffect(() => {
     if (checkedPkgs.size > 0) setShowDetail(true)
   }, [checkedPkgs])
+
+  // Ao marcar qualquer checkbox, retrair o assistente de preenchimento.
+  useEffect(() => {
+    if (checkedPkgs.size > 0 || checkedLines.size > 0) setAssistMin(true)
+  }, [checkedPkgs, checkedLines])
 
   // Refs de navegação por teclado (âncora e cursor para seleção com Shift)
   const navAnchorRef = useRef<number>(-1)
@@ -2937,7 +2899,7 @@ export function FineTuningView() {
         <button
           onClick={() => setAssistMin(false)}
           title="Expandir assistente de preenchimento"
-          className="shrink-0 w-9 flex flex-col items-center gap-3 py-3 bg-slate-100 dark:bg-slate-900 border-r border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-slate-200/60 dark:hover:bg-slate-800 transition-colors">
+          className="shrink-0 w-9 flex flex-col items-center gap-3 py-3 bg-[#f5f5f5] dark:bg-slate-900 border-r border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-slate-200/60 dark:hover:bg-slate-800 transition-colors">
           <PanelLeftOpen size={16} />
           <span className="[writing-mode:vertical-rl] text-[10px] font-bold uppercase tracking-widest">
             Assistente de Preenchimento
@@ -2945,8 +2907,8 @@ export function FineTuningView() {
         </button>
       ) : (
         <>
-          <div style={{ width: `${leftPct}%` }}
-            className="shrink-0 flex flex-col overflow-hidden bg-slate-100 dark:bg-slate-900 border-r border-slate-200 dark:border-slate-700">
+          <div style={{ width: '340px' }}
+            className="shrink-0 flex flex-col overflow-hidden bg-[#f5f5f5] dark:bg-slate-900 border-r border-slate-200 dark:border-slate-700">
             <ProjectDataPanel
               locatedTarget={located?.target ?? null}
               onLocate={target => setLocated(prev => {
@@ -2960,68 +2922,81 @@ export function FineTuningView() {
               onMinimize={() => setAssistMin(true)}
             />
           </div>
-
-          <ResizeHandle onPointerDown={startResize('left')} />
         </>
       )}
 
       {/* Center — toolbar (only here) + schedule or Gantt */}
-      <div className="flex-1 flex flex-col overflow-hidden min-w-0 p-4 md:p-6 gap-3">
+      <div className="flex-1 flex flex-col overflow-hidden min-w-0">
 
-        {/* Toolbar */}
-        <div className="shrink-0 flex flex-col gap-1">
-          {/* Row 1: title/stats */}
-          <div className="flex items-center gap-2">
-            <div className="flex-1 min-w-0">
-              {(() => {
-                const { rigType, operationType, scopeId } = state.inputs
-                const faseNominal = scopeId?.startsWith('FSU') ? 'FSU' : scopeId?.startsWith('FS1') ? 'FS1' : scopeId?.startsWith('FS2') ? 'FS2' : undefined
-                const sep = <span className="text-slate-500 dark:text-slate-600 font-light">·</span>
-                return (
-                  <h2 style={{ fontFamily: "'Barlow Condensed', sans-serif" }}
-                    className="text-xl font-bold text-[#0c2340] dark:text-white uppercase tracking-wide leading-none flex items-baseline gap-2 flex-wrap">
-                    <span className="normal-case tracking-normal">{state.wellName || 'X-XX-RJS'}</span>
-                    {rigType && <>{sep}<span className="text-base font-semibold text-slate-600 dark:text-slate-500 normal-case tracking-normal">{rigType}</span></>}
-                    {operationType && <>{sep}<span className="text-base font-semibold text-slate-600 dark:text-slate-500 normal-case tracking-normal">{operationType}</span></>}
-                    {faseNominal && <>{sep}<span className="text-base font-semibold text-slate-600 dark:text-slate-500 normal-case tracking-normal">{faseNominal}</span></>}
-                    {scopeId && <>{sep}<span className="text-base font-medium text-slate-600 dark:text-slate-500 normal-case tracking-normal">{SCOPE_LABEL[scopeId]}</span></>}
-                  </h2>
-                )
-              })()}
-              {(() => {
-                const firme = items.filter(i => !i.isBlank).reduce((a, i) => a + pkgFirme(i), 0)
-                const cont  = items.filter(i => !i.isBlank).reduce((a, i) => a + pkgCont(i),  0)
-                const total = firme + cont
-                const unit = state.showHours ? 'h' : 'd'
-                const fmtT = (d: number) => state.showHours ? (d * 24).toFixed(1) : d.toFixed(2)
-                return (
-                  <p className="text-xs text-slate-600 font-mono mt-0.5">
-                    <span className="text-[#2f5aa8] dark:text-blue-400">{fmtT(firme)}{unit} firme</span>
-                    {cont > 0 && <> · <span className="text-[#7d1935] dark:text-rose-400">{fmtT(cont)}{unit} cont.</span></>}
-                    {' · '}<span className="text-slate-700 dark:text-slate-400">{fmtT(total)}{unit} total</span>
-                    {' · '}<span className="text-slate-600 dark:text-slate-500">P{pct}</span>
-                  </p>
-                )
-              })()}
-            </div>
-          </div>
-          {/* Row 2: undo + salvar + panel toggles + d/h + export */}
-          <div className="flex items-center gap-2">
+        {/* White toolbar */}
+        <div className="shrink-0 flex flex-col gap-1 bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 px-4 py-1.5">
+          {/* Buttons row */}
+          <div className="flex items-center gap-2 overflow-x-auto">
             <button
               onClick={() => dispatch({ type: 'UNDO' })}
               disabled={!canUndo}
               title="Desfazer (Ctrl+Z)"
-              className="flex items-center gap-1 text-xs text-slate-700 hover:text-slate-700 dark:hover:text-slate-500 transition-colors px-2 py-1 rounded border border-slate-200 dark:border-slate-600 bg-slate-100 dark:bg-slate-800 disabled:opacity-30 disabled:cursor-not-allowed">
+              className="flex items-center gap-1 text-xs text-slate-700 hover:text-slate-700 dark:hover:text-slate-500 transition-colors px-2 py-1 rounded border border-slate-200 dark:border-slate-600 bg-[#f5f5f5] dark:bg-slate-800 disabled:opacity-30 disabled:cursor-not-allowed">
               <Undo2 size={12} /> Desfazer
             </button>
             <button
               onClick={() => dispatch({ type: 'REDO' })}
               disabled={!canRedo}
               title="Refazer (Ctrl+Y)"
-              className="flex items-center gap-1 text-xs text-slate-700 hover:text-slate-700 dark:hover:text-slate-500 transition-colors px-2 py-1 rounded border border-slate-200 dark:border-slate-600 bg-slate-100 dark:bg-slate-800 disabled:opacity-30 disabled:cursor-not-allowed">
+              className="flex items-center gap-1 text-xs text-slate-700 hover:text-slate-700 dark:hover:text-slate-500 transition-colors px-2 py-1 rounded border border-slate-200 dark:border-slate-600 bg-[#f5f5f5] dark:bg-slate-800 disabled:opacity-30 disabled:cursor-not-allowed">
               <Redo2 size={12} /> Refazer
             </button>
+            {/* Localizar */}
+            {activeTab === 'list' && (
+              <div className="flex items-center gap-1 py-1 px-2 rounded border border-slate-200 dark:border-slate-600 bg-[#fafafa] dark:bg-slate-700">
+                <Search size={12} className="shrink-0 text-slate-500 dark:text-slate-400" />
+                <input
+                  value={findQuery}
+                  onChange={e => setFindQuery(e.target.value)}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter') { e.preventDefault(); gotoMatchRef.current?.(e.shiftKey ? matchIdx - 1 : matchIdx + 1) }
+                    else if (e.key === 'Escape') { e.preventDefault(); setFindQuery('') }
+                  }}
+                  placeholder="Localizar..."
+                  className="w-32 bg-transparent text-xs text-slate-700 dark:text-slate-200 outline-none placeholder:text-slate-500 dark:placeholder:text-slate-500"
+                />
+                {findQuery && (
+                  <>
+                    <span className="shrink-0 text-[10px] font-mono tabular-nums text-slate-500 dark:text-slate-400">
+                      {matchCount ? `${matchIdx + 1}/${matchCount}` : '0/0'}
+                    </span>
+                    <button onClick={() => gotoMatchRef.current?.(matchIdx - 1)} disabled={!matchCount} title="Anterior (Shift+Enter)"
+                      className="shrink-0 text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 disabled:opacity-30 transition-colors">
+                      <ChevronUp size={13} />
+                    </button>
+                    <button onClick={() => gotoMatchRef.current?.(matchIdx + 1)} disabled={!matchCount} title="Próximo (Enter)"
+                      className="shrink-0 text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 disabled:opacity-30 transition-colors">
+                      <ChevronDown size={13} />
+                    </button>
+                    <button onClick={() => setFindQuery('')} title="Limpar (Esc)"
+                      className="shrink-0 text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition-colors">
+                      <X size={12} />
+                    </button>
+                  </>
+                )}
+              </div>
+            )}
             <div className="ml-auto flex items-center gap-2">
+              {/* Lista / Gantt */}
+              <div className="flex gap-1 shrink-0">
+                <button onClick={() => setActiveTab('list')}
+                  className={`px-2.5 py-1 text-xs rounded border transition-colors ${activeTab === 'list'
+                    ? 'border-slate-500 dark:border-slate-400 bg-slate-100 dark:bg-slate-600 text-slate-800 dark:text-slate-100'
+                    : 'border-slate-200 dark:border-slate-600 bg-[#fafafa] dark:bg-slate-700 text-slate-500 dark:text-slate-400 hover:bg-slate-100 hover:border-slate-300 dark:hover:border-slate-500'}`}>
+                  Lista
+                </button>
+                <button onClick={() => setActiveTab('gantt')}
+                  className={`px-2.5 py-1 text-xs rounded border transition-colors ${activeTab === 'gantt'
+                    ? 'border-slate-500 dark:border-slate-400 bg-slate-100 dark:bg-slate-600 text-slate-800 dark:text-slate-100'
+                    : 'border-slate-200 dark:border-slate-600 bg-[#fafafa] dark:bg-slate-700 text-slate-500 dark:text-slate-400 hover:bg-slate-100 hover:border-slate-300 dark:hover:border-slate-500'}`}>
+                  Gantt
+                </button>
+              </div>
               <button
                 onClick={() => enterColMode('ontology')}
                 title={showOntology
@@ -3031,14 +3006,12 @@ export function FineTuningView() {
                     : 'Exibir campos de ontologia (OW/Genesis) no lugar dos tempos'}
                 className={`flex items-center gap-1 text-xs px-2 py-1 rounded border transition-colors ${
                   showOntology
-                    ? 'bg-slate-100 dark:bg-slate-700 border-slate-300 dark:border-slate-500 text-slate-700 dark:text-slate-200'
-                    : nOntology > 0
-                      ? 'border-amber-400 dark:border-amber-600 text-amber-800 dark:text-amber-300 bg-amber-50 dark:bg-amber-950 hover:bg-amber-100 dark:hover:bg-amber-900'
-                      : 'border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-500 bg-slate-100 dark:bg-slate-800'
+                    ? 'border-slate-500 dark:border-slate-400 bg-slate-100 dark:bg-slate-600 text-slate-800 dark:text-slate-100'
+                    : 'border-slate-200 dark:border-slate-600 bg-[#fafafa] dark:bg-slate-700 text-slate-500 dark:text-slate-400 hover:bg-slate-100 hover:border-slate-300 dark:hover:border-slate-500'
                 }`}>
                 Ontologia
                 {!showOntology && nOntology > 0 && (
-                  <span className="inline-flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full text-[10px] font-bold bg-amber-500 text-white">{nOntology}</span>
+                  <span className="inline-flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full text-[10px] font-bold bg-yellow-400 text-yellow-900">{nOntology}</span>
                 )}
               </button>
               <button
@@ -3050,14 +3023,12 @@ export function FineTuningView() {
                     : 'Exibir campos de EDS (Tipo de EDS, Comentário, Compensando) no lugar dos tempos'}
                 className={`flex items-center gap-1 text-xs px-2 py-1 rounded border transition-colors ${
                   showEds
-                    ? 'bg-slate-100 dark:bg-slate-700 border-slate-300 dark:border-slate-500 text-slate-700 dark:text-slate-200'
-                    : nEds > 0
-                      ? 'border-amber-400 dark:border-amber-600 text-amber-800 dark:text-amber-300 bg-amber-50 dark:bg-amber-950 hover:bg-amber-100 dark:hover:bg-amber-900'
-                      : 'border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-500 bg-slate-100 dark:bg-slate-800'
+                    ? 'border-slate-500 dark:border-slate-400 bg-slate-100 dark:bg-slate-600 text-slate-800 dark:text-slate-100'
+                    : 'border-slate-200 dark:border-slate-600 bg-[#fafafa] dark:bg-slate-700 text-slate-500 dark:text-slate-400 hover:bg-slate-100 hover:border-slate-300 dark:hover:border-slate-500'
                 }`}>
                 EDS
                 {!showEds && nEds > 0 && (
-                  <span className="inline-flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full text-[10px] font-bold bg-amber-500 text-white">{nEds}</span>
+                  <span className="inline-flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full text-[10px] font-bold bg-yellow-400 text-yellow-900">{nEds}</span>
                 )}
               </button>
               <button
@@ -3069,14 +3040,12 @@ export function FineTuningView() {
                     : 'Exibir campos de CSB (Primário e Secundário) no lugar dos tempos'}
                 className={`flex items-center gap-1 text-xs px-2 py-1 rounded border transition-colors ${
                   showCsb
-                    ? 'bg-slate-100 dark:bg-slate-700 border-slate-300 dark:border-slate-500 text-slate-700 dark:text-slate-200'
-                    : nCsb > 0
-                      ? 'border-amber-400 dark:border-amber-600 text-amber-800 dark:text-amber-300 bg-amber-50 dark:bg-amber-950 hover:bg-amber-100 dark:hover:bg-amber-900'
-                      : 'border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-500 bg-slate-100 dark:bg-slate-800'
+                    ? 'border-slate-500 dark:border-slate-400 bg-slate-100 dark:bg-slate-600 text-slate-800 dark:text-slate-100'
+                    : 'border-slate-200 dark:border-slate-600 bg-[#fafafa] dark:bg-slate-700 text-slate-500 dark:text-slate-400 hover:bg-slate-100 hover:border-slate-300 dark:hover:border-slate-500'
                 }`}>
                 CSB
                 {!showCsb && nCsb > 0 && (
-                  <span className="inline-flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full text-[10px] font-bold bg-amber-500 text-white">{nCsb}</span>
+                  <span className="inline-flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full text-[10px] font-bold bg-yellow-400 text-yellow-900">{nCsb}</span>
                 )}
               </button>
               {showOntology && ONTOLOGY_CORRECTOR_ENABLED && (() => {
@@ -3090,7 +3059,7 @@ export function FineTuningView() {
                       : `Revisar ${nMismatch} linha(s) cuja fase OW diverge da fase do cronograma — ajusta fase, atividade, operação e etapa`}
                     className={`flex items-center gap-1.5 text-xs px-2 py-1 rounded border transition-colors ${
                       nMismatch === 0
-                        ? 'border-slate-200 dark:border-slate-700 text-slate-400 dark:text-slate-600 bg-slate-100 dark:bg-slate-800 cursor-not-allowed'
+                        ? 'border-slate-200 dark:border-slate-700 text-slate-400 dark:text-slate-600 bg-[#f5f5f5] dark:bg-slate-800 cursor-not-allowed'
                         : 'border-amber-400 dark:border-amber-600 text-amber-800 dark:text-amber-200 bg-amber-50 dark:bg-amber-950 hover:bg-amber-100 dark:hover:bg-amber-900'
                     }`}>
                     <Check size={12} /> Revisar ontologia
@@ -3100,21 +3069,27 @@ export function FineTuningView() {
                   </button>
                 )
               })()}
-              <div className="flex rounded-lg overflow-hidden border border-slate-200 dark:border-slate-600">
+              <div className="flex gap-1 shrink-0">
                 <button onClick={() => state.showHours && dispatch({ type: 'TOGGLE_HOURS' })}
-                  className={`px-2 py-1 text-xs font-bold transition-colors ${!state.showHours ? 'bg-[#0c2340] text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700'}`}>d</button>
+                  className={`px-2 py-1 text-xs rounded border transition-colors ${!state.showHours
+                    ? 'border-slate-500 dark:border-slate-400 bg-slate-100 dark:bg-slate-600 text-slate-800 dark:text-slate-100'
+                    : 'border-slate-200 dark:border-slate-600 bg-[#fafafa] dark:bg-slate-700 text-slate-500 dark:text-slate-400 hover:bg-slate-100 hover:border-slate-300 dark:hover:border-slate-500'}`}>d</button>
                 <button onClick={() => !state.showHours && dispatch({ type: 'TOGGLE_HOURS' })}
-                  className={`px-2 py-1 text-xs font-bold transition-colors ${state.showHours ? 'bg-[#0c2340] text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700'}`}>h</button>
+                  className={`px-2 py-1 text-xs rounded border transition-colors ${state.showHours
+                    ? 'border-slate-500 dark:border-slate-400 bg-slate-100 dark:bg-slate-600 text-slate-800 dark:text-slate-100'
+                    : 'border-slate-200 dark:border-slate-600 bg-[#fafafa] dark:bg-slate-700 text-slate-500 dark:text-slate-400 hover:bg-slate-100 hover:border-slate-300 dark:hover:border-slate-500'}`}>h</button>
               </div>
               <button
                 onClick={handleExportJson}
-                className="flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-semibold text-white transition-opacity hover:opacity-90"
-                style={{ background: '#008542' }}>
-                <Download size={14} /> Exportar JSON
+                className="flex items-center gap-1.5 px-3 py-1 rounded text-xs font-semibold whitespace-nowrap transition-colors bg-[#008542] text-white dark:border dark:border-cyan-600/50 dark:bg-slate-700 dark:text-cyan-400 hover:opacity-90 dark:hover:border-cyan-400">
+                <Download size={12} /> Finalizar Edição
               </button>
             </div>
           </div>
         </div>
+
+        {/* Content */}
+        <div className="flex-1 flex flex-col overflow-hidden min-h-0 p-4 md:p-6 gap-3">
 
         {/* Copy buffer notice */}
         {copyBuffer && (
@@ -3176,7 +3151,12 @@ export function FineTuningView() {
           setCheckedPkgs={setCheckedPkgs}
           setCheckedLines={setCheckedLines}
           setSelectedLine={setSelectedLine}
+          findQuery={findQuery}
+          setFindQuery={setFindQuery}
+          gotoMatchRef={gotoMatchRef}
+          onMatchChange={(count, idx) => { setMatchCount(count); setMatchIdx(idx) }}
         />
+        </div>
       </div>
 
       {/* Detalhamento — expansível à direita / trilho quando minimizado */}
@@ -3184,7 +3164,7 @@ export function FineTuningView() {
         <>
           <ResizeHandle onPointerDown={startResize('detail')} />
           <div style={{ width: `${detailPct}%` }}
-            className="shrink-0 flex flex-col overflow-hidden bg-slate-100 dark:bg-slate-900 border-l border-slate-200 dark:border-slate-700">
+            className="shrink-0 flex flex-col overflow-hidden bg-[#f5f5f5] dark:bg-slate-900 border-l border-slate-200 dark:border-slate-700">
             {detailLine
               ? <LineDetailPanel uid={detailLine.uid} lineId={detailLine.lineId} checkedLines={checkedLines} onCollapse={() => setShowDetail(false)} />
               : (
@@ -3207,7 +3187,7 @@ export function FineTuningView() {
         </>
       ) : (
         <button onClick={() => setShowDetail(true)} title="Expandir detalhamento"
-          className="shrink-0 w-9 flex flex-col items-center gap-3 py-3 bg-slate-100 dark:bg-slate-900 border-l border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-slate-200/60 dark:hover:bg-slate-800 transition-colors">
+          className="shrink-0 w-9 flex flex-col items-center gap-3 py-3 bg-[#f5f5f5] dark:bg-slate-900 border-l border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-slate-200/60 dark:hover:bg-slate-800 transition-colors">
           <PanelRightOpen size={16} />
           <span className="[writing-mode:vertical-rl] text-[10px] font-bold uppercase tracking-widest">Detalhamento</span>
         </button>
@@ -3218,13 +3198,13 @@ export function FineTuningView() {
         <>
           <ResizeHandle onPointerDown={startResize('right')} />
           <div style={{ width: `${rightPct}%` }}
-            className="shrink-0 flex flex-col overflow-hidden bg-slate-100 dark:bg-slate-900 border-l border-slate-200 dark:border-slate-700">
+            className="shrink-0 flex flex-col overflow-hidden bg-[#f5f5f5] dark:bg-slate-900 border-l border-slate-200 dark:border-slate-700">
             <StatsPanel onCollapse={() => setShowStats(false)} />
           </div>
         </>
       ) : (
         <button onClick={() => setShowStats(true)} title="Expandir estatísticas"
-          className="shrink-0 w-9 flex flex-col items-center gap-3 py-3 bg-slate-100 dark:bg-slate-900 border-l border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-slate-200/60 dark:hover:bg-slate-800 transition-colors">
+          className="shrink-0 w-9 flex flex-col items-center gap-3 py-3 bg-[#f5f5f5] dark:bg-slate-900 border-l border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-slate-200/60 dark:hover:bg-slate-800 transition-colors">
           <PanelRightOpen size={16} />
           <span className="[writing-mode:vertical-rl] text-[10px] font-bold uppercase tracking-widest">Estatísticas</span>
         </button>
@@ -3233,7 +3213,7 @@ export function FineTuningView() {
       {/* Delete confirmation modal */}
       {deleteTarget && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-          <div className="bg-slate-100 dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-700 p-5 max-w-xs w-full mx-4 flex flex-col gap-4">
+          <div className="bg-[#f5f5f5] dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-700 p-5 max-w-xs w-full mx-4 flex flex-col gap-4">
             <div className="flex items-start gap-3">
               <Trash2 size={18} className="text-red-400 shrink-0 mt-0.5" />
               <div>
