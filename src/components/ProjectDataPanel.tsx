@@ -39,11 +39,13 @@ function Field({ label, value, onChange, placeholder, unit, readOnly, locate }: 
   locate?: LocateTarget
 }) {
   const ctx = useContext(LocateCtx)
+  const filter = useContext(SectionFilterCtx)
   const showLocate = !!(ctx?.onLocate && locate)
   const active = showLocate && locateEq(ctx!.active, locate!)
+  const highlighted = !!(filter && normalizeFilter(label).includes(normalizeFilter(filter)))
   return (
-    <div className="flex items-center justify-between gap-2 py-1 border-b border-slate-100 dark:border-slate-800 last:border-0">
-      <span className="text-xs text-slate-600 dark:text-slate-500 shrink-0 leading-snug flex items-center gap-1 min-w-0">
+    <div className={`flex items-center justify-between gap-2 py-1 border-b border-slate-100 dark:border-slate-800 last:border-0 rounded ${highlighted ? 'bg-yellow-50 dark:bg-yellow-900/20' : ''}`}>
+      <span className={`text-xs shrink-0 leading-snug flex items-center gap-1 min-w-0 ${highlighted ? 'text-yellow-800 dark:text-yellow-300 font-semibold' : 'text-slate-600 dark:text-slate-500'}`}>
         {showLocate && (
           <button type="button"
             onClick={() => ctx!.onLocate!(locate!)}
@@ -76,10 +78,13 @@ function Field({ label, value, onChange, placeholder, unit, readOnly, locate }: 
 // que não têm um campo numérico próprio (ex.: REVCIM, ECS/BOP).
 function LocateRow({ children, target }: { children: React.ReactNode; target?: LocateTarget }) {
   const ctx = useContext(LocateCtx)
+  const filter = useContext(SectionFilterCtx)
   const showLocate = !!(ctx?.onLocate && target)
   const active = showLocate && locateEq(ctx!.active, target!)
+  const text = typeof children === 'string' ? children : ''
+  const highlighted = !!(filter && text && normalizeFilter(text).includes(normalizeFilter(filter)))
   return (
-    <div className="text-xs text-slate-700 dark:text-slate-300 py-0.5 flex items-center gap-1">
+    <div className={`text-xs py-0.5 flex items-center gap-1 rounded ${highlighted ? 'bg-yellow-50 dark:bg-yellow-900/20 text-yellow-800 dark:text-yellow-300 font-semibold' : 'text-slate-700 dark:text-slate-300'}`}>
       {showLocate && (
         <button type="button"
           onClick={() => ctx!.onLocate!(target!)}
@@ -367,12 +372,14 @@ function Section({ title, searchText, children, defaultOpen = false, isDirty = f
   isDirty?: boolean; onApply?: () => void; onDiscard?: () => void; canApply?: boolean
 }) {
   const filter = useContext(SectionFilterCtx)
-  if (filter) {
-    const q = normalizeFilter(filter)
-    const haystack = normalizeFilter(title + ' ' + (searchText ?? ''))
-    if (!haystack.includes(q)) return null
-  }
   const [collapsed, setCollapsed] = useState(!defaultOpen)
+
+  const matches = !filter || normalizeFilter(title + ' ' + (searchText ?? '')).includes(normalizeFilter(filter))
+  if (!matches) return null
+
+  // When searching, force expanded so fields are visible for highlighting
+  const effectiveCollapsed = filter ? false : collapsed
+
   const dirty = isDirty && !!onApply
   return (
     <div className={`shrink-0 rounded-xl overflow-hidden shadow-sm ring-1 transition-colors ${
@@ -380,18 +387,18 @@ function Section({ title, searchText, children, defaultOpen = false, isDirty = f
         ? 'ring-amber-300 dark:ring-amber-700/70'
         : 'ring-slate-200/80 dark:ring-slate-700/60'
     }`}>
-      <div className={`flex items-center gap-1.5 px-2.5 py-2 bg-slate-50/90 dark:bg-slate-800/50 ${!collapsed ? 'border-b border-slate-200/70 dark:border-slate-700/50' : ''}`}>
+      <div className={`flex items-center gap-1.5 px-2.5 py-2 bg-slate-50/90 dark:bg-slate-800/50 ${!effectiveCollapsed ? 'border-b border-slate-200/70 dark:border-slate-700/50' : ''}`}>
         <button onClick={() => setCollapsed(c => !c)}
           className="flex items-center gap-1.5 flex-1 min-w-0 text-left group">
           <span className={`w-4 font-bold text-sm leading-none select-none transition-colors ${dirty ? 'text-amber-500' : 'text-slate-400 dark:text-slate-500 group-hover:text-slate-600 dark:group-hover:text-slate-300'}`}>
-            {collapsed ? '+' : '−'}
+            {effectiveCollapsed ? '+' : '−'}
           </span>
           <span className={`text-xs font-bold tracking-wide transition-colors ${dirty ? 'text-amber-600 dark:text-amber-400' : 'text-slate-700 dark:text-slate-300 group-hover:text-slate-900 dark:group-hover:text-slate-100'}`}>
             {title}
           </span>
           {dirty && <span className="text-amber-400 text-[8px] leading-none ml-0.5">●</span>}
         </button>
-        {dirty && !collapsed && (
+        {dirty && !effectiveCollapsed && (
           <>
             {onDiscard && (
               <button onClick={onDiscard}
@@ -413,7 +420,7 @@ function Section({ title, searchText, children, defaultOpen = false, isDirty = f
           </>
         )}
       </div>
-      {!collapsed && <div className="px-2.5 py-1.5 space-y-0.5">{children}</div>}
+      {!effectiveCollapsed && <div className="px-2.5 py-1.5 space-y-0.5">{children}</div>}
     </div>
   )
 }
