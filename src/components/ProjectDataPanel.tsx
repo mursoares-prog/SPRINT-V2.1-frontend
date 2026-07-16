@@ -391,6 +391,8 @@ function Section({ title, searchText, children, defaultOpen = false, isDirty = f
   const matches = !filter || normalizeFilter(title + ' ' + (searchText ?? '') + childLabels).includes(normalizeFilter(filter))
   if (!matches) return null
 
+  const titleHighlighted = !!(filter && normalizeFilter(title + ' ' + (searchText ?? '')).includes(normalizeFilter(filter)))
+
   // When searching, force expanded so fields are visible for highlighting
   const effectiveCollapsed = filter ? false : collapsed
 
@@ -401,13 +403,13 @@ function Section({ title, searchText, children, defaultOpen = false, isDirty = f
         ? 'ring-amber-300 dark:ring-amber-700/70'
         : 'ring-slate-200/80 dark:ring-slate-700/60'
     }`}>
-      <div className={`flex items-center gap-1.5 px-2.5 py-2 bg-slate-50/90 dark:bg-slate-800/50 ${!effectiveCollapsed ? 'border-b border-slate-200/70 dark:border-slate-700/50' : ''}`}>
+      <div className={`flex items-center gap-1.5 px-2.5 py-2 ${titleHighlighted ? 'bg-sky-50 dark:bg-sky-900/30' : 'bg-slate-50/90 dark:bg-slate-800/50'} ${!effectiveCollapsed ? 'border-b border-slate-200/70 dark:border-slate-700/50' : ''}`}>
         <button onClick={() => setCollapsed(c => !c)}
           className="flex items-center gap-1.5 flex-1 min-w-0 text-left group">
           <span className={`w-4 font-bold text-sm leading-none select-none transition-colors ${dirty ? 'text-amber-500' : 'text-slate-400 dark:text-slate-500 group-hover:text-slate-600 dark:group-hover:text-slate-300'}`}>
             {effectiveCollapsed ? '+' : '−'}
           </span>
-          <span className={`text-xs font-bold tracking-wide transition-colors ${dirty ? 'text-amber-600 dark:text-amber-400' : 'text-slate-700 dark:text-slate-300 group-hover:text-slate-900 dark:group-hover:text-slate-100'}`}>
+          <span className={`text-xs font-bold tracking-wide transition-colors ${dirty ? 'text-amber-600 dark:text-amber-400' : titleHighlighted ? 'text-sky-800 dark:text-sky-300' : 'text-slate-700 dark:text-slate-300 group-hover:text-slate-900 dark:group-hover:text-slate-100'}`}>
             {title}
           </span>
           {dirty && <span className="text-amber-400 text-[8px] leading-none ml-0.5">●</span>}
