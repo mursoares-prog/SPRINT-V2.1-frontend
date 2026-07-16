@@ -1,10 +1,15 @@
 import { useState, useEffect, useRef, useLayoutEffect, createContext, useContext } from 'react'
 import { createPortal } from 'react-dom'
-import { Plus, X, Crosshair, PanelLeftClose, ChevronDown } from 'lucide-react'
+import { Plus, X, Crosshair, PanelLeftClose, ChevronDown, Search } from 'lucide-react'
 import { useApp, lineIdsForLocate, SLWLFT_HIGH_PKG_IDS, type LocateTarget } from '../context/AppContext'
 import type { ProjectData, BhaPlanFields } from '../types'
 import { PACKAGES } from '../data/packages'
 import { bhaDerivedDepth, camisaoDhsvFields, gabaritoFields } from '../engines/nippleDepth'
+
+// ── Filtro de seções ──────────────────────────────────────────────────────────
+const SectionFilterCtx = createContext('')
+const normalizeFilter = (s: string) =>
+  s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
 
 // ── Localizar campo → realça linhas relacionadas no cronograma ────────────────
 const LocateCtx = createContext<{
@@ -287,7 +292,7 @@ function NippleRow({ label, name, depth, onName, onDepth, namePlaceholder, optio
   options?: string[]
   locate?: LocateTarget
 }) {
-  const inputCls = 'min-w-0 text-xs text-slate-700 dark:text-slate-200 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded px-1.5 py-0.5 outline-none focus:border-sky-400 dark:focus:border-sky-600 placeholder:text-slate-400 dark:placeholder:text-slate-600 transition-colors'
+  const inputCls = 'min-w-0 text-xs text-slate-700 dark:text-slate-200 bg-[#fafafa] dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded px-1.5 py-0.5 outline-none focus:border-sky-400 dark:focus:border-sky-600 placeholder:text-slate-400 dark:placeholder:text-slate-600 transition-colors'
   const na = name.trim().toLowerCase() === 'não aplicável'
   const ctx = useContext(LocateCtx)
   const showLocate = !!(ctx?.onLocate && locate)
@@ -357,11 +362,12 @@ function InactiveNippleRows({ rows }: { rows: NippleRowConf[] }) {
 }
 
 // ── Collapsible section with dirty state + Aplicar button ──────────────────────
-function Section({ title, children, defaultOpen = false, isDirty = false, onApply, onDiscard, canApply = true, accent }: {
+function Section({ title, children, defaultOpen = false, isDirty = false, onApply, onDiscard, canApply = true }: {
   title: string; children: React.ReactNode; defaultOpen?: boolean
   isDirty?: boolean; onApply?: () => void; onDiscard?: () => void; canApply?: boolean
-  accent?: string
 }) {
+  const filter = useContext(SectionFilterCtx)
+  if (filter && !normalizeFilter(title).includes(normalizeFilter(filter))) return null
   const [collapsed, setCollapsed] = useState(!defaultOpen)
   const dirty = isDirty && !!onApply
   return (
@@ -369,7 +375,7 @@ function Section({ title, children, defaultOpen = false, isDirty = false, onAppl
       dirty
         ? 'ring-amber-300 dark:ring-amber-700/70'
         : 'ring-slate-200/80 dark:ring-slate-700/60'
-    } ${accent ? `border-l-[3px] ${accent}` : ''}`}>
+    }`}>
       <div className={`flex items-center gap-1.5 px-2.5 py-2 bg-slate-50/90 dark:bg-slate-800/50 ${!collapsed ? 'border-b border-slate-200/70 dark:border-slate-700/50' : ''}`}>
         <button onClick={() => setCollapsed(c => !c)}
           className="flex items-center gap-1.5 flex-1 min-w-0 text-left group">
@@ -840,22 +846,43 @@ export function ProjectDataPanel({ onLocate, onClearLocate, locatedTarget, oneBy
   const reviewTotal = reviewLineIds.length
   const currentReviewLineId = oneByOneMode && reviewTotal > 0 ? reviewLineIds[0] : null
 
+  const [sectionFilter, setSectionFilter] = useState('')
+  const sectionVisible = (title: string) => !sectionFilter ||
+    title.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
+      .includes(sectionFilter.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase())
+
   return (
     <LocateCtx.Provider value={{ onLocate, onClear: onClearLocate, active: locatedTarget ?? null }}>
-    <div className="flex flex-col h-full bg-slate-100 dark:bg-slate-900 overflow-hidden">
-      {/* Header */}
-      <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-800 shrink-0 flex items-center justify-between gap-2">
-        <span className="text-xs font-bold text-slate-700 dark:text-slate-400 uppercase tracking-widest">
-          Assistente de Preenchimento
-        </span>
-        {onMinimize && (
-          <button
-            onClick={onMinimize}
-            title="Minimizar assistente"
-            className="shrink-0 -mr-1 p-1 rounded text-slate-500 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors">
-            <PanelLeftClose size={15} />
-          </button>
-        )}
+    <div className="flex flex-col h-full bg-[#f5f5f5] dark:bg-slate-900 overflow-hidden">
+      {/* Header — barra superior no mesmo estilo do toolbar central */}
+      <div className="shrink-0 bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700" style={{ height: '38px' }}>
+        <div className="flex items-center h-full px-3 gap-2">
+          <Search size={12} className="shrink-0 text-slate-400 dark:text-slate-500" />
+          <input
+            value={sectionFilter}
+            onChange={e => setSectionFilter(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Escape') setSectionFilter('') }}
+            placeholder="Localizar seção..."
+            className="flex-1 bg-transparent text-xs text-slate-700 dark:text-slate-200 outline-none placeholder:text-slate-400 dark:placeholder:text-slate-500"
+          />
+          {sectionFilter && (
+            <button onClick={() => setSectionFilter('')} className="shrink-0 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors">
+              <X size={12} />
+            </button>
+          )}
+          {onMinimize && (
+            <button
+              onClick={onMinimize}
+              title="Minimizar assistente"
+              className="shrink-0 p-1 rounded text-slate-500 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">
+              <PanelLeftClose size={15} />
+            </button>
+          )}
+        </div>
+      </div>
+      {/* Subtítulo */}
+      <div className="shrink-0 px-4 py-1.5 border-b border-slate-100 dark:border-slate-800">
+        <span className="text-[10px] text-slate-400 dark:text-slate-500 tracking-wide">Assistente de preenchimento</span>
       </div>
 
       {/* Confirmar alterações — linhas em revisão após "Aplicar" */}
@@ -905,6 +932,7 @@ export function ProjectDataPanel({ onLocate, onClearLocate, locatedTarget, oneBy
       )}
 
       {/* Scrollable body */}
+      <SectionFilterCtx.Provider value={sectionFilter}>
       <div className="flex-1 overflow-y-auto p-3 flex flex-col gap-2.5 scrollbar-custom">
 
         {/* ── Nipples ── */}
@@ -924,8 +952,7 @@ export function ProjectDataPanel({ onLocate, onClearLocate, locatedTarget, oneBy
           const active   = noItems ? rows : rows.filter(r => hasLines(r.typeField, r.depthField))
           const inactive = noItems ? []   : rows.filter(r => !hasLines(r.typeField, r.depthField))
           return (
-            <Section title="Nipples" defaultOpen={false} accent="border-l-amber-500 dark:border-l-amber-400"
-              isDirty={dirty['nipples']} onApply={applySection('nipples')} onDiscard={discardSection('nipples')} canApply={sectionAffectsLines('nipples')}>
+            <Section title="Nipples" defaultOpen={false}              isDirty={dirty['nipples']} onApply={applySection('nipples')} onDiscard={discardSection('nipples')} canApply={sectionAffectsLines('nipples')}>
               <div className="space-y-0">
                 {active.map(r => (
                   <NippleRow key={r.typeField as string} label={r.label} name={r.name} depth={r.depth}
@@ -939,8 +966,7 @@ export function ProjectDataPanel({ onLocate, onClearLocate, locatedTarget, oneBy
         })()}
 
         {/* ── Navegação ── */}
-        <Section title="Navegação" accent="border-l-sky-400 dark:border-l-sky-500"
-          isDirty={dirty['sonda']} onApply={applySection('sonda')} onDiscard={discardSection('sonda')} canApply={sectionAffectsLines('sonda')}>
+        <Section title="Navegação"          isDirty={dirty['sonda']} onApply={applySection('sonda')} onDiscard={discardSection('sonda')} canApply={sectionAffectsLines('sonda')}>
           <Field label="Poço origem"            value={d.pocoOrigem}           onChange={v => setSonda({ pocoOrigem: v })} locate={{ kind: 'data', field: 'pocoOrigem' }} />
           <Field label="Poço destino"           value={d.poco}                 onChange={v => setSonda({ poco: v })} locate={{ kind: 'data', field: 'poco' }} />
           <Field label="Distância entre poços"  value={d.distanciaEntrePocos}  onChange={v => setSonda({ distanciaEntrePocos: v })} unit="NM" locate={{ kind: 'data', field: 'distanciaEntrePocos' }} />
@@ -987,8 +1013,7 @@ export function ProjectDataPanel({ onLocate, onClearLocate, locatedTarget, oneBy
           push(showBhDhsv, ['ABAN 030'], <Field key="lcDhsv" label="Pressão LC DHSV" value={d.pressaoBullheadDhsv} onChange={v => setEquip({ pressaoBullheadDhsv: v })} unit="psi" locate={{ kind: 'data', field: 'pressaoBullheadDhsv' }} />)
           entries.sort((a, b) => a.ord - b.ord)
           return (
-            <Section title="Equipamentos Submarinos" accent="border-l-sky-400 dark:border-l-sky-500"
-              isDirty={dirty['equipamentos_submarinos']} onApply={applySection('equipamentos_submarinos')} onDiscard={discardSection('equipamentos_submarinos')} canApply={sectionAffectsLines('equipamentos_submarinos')}>
+            <Section title="Equipamentos Submarinos"              isDirty={dirty['equipamentos_submarinos']} onApply={applySection('equipamentos_submarinos')} onDiscard={discardSection('equipamentos_submarinos')} canApply={sectionAffectsLines('equipamentos_submarinos')}>
               {entries.map(e => e.node)}
             </Section>
           )
@@ -1009,8 +1034,7 @@ export function ProjectDataPanel({ onLocate, onClearLocate, locatedTarget, oneBy
           push(showBopAr,      [...SLWLFT_HIGH_PKG_IDS], <Field key="bopArame" label="Teste alta equipamentos de pressão (SL, WL e FT)" value={d.pressaoBopArameHigh} onChange={v => setEquipSup({ pressaoBopArameHigh: v })} unit="psi" locate={{ kind: 'data', field: 'pressaoBopArameHigh' }} />)
           entries.sort((a, b) => a.ord - b.ord)
           return (
-            <Section title="Equipamentos de Superfície" accent="border-l-sky-400 dark:border-l-sky-500"
-              isDirty={dirty['equipamentos_superficie']} onApply={applySection('equipamentos_superficie')} onDiscard={discardSection('equipamentos_superficie')} canApply={sectionAffectsLines('equipamentos_superficie')}>
+            <Section title="Equipamentos de Superfície"              isDirty={dirty['equipamentos_superficie']} onApply={applySection('equipamentos_superficie')} onDiscard={discardSection('equipamentos_superficie')} canApply={sectionAffectsLines('equipamentos_superficie')}>
               {entries.map(e => e.node)}
             </Section>
           )
@@ -1022,8 +1046,7 @@ export function ProjectDataPanel({ onLocate, onClearLocate, locatedTarget, oneBy
             const showBopPerf = hasPkgFn('ABAN 228','ABAN 229')
             if (!showBop && !showBopPerf) return null
             return (
-              <Section title="Testes ESCP" accent="border-l-sky-400 dark:border-l-sky-500"
-                isDirty={dirty['testes_escp']} onApply={applySection('testes_escp')} onDiscard={discardSection('testes_escp')} canApply={sectionAffectsLines('testes_escp')}>
+              <Section title="Testes ESCP"                isDirty={dirty['testes_escp']} onApply={applySection('testes_escp')} onDiscard={discardSection('testes_escp')} canApply={sectionAffectsLines('testes_escp')}>
                 {(showBop || showBopPerf) && <Field label="MAPECAB" value={d.mapecab} onChange={v => {
                   const upd: Partial<import('../types').ProjectData> = { mapecab: v }
                   if (!d.pressaoKillChoke    || d.pressaoKillChoke    === d.mapecab) { upd.pressaoKillChoke = v; upd.pressaoEquipSupBop = v }
@@ -1039,8 +1062,7 @@ export function ProjectDataPanel({ onLocate, onClearLocate, locatedTarget, oneBy
 
         {/* ── Retirada de Coluna ── */}
         {state.fineTuningItems.some(i => !i.isBlank && ['ABAN 188','ABAN 189','ABAN 190'].includes(i.packageId)) && (
-          <Section title="Retirada de Coluna" accent="border-l-sky-400 dark:border-l-sky-500"
-            isDirty={dirty['retirada_coluna']} onApply={applySection('retirada_coluna')} onDiscard={discardSection('retirada_coluna')} canApply={sectionAffectsLines('retirada_coluna')}>
+          <Section title="Retirada de Coluna"            isDirty={dirty['retirada_coluna']} onApply={applySection('retirada_coluna')} onDiscard={discardSection('retirada_coluna')} canApply={sectionAffectsLines('retirada_coluna')}>
             <Field label="Ø/ident. tubo COP/COI (retirada)" value={d.copCoiTubo} onChange={v => setRetirada({ copCoiTubo: v })} locate={{ kind: 'data', field: 'copCoiTubo' }} />
           </Section>
         )}
@@ -1050,8 +1072,7 @@ export function ProjectDataPanel({ onLocate, onClearLocate, locatedTarget, oneBy
           const showFcba = hasPkgFn('ABAN 061','ABAN 062','ABAN 063')
           const showLimPcab = hasPkgFn('ABAN 061','ABAN 062')
           return (
-            <Section title="Fluidos" accent="border-l-sky-400 dark:border-l-sky-500"
-              isDirty={dirty['fluidos']} onApply={applySection('fluidos')} onDiscard={discardSection('fluidos')} canApply={sectionAffectsLines('fluidos')}>
+            <Section title="Fluidos"              isDirty={dirty['fluidos']} onApply={applySection('fluidos')} onDiscard={discardSection('fluidos')} canApply={sectionAffectsLines('fluidos')}>
               <Field label="Limite P. bombeio" value={d.limitePressaoBombeio} onChange={v => setFluidos({ limitePressaoBombeio: v })} unit="psi" locate={{ kind: 'data', field: 'limitePressaoBombeio' }} />
               {showFcba && <Field label="Densidade FCBA/MEG amortecimento" value={d.amortFcbaDensidade} onChange={v => setFluidos({ amortFcbaDensidade: v })} unit="ppg" locate={{ kind: 'data', field: 'amortFcbaDensidade' }} />}
               {showLimPcab && <Field label="Limite pressão de cabeça (bullheading)" value={d.pressaoCabecaLimite} onChange={v => setFluidos({ pressaoCabecaLimite: v })} unit="psi" locate={{ kind: 'data', field: 'pressaoCabecaLimite' }} />}
@@ -1080,8 +1101,7 @@ export function ProjectDataPanel({ onLocate, onClearLocate, locatedTarget, oneBy
           }
 
           return (
-            <Section key={tech} title={BHA_TECH[tech]!} accent="border-l-sky-400 dark:border-l-sky-500"
-              isDirty={dirty[sid]} onApply={applySection(sid)} onDiscard={discardSection(sid)} canApply={sectionAffectsLines(sid)}>
+            <Section key={tech} title={BHA_TECH[tech]!}              isDirty={dirty[sid]} onApply={applySection(sid)} onDiscard={discardSection(sid)} canApply={sectionAffectsLines(sid)}>
               {tech === 'workstring' && hasPkgFn('ABAN 013','ABAN 182','ABAN 185','ABAN 189','ABAN 190','ABAN 191','ABAN 192','ABAN 193','ABAN 194','ABAN 195','ABAN 196','ABAN 197','ABAN 198','ABAN 199','ABAN 200','ABAN 202','ABAN 233') && <Field label="Ø coluna de trabalho DP (COT DP)" value={d.colunaTrabalhoDpDiam} onChange={v => setBhasTech({ colunaTrabalhoDpDiam: v })} unit='"' locate={{ kind: 'data', field: 'colunaTrabalhoDpDiam' }} />}
                         {(() => {
                           // Compute #N and previous uid for duplicate packageIds
@@ -1266,7 +1286,7 @@ export function ProjectDataPanel({ onLocate, onClearLocate, locatedTarget, oneBy
                                           <select
                                             value={plan.camTipo || 'permanente'}
                                             onChange={e => updatePlan(item.uid, 'camTipo', e.target.value)}
-                                            className="text-xs font-semibold text-slate-700 dark:text-slate-200 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded px-1.5 py-0.5 outline-none focus:border-sky-400 dark:focus:border-sky-600 transition-colors">
+                                            className="text-xs font-semibold text-slate-700 dark:text-slate-200 bg-[#fafafa] dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded px-1.5 py-0.5 outline-none focus:border-sky-400 dark:focus:border-sky-600 transition-colors">
                                             <option value="permanente">Permanente</option>
                                             <option value="drop-off">Drop-off</option>
                                           </select>
@@ -1577,8 +1597,7 @@ export function ProjectDataPanel({ onLocate, onClearLocate, locatedTarget, oneBy
           const showTopoAnularA = hasCimentAnularAFt || bppItems.length > 0
 
           return (
-            <Section title="Cimentação" accent="border-l-sky-400 dark:border-l-sky-500"
-              isDirty={dirty['cimentacao']} onApply={applySection('cimentacao')} onDiscard={discardSection('cimentacao')} canApply={sectionAffectsLines('cimentacao')}>
+            <Section title="Cimentação"              isDirty={dirty['cimentacao']} onApply={applySection('cimentacao')} onDiscard={discardSection('cimentacao')} canApply={sectionAffectsLines('cimentacao')}>
               {showTopoAnularA && (
                 <Field label="Topo no anular A" value={d.cimentTopoAnularA} onChange={v => setCimentacao({ cimentTopoAnularA: v })} unit="m" />
               )}
@@ -1716,8 +1735,7 @@ export function ProjectDataPanel({ onLocate, onClearLocate, locatedTarget, oneBy
           const showTmfP     = hasPkg('ABAN 026')
           if (!showMeg && !showCooling && !showTmfP) return null
           return (
-            <Section title="Outros" accent="border-l-sky-400 dark:border-l-sky-500"
-              isDirty={dirty['outros']} onApply={applySection('outros')} onDiscard={discardSection('outros')} canApply={sectionAffectsLines('outros')}>
+            <Section title="Outros"              isDirty={dirty['outros']} onApply={applySection('outros')} onDiscard={discardSection('outros')} canApply={sectionAffectsLines('outros')}>
               {showMeg    && <Field label="Concentração MEG fluido inibido"          value={d.outrosMegConc}       onChange={v => setOutros({ outrosMegConc: v })}        unit="%" locate={{ kind: 'data', field: 'outrosMegConc' }} />}
               {showCooling && <Field label="Vazão circ. resfriamento p/ cimentação" value={d.outrosCoolingFlow}   onChange={v => setOutros({ outrosCoolingFlow: v })}    unit="bpm" locate={{ kind: 'data', field: 'outrosCoolingFlow' }} />}
               {showTmfP   && <Field label="Plug TMF bore produção N₂"               value={d.pressaoTmfProd}      onChange={v => setOutros({ pressaoTmfProd: v })}       unit="psi" locate={{ kind: 'data', field: 'pressaoTmfProd' }} />}
@@ -1754,8 +1772,7 @@ export function ProjectDataPanel({ onLocate, onClearLocate, locatedTarget, oneBy
             { show: showPcab      && d.outrosPcabN2PsiHp,   label: 'Pcab N₂ — teste de influxo (underbalance)', value: d.outrosPcabN2Psi, field: 'outrosPcabN2Psi' as const },
           ].filter(x => x.show)
           return (
-            <Section title="Hold Points" defaultOpen={false} accent="border-l-sky-400 dark:border-l-sky-500"
-              isDirty={dirty['holdpoints']} onApply={applySection('holdpoints')} onDiscard={discardSection('holdpoints')} canApply={sectionAffectsLines('holdpoints')}>
+            <Section title="Hold Points" defaultOpen={false}              isDirty={dirty['holdpoints']} onApply={applySection('holdpoints')} onDiscard={discardSection('holdpoints')} canApply={sectionAffectsLines('holdpoints')}>
               {showEcsBopAny && (
                 <div className="pb-2 mb-2 border-b border-slate-100 dark:border-slate-800 space-y-0.5">
                   <div className="text-[10px] font-semibold text-slate-600 dark:text-slate-500 uppercase tracking-widest mb-1">ECS/BOP — sempre</div>
@@ -1816,6 +1833,7 @@ export function ProjectDataPanel({ onLocate, onClearLocate, locatedTarget, oneBy
         })()}
 
       </div>
+      </SectionFilterCtx.Provider>
     </div>
     </LocateCtx.Provider>
   )
