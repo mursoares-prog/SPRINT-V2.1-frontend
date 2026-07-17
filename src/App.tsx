@@ -8,7 +8,8 @@ import { PackagesCatalogModal } from './components/PackagesCatalogModal'
 import { InputSummaryPanel } from './components/InputSummaryPanel'
 import { generateSchedule } from './engines/scheduleRouter'
 import type { ScopeId, WizardInputs, RigType } from './types'
-import { ArrowRight, AlertTriangle, Plus, FilePlus } from 'lucide-react'
+import { ArrowRight, AlertTriangle, FilePlus } from 'lucide-react'
+import { LuNetwork } from 'react-icons/lu'
 import { getDefaultInputs } from './utils/defaultInputs'
 import { isApiConfigured, getMergedPackageLines, getBaseOverrides, getBasePackageOverrides, getCustomPackages, getLogicScopes, getLogicScope } from './utils/api'
 import { ensureDefaultSession } from './utils/auth'
@@ -33,7 +34,6 @@ const SCOPE_BY_PHASE_LWO: Record<string, ScopeId[]> = {
 // ── Step 1 wizard panel ───────────────────────────────────────────────────────
 function WizardPanel() {
   const { dispatch } = useApp()
-  const [started,     setStarted]     = useState(false)
   const [wizardMode,  setWizardMode]  = useState<'auto' | null>(null)
   const [tipoPoco,    setTipoPoco]    = useState<'molhada' | 'molhada_nordeste' | 'seca' | ''>('')
   const [rigType,     setRigType]     = useState<RigType | ''>('')
@@ -66,11 +66,6 @@ function WizardPanel() {
 
   const canGenerate = isMolhada && (rigType === 'ANC' || rigType === 'DP') && !!scopeId
 
-  const handleNew = () => {
-    setTipoPoco(''); setRigType(''); setOpType('Generalista'); setPhaseFilter(''); setScopeId('')
-    setStarted(true); setWizardMode(null)
-  }
-
   const handleGenerate = () => {
     if (!rigType || !scopeId || (rigType !== 'ANC' && rigType !== 'DP')) return
     const defaults = getDefaultInputs(rigType, opType, scopeId)
@@ -90,35 +85,29 @@ function WizardPanel() {
 
       {/* Header — same height as ScheduleToolbar */}
       <div className="shrink-0 flex items-center justify-center px-3 border-b border-slate-200 dark:border-slate-700" style={{ height: '38px' }}>
-        <button
-          onClick={handleNew}
-          className="w-full flex items-center justify-center gap-1.5 h-7 rounded text-xs font-semibold transition-colors border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:border-slate-300 dark:hover:border-slate-500 bg-[#fafafa] dark:bg-slate-700">
-          <Plus size={13} /> Novo Cronograma
-        </button>
+        <span className="text-xs font-bold tracking-widest uppercase text-slate-400 dark:text-slate-500">Novo Cronograma</span>
       </div>
 
-      {/* Escolha inicial após clicar em Novo Cronograma */}
-      {started && wizardMode === null && (
+      {/* Escolha inicial */}
+      {wizardMode === null && (
         <div className="flex-1 flex flex-col gap-3 p-4 pt-6">
           <button
             onClick={() => setWizardMode('auto')}
             className="w-full flex flex-col items-center justify-center gap-1 py-5 rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:border-[#005889] dark:hover:border-sky-500 hover:text-[#005889] dark:hover:text-sky-400 transition-colors">
-            <ArrowRight size={18} className="mb-0.5" />
-            <span className="text-sm font-semibold">Gerador automatizado</span>
-            <span className="text-[10px] text-slate-400 dark:text-slate-500 font-normal">Preencha os parâmetros do poço</span>
+            <LuNetwork size={18} className="mb-0.5" />
+            <span className="text-sm font-semibold">Cronograma por Árvores de Decisão</span>
           </button>
           <button
             onClick={() => dispatch({ type: 'ENTER_FINE_TUNING_BLANK' })}
             className="w-full flex flex-col items-center justify-center gap-1 py-5 rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:border-[#005889] dark:hover:border-sky-500 hover:text-[#005889] dark:hover:text-sky-400 transition-colors">
             <FilePlus size={18} className="mb-0.5" />
             <span className="text-sm font-semibold">Cronograma em branco</span>
-            <span className="text-[10px] text-slate-400 dark:text-slate-500 font-normal">Montar manualmente do zero</span>
           </button>
         </div>
       )}
 
       {/* Wizard do gerador automatizado */}
-      {started && wizardMode === 'auto' && (
+      {wizardMode === 'auto' && (
         <div className="flex-1 overflow-y-auto p-4 space-y-5 scrollbar-custom">
 
           {/* ── Divisão: Poço e Sonda ── */}
@@ -192,7 +181,7 @@ function WizardPanel() {
         </div>
       )}
 
-      {started && wizardMode === 'auto' && (
+      {wizardMode === 'auto' && (
         <div className="shrink-0 p-3 border-t border-slate-200 dark:border-slate-700">
           <button
             onClick={handleGenerate}
@@ -235,7 +224,7 @@ function WizOption({ active, onClick, children }: { active: boolean; onClick: ()
 
 function Main() {
   const { state, dispatch } = useApp()
-  const [isDark, setIsDark] = useState(() => localStorage.getItem('sprint_theme') !== 'light')
+  const [isDark, setIsDark] = useState(() => localStorage.getItem('sprint_theme') === 'dark')
   const [adminTab, setAdminTab] = useState<'vars' | 'engine'>('vars')
   const [showAdmin, setShowAdmin] = useState(false)
   const [showPackages, setShowPackages] = useState(false)

@@ -34,6 +34,17 @@ export function expectedOwFase(phase: Phase): string | undefined {
   return FASE_TO_OW[phase]
 }
 
+// Mapeamento inverso (fase OW → fase do cronograma) — usado pela árvore por
+// ontologia (Etapa 3), onde a fase OW da própria linha deve prevalecer sobre a
+// fase em que o pacote caiu no motor de cronograma.
+const OW_TO_FASE: Partial<Record<string, Phase>> = Object.fromEntries(
+  Object.entries(FASE_TO_OW).map(([phase, ow]) => [ow, phase as Phase])
+)
+
+export function phaseForOwFase(owFase: string): Phase | undefined {
+  return OW_TO_FASE[owFase]
+}
+
 // true só quando a fase tem correspondência, a linha tem owFase preenchida e ela diverge.
 // Linhas sem owFase (manuais/em branco) nunca são sinalizadas.
 export function isOntologyMismatch(line: FineTuningLine, phase: Phase): boolean {
@@ -227,6 +238,30 @@ export function pickOntologyPath(
     ?? deriveEtapa(targetFase, res.atividade, res.operacao, curE, text)
     ?? defaultEtapa(targetFase, res.atividade, res.operacao, text)
   return { atividade: res.atividade, operacao: res.operacao, etapa }
+}
+
+// As fases OW devem sempre avançar ao longo do cronograma (Etapa 3) — nunca retroceder em relação
+// à operação anterior. Percorre os itens na ordem do cronograma e marca, com o id da linha, apenas
+// a PRIMEIRA linha em que a owFase retrocede em relação à operação anterior (posição menor em
+// owFases()) — a comparação é sempre com a última owFase válida vista, não com o máximo histórico,
+// então linhas seguintes que repetem a mesma fase já sinalizada não voltam a ser marcadas, só a
+// transição em si. Pacotes em branco e linhas de navegação/sem owFase são ignorados.
+export function findOntologyRegressions(items: FineTuningItem[]): Set<string> {
+  const order = owFases()
+  const rank = (owFase: string) => order.indexOf(owFase)
+  const regressed = new Set<string>()
+  let prevRank = -1
+  for (const item of items) {
+    if (item.isBlank) continue
+    for (const line of item.lines) {
+      if (line.isNavLine || !line.owFase) continue
+      const r = rank(line.owFase)
+      if (r < 0) continue
+      if (prevRank >= 0 && r < prevRank) regressed.add(line.id)
+      prevRank = r
+    }
+  }
+  return regressed
 }
 
 // Conta quantas linhas divergem (para o badge do botão de revisão).

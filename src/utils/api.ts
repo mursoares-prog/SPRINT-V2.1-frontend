@@ -73,6 +73,8 @@ export interface ChangeLogEntry {
   antes?: string | null
   depois?: string | null
   author?: string | null
+  undoable?: boolean
+  undone?: boolean
 }
 
 export type ChangeLogInput = Omit<ChangeLogEntry, 'id' | 'data' | 'author'>
@@ -87,6 +89,14 @@ export function addChangelog(entry: ChangeLogInput, authHeaders: Record<string, 
     method: 'POST',
     headers: authHeaders,
     body: JSON.stringify(entry),
+  })
+}
+
+/** Desfaz a alteração registrada em `entryId`, restaurando o estado anterior. */
+export function undoChangelog(entryId: number, authHeaders: Record<string, string>): Promise<ChangeLogEntry> {
+  return req<ChangeLogEntry>(`/api/changelog/${entryId}/undo`, {
+    method: 'POST',
+    headers: authHeaders,
   })
 }
 
@@ -160,6 +170,8 @@ export interface BaseLine {
   owEtapa: string | null
   genOperacao: string | null
   genOperacaoDual: string | null
+  edsNumber: number | null
+  edsComment: string | null
   rec: string | null
   pad: string | null
 }

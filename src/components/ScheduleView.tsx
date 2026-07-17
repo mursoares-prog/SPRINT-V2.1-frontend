@@ -3,7 +3,7 @@ import React from 'react'
 import { useApp } from '../context/AppContext'
 import type { ScheduleItem } from '../types'
 import { PACKAGES } from '../data/packages'
-import { Sliders, Undo2, Redo2, BarChart2, Search, ChevronUp, ChevronDown, X } from 'lucide-react'
+import { Undo2, Redo2, BarChart2, Search, ChevronUp, ChevronDown, X } from 'lucide-react'
 
 const normalizeFind = (s: string) =>
   (s ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
@@ -15,16 +15,8 @@ const MOUNT_TECH_LABELS: Record<string, string> = { wireline: 'Arame', electric:
 const CONTING_TEXT = 'text-[#7d1935] dark:text-rose-400'
 
 
-const PHASE_COLORS: Record<string, { bg: string; text: string; bar: string; stripe: string }> = {
-  'Mobilização':    { bg: 'bg-[#f5f5f5] dark:bg-slate-800',   text: 'text-slate-600 dark:text-slate-300',  bar: 'bg-slate-400',  stripe: '#94a3b8' },
-  'Fase 0':         { bg: 'bg-[#fafafa] dark:bg-slate-950/40', text: 'text-slate-700 dark:text-slate-400',  bar: 'bg-slate-600',  stripe: '#64748b' },
-  'Fase 1A':        { bg: 'bg-sky-50 dark:bg-sky-950/40',     text: 'text-sky-800 dark:text-sky-400',      bar: 'bg-sky-600',    stripe: '#0284c7' },
-  'Fase 1B':        { bg: 'bg-cyan-50 dark:bg-cyan-950/40',   text: 'text-cyan-800 dark:text-cyan-400',    bar: 'bg-cyan-500',   stripe: '#06b6d4' },
-  'Fase 2':         { bg: 'bg-teal-50 dark:bg-teal-950/40',   text: 'text-teal-800 dark:text-teal-400',    bar: 'bg-teal-500',   stripe: '#14b8a6' },
-  'Extra Abandono': { bg: 'bg-violet-50 dark:bg-violet-950/40', text: 'text-violet-800 dark:text-violet-400', bar: 'bg-violet-500', stripe: '#8b5cf6' },
-  'Desmobilização': { bg: 'bg-[#f5f5f5] dark:bg-slate-800', text: 'text-slate-600 dark:text-slate-300', bar: 'bg-slate-400', stripe: '#94a3b8' },
-}
-
+// Barra padrão das operações normais no Gantt (mesmo azul da antiga "Fase 1A").
+const GANTT_BAR = 'bg-sky-600'
 
 export function ScheduleToolbar({ showStats, onToggleStats }: { showStats: boolean; onToggleStats: () => void }) {
   const { dispatch, canUndoInputs, canRedoInputs, state } = useApp()
@@ -54,28 +46,21 @@ export function ScheduleToolbar({ showStats, onToggleStats }: { showStats: boole
 
       {/* Right: remaining controls */}
       <div className="flex items-center gap-1.5 px-3">
-      <div className="flex h-7 rounded overflow-hidden border border-slate-200 dark:border-slate-600">
-        <button
-          onClick={() => showHours && dispatch({ type: 'TOGGLE_HOURS' })}
-          className={`flex items-center px-2 text-xs font-bold transition-colors ${!showHours ? 'bg-[#0c2340] text-white' : 'bg-[#fafafa] dark:bg-slate-700 text-slate-700 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-600'}`}>
-          d
-        </button>
-        <button
-          onClick={() => !showHours && dispatch({ type: 'TOGGLE_HOURS' })}
-          className={`flex items-center px-2 text-xs font-bold transition-colors ${showHours ? 'bg-[#0c2340] text-white' : 'bg-[#fafafa] dark:bg-slate-700 text-slate-700 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-600'}`}>
-          h
-        </button>
+      <div className="flex gap-1 shrink-0">
+        <button onClick={() => showHours && dispatch({ type: 'TOGGLE_HOURS' })}
+          className={`flex items-center h-7 px-2 text-xs rounded border transition-colors ${!showHours
+            ? 'border-slate-500 dark:border-slate-400 bg-slate-100 dark:bg-slate-600 text-slate-800 dark:text-slate-100'
+            : 'border-slate-200 dark:border-slate-600 bg-[#fafafa] dark:bg-slate-700 text-slate-500 dark:text-slate-400 hover:bg-slate-100 hover:border-slate-300 dark:hover:bg-slate-600 dark:hover:border-slate-500'}`}>d</button>
+        <button onClick={() => !showHours && dispatch({ type: 'TOGGLE_HOURS' })}
+          className={`flex items-center h-7 px-2 text-xs rounded border transition-colors ${showHours
+            ? 'border-slate-500 dark:border-slate-400 bg-slate-100 dark:bg-slate-600 text-slate-800 dark:text-slate-100'
+            : 'border-slate-200 dark:border-slate-600 bg-[#fafafa] dark:bg-slate-700 text-slate-500 dark:text-slate-400 hover:bg-slate-100 hover:border-slate-300 dark:hover:bg-slate-600 dark:hover:border-slate-500'}`}>h</button>
       </div>
       <button
         onClick={onToggleStats}
         title={showStats ? 'Ocultar painel de estatísticas' : 'Mostrar painel de estatísticas'}
-        className={`flex items-center h-7 px-2 rounded text-xs font-semibold transition-colors border border-slate-200 dark:border-slate-600 bg-[#fafafa] dark:bg-slate-700 ${showStats ? 'text-[#0c2340] dark:text-sky-400 border-[#0c2340]/30 dark:border-sky-700' : 'text-slate-600 dark:text-slate-300 hover:border-slate-300 dark:hover:border-slate-500'}`}>
+        className={`flex items-center h-7 px-2 rounded text-xs font-semibold transition-colors border border-slate-200 dark:border-slate-600 bg-[#fafafa] dark:bg-slate-700 ${showStats ? 'text-[#0c2340] dark:text-sky-400 border-[#0c2340]/30 dark:border-sky-700' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 hover:border-slate-300 dark:hover:bg-slate-600 dark:hover:border-slate-500'}`}>
         <BarChart2 size={13} />
-      </button>
-      <button
-        onClick={() => dispatch({ type: 'ENTER_FINE_TUNING' })}
-        className="flex items-center gap-1.5 h-7 px-3 rounded text-xs font-semibold transition-colors bg-[#008542] text-white hover:opacity-90 dark:bg-[#1a3a5c] dark:border dark:border-sky-700 dark:text-sky-300 dark:hover:bg-[#1e4570] dark:hover:border-sky-500">
-        <Sliders size={12} /><span className="hidden lg:inline">Ir para Detalhamento do cronograma</span><span className="lg:hidden">Detalhamento</span>
       </button>
       </div>
     </div>
@@ -152,7 +137,7 @@ function TechCountSection({
       </div>
       <div className="px-3">
         {rows.map(({ phase, counts }) => (
-          <div key={phase} className="grid grid-cols-4 gap-x-1 py-1.5 border-t border-slate-100 dark:border-slate-800/60">
+          <div key={phase} className="grid grid-cols-4 gap-x-1 py-1.5 border-t border-slate-200 dark:border-slate-800/60">
             <span className="text-xs text-slate-700 dark:text-slate-400 truncate col-span-1">{phase}</span>
             {TRACKED_MOUNT_TECHS.map(t => (
               <span key={t} className={`text-xs text-center ${counts[t] > 0 ? 'text-slate-700 dark:text-slate-200' : 'text-slate-200 dark:text-slate-700'}`}>
@@ -214,7 +199,7 @@ function ScheduleStatsPanel({ items, showHours }: { items: ScheduleItem[]; showH
   return (
     <div className="w-96 shrink-0 flex flex-col gap-3 overflow-y-auto scrollbar-custom pb-1">
       {/* Resumo de Tempos */}
-      <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-[#fafafa] dark:bg-slate-800 overflow-hidden">
+      <div className="rounded-xl border border-slate-300 dark:border-slate-700 bg-[#fafafa] dark:bg-slate-800 overflow-hidden">
         <table className="w-full border-collapse">
           <thead>
             <tr className="bg-[#ebebeb] dark:bg-slate-700 border-b border-slate-200 dark:border-slate-700">
@@ -229,7 +214,7 @@ function ScheduleStatsPanel({ items, showHours }: { items: ScheduleItem[]; showH
               const g = phaseMap.get(phase)!
               const total = g.firme + g.cont
               return (
-                <tr key={phase} className="border-b border-slate-100 dark:border-slate-800">
+                <tr key={phase} className="border-b border-slate-200 dark:border-slate-800">
                   <td className="py-1.5 px-3 text-xs text-slate-700 dark:text-slate-400 truncate max-w-0">{phase}</td>
                   <td className="py-1.5 px-2 text-right text-xs text-[#2f5aa8] dark:text-blue-400 whitespace-nowrap">
                     {fmt(g.firme)}
@@ -265,20 +250,20 @@ function ScheduleStatsPanel({ items, showHours }: { items: ScheduleItem[]; showH
 
       {/* Montagens */}
       {(mounts.rows.length > 0 || mounts.hasConting) && (
-        <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-[#fafafa] dark:bg-slate-800 overflow-hidden">
+        <div className="rounded-xl border border-slate-300 dark:border-slate-700 bg-[#fafafa] dark:bg-slate-800 overflow-hidden">
           <TechCountSection title="Montagens" rows={mounts.rows} contingTotals={mounts.contingTotals} hasConting={mounts.hasConting} />
         </div>
       )}
 
       {/* Corridas */}
       {(runs.rows.length > 0 || runs.hasConting) && (
-        <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-[#fafafa] dark:bg-slate-800 overflow-hidden">
+        <div className="rounded-xl border border-slate-300 dark:border-slate-700 bg-[#fafafa] dark:bg-slate-800 overflow-hidden">
           <TechCountSection title="Corridas" rows={runs.rows} contingTotals={runs.contingTotals} hasConting={runs.hasConting} />
         </div>
       )}
 
       {/* Pacotes */}
-      <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-[#fafafa] dark:bg-slate-800 overflow-hidden">
+      <div className="rounded-xl border border-slate-300 dark:border-slate-700 bg-[#fafafa] dark:bg-slate-800 overflow-hidden">
         <div className="px-3 py-1.5 border-b border-slate-200 dark:border-slate-700 bg-[#ebebeb] dark:bg-slate-700">
           <p className="text-xs font-bold text-slate-700 dark:text-slate-300">Pacotes</p>
         </div>
@@ -469,7 +454,7 @@ function PackageList({ items, showHours, onDurationChange }: {
     }
   }
   return (
-    <div className="flex-1 min-w-0 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden flex flex-col">
+    <div className="flex-1 min-w-0 rounded-xl border border-slate-300 dark:border-slate-700 overflow-hidden flex flex-col">
       {/* Único container scrollável com thead sticky — garante alinhamento perfeito */}
       <div ref={containerRef} className="overflow-y-scroll flex-1 bg-[#f5f5f5] dark:bg-slate-900 scrollbar-custom">
       <table className="table-fixed w-full text-xs border-separate border-spacing-0">
@@ -553,7 +538,7 @@ function PackageList({ items, showHours, onDurationChange }: {
                   {!isCollapsed && sItems.map(item => {
                     rowNum++
                     const rn = rowNum
-                    const rowBorder = 'border-b border-slate-100 dark:border-slate-800'
+                    const rowBorder = 'border-b border-slate-200 dark:border-slate-800'
                     const isMatch = findQuery.trim() && matches.includes(item.uid)
                     const isActive = item.uid === activeMatchUid
                     const rowBg = highlightedUids.has(item.uid) ? 'bg-blue-100 dark:bg-blue-900/50' : item.autoInserted ? 'bg-slate-50/50 dark:bg-slate-800/30' : isMatch ? 'bg-sky-50 dark:bg-sky-900/20' : ''
@@ -612,13 +597,13 @@ function PackageList({ items, showHours, onDurationChange }: {
                 <td colSpan={4} className="py-1.5 px-3 text-xs font-bold text-slate-700 dark:text-slate-400 text-right border-t-2 border-slate-300 dark:border-slate-700">
                   Total
                 </td>
-                <td className="py-1.5 px-3 text-right text-xs font-bold text-[#0c2340] dark:text-blue-400 border-t-2 border-slate-300 dark:border-slate-700">
+                <td className="py-1.5 px-3 text-right text-xs text-[#0c2340] dark:text-blue-400 border-t-2 border-slate-300 dark:border-slate-700">
                   {fmt(firmeTotal)}
                 </td>
-                <td className="py-1.5 px-3 text-right text-xs font-bold text-[#7d1935] dark:text-rose-400 border-t-2 border-slate-300 dark:border-slate-700">
+                <td className="py-1.5 px-3 text-right text-xs text-[#7d1935] dark:text-rose-400 border-t-2 border-slate-300 dark:border-slate-700">
                   {fmt(fullTotal - firmeTotal)}
                 </td>
-                <td className="py-1.5 px-3 text-right text-xs font-bold text-[#0c2340] dark:text-white border-t-2 border-slate-300 dark:border-slate-700">
+                <td className="py-1.5 px-3 text-right text-xs text-[#0c2340] dark:text-white border-t-2 border-slate-300 dark:border-slate-700">
                   {fmt(fullTotal)}
                 </td>
               </tr>
@@ -658,7 +643,7 @@ function DurationCell({ days, showHours, isContingency, onChange }: {
         onChange(stored)
         setRaw(toDisplay(stored))
       }}
-      className={`w-14 text-right text-xs border border-transparent rounded px-1 py-0.5
+      className={`w-full text-right text-xs border border-transparent rounded pl-1 pr-0 py-0.5
         hover:border-slate-300 dark:hover:border-slate-600 focus:border-sky-400 focus:outline-none bg-transparent
         ${isContingency ? 'text-[#7d1935] dark:text-rose-400' : 'text-[#0c2340] dark:text-blue-400'}`}
     />
@@ -667,11 +652,26 @@ function DurationCell({ days, showHours, isContingency, onChange }: {
 
 export function GanttChart({ items }: { items: ScheduleItem[] }) {
   const [collapsedPhases, setCollapsedPhases] = useState<Set<string>>(new Set())
+  const [labelW, setLabelW] = useState(190)
   const togglePhase = (phase: string) => setCollapsedPhases(prev => {
     const next = new Set(prev)
     next.has(phase) ? next.delete(phase) : next.add(phase)
     return next
   })
+
+  const startLabelResize = (e: React.PointerEvent<HTMLDivElement>) => {
+    e.preventDefault()
+    e.currentTarget.setPointerCapture(e.pointerId)
+    const startX = e.clientX
+    const startW = labelW
+    const onMove = (pe: PointerEvent) => {
+      const dx = pe.clientX - startX
+      setLabelW(Math.max(120, Math.min(480, startW + dx)))
+    }
+    const onUp = () => { window.removeEventListener('pointermove', onMove); window.removeEventListener('pointerup', onUp) }
+    window.addEventListener('pointermove', onMove)
+    window.addEventListener('pointerup', onUp)
+  }
 
   const total = items.reduce((a, i) => a + i.duration, 0)
   if (total === 0) return null
@@ -690,20 +690,26 @@ export function GanttChart({ items }: { items: ScheduleItem[] }) {
       sections[sections.length - 1].sectionItems.push(item)
     }
   }
-  const LABEL_W = 190
 
   return (
-    <div className="flex-1 overflow-auto rounded-xl border border-slate-200 dark:border-slate-700 bg-[#f5f5f5] dark:bg-slate-900 p-4 scrollbar-custom">
+    <div className="flex-1 overflow-auto rounded-xl border border-slate-300 dark:border-slate-700 bg-[#f5f5f5] dark:bg-slate-900 p-4 scrollbar-custom">
       <div style={{ minWidth: 720 }}>
-        {/* Header */}
-        <div className="flex items-center border-b border-slate-200 dark:border-slate-700 pb-2 mb-3">
-          <div style={{ width: LABEL_W }} className="text-xs font-bold text-slate-600 dark:text-slate-500 uppercase tracking-wider shrink-0">
-            Fase / Operação
+        {/* Header — mesmas cores do cabeçalho do cronograma */}
+        <div className="flex items-center rounded-lg bg-[#005889] dark:bg-[#0c2340] mb-3">
+          <div className="flex items-center shrink-0" style={{ width: labelW }}>
+            <div className="flex-1 text-xs font-bold text-white dark:text-slate-300 uppercase tracking-wider py-2 pl-2">
+              Fase / Operação
+            </div>
+            <div onPointerDown={startLabelResize}
+              className="shrink-0 w-2 self-stretch cursor-col-resize group flex items-center justify-center select-none"
+              title="Arrastar para redimensionar">
+              <div className="w-px h-full bg-white/20 group-hover:bg-white/60 transition-colors" />
+            </div>
           </div>
-          <div className="flex-1 relative h-5">
+          <div className="flex-1 relative h-full py-2 pr-2">
             {[0, 25, 50, 75, 100].map(p => (
               <div key={p} style={{ left: `${p}%` }}
-                className="absolute top-0 text-xs text-slate-500 dark:text-slate-600 font-mono -translate-x-1/2">
+                className="absolute top-2 text-xs text-white/80 dark:text-slate-300 font-mono -translate-x-1/2">
                 {(total * p / 100).toFixed(0)}d
               </div>
             ))}
@@ -713,19 +719,18 @@ export function GanttChart({ items }: { items: ScheduleItem[] }) {
         {sections.map(({ phase, sectionKey, sectionItems: phaseItems }) => {
           const phaseStart = phaseItems[0]?.startDay ?? 0
           const phaseEnd = phaseItems[phaseItems.length - 1]?.endDay ?? 0
-          const colors = PHASE_COLORS[phase] ?? PHASE_COLORS['Fase 0']
 
           return (
             <div key={sectionKey} className="mb-5">
               <div className="flex items-center mb-1.5 cursor-pointer select-none" onClick={() => togglePhase(sectionKey)}>
-                <div style={{ width: LABEL_W, fontFamily: "'Barlow Condensed', sans-serif" }}
-                  className={`text-xs font-bold px-2 py-1 rounded-l uppercase tracking-widest ${colors.bg} ${colors.text} shrink-0 flex items-center gap-1.5`}>
+                <div style={{ width: labelW, fontFamily: "'Barlow Condensed', sans-serif" }}
+                  className="text-xs font-bold px-2 py-1 rounded-l uppercase tracking-widest bg-[#ebebeb] dark:bg-slate-800 text-slate-700 dark:text-slate-300 shrink-0 flex items-center gap-1.5">
                   <span className="font-bold text-sm leading-none">{collapsedPhases.has(sectionKey) ? '+' : '−'}</span>
                   {phase}
                 </div>
                 <div className="flex-1 h-5 bg-[#fafafa] dark:bg-slate-800 rounded-r relative overflow-hidden">
                   <div
-                    className={`absolute top-0 h-full ${colors.bar} opacity-20 rounded`}
+                    className="absolute top-0 h-full bg-slate-400 dark:bg-slate-500 opacity-20 rounded"
                     style={{ left: `${(phaseStart / total) * 100}%`, width: `${((phaseEnd - phaseStart) / total) * 100}%` }}
                   />
                 </div>
@@ -733,11 +738,10 @@ export function GanttChart({ items }: { items: ScheduleItem[] }) {
 
               {!collapsedPhases.has(sectionKey) && phaseItems.map(item => (
                 <div key={item.uid} className="flex items-center mb-0.5 group">
-                  <div style={{ width: LABEL_W }}
+                  <div style={{ width: labelW }}
                     className="text-xs text-slate-700 dark:text-slate-400 truncate pr-2 shrink-0 pl-3 flex items-center gap-1"
                     title={item.packageName}>
                     {item.isContingency && <span className="text-rose-400 dark:text-rose-400 text-xs shrink-0">⚠</span>}
-                    {item.autoInserted && <span className="text-slate-500 dark:text-slate-600 text-xs shrink-0">⚙</span>}
                     <span className="truncate text-xs">
                       {item.packageName.includes(' - ')
                         ? item.packageName.split(' - ').slice(1).join(' ')
@@ -749,7 +753,7 @@ export function GanttChart({ items }: { items: ScheduleItem[] }) {
                       className={`absolute top-0 h-3.5 rounded
                         ${item.isContingency
                           ? 'border-2 border-dashed border-rose-400 dark:border-rose-500 bg-rose-50 dark:bg-rose-950/50'
-                          : colors.bar}`}
+                          : GANTT_BAR}`}
                       style={{
                         left: `${(item.startDay / total) * 100}%`,
                         width: `${Math.max((item.duration / total) * 100, 0.5)}%`,

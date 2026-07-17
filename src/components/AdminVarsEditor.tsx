@@ -6,7 +6,7 @@
 // entre pacotes, e — para pacotes CUSTOMIZADOS — editar nome/categoria/tecnologia,
 // criar, duplicar e apagar. Salva o array completo por pacote (savePackageLines).
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Trash2, Plus, Check, Loader2, AlertTriangle, X, ChevronDown, ChevronRight, Copy, ClipboardPaste, ArrowUp, ArrowDown, CopyPlus, FilePlus2, Braces, FolderPlus } from 'lucide-react'
+import { Trash2, Plus, Check, Loader2, AlertTriangle, X, ChevronDown, ChevronRight, Copy, ClipboardPaste, GripVertical, CopyPlus, FilePlus2, Braces, FolderPlus } from 'lucide-react'
 import {
   savePackageLines, createPackage, updatePackageMeta, deletePackage,
   createPackageGroup, deletePackageGroup,
@@ -17,8 +17,12 @@ import { PACKAGES } from '../data/packages'
 import { SCOPE_CATEGORIES, categoryOfPackage } from '../data/scopeCategories'
 import { PLACEHOLDER_CATALOG } from '../data/placeholderCatalog'
 import { owFases, owAtividades, owOperacoes, owEtapas } from '../utils/ontologyReview'
+import { EDS_TYPES } from '../data/edsTypes'
 import PACKAGE_LINES from '../data/packageLines.json'
 import PACKAGE_LINE_DETAILS from '../data/packageLineDetails.json'
+
+// Opções do seletor "Tipo de EDS" — mesma fonte usada na Etapa 3 (índice 0-based).
+const EDS_OPTIONS: { value: number; label: string }[] = EDS_TYPES.map((label, value) => ({ value, label }))
 
 const PKG_LINES = PACKAGE_LINES as unknown as Record<string, (BaseLine & Record<string, unknown>)[]>
 const PKG_DETAILS = PACKAGE_LINE_DETAILS as unknown as Record<string, ({ rec: string; pad: string } | null)[]>
@@ -34,7 +38,8 @@ const TECH_OPTIONS: { value: string; label: string }[] = [
 const blankLine = (): EditLine => ({
   _id: uid(), text: '', duration: null, bop: null, compensando: null,
   isContingency: null, isParallel: null, owFase: null, owAtividade: null,
-  owOperacao: null, owEtapa: null, genOperacao: null, genOperacaoDual: null, rec: '', pad: '',
+  owOperacao: null, owEtapa: null, genOperacao: null, genOperacaoDual: null,
+  edsNumber: null, edsComment: '', rec: '', pad: '',
 })
 
 type EditLine = BaseLine & { _id: string }
@@ -42,6 +47,51 @@ let _seq = 0
 function uid() { return `el_${Date.now().toString(36)}_${(_seq++).toString(36)}` }
 const stripId = (l: EditLine): BaseLine => { const { _id, ...rest } = l; void _id; return rest }
 const numFromPrefix = (id: string) => parseInt(id.replace(/\D/g, ''), 10) || 0
+
+// Larguras (px) das colunas da tabela de linhas — ajustáveis por arraste (persistidas).
+// Ordem: sel, #, texto, dur, C/P, rec, pad, owFase, owAtividade, owOperacao, owEtapa, comp, eds, edsComment, ações.
+const DEFAULT_COL_WIDTHS: number[] = [28, 28, 220, 56, 56, 160, 160, 90, 100, 100, 100, 56, 120, 140, 60]
+const MIN_COL_WIDTH = 28
+const COL_WIDTHS_KEY = 'sprint_admin_pkg_col_widths_v1'
+
+function loadColWidths(): number[] {
+  try {
+    const raw = localStorage.getItem(COL_WIDTHS_KEY)
+    if (!raw) return DEFAULT_COL_WIDTHS
+    const parsed = JSON.parse(raw)
+    if (Array.isArray(parsed) && parsed.length === DEFAULT_COL_WIDTHS.length && parsed.every(n => typeof n === 'number'))
+      return parsed
+  } catch { /* ignora */ }
+  return DEFAULT_COL_WIDTHS
+}
+
+// Alça de arraste no canto direito de um <th>, para redimensionar a coluna.
+function ColResizer({ onResize, onCommit }: { onResize: (dx: number) => void; onCommit: () => void }) {
+  const onMouseDown = (e: React.MouseEvent) => {
+    e.preventDefault(); e.stopPropagation()
+    let lastX = e.clientX
+    const onMove = (ev: MouseEvent) => {
+      const dx = ev.clientX - lastX
+      lastX = ev.clientX
+      onResize(dx)
+    }
+    const onUp = () => {
+      window.removeEventListener('mousemove', onMove)
+      window.removeEventListener('mouseup', onUp)
+      onCommit()
+    }
+    window.addEventListener('mousemove', onMove)
+    window.addEventListener('mouseup', onUp)
+  }
+  return (
+    <div
+      onMouseDown={onMouseDown}
+      onClick={e => e.stopPropagation()}
+      title="Arrastar para redimensionar"
+      className="absolute top-0 bottom-0 right-0 w-1.5 -mr-0.5 cursor-col-resize select-none hover:bg-sky-400/60 active:bg-sky-500/70 z-10"
+    />
+  )
+}
 
 export function AdminVarsEditor({ query, serverBase, pkgOverrides, legacyOverrides, customMetas, customGroups, fields, canEdit, reload }: {
   query: string
@@ -72,6 +122,32 @@ export function AdminVarsEditor({ query, serverBase, pkgOverrides, legacyOverrid
   })
   const [showNewGroupForm, setShowNewGroupForm] = useState(false)
   const [newGroupLabel, setNewGroupLabel] = useState('')
+  const [colWidths, setColWidths] = useState<number[]>(loadColWidths)
+  const colWidthsRef = useRef(colWidths)
+  useEffect(() => { colWidthsRef.current = colWidths }, [colWidths])
+  const resizeCol = (i: number, dx: number) => {
+    setColWidths(prev => {
+      const next = prev.slice()
+      next[i] = Math.max(MIN_COL_WIDTH, next[i] + dx)
+      return next
+    })
+  }
+  const persistColWidths = () => {
+    try { localStorage.setItem(COL_WIDTHS_KEY, JSON.stringify(colWidthsRef.current)) } catch { /* ignora */ }
+  }
+  const tableWidth = colWidths.reduce((a, b) => a + b, 0)
+  const [dragLine, setDragLine] = useState<{ pkgId: string; lineId: string } | null>(null)
+  const [dropLine, setDropLine] = useState<{ pkgId: string; lineId: string; pos: 'above' | 'below' } | null>(null)
+  const [lineCtx, setLineCtx] = useState<{ pkgId: string; lineId: string; x: number; y: number } | null>(null)
+
+  useEffect(() => {
+    if (!lineCtx) return
+    const dismiss = () => setLineCtx(null)
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setLineCtx(null) }
+    window.addEventListener('click', dismiss)
+    window.addEventListener('keydown', onKey)
+    return () => { window.removeEventListener('click', dismiss); window.removeEventListener('keydown', onKey) }
+  }, [lineCtx])
 
   useEffect(() => {
     if (!scrollTarget) return
@@ -102,6 +178,7 @@ export function AdminVarsEditor({ query, serverBase, pkgOverrides, legacyOverrid
         isContingency: l.isContingency ?? null, isParallel: l.isParallel ?? null,
         owFase: l.owFase ?? null, owAtividade: l.owAtividade ?? null, owOperacao: l.owOperacao ?? null, owEtapa: l.owEtapa ?? null,
         genOperacao: l.genOperacao ?? null, genOperacaoDual: l.genOperacaoDual ?? null,
+        edsNumber: l.edsNumber ?? null, edsComment: l.edsComment ?? '',
         rec: leg?.rec ?? det[i]?.rec ?? '', pad: leg?.pad ?? det[i]?.pad ?? '',
       }
     })
@@ -133,10 +210,18 @@ export function AdminVarsEditor({ query, serverBase, pkgOverrides, legacyOverrid
     return [...ls.slice(0, i + 1), blankLine(), ...ls.slice(i + 1)]
   })
   const removeLine = (pkgId: string, id: string) => setLines(pkgId, ls => ls.filter(l => l._id !== id))
-  const move = (pkgId: string, id: string, dir: -1 | 1) => setLines(pkgId, ls => {
-    const i = ls.findIndex(l => l._id === id); const j = i + dir
-    if (i < 0 || j < 0 || j >= ls.length) return ls
-    const n = ls.slice(); [n[i], n[j]] = [n[j], n[i]]; return n
+  const moveLineTo = (pkgId: string, sourceId: string, targetId: string, pos: 'above' | 'below') => setLines(pkgId, ls => {
+    if (sourceId === targetId) return ls
+    const from = ls.findIndex(l => l._id === sourceId)
+    if (from < 0) return ls
+    const item = ls[from]
+    const rest = ls.filter(l => l._id !== sourceId)
+    let targetIdx = rest.findIndex(l => l._id === targetId)
+    if (targetIdx < 0) return ls
+    if (pos === 'below') targetIdx += 1
+    const next = rest.slice()
+    next.splice(targetIdx, 0, item)
+    return next
   })
 
   const toggleSel = (pkgId: string, id: string) => setSelected(prev => {
@@ -250,16 +335,16 @@ export function AdminVarsEditor({ query, serverBase, pkgOverrides, legacyOverrid
         <div className="flex flex-col gap-2">
           <div className="flex items-center gap-2">
             <button onClick={createNew} disabled={!!busy}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-white bg-[#0c2340] hover:bg-[#0e3a60] transition-colors disabled:opacity-50">
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-slate-200 dark:border-slate-600 bg-[#fafafa] dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100 hover:border-slate-300 dark:hover:bg-slate-600 dark:hover:border-slate-500 transition-colors disabled:opacity-50">
               <FilePlus2 size={13} /> Novo pacote
             </button>
             <button onClick={() => { setShowNewGroupForm(v => !v); setNewGroupLabel('') }} disabled={!!busy}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:border-[#0c2340] hover:text-[#0c2340] dark:hover:border-sky-400 dark:hover:text-sky-400 transition-colors disabled:opacity-50">
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-slate-200 dark:border-slate-600 bg-[#fafafa] dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100 hover:border-slate-300 dark:hover:bg-slate-600 dark:hover:border-slate-500 transition-colors disabled:opacity-50">
               <FolderPlus size={13} /> Novo grupo
             </button>
             <button onClick={copySelected} disabled={selected.size === 0}
               title="Copiar linhas selecionadas"
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:border-[#d97706] hover:text-[#d97706] transition-colors disabled:opacity-40">
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-slate-200 dark:border-slate-600 bg-[#fafafa] dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100 hover:border-slate-300 dark:hover:bg-slate-600 dark:hover:border-slate-500 transition-colors disabled:opacity-40">
               <Copy size={13} /> Copiar ({selected.size})
             </button>
             {clipboard && <span className="text-[11px] text-slate-500">{clipboard.length} linha(s) na área de transferência</span>}
@@ -299,7 +384,7 @@ export function AdminVarsEditor({ query, serverBase, pkgOverrides, legacyOverrid
         return (
         <div key={cat.id} className="space-y-2">
           <button onClick={() => toggleCat(cat.id)}
-            className="w-full flex items-center gap-1.5 pt-1 text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition-colors">
+            className="w-full flex items-center gap-1.5 pt-1 text-[#005889] dark:text-slate-500 hover:text-[#004a75] dark:hover:text-slate-300 transition-colors">
             {collapsed ? <ChevronRight size={14} className="shrink-0" /> : <ChevronDown size={14} className="shrink-0" />}
             <span className="text-[11px] font-bold uppercase tracking-wider">{cat.label}</span>
             {items.length > 0 && <span className="text-[10px] text-slate-400 tabular-nums">{items.length}</span>}
@@ -318,7 +403,7 @@ export function AdminVarsEditor({ query, serverBase, pkgOverrides, legacyOverrid
               <button onClick={() => openPkg(pkgId)} className="text-slate-500 hover:text-slate-800 dark:hover:text-slate-200">
                 {isOpen ? <ChevronDown size={15} /> : <ChevronRight size={15} />}
               </button>
-              <span className="font-mono text-xs font-semibold text-blue-700 dark:text-blue-400 whitespace-nowrap">{pkgId}</span>
+              <span className="text-xs font-semibold text-slate-700 dark:text-slate-300 whitespace-nowrap">{pkgId}</span>
               {isOpen && isCustom && md ? (
                 <input value={md.name} onChange={e => { setMetaDrafts(prev => ({ ...prev, [pkgId]: { ...md, name: e.target.value } })); markDirty(pkgId) }}
                   className="flex-1 min-w-0 rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-2 py-0.5 text-xs text-slate-800 dark:text-slate-100" />
@@ -351,37 +436,68 @@ export function AdminVarsEditor({ query, serverBase, pkgOverrides, legacyOverrid
                   </div>
                 )}
 
-                <div className="overflow-x-auto border-t border-slate-200 dark:border-slate-700">
-                  <table className="w-full table-fixed border-collapse">
+                <div className="overflow-x-auto scrollbar-custom border-t border-slate-200 dark:border-slate-700">
+                  <table className="table-fixed border-collapse" style={{ width: tableWidth }}>
                     <colgroup>
-                      <col className="w-7" /><col className="w-6" />
-                      <col style={{ width: '24%' }} /><col className="w-12" /><col className="w-12" />
-                      <col style={{ width: '15%' }} /><col style={{ width: '15%' }} />
-                      <col style={{ width: '9%' }} /><col style={{ width: '11%' }} />
-                      <col style={{ width: '11%' }} /><col style={{ width: '11%' }} /><col className="w-14" />
+                      {colWidths.map((w, i) => <col key={i} style={{ width: w }} />)}
                     </colgroup>
                     <thead>
                       <tr className="text-left border-b border-slate-200 dark:border-slate-700">
-                        <th /><th className={thCls}>#</th>
-                        <th className={thCls}>Descrição</th>
-                        <th className={`${thCls} text-right`}>Dur</th>
-                        <th className={`${thCls} text-center`} title="Contingência / Paralela">C/P</th>
-                        <th className={thCls}>Recomendações</th>
-                        <th className={thCls}>Padrões</th>
-                        <th className={thCls}>OW Fase</th>
-                        <th className={thCls}>OW Atividade</th>
-                        <th className={thCls}>OW Operação</th>
-                        <th className={thCls}>OW Etapa</th>
+                        <th className="relative"><ColResizer onResize={dx => resizeCol(0, dx)} onCommit={persistColWidths} /></th>
+                        <th className={`${thCls} relative`}>#<ColResizer onResize={dx => resizeCol(1, dx)} onCommit={persistColWidths} /></th>
+                        <th className={`${thCls} relative`}>Descrição<ColResizer onResize={dx => resizeCol(2, dx)} onCommit={persistColWidths} /></th>
+                        <th className={`${thCls} text-right relative`}>Dur<ColResizer onResize={dx => resizeCol(3, dx)} onCommit={persistColWidths} /></th>
+                        <th className={`${thCls} text-center relative`} title="Contingência / Paralela">C/P<ColResizer onResize={dx => resizeCol(4, dx)} onCommit={persistColWidths} /></th>
+                        <th className={`${thCls} relative`}>Recomendações<ColResizer onResize={dx => resizeCol(5, dx)} onCommit={persistColWidths} /></th>
+                        <th className={`${thCls} relative`}>Padrões<ColResizer onResize={dx => resizeCol(6, dx)} onCommit={persistColWidths} /></th>
+                        <th className={`${thCls} relative`}>OW Fase<ColResizer onResize={dx => resizeCol(7, dx)} onCommit={persistColWidths} /></th>
+                        <th className={`${thCls} relative`}>OW Atividade<ColResizer onResize={dx => resizeCol(8, dx)} onCommit={persistColWidths} /></th>
+                        <th className={`${thCls} relative`}>OW Operação<ColResizer onResize={dx => resizeCol(9, dx)} onCommit={persistColWidths} /></th>
+                        <th className={`${thCls} relative`}>OW Etapa<ColResizer onResize={dx => resizeCol(10, dx)} onCommit={persistColWidths} /></th>
+                        <th className={`${thCls} relative`} title="Compensando">Comp.<ColResizer onResize={dx => resizeCol(11, dx)} onCommit={persistColWidths} /></th>
+                        <th className={`${thCls} relative`}>Tipo de EDS<ColResizer onResize={dx => resizeCol(12, dx)} onCommit={persistColWidths} /></th>
+                        <th className={`${thCls} relative`}>Coment. EDS<ColResizer onResize={dx => resizeCol(13, dx)} onCommit={persistColWidths} /></th>
                         <th />
                       </tr>
                     </thead>
                     <tbody>
                       {lines.map((l, i) => {
                         const key = `${pkgId}::${l._id}`
+                        const isDragging = dragLine?.pkgId === pkgId && dragLine.lineId === l._id
+                        const drop = dropLine?.pkgId === pkgId && dropLine.lineId === l._id ? dropLine.pos : null
                         return (
-                          <tr key={l._id} className="align-top border-b border-slate-100 dark:border-slate-800 last:border-0 hover:bg-slate-50/60 dark:hover:bg-slate-800/25">
+                          <tr key={l._id}
+                            onDragOver={e => {
+                              if (!dragLine || dragLine.pkgId !== pkgId) return
+                              e.preventDefault()
+                              const rect = e.currentTarget.getBoundingClientRect()
+                              const pos = e.clientY - rect.top < rect.height / 2 ? 'above' : 'below'
+                              setDropLine({ pkgId, lineId: l._id, pos })
+                            }}
+                            onDrop={e => {
+                              e.preventDefault()
+                              if (dragLine && dragLine.pkgId === pkgId && dropLine)
+                                moveLineTo(pkgId, dragLine.lineId, dropLine.lineId, dropLine.pos)
+                              setDragLine(null); setDropLine(null)
+                            }}
+                            onContextMenu={e => { e.preventDefault(); e.stopPropagation(); setLineCtx({ pkgId, lineId: l._id, x: e.clientX, y: e.clientY }) }}
+                            className={`align-top border-b border-slate-100 dark:border-slate-800 last:border-0 hover:bg-slate-50/60 dark:hover:bg-slate-800/25 ${isDragging ? 'opacity-40' : ''} ${
+                              drop === 'above' ? 'border-t-2 border-t-sky-500' : drop === 'below' ? 'border-b-2 border-b-sky-500' : ''
+                            }`}>
                             <td className="px-1 py-1"><input type="checkbox" checked={selected.has(key)} onChange={() => toggleSel(pkgId, l._id)} className="mt-1 accent-[#0c2340]" title="Selecionar (copiar)" /></td>
-                            <td className="px-1 py-1 text-[10px] font-mono text-slate-400">{i + 1}</td>
+                            <td className="px-1 py-1">
+                              <div className="flex items-center gap-0.5">
+                                <button
+                                  draggable
+                                  onDragStart={e => { e.stopPropagation(); setDragLine({ pkgId, lineId: l._id }) }}
+                                  onDragEnd={() => { setDragLine(null); setDropLine(null) }}
+                                  title="Arrastar para reordenar"
+                                  className="shrink-0 p-0.5 rounded text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 cursor-grab active:cursor-grabbing">
+                                  <GripVertical size={12} />
+                                </button>
+                                <span className="text-[10px] font-mono text-slate-400">{i + 1}</span>
+                              </div>
+                            </td>
                             <td className="px-0.5 py-0.5">
                               <div className="flex items-start gap-0.5">
                                 <textarea ref={el => { taRefs.current[key] = el }} value={l.text} onChange={e => patchLine(pkgId, l._id, { text: e.target.value })} rows={2} className={cellCls} />
@@ -401,10 +517,26 @@ export function AdminVarsEditor({ query, serverBase, pkgOverrides, legacyOverrid
                             <td className="px-0.5 py-0.5"><OntCell value={l.owAtividade ?? ''} options={owAtividades(l.owFase ?? '')} onChange={v => patchLine(pkgId, l._id, { owAtividade: v, owOperacao: '', owEtapa: '' })} /></td>
                             <td className="px-0.5 py-0.5"><OntCell value={l.owOperacao ?? ''} options={owOperacoes(l.owFase ?? '', l.owAtividade ?? '')} onChange={v => patchLine(pkgId, l._id, { owOperacao: v, owEtapa: '' })} /></td>
                             <td className="px-0.5 py-0.5"><OntCell value={l.owEtapa ?? ''} options={owEtapas(l.owFase ?? '', l.owAtividade ?? '', l.owOperacao ?? '')} onChange={v => patchLine(pkgId, l._id, { owEtapa: v })} /></td>
+                            <td className="px-0.5 py-0.5">
+                              <select value={l.compensando === true ? 'true' : l.compensando === false ? 'false' : 'null'}
+                                title="Compensando"
+                                onChange={e => patchLine(pkgId, l._id, { compensando: e.target.value === 'true' ? true : e.target.value === 'false' ? false : null })}
+                                className={`${cellCls} cursor-pointer`}>
+                                <option value="null"></option>
+                                <option value="true">Sim</option>
+                                <option value="false">Não</option>
+                              </select>
+                            </td>
+                            <td className="px-0.5 py-0.5">
+                              <select value={l.edsNumber ?? ''} onChange={e => patchLine(pkgId, l._id, { edsNumber: e.target.value === '' ? null : Number(e.target.value) })}
+                                className={`${cellCls} cursor-pointer`}>
+                                <option value=""></option>
+                                {EDS_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                              </select>
+                            </td>
+                            <td className="px-0.5 py-0.5"><textarea value={l.edsComment ?? ''} title="Comentário EDS" onChange={e => patchLine(pkgId, l._id, { edsComment: e.target.value })} rows={2} className={cellCls} /></td>
                             <td className="px-1 py-1">
                               <div className="flex flex-wrap gap-0.5 w-12">
-                                <button onClick={() => move(pkgId, l._id, -1)} title="Subir" className="p-0.5 rounded text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"><ArrowUp size={12} /></button>
-                                <button onClick={() => move(pkgId, l._id, 1)} title="Descer" className="p-0.5 rounded text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"><ArrowDown size={12} /></button>
                                 <button onClick={() => insertAfter(pkgId, l._id)} title="Inserir linha abaixo" className="p-0.5 rounded text-slate-400 hover:text-emerald-600"><Plus size={12} /></button>
                                 {clipboard && <button onClick={() => pasteInto(pkgId, l._id)} title="Colar abaixo" className="p-0.5 rounded text-slate-400 hover:text-sky-600"><ClipboardPaste size={12} /></button>}
                                 <button onClick={() => removeLine(pkgId, l._id)} title="Excluir linha" className="p-0.5 rounded text-slate-400 hover:text-rose-600"><Trash2 size={12} /></button>
@@ -444,7 +576,7 @@ export function AdminVarsEditor({ query, serverBase, pkgOverrides, legacyOverrid
         return (
           <div key={grp.id} className="space-y-2">
             <div className="w-full flex items-center gap-1.5 pt-1">
-              <button onClick={() => toggleCat(grp.id)} className="flex items-center gap-1.5 text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition-colors">
+              <button onClick={() => toggleCat(grp.id)} className="flex items-center gap-1.5 text-[#005889] dark:text-slate-500 hover:text-[#004a75] dark:hover:text-slate-300 transition-colors">
                 {collapsed ? <ChevronRight size={14} className="shrink-0" /> : <ChevronDown size={14} className="shrink-0" />}
                 <span className="text-[11px] font-bold uppercase tracking-wider">{grp.label}</span>
               </button>
@@ -461,6 +593,31 @@ export function AdminVarsEditor({ query, serverBase, pkgOverrides, legacyOverrid
           </div>
         )
       })}
+
+      {/* Menu de contexto (botão direito) de uma linha — copiar/colar */}
+      {lineCtx && (
+        <div
+          className="fixed z-50 bg-[#f5f5f5] dark:bg-slate-900 rounded-lg shadow-xl border border-slate-200 dark:border-slate-700 py-1 min-w-[160px]"
+          style={{ left: lineCtx.x, top: lineCtx.y }}
+          onClick={e => e.stopPropagation()}>
+          <button
+            className="w-full text-left px-3 py-1.5 text-xs text-slate-700 dark:text-slate-300 hover:bg-blue-50 dark:hover:bg-blue-950/40 transition-colors"
+            onClick={() => {
+              const line = (drafts[lineCtx.pkgId] ?? []).find(l => l._id === lineCtx.lineId)
+              if (line) setClipboard([{ ...line }])
+              setLineCtx(null)
+            }}>
+            <Copy size={12} className="inline mr-1.5 -mt-0.5" /> Copiar linha
+          </button>
+          {clipboard && (
+            <button
+              className="w-full text-left px-3 py-1.5 text-xs text-slate-700 dark:text-slate-300 hover:bg-blue-50 dark:hover:bg-blue-950/40 transition-colors"
+              onClick={() => { pasteInto(lineCtx.pkgId, lineCtx.lineId); setLineCtx(null) }}>
+              <ClipboardPaste size={12} className="inline mr-1.5 -mt-0.5" /> Colar abaixo
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Popover de placeholders */}
       {ph && (

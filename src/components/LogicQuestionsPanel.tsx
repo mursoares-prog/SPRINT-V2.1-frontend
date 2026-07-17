@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import type { LSec, LDec, LAns, LPkg, LSeqEntry } from '../data/logicSecs'
 import { conditionMatches } from '../data/logicSecs'
 import { buildDecisionKey } from '../engines/logicEngine'
@@ -47,14 +47,20 @@ export function LogicQuestionsPanel({ sections, answers, onAnswer, rigType, oper
   const [openKey, setOpenKey] = useState<string | null>(null)
   const [checkedKeys, setCheckedKeys] = useState<Set<string>>(new Set())
 
-  // Sync checks with answers: undo/redo adds or removes answers → mirror in checks
+  // Sync checks with answers: undo/redo removing an explicit answer should also
+  // clear its check; a newly-set answer should mark itself as checked. Keys that
+  // were checked manually (via the checkbox, without an explicit answer — e.g. a
+  // question left at its default) must NOT be touched by unrelated answer changes.
+  const prevAnswersRef = useRef(answers)
   useEffect(() => {
+    const prevAnswers = prevAnswersRef.current
     setCheckedKeys(prev => {
-      const next = new Set<string>()
-      for (const k of prev) { if (k in answers) next.add(k) }
+      const next = new Set(prev)
+      for (const k of Object.keys(prevAnswers)) { if (!(k in answers)) next.delete(k) }
       for (const k of Object.keys(answers)) next.add(k)
       return next
     })
+    prevAnswersRef.current = answers
   }, [answers])
 
   const phaseOrder: string[] = []
@@ -196,7 +202,7 @@ function DecisionRow({ dec, pathPrefix, decIndex, answers, onAnswer, depth, rigT
   return (
     <div data-isp-container>
       <div className={`rounded transition-all ${isEditing ? 'bg-sky-50 dark:bg-sky-950/40 ring-1 ring-sky-200 dark:ring-sky-800' : ''}`}>
-        <div className={`flex items-start w-full py-1.5 px-2 rounded transition-colors ${!isEditing ? 'hover:bg-slate-50 dark:hover:bg-slate-800' : ''}`}>
+        <div className={`flex items-start w-full py-1.5 px-2 rounded border-b border-slate-200 dark:border-slate-800 transition-colors ${!isEditing ? 'hover:bg-slate-50 dark:hover:bg-slate-800' : ''}`}>
 
           {/* Pergunta */}
           <button

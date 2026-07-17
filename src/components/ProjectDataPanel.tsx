@@ -57,26 +57,26 @@ function Field({ label, value, onChange, placeholder, unit, readOnly, locate }: 
   const active = showLocate && locateEq(ctx!.active, locate!)
   const highlighted = !!(filter && normalizeFilter(label).includes(normalizeFilter(filter)))
   return (
-    <div className={`flex items-center justify-between gap-2 py-1 border-b border-slate-100 dark:border-slate-800 last:border-0 rounded ${highlighted ? 'bg-sky-50 dark:bg-sky-900/30' : ''}`}>
-      <span className={`text-xs shrink-0 leading-snug flex items-center gap-1 min-w-0 ${highlighted ? 'text-sky-800 dark:text-sky-300 font-semibold' : 'text-slate-600 dark:text-slate-500'}`}>
+    <div className={`flex items-start justify-between gap-2 py-1 border-b border-slate-200 dark:border-slate-800 last:border-0 rounded ${highlighted ? 'bg-sky-50 dark:bg-sky-900/30' : ''}`}>
+      <span className={`text-xs leading-snug flex items-center gap-1 min-w-0 flex-1 ${highlighted ? 'text-sky-800 dark:text-sky-300 font-semibold' : 'text-slate-600 dark:text-slate-500'}`}>
         {showLocate && (
           <button type="button"
             onClick={() => ctx!.onLocate!(locate!)}
             title="Localizar linhas relacionadas no cronograma (Esc limpa)"
-            className={`shrink-0 transition-colors ${active ? 'text-sky-500 dark:text-sky-400' : 'text-slate-400 dark:text-slate-600 hover:text-sky-500 dark:hover:text-sky-400'}`}>
+            className={`shrink-0 self-stretch flex items-center transition-colors ${active ? 'text-sky-500 dark:text-sky-400' : 'text-slate-400 dark:text-slate-600 hover:text-sky-500 dark:hover:text-sky-400'}`}>
             <Crosshair size={11} />
           </button>
         )}
-        <span className="min-w-0">{label}</span>
+        <span className="min-w-0 break-words">{label}</span>
       </span>
-      <div className="flex items-center min-w-0">
+      <div className="flex items-center shrink-0 w-[92px] justify-end">
         <input
           type="text" value={value} placeholder={placeholder ?? '—'}
           readOnly={readOnly}
           onChange={e => { if (!readOnly) onChange(e.target.value) }}
           onFocus={() => ctx?.onClear?.()}
           title={readOnly ? 'Campo preenchido automaticamente' : undefined}
-          className={`flex-1 min-w-0 text-xs font-semibold ${readOnly ? 'text-slate-700 dark:text-slate-400 italic cursor-default' : 'text-slate-700 dark:text-slate-200'} bg-transparent outline-none placeholder:text-slate-500 dark:placeholder:text-slate-600 leading-snug text-right`}
+          className={`w-full min-w-0 text-xs font-semibold ${readOnly ? 'text-slate-700 dark:text-slate-400 italic cursor-default' : 'text-slate-700 dark:text-slate-200'} bg-transparent outline-none placeholder:text-slate-500 dark:placeholder:text-slate-600 leading-snug text-right`}
         />
         {unit && (
           <span className="text-[10px] text-slate-600 dark:text-slate-500 shrink-0 ml-1 select-none">{unit}</span>
@@ -316,7 +316,7 @@ function NippleRow({ label, name, depth, onName, onDepth, namePlaceholder, optio
   const showLocate = !!(ctx?.onLocate && locate)
   const active = showLocate && locateEq(ctx!.active, locate!)
   return (
-    <div className="flex items-center gap-1.5 py-1 border-b border-slate-100 dark:border-slate-800 last:border-0">
+    <div className="flex items-center gap-1.5 py-1 border-b border-slate-200 dark:border-slate-800 last:border-0">
       <span className="text-[11px] text-slate-600 dark:text-slate-500 w-20 shrink-0 leading-tight flex items-center gap-1">
         {showLocate && (
           <button type="button"
@@ -364,7 +364,7 @@ function InactiveNippleRows({ rows }: { rows: NippleRowConf[] }) {
     ? `${rows.length} nipple${rows.length > 1 ? 's' : ''} sem operação relacionada (${filledCount} preenchido${filledCount > 1 ? 's' : ''})`
     : `${rows.length} nipple${rows.length > 1 ? 's' : ''} sem operação relacionada`
   return (
-    <div className="border-t border-slate-100 dark:border-slate-800">
+    <div className="border-t border-slate-200 dark:border-slate-800">
       <button onClick={() => setOpen(v => !v)}
         className="w-full flex items-center gap-1.5 px-2 py-1.5 text-[10px] text-slate-400 dark:text-slate-600 hover:text-slate-500 dark:hover:text-slate-500 transition-colors">
         <span className="text-[9px] select-none">{open ? '▾' : '▸'}</span>
@@ -401,9 +401,9 @@ function Section({ title, searchText, children, defaultOpen = false, isDirty = f
     <div className={`shrink-0 rounded-xl overflow-hidden shadow-sm ring-1 transition-colors ${
       dirty
         ? 'ring-amber-300 dark:ring-amber-700/70'
-        : 'ring-slate-200/80 dark:ring-slate-700/60'
+        : 'ring-slate-300 dark:ring-slate-700/60'
     }`}>
-      <div className={`flex items-center gap-1.5 px-2.5 py-2 ${titleHighlighted ? 'bg-sky-50 dark:bg-sky-900/30' : 'bg-[#ebebeb] dark:bg-slate-800/50'} ${!effectiveCollapsed ? 'border-b border-slate-200/70 dark:border-slate-700/50' : ''}`}>
+      <div className={`flex items-center gap-1.5 px-2.5 py-2 ${titleHighlighted ? 'bg-sky-50 dark:bg-sky-900/30' : 'bg-[#ebebeb] dark:bg-slate-800/50'} ${!effectiveCollapsed ? 'border-b border-slate-300 dark:border-slate-700/50' : ''}`}>
         <button onClick={() => setCollapsed(c => !c)}
           className="flex items-center gap-1.5 flex-1 min-w-0 text-left group">
           <span className={`w-4 font-bold text-sm leading-none select-none transition-colors ${dirty ? 'text-amber-500' : 'text-slate-400 dark:text-slate-500 group-hover:text-slate-600 dark:group-hover:text-slate-300'}`}>
@@ -906,7 +906,7 @@ export function ProjectDataPanel({ onLocate, onClearLocate, locatedTarget, oneBy
         </div>
       </div>
       {/* Subtítulo */}
-      <div className="shrink-0 px-4 py-1.5 border-b border-slate-100 dark:border-slate-800">
+      <div className="shrink-0 px-4 py-1.5 border-b border-slate-200 dark:border-slate-800">
         <span className="text-[10px] text-slate-400 dark:text-slate-500 tracking-widest uppercase">Assistente de Preenchimento</span>
       </div>
 
@@ -1181,7 +1181,7 @@ export function ProjectDataPanel({ onLocate, onClearLocate, locatedTarget, oneBy
                               setBhasTech({ bhaPlans: { ...(d.bhaPlans ?? {}), [item.uid]: { ...prev } } })
                             }
                             return (
-                              <div key={item.uid} className="py-1 border-b border-slate-100 dark:border-slate-800 last:border-0">
+                              <div key={item.uid} className="py-1 border-b border-slate-200 dark:border-slate-800 last:border-0">
                                 <div className="flex items-center gap-1.5">
                                   {hasSubItems ? (
                                     <button
@@ -1690,7 +1690,7 @@ export function ProjectDataPanel({ onLocate, onClearLocate, locatedTarget, oneBy
                   !i.isBlank && /^ABAN 07[89]$/.test(i.packageId))
                 if (!showAlign && !showVol) return null
                 return (
-                  <div className="mt-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+                  <div className="mt-2 pt-2 border-t border-slate-200 dark:border-slate-800">
                     <div className="text-[10px] font-semibold text-slate-600 dark:text-slate-500 uppercase tracking-widest mb-1">Bombeio</div>
                     {showAlign && (
                       <Field
@@ -1716,7 +1716,7 @@ export function ProjectDataPanel({ onLocate, onClearLocate, locatedTarget, oneBy
                 const plan = d.bhaPlans?.[item.uid] ?? {}
                 const isPwcAval = item.packageId === 'ABAN 231'
                 return (
-                  <div key={item.uid} className="mt-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+                  <div key={item.uid} className="mt-2 pt-2 border-t border-slate-200 dark:border-slate-800">
                     <div className="text-[10px] font-semibold text-slate-600 dark:text-slate-500 uppercase tracking-widest mb-1 leading-snug">{item.packageName}</div>
                     <Field label="Canhoneio — Topo" value={plan.pwcCanhoneioTopo ?? ''} onChange={v => updatePwcPlan(item.uid, 'pwcCanhoneioTopo', v)} unit="m" locate={{ kind: 'plan', uid: item.uid, key: 'pwcCanhoneioTopo' }} />
                     <Field label="Canhoneio — Base" value={plan.pwcCanhoneioBase ?? ''} onChange={v => updatePwcPlan(item.uid, 'pwcCanhoneioBase', v)} unit="m" locate={{ kind: 'plan', uid: item.uid, key: 'pwcCanhoneioBase' }} />
@@ -1799,7 +1799,7 @@ export function ProjectDataPanel({ onLocate, onClearLocate, locatedTarget, oneBy
           return (
             <Section title="Hold Points" searchText="hold point revcim ecs bop estanqueidade stv plug tae testes elementos instalados pcab n2 influxo cimentação avaliação pós-instalação prova pressão"  defaultOpen={false}              isDirty={dirty['holdpoints']} onApply={applySection('holdpoints')} onDiscard={discardSection('holdpoints')} canApply={sectionAffectsLines('holdpoints')}>
               {showEcsBopAny && (
-                <div className="pb-2 mb-2 border-b border-slate-100 dark:border-slate-800 space-y-0.5">
+                <div className="pb-2 mb-2 border-b border-slate-200 dark:border-slate-800 space-y-0.5">
                   <div className="text-[10px] font-semibold text-slate-600 dark:text-slate-500 uppercase tracking-widest mb-1">ECS/BOP — sempre</div>
                   {showEcsBop184 && <LocateRow target={{ kind: 'textMatch', pattern: '[HOLD POINT - ECS/BOP]' }}>Testes de linhas submarinas (JT) — kill/choke/booster/conduítes</LocateRow>}
                   {showEcsBop184 && <LocateRow target={{ kind: 'textMatch', pattern: '[HOLD POINT - ECS/BOP]' }}>Teste gavetas cegas e anel VGX do BOP</LocateRow>}
@@ -1808,14 +1808,14 @@ export function ProjectDataPanel({ onLocate, onClearLocate, locatedTarget, oneBy
                 </div>
               )}
               {(showRevcimEval || showRevcimTop) && (
-                <div className="pb-2 mb-2 border-b border-slate-100 dark:border-slate-800 space-y-0.5">
+                <div className="pb-2 mb-2 border-b border-slate-200 dark:border-slate-800 space-y-0.5">
                   <div className="text-[10px] font-semibold text-slate-600 dark:text-slate-500 uppercase tracking-widest mb-1">REVCIM</div>
                   {showRevcimEval && <LocateRow target={{ kind: 'textMatch', pattern: '[HOLD POINT - REVCIM]' }}>Avaliação de cimentação (perfil/perfilagem REVCIM)</LocateRow>}
                   {showRevcimTop  && <LocateRow target={{ kind: 'textMatch', pattern: '[HOLD POINT - REVCIM]' }}>Checagem de topo do cimento</LocateRow>}
                 </div>
               )}
               {hpEstItems.length > 0 && (
-                <div className="pb-2 mb-2 border-b border-slate-100 dark:border-slate-800 space-y-0">
+                <div className="pb-2 mb-2 border-b border-slate-200 dark:border-slate-800 space-y-0">
                   <div className="text-[10px] font-semibold text-slate-600 dark:text-slate-500 uppercase tracking-widest mb-1">Testes de elementos instalados</div>
                   {hpEstItems.map(it => (
                     <Field key={it.field} label={it.label} value={it.value} onChange={() => {}} readOnly unit="psi" locate={{ kind: 'data', field: it.field }} />
@@ -1823,14 +1823,14 @@ export function ProjectDataPanel({ onLocate, onClearLocate, locatedTarget, oneBy
                 </div>
               )}
               {showProva && (
-                <div className="pb-2 mb-2 border-b border-slate-100 dark:border-slate-800">
+                <div className="pb-2 mb-2 border-b border-slate-200 dark:border-slate-800">
                   <div className="text-[10px] font-semibold text-slate-600 dark:text-slate-500 uppercase tracking-widest mb-1">Estanqueidade pós-instalação</div>
                   <Field label="Pressão de prova (genérica)" value={d.pressaoProva} onChange={v => setHoldpoints({ pressaoProva: v })} unit="psi" locate={{ kind: 'data', field: 'pressaoProva' }} />
                 </div>
               )}
               <div className="space-y-1">
                 {d.holdPoints.map((pt, i) => (
-                  <div key={i} className="py-1 border-b border-slate-100 dark:border-slate-800 last:border-0 flex items-center gap-1 group/hp">
+                  <div key={i} className="py-1 border-b border-slate-200 dark:border-slate-800 last:border-0 flex items-center gap-1 group/hp">
                     <input
                       type="text" value={pt}
                       onChange={e => {
@@ -1838,7 +1838,7 @@ export function ProjectDataPanel({ onLocate, onClearLocate, locatedTarget, oneBy
                         setHoldpoints({ holdPoints: next })
                       }}
                       placeholder="Descrever hold point..."
-                      className="flex-1 min-w-0 text-xs text-slate-700 dark:text-slate-200 bg-transparent outline-none border-b border-slate-100 dark:border-slate-800 focus:border-blue-300 dark:focus:border-blue-700 transition-colors placeholder:text-slate-500 dark:placeholder:text-slate-600 py-0.5"
+                      className="flex-1 min-w-0 text-xs text-slate-700 dark:text-slate-200 bg-transparent outline-none border-b border-slate-200 dark:border-slate-800 focus:border-blue-300 dark:focus:border-blue-700 transition-colors placeholder:text-slate-500 dark:placeholder:text-slate-600 py-0.5"
                     />
                     <button
                       onClick={() => setHoldpoints({ holdPoints: d.holdPoints.filter((_, j) => j !== i) })}
