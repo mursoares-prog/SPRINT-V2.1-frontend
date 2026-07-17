@@ -1,5 +1,4 @@
 import type { WizardInputs, ScheduleItem, BundleScopeId } from '../types'
-import { generateSchedule as generateScheduleBundle } from './sequenceEngine'
 import { generateScheduleFromLogic } from './logicEngine'
 import { getLogicOverride, expandScopeRefs } from '../data/logicOverrideStore'
 import { LOGIC_BY_SCOPE, type LSec } from '../data/logicSecs'
@@ -23,10 +22,10 @@ export function generateSchedule(inputs: WizardInputs): ScheduleItem[] {
   const strictFlow = inputs.engineMode === 'flowchart'
   const asCustom = isCustom || strictFlow
 
-  // 1. Backend-saved logic override (custom scopes edited via admin)
+  // 1. Override de lógica salvo no backend (escopos custom editados no admin).
   //    Expande seções `ref` (reuso vivo) antes de avaliar — um escopo só com placeholder
   //    de inclusão tem decisions vazio no topo, mas ganha decisões ao expandir.
-  //    Only use if sections have actual decisions (avoids empty-section overrides blocking fallback)
+  //    Só usa se houver decisões de fato (evita override de seção vazia bloquear o estático).
   const override = getLogicOverride(scopeId)
   const hasDecisions = (secs: LSec[]) => secs.some(s => s.decisions.length > 0 || (s.always?.length ?? 0) > 0)
   if (override?.length) {
@@ -34,10 +33,12 @@ export function generateSchedule(inputs: WizardInputs): ScheduleItem[] {
     if (hasDecisions(expanded)) return generateScheduleFromLogic(inputs, expanded, asCustom, strictFlow)
   }
 
-  // 2. Static logic definition (bundle scopes via LOGIC_BY_SCOPE, custom scopes too)
+  // 2. Definição estática da lógica (escopos bundle via LOGIC_BY_SCOPE; custom também).
   const staticLogic = LOGIC_BY_SCOPE[scopeId]
   if (staticLogic) return generateScheduleFromLogic(inputs, staticLogic, asCustom, strictFlow)
 
-  // 3. Fallback sequence engine (safety net — should not be reached for any defined scope)
-  return generateScheduleBundle(inputs)
+  // Sem árvore de decisão definida para o escopo — não há como gerar. Retorna vazio e
+  // registra: todo escopo válido deve ter lógica (bundle ou override).
+  console.error(`generateSchedule: nenhuma lógica de decisão definida para o escopo "${scopeId}".`)
+  return []
 }
