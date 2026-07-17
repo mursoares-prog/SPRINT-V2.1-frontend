@@ -3,8 +3,9 @@
 Aplicação **React + TypeScript + Vite** do SPRINT ABAN: assistente de entrada, geração e
 refino do cronograma de abandono, e editores administrativos de lógica e da base de pacotes.
 
-> Contexto geral do sistema (frontend + backend) no [README raiz](../README.md) e no
-> [`docs/ARQUITETURA.md`](../../docs/ARQUITETURA.md).
+> Contexto geral do sistema (frontend + backend) em [`docs/ARQUITETURA.md`](docs/ARQUITETURA.md).
+> O **backend** vive em um repositório separado:
+> [SPRINT-V2.1-backend](https://github.com/mursoares-prog/SPRINT-V2.1-backtend).
 
 ## Stack
 
@@ -68,7 +69,7 @@ O app navega entre 4 views (`AppState.view`): `home` → `wizard` (assistente) �
 | `placeholders.ts` | Resolução de tokens `{{campo=glifo}}` nos textos das linhas. |
 
 > A geração roda **100% no frontend**, pela engine de árvores de decisão. O backend não gera
-> cronograma — ver [`docs/ARQUITETURA.md`](../../docs/ARQUITETURA.md).
+> cronograma — ver [`docs/ARQUITETURA.md`](docs/ARQUITETURA.md).
 
 ### `components/` — principais
 
@@ -97,5 +98,6 @@ os dados base com edições vindas do backend.
 
 ## Documentação relacionada
 
-- [`../../docs/ARQUITETURA.md`](../../docs/ARQUITETURA.md) — arquitetura geral, domínio e a
-  engine de árvores de decisão.
+- [`docs/ARQUITETURA.md`](docs/ARQUITETURA.md) — arquitetura geral, domínio e a engine de
+  árvores de decisão.
+- Backend (repo separado): [SPRINT-V2.1-backend](https://github.com/mursoares-prog/SPRINT-V2.1-backtend).
