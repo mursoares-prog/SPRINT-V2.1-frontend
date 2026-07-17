@@ -1,73 +1,101 @@
-# React + TypeScript + Vite
+# SPRINT ABAN — Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Aplicação **React + TypeScript + Vite** do SPRINT ABAN: assistente de entrada, geração e
+refino do cronograma de abandono, e editores administrativos de lógica e da base de pacotes.
 
-Currently, two official plugins are available:
+> Contexto geral do sistema (frontend + backend) no [README raiz](../README.md) e no
+> [`docs/ARQUITETURA.md`](../../docs/ARQUITETURA.md).
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## Stack
 
-## React Compiler
+- **React 19** + **TypeScript** (build por `tsc -b` + **Vite 8**)
+- **Tailwind CSS 4** (via `@tailwindcss/vite`)
+- **@xyflow/react** (ReactFlow) — editor visual de fluxogramas de decisão
+- **lucide-react** / **react-icons** — ícones
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## Rodar
 
-## Expanding the ESLint configuration
+Requer **Node 20+**.
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+npm install
+cp .env.example .env      # VITE_API_URL = URL do backend
+npm run dev               # http://localhost:5173
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+| Script | O que faz |
+|--------|-----------|
+| `npm run dev` | Servidor de desenvolvimento (Vite, HMR) |
+| `npm run build` | Type-check (`tsc -b`) **+** build de produção (`vite build`) → `dist/` |
+| `npm run preview` | Serve o `dist/` já buildado |
+| `npm run lint` | ESLint |
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+`npm run build` é também o **type-check autoritativo**: deve terminar **sem erros**.
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+## Variáveis de ambiente
+
+| Var | Efeito |
+|-----|--------|
+| `VITE_API_URL` | URL base do backend. **Se vazia**, o app opera 100% local (sem persistência no servidor) e cai no login legado offline. |
+
+## Estrutura (`src/`)
+
 ```
+src/
+├── main.tsx / App.tsx        # Bootstrap e casca do app (navegação entre views)
+├── context/
+│   └── AppContext.tsx        # Estado global (inputs, schedule, refino) + ações
+├── components/               # UI (ver abaixo)
+├── engines/                  # Lógica pura de geração do cronograma
+├── data/                     # Dados de domínio (sequências, pacotes, escopos, lógica)
+├── utils/                    # API, auth, arquivos de projeto, helpers
+└── types/index.ts            # Tipos de domínio compartilhados
+```
+
+### Views (fluxo do usuário)
+
+O app navega entre 4 views (`AppState.view`): `home` → `wizard` (assistente) →
+`schedule` (cronograma gerado) → `fine_tuning` (refino manual).
+
+### `engines/` — geração do cronograma (lógica pura, sem React)
+
+| Arquivo | Responsabilidade |
+|---------|------------------|
+| `sequenceEngine.ts` | Engine principal: `generateSchedule(inputs)` → lista de pacotes por fase. Pipeline de 2 passadas (ver [`docs/engine-fluxo.md`](docs/engine-fluxo.md)). |
+| `logicEngine.ts` | Engine alternativa dirigida por **árvores de decisão** (escopos custom editáveis no admin). |
+| `scheduleRouter.ts` | Escolhe qual engine/escopo aplicar a partir dos inputs. |
+| `nippleDepth.ts` | Cálculo de profundidade de nipples/BHA. |
+| `placeholders.ts` | Resolução de tokens `{{campo=glifo}}` nos textos das linhas. |
+
+> A engine tem um **espelho em Python** no backend (fonte canônica). A paridade é o
+> contrato central do sistema — ver [`docs/ARQUITETURA.md`](../../docs/ARQUITETURA.md).
+
+### `components/` — principais
+
+| Componente | Papel |
+|------------|-------|
+| `Sidebar.tsx` | Navegação/etapas |
+| `LoginModal.tsx` | Autenticação (backend ou login legado offline) |
+| `InputSummaryPanel.tsx` / `ProjectDataPanel.tsx` | Assistente e dados do projeto |
+| `ScheduleView.tsx` | Cronograma gerado (lista/Gantt) |
+| `FineTuningView.tsx` | Refino manual do cronograma |
+| `AdminView.tsx` / `AdminVarsEditor.tsx` | Administração da base de pacotes e variáveis |
+| `LogicEditorPanel.tsx` / `LogicFlowEditor.tsx` / `LogicGraphPanel.tsx` / `LogicQuestionsPanel.tsx` | Edição das árvores de decisão (lógica) — clássico (SVG) e visual (ReactFlow) |
+| `PackagesCatalogModal.tsx` | Catálogo de pacotes |
+
+### `data/` — dados de domínio
+
+Sequências (`sequences.ts`), pacotes (`packages.ts`, `packageLines.json`), escopos e rótulos
+(`scopeCategories.ts`, `scopeLabels.ts`), árvores de lógica (`logicSecs.ts`,
+`logicScopesBundle.json`), ontologia (`owOntology.json`) e *stores* de override que mesclam
+os dados base com edições vindas do backend.
+
+### `utils/`
+
+`api.ts` (cliente HTTP do backend), `auth.ts` (sessão/token e login legado), `projectFile.ts`
+/ `projectFacts.ts` (serialização de projetos), `defaultInputs.ts`.
+
+## Documentação relacionada
+
+- [`docs/engine-fluxo.md`](docs/engine-fluxo.md) — diagramas do pipeline da `sequenceEngine`.
+- [`../../docs/ARQUITETURA.md`](../../docs/ARQUITETURA.md) — arquitetura geral e domínio.
