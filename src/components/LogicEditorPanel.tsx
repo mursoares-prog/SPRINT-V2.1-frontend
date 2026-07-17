@@ -23,22 +23,16 @@ import {
   PiCaretDownBold as ChevronDown,
   PiCaretUpBold as ChevronUp,
   PiCaretRightBold as ChevronRight,
-  PiQuestionFill as HelpCircle,
   PiPencilSimpleFill as Pencil,
-  PiChartBarFill as BarChart3,
   PiFolderFill,
   PiFolderOpenFill,
   PiFolderPlusFill,
   PiClockCounterClockwiseBold as History,
   PiTreeStructureFill as LayoutDashboard,
 } from 'react-icons/pi'
-// Ícones da legenda de ajuda (mesmos usados no fluxograma/menus).
 import {
-  PiLegoFill, PiStarFill, PiFlagPennantFill, PiPlusCircleFill,
-  PiListNumbersFill, PiArrowLineUp, PiArrowUUpLeftFill, PiCopySimpleFill, PiTrashFill,
   PiListDashesFill, PiInfoBold,
 } from 'react-icons/pi'
-import type { IconType } from 'react-icons'
 import type { LSec, LDec, LAns, LPkg, LCondition, LSeqEntry } from '../data/logicSecs'
 import { LOGIC_BY_SCOPE } from '../data/logicSecs'
 import {
@@ -46,15 +40,14 @@ import {
   createLogicScope, deleteLogicScope, type LogicScopeMeta,
   getLogicScopeVersions, getLogicScopeVersion, restoreLogicScopeVersion,
   type LogicScopeVersionMeta,
+  getLogicScopeGroups, saveLogicScopeGroups, isApiConfigured,
 } from '../utils/api'
 import { isAdmin, authHeader } from '../utils/auth'
 import { updateCustomScopeMeta } from '../data/logicOverrideStore'
 import { PACKAGES } from '../data/packages'
 import { setLogicOverrides, getLogicOverride, expandScopeRefs, resolveScopeSections, setScopeLabels } from '../data/logicOverrideStore'
-import { LogicGraphPanel, type EditAction, type DecRef } from './LogicGraphPanel'
+import { type EditAction, type DecRef } from './LogicGraphPanel'
 import { LogicFlowEditor, type LogicFlowEditorHandle } from './LogicFlowEditor'
-import { ScopeParityChecker } from './ScopeParityChecker'
-import { ConditionAuditPanel } from './ConditionAuditPanel'
 
 // ─── Constantes ───────────────────────────────────────────────────────────────
 
@@ -394,13 +387,15 @@ function DecisionPickerModal({ overrides, currentScopeId, loadScopeSections, onP
   )
 }
 
-// ─── Modal: importar seções de outro escopo ───────────────────────────────────
+// ─── Modal unificado de importação (base ou seções) ──────────────────────────
 
-function ImportSectionModal({ overrides, currentScopeId, loadScopeSections, onImport, onClose }: {
+function UnifiedImportModal({ overrides, currentScopeId, loadScopeSections, allowBase, onImport, onBase, onClose }: {
   overrides: LogicScopeMeta[]
   currentScopeId: string | null
   loadScopeSections: (id: string) => Promise<LSec[]>
+  allowBase: boolean
   onImport: (sections: LSec[]) => void
+  onBase: (sourceId: string) => void
   onClose: () => void
 }) {
   const [sourceId, setSourceId] = useState<string | null>(null)
@@ -408,11 +403,9 @@ function ImportSectionModal({ overrides, currentScopeId, loadScopeSections, onIm
   const [loadingSrc, setLoadingSrc] = useState(false)
   const [selected, setSelected] = useState<Set<number>>(new Set())
 
-  const scopeOptions = [
-    ...BUNDLE_IDS.filter(id => id !== currentScopeId).map(id => ({ id, label: BUNDLE_LABELS[id], isCustom: false, isBlock: false })),
-    ...BLOCK_IDS.filter(id => id !== currentScopeId).map(id => ({ id, label: BLOCK_LABELS[id], isCustom: false, isBlock: true })),
-    ...overrides.filter(o => o.isCustom && o.scopeId !== currentScopeId && !isReservedId(o.scopeId)).map(o => ({ id: o.scopeId, label: o.label ?? o.scopeId, isCustom: true, isBlock: false })),
-  ]
+  const bundles = BUNDLE_IDS.filter(id => id !== currentScopeId)
+  const blocks = BLOCK_IDS.filter(id => id !== currentScopeId)
+  const customs = overrides.filter(o => o.isCustom && o.scopeId !== currentScopeId && !isReservedId(o.scopeId))
 
   const handleSelectSource = async (id: string) => {
     setSourceId(id); setSelected(new Set()); setLoadingSrc(true)
@@ -428,45 +421,46 @@ function ImportSectionModal({ overrides, currentScopeId, loadScopeSections, onIm
     if (secs.length > 0) onImport(deepClone(secs))
   }
 
+  const scopeItemCls = (id: string) =>
+    `w-full text-left px-3 py-2 text-xs transition-colors ${sourceId === id ? 'bg-slate-700 text-slate-100' : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'}`
+
   return (
     <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/60">
-      <div className="bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl w-full max-w-xl flex flex-col max-h-[85vh]">
+      <div className="bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl w-full max-w-2xl flex flex-col max-h-[85vh]">
         <div className="flex items-center gap-2 px-5 py-4 border-b border-slate-700">
           <Download size={14} className="text-[#d97706]" />
-          <span className="text-sm font-semibold text-slate-100 flex-1">Importar seções de outro escopo</span>
+          <span className="text-sm font-semibold text-slate-100 flex-1">Importar de outro escopo</span>
           <button onClick={onClose}><X size={14} className="text-slate-400" /></button>
         </div>
         <div className="flex flex-1 min-h-0">
           {/* Scope list */}
-          <div className="w-44 shrink-0 border-r border-slate-700/40 py-2 overflow-y-auto scrollbar-custom">
-            <p className="text-[9px] text-slate-600 uppercase tracking-widest px-3 pb-1">Bundle</p>
-            {scopeOptions.filter(s => !s.isCustom && !s.isBlock).map(s => (
-              <button key={s.id} onClick={() => handleSelectSource(s.id)}
-                className={`w-full text-left px-3 py-2 text-xs transition-colors
-                  ${sourceId === s.id ? 'bg-slate-700 text-slate-100' : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'}`}>
-                {s.label}
-              </button>
-            ))}
-            {scopeOptions.some(s => s.isBlock) && (
+          <div className="w-48 shrink-0 border-r border-slate-700/40 py-2 overflow-y-auto scrollbar-custom">
+            {bundles.length > 0 && (
               <>
-                <p className="text-[9px] text-slate-600 uppercase tracking-widest px-3 pt-3 pb-1">Blocos de lógica</p>
-                {scopeOptions.filter(s => s.isBlock).map(s => (
-                  <button key={s.id} onClick={() => handleSelectSource(s.id)}
-                    className={`w-full text-left px-3 py-2 text-xs transition-colors
-                      ${sourceId === s.id ? 'bg-slate-700 text-slate-100' : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'}`}>
-                    {s.label}
+                <p className="text-[9px] text-slate-600 uppercase tracking-widest px-3 pb-1">Bundle</p>
+                {bundles.map(id => (
+                  <button key={id} onClick={() => handleSelectSource(id)} className={scopeItemCls(id)}>
+                    <span className="flex items-center gap-1.5"><Layers size={9} className="opacity-40 shrink-0" />{BUNDLE_LABELS[id]}</span>
                   </button>
                 ))}
               </>
             )}
-            {scopeOptions.some(s => s.isCustom) && (
+            {blocks.length > 0 && (
+              <>
+                <p className="text-[9px] text-slate-600 uppercase tracking-widest px-3 pt-3 pb-1">Blocos de lógica</p>
+                {blocks.map(id => (
+                  <button key={id} onClick={() => handleSelectSource(id)} className={scopeItemCls(id)}>
+                    <span className="flex items-center gap-1.5"><Puzzle size={9} className="text-[#d97706]/50 shrink-0" />{BLOCK_LABELS[id]}</span>
+                  </button>
+                ))}
+              </>
+            )}
+            {customs.length > 0 && (
               <>
                 <p className="text-[9px] text-slate-600 uppercase tracking-widest px-3 pt-3 pb-1">Customizados</p>
-                {scopeOptions.filter(s => s.isCustom).map(s => (
-                  <button key={s.id} onClick={() => handleSelectSource(s.id)}
-                    className={`w-full text-left px-3 py-2 text-xs transition-colors
-                      ${sourceId === s.id ? 'bg-slate-700 text-slate-100' : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'}`}>
-                    {s.label}
+                {customs.map(o => (
+                  <button key={o.scopeId} onClick={() => handleSelectSource(o.scopeId)} className={scopeItemCls(o.scopeId)}>
+                    <span className="flex items-center gap-1.5"><GitBranch size={9} className="text-[#d97706]/50 shrink-0" />{o.label ?? o.scopeId}</span>
                   </button>
                 ))}
               </>
@@ -477,7 +471,7 @@ function ImportSectionModal({ overrides, currentScopeId, loadScopeSections, onIm
           <div className="flex-1 flex flex-col min-h-0">
             {!sourceId && (
               <div className="flex-1 flex items-center justify-center text-slate-600 text-xs text-center px-4">
-                Selecione um escopo à esquerda
+                Selecione um escopo ou bloco à esquerda
               </div>
             )}
             {sourceId && loadingSrc && (
@@ -486,7 +480,7 @@ function ImportSectionModal({ overrides, currentScopeId, loadScopeSections, onIm
             {sourceId && !loadingSrc && (
               <>
                 <div className="px-4 py-2 border-b border-slate-700/40">
-                  <p className="text-[10px] text-slate-400">Selecione as seções a importar (serão adicionadas ao final)</p>
+                  <p className="text-[10px] text-slate-400">Selecione as seções a adicionar ao final do fluxo atual</p>
                 </div>
                 <div className="flex-1 overflow-y-auto scrollbar-custom py-1">
                   {sourceSecs.map((sec, i) => (
@@ -509,80 +503,23 @@ function ImportSectionModal({ overrides, currentScopeId, loadScopeSections, onIm
                     <p className="text-xs text-slate-500 px-4 py-4">Nenhuma seção encontrada.</p>
                   )}
                 </div>
-                <div className="px-4 py-3 border-t border-slate-700/40 flex justify-end gap-2">
+                <div className="px-4 py-3 border-t border-slate-700/40 flex items-center gap-2 justify-end">
+                  {allowBase && sourceId && (
+                    <button onClick={() => onBase(sourceId)}
+                      title="Substitui todo o conteúdo atual pelo deste escopo"
+                      className="flex items-center gap-1 text-xs text-slate-400 hover:text-amber-300 border border-slate-700 hover:border-amber-600/40 rounded-lg px-3 py-1.5 transition-colors">
+                      <Copy size={11} /> Usar como base
+                    </button>
+                  )}
                   <button onClick={onClose} className="text-xs text-slate-400 px-3 py-1.5 rounded-lg border border-slate-700">Cancelar</button>
                   <button disabled={selected.size === 0} onClick={handleImport}
                     className="text-xs text-white bg-[#d97706] hover:bg-amber-600 px-4 py-1.5 rounded-lg font-semibold disabled:opacity-40">
-                    Importar {selected.size > 0 ? `(${selected.size})` : ''}
+                    Adicionar {selected.size > 0 ? `(${selected.size})` : 'seções'}
                   </button>
                 </div>
               </>
             )}
           </div>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-// ─── Modal: escolher escopo base ──────────────────────────────────────────────
-
-function BasePickerModal({ overrides, currentScopeId, onPick, onClose }: {
-  overrides: LogicScopeMeta[]; currentScopeId: string | null
-  onPick: (sourceId: string) => void; onClose: () => void
-}) {
-  return (
-    <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/60">
-      <div className="bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl w-full max-w-sm flex flex-col max-h-[80vh]">
-        <div className="flex items-center gap-2 px-5 py-4 border-b border-slate-700">
-          <Copy size={14} className="text-[#d97706]" />
-          <span className="text-sm font-semibold text-slate-100 flex-1">Escolher escopo base</span>
-          <button onClick={onClose}><X size={14} className="text-slate-400" /></button>
-        </div>
-        <p className="text-[11px] text-slate-500 px-5 pt-3 pb-1">
-          As seções e decisões deste escopo serão copiadas como ponto de partida.
-        </p>
-        <div className="flex-1 overflow-y-auto scrollbar-custom py-2">
-          <p className="text-[9px] text-slate-600 uppercase tracking-widest px-5 py-1">Bundle</p>
-          {BUNDLE_IDS.filter(id => id !== currentScopeId).map(id => (
-            <button key={id} onClick={() => onPick(id)}
-              className="w-full flex items-center gap-3 px-5 py-2.5 hover:bg-slate-800 text-left transition-colors">
-              <Layers size={12} className="text-slate-500 shrink-0" />
-              <div className="flex-1 min-w-0">
-                <p className="text-xs text-slate-200">{BUNDLE_LABELS[id]}</p>
-                <p className="text-[10px] text-slate-500">{(LOGIC_BY_SCOPE[id] ?? []).length} seções</p>
-              </div>
-            </button>
-          ))}
-          {BLOCK_IDS.filter(id => id !== currentScopeId).length > 0 && (
-            <>
-              <p className="text-[9px] text-slate-600 uppercase tracking-widest px-5 py-1 mt-1">Blocos de lógica</p>
-              {BLOCK_IDS.filter(id => id !== currentScopeId).map(id => (
-                <button key={id} onClick={() => onPick(id)}
-                  className="w-full flex items-center gap-3 px-5 py-2.5 hover:bg-slate-800 text-left transition-colors">
-                  <Puzzle size={12} className="text-[#d97706]/70 shrink-0" />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs text-slate-200">{BLOCK_LABELS[id]}</p>
-                    <p className="text-[10px] text-slate-500">{(LOGIC_BY_SCOPE[id] ?? []).length} seções</p>
-                  </div>
-                </button>
-              ))}
-            </>
-          )}
-          {overrides.filter(o => o.isCustom && o.scopeId !== currentScopeId && !isReservedId(o.scopeId)).length > 0 && (
-            <>
-              <p className="text-[9px] text-slate-600 uppercase tracking-widest px-5 py-1 mt-1">Customizados</p>
-              {overrides.filter(o => o.isCustom && o.scopeId !== currentScopeId && !isReservedId(o.scopeId)).map(o => (
-                <button key={o.scopeId} onClick={() => onPick(o.scopeId)}
-                  className="w-full flex items-center gap-3 px-5 py-2.5 hover:bg-slate-800 text-left transition-colors">
-                  <GitBranch size={12} className="text-[#d97706] shrink-0" />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs text-slate-200">{o.label ?? o.scopeId}</p>
-                  </div>
-                </button>
-              ))}
-            </>
-          )}
         </div>
       </div>
     </div>
@@ -798,21 +735,11 @@ export function LogicEditorPanel({ canEdit }: { canEdit: boolean }) {
   const [selectedScope, setSelectedScope] = useState<string | null>(null)
   const [sections, setSections] = useState<LSec[]>([])
   const [baseLabel, setBaseLabel] = useState<string | null>(null)
-  const [showHelp, setShowHelp] = useState(false)
-  const [showParity, setShowParity] = useState(false)
-  const [showAudit, setShowAudit] = useState(false)
   const [showScopePanel, setShowScopePanel] = useState(false)
   const [showScopeSidebar, setShowScopeSidebar] = useState(true)
   const [showFlowIndex, setShowFlowIndex] = useState(false)
   const [showFlowLegend, setShowFlowLegend] = useState(false)
   const flowEditorRef = useRef<LogicFlowEditorHandle>(null)
-  // Modo de edição do fluxograma: 'classic' (SVG canônico) ou 'flow' (ReactFlow).
-  const [editorMode, setEditorMode] = useState<'classic' | 'flow'>(() =>
-    localStorage.getItem('lep-editor-mode') === 'flow' ? 'flow' : 'classic')
-  const pickEditorMode = (m: 'classic' | 'flow') => {
-    setEditorMode(m)
-    localStorage.setItem('lep-editor-mode', m)
-  }
   // Largura da sidebar de escopos (px), redimensionável por mouse e persistida.
   const [sidebarWidth, setSidebarWidth] = useState(() => {
     const v = Number(localStorage.getItem('lep-sidebar-w'))
@@ -837,8 +764,7 @@ export function LogicEditorPanel({ canEdit }: { canEdit: boolean }) {
   const [versions, setVersions] = useState<LogicScopeVersionMeta[]>([])
   const [versionsLoading, setVersionsLoading] = useState(false)
   const [previewVersionId, setPreviewVersionId] = useState<string | null>(null)
-  const [showBasePicker, setShowBasePicker] = useState(false)
-  const [showImportSection, setShowImportSection] = useState(false)
+  const [showImport, setShowImport] = useState(false)
   const [editingLabel, setEditingLabel] = useState<string | null>(null)
 
   // Add-package pending location
@@ -962,6 +888,9 @@ export function LogicEditorPanel({ canEdit }: { canEdit: boolean }) {
     resolveScopeSections(scopeId).filter(s => s.ref).map(s => s.ref!.scopeId)
 
   // ── Gestão de grupos ──────────────────────────────────────────────────────
+  // Timer de debounce para o save no servidor (evita chamadas repetidas em reordenações).
+  const groupSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
   // Usa updater funcional para evitar closure stale (duas operações antes do re-render).
   const saveGroups = (updater: (prev: GroupStorage) => GroupStorage) => {
     setScopeGroups(prev => {
@@ -970,6 +899,13 @@ export function LogicEditorPanel({ canEdit }: { canEdit: boolean }) {
       // padrão — fazendo a pasta "Abandono Completação Molhada" reaparecer vazia.
       const next = { ...updater(prev), _v: SEED_V }
       localStorage.setItem('lep-scope-groups', JSON.stringify(next))
+      // Sincroniza com o servidor (debounced 600ms para aguentar reordenações rápidas).
+      if (isApiConfigured() && isAdmin()) {
+        if (groupSaveTimerRef.current) clearTimeout(groupSaveTimerRef.current)
+        groupSaveTimerRef.current = setTimeout(() => {
+          void saveLogicScopeGroups(next as unknown as Record<string, unknown>, authHeader())
+        }, 600)
+      }
       return next
     })
   }
@@ -1085,10 +1021,10 @@ export function LogicEditorPanel({ canEdit }: { canEdit: boolean }) {
             onMouseDown={e => e.preventDefault()}
             onClick={() => onSelect(group.id)}
             className={`w-full text-left flex items-center gap-1 py-0.5 rounded transition-colors
-              ${isCurrent ? 'text-amber-300 bg-amber-500/10' : 'text-slate-300 hover:bg-slate-700/60'}`}
+              ${isCurrent ? 'text-[#006a35] dark:text-amber-300 bg-amber-500/10' : 'text-slate-700 dark:text-slate-300 hover:bg-slate-200/80 dark:hover:bg-slate-700/60'}`}
             style={{ paddingLeft: `${6 + d * 10}px` }}>
             {isCurrent
-              ? <PiFolderOpenFill size={9} className="text-amber-400 shrink-0" />
+              ? <PiFolderOpenFill size={9} className="text-[#008542] dark:text-amber-400 shrink-0" />
               : <PiFolderFill size={9} className="text-amber-500/40 shrink-0" />}
             <span className="text-[10px] truncate">{group.name}</span>
           </button>
@@ -1098,14 +1034,14 @@ export function LogicEditorPanel({ canEdit }: { canEdit: boolean }) {
     }
     return (
       <div data-group-picker
-        className="mt-0.5 bg-slate-800 border border-[#d97706]/30 rounded-lg shadow-xl overflow-hidden">
+        className="mt-0.5 bg-slate-100 dark:bg-slate-800 border border-[#008542]/30 dark:border-[#d97706]/30 rounded-lg shadow-xl overflow-hidden">
         <div className="max-h-44 overflow-y-auto py-1 scrollbar-custom">
           <button
             onMouseDown={e => e.preventDefault()}
             onClick={() => onSelect(null)}
             className={`w-full text-left flex items-center gap-1 px-2 py-0.5 text-[10px] rounded transition-colors
-              ${currentGroupId === null ? 'text-amber-300 bg-amber-500/10' : 'text-slate-400 hover:bg-slate-700/60'}`}>
-            <PiFolderOpenFill size={9} className={currentGroupId === null ? 'text-amber-400' : 'opacity-30'} />
+              ${currentGroupId === null ? 'text-[#006a35] dark:text-amber-300 bg-amber-500/10' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-200/80 dark:hover:bg-slate-700/60'}`}>
+            <PiFolderOpenFill size={9} className={currentGroupId === null ? 'text-[#008542] dark:text-amber-400' : 'opacity-30'} />
             Sem grupo
           </button>
           {scopeGroups.groups.filter(g => g.parentId === null && !excludeIds.has(g.id)).map(g => renderNode(g, 0))}
@@ -1122,18 +1058,21 @@ export function LogicEditorPanel({ canEdit }: { canEdit: boolean }) {
     const pos = siblings.findIndex(x => x.scopeId === s.scopeId)
     const canReorder = currentGroup !== null && siblings.length > 1
     const Icon = s.isBlock ? Puzzle : s.isCustom ? GitBranch : Layers
-    const iconCls = s.isBlock || s.isCustom ? 'text-[#d97706]/70' : 'opacity-50'
+    const iconCls = s.isBlock || s.isCustom ? 'text-[#008542] dark:text-[#d97706]/70' : 'opacity-50'
+    // Só mostra excluir se não houver outros escopos que dependem deste bloco.
+    const usedBy = s.deletable && s.isBlock ? scopeList.filter(o => refUsers(o.scopeId).includes(s.scopeId)) : []
+    const canDelete = s.deletable && usedBy.length === 0
     return (
       <div key={s.scopeId}>
         <div className={`flex items-center rounded-lg mx-1 group/item transition-colors
-          ${selectedScope === s.scopeId ? 'bg-slate-700/60' : 'hover:bg-slate-800/50'}`}
+          ${selectedScope === s.scopeId ? 'bg-slate-200/80 dark:bg-slate-700/60' : 'hover:bg-slate-100/80 dark:hover:bg-slate-800/50'}`}
           style={{ paddingLeft: `${depth * 10}px` }}>
           <button onClick={() => selectScope(s.scopeId)}
-            className="flex-1 text-left flex items-center gap-2 px-3 py-1.5 text-xs text-slate-400 hover:text-slate-200 min-w-0">
+            className="flex-1 text-left flex items-center gap-2 px-3 py-1.5 text-xs text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 min-w-0">
             <Icon size={10} className={`shrink-0 ${iconCls}`} />
             <span className="flex-1 truncate">{s.label}</span>
             {hasOverride(s.scopeId) && !s.isCustom && (
-              <span className="w-1.5 h-1.5 rounded-full bg-[#d97706] shrink-0" title="Override ativo" />
+              <span className="w-1.5 h-1.5 rounded-full bg-[#008542] dark:bg-[#d97706] shrink-0" title="Override ativo" />
             )}
           </button>
           <div className="flex items-center gap-0.5 pr-1.5 opacity-0 group-hover/item:opacity-100 transition-opacity">
@@ -1141,12 +1080,12 @@ export function LogicEditorPanel({ canEdit }: { canEdit: boolean }) {
               <>
                 <button onClick={e => { e.stopPropagation(); if (pos > 0) moveScopeInGroup(s.scopeId, -1) }}
                   disabled={pos <= 0} title="Mover para cima"
-                  className={`flex items-center transition-colors ${pos <= 0 ? 'text-slate-700 cursor-default' : 'text-slate-600 hover:text-amber-400'}`}>
+                  className={`flex items-center transition-colors ${pos <= 0 ? 'text-slate-700 cursor-default' : 'text-slate-400 dark:text-slate-600 hover:text-[#008542] dark:hover:text-amber-400'}`}>
                   <ChevronUp size={11} />
                 </button>
                 <button onClick={e => { e.stopPropagation(); if (pos < siblings.length - 1) moveScopeInGroup(s.scopeId, 1) }}
                   disabled={pos >= siblings.length - 1} title="Mover para baixo"
-                  className={`flex items-center transition-colors ${pos >= siblings.length - 1 ? 'text-slate-700 cursor-default' : 'text-slate-600 hover:text-amber-400'}`}>
+                  className={`flex items-center transition-colors ${pos >= siblings.length - 1 ? 'text-slate-700 cursor-default' : 'text-slate-400 dark:text-slate-600 hover:text-[#008542] dark:hover:text-amber-400'}`}>
                   <ChevronDown size={11} />
                 </button>
               </>
@@ -1155,15 +1094,21 @@ export function LogicEditorPanel({ canEdit }: { canEdit: boolean }) {
               <>
                 <button onClick={() => setMovingScopeId(movingScopeId === s.scopeId ? null : s.scopeId)}
                   title="Mover para grupo"
-                  className="flex items-center text-slate-600 hover:text-amber-400 transition-colors">
+                  className="flex items-center text-slate-400 dark:text-slate-600 hover:text-[#008542] dark:hover:text-amber-400 transition-colors">
                   <PiFolderOpenFill size={11} />
                 </button>
-                {s.deletable && (
+                {canDelete && (
                   <button onClick={e => { e.stopPropagation(); void handleDeleteCustom(s.scopeId) }}
                     title={s.isBlock ? 'Excluir bloco' : 'Excluir escopo'}
-                    className="flex items-center text-slate-600 hover:text-rose-400 transition-colors">
+                    className="flex items-center text-slate-400 dark:text-slate-600 hover:text-rose-400 transition-colors">
                     <Trash2 size={10} />
                   </button>
+                )}
+                {s.deletable && !canDelete && usedBy.length > 0 && (
+                  <span title={`Em uso por: ${usedBy.map(o => o.label).join(', ')}`}
+                    className="flex items-center text-slate-700 cursor-not-allowed">
+                    <Trash2 size={10} />
+                  </span>
                 )}
               </>
             )}
@@ -1185,32 +1130,32 @@ export function LogicEditorPanel({ canEdit }: { canEdit: boolean }) {
     const isEditing = editingGroupId?.id === group.id
     return (
       <div key={group.id} style={{ paddingLeft: `${depth * 10}px` }}>
-        <div className="flex items-center gap-0.5 mx-1 rounded-lg group/grp hover:bg-slate-800/30 transition-colors">
+        <div className="flex items-center gap-0.5 mx-1 rounded-lg group/grp hover:bg-slate-100/80 dark:hover:bg-slate-800/30 transition-colors">
           <button onClick={() => toggleGroupCollapse(group.id)} className="text-left flex items-center gap-1 flex-1 min-w-0 px-2 py-1.5">
             {collapsed
-              ? <><ChevronRight size={9} className="text-slate-600 shrink-0" /><PiFolderFill size={12} className="text-amber-500/70 shrink-0" /></>
-              : <><ChevronDown size={9} className="text-slate-600 shrink-0" /><PiFolderOpenFill size={12} className="text-amber-500/70 shrink-0" /></>}
+              ? <><ChevronRight size={9} className="text-slate-400 dark:text-slate-600 shrink-0" /><PiFolderFill size={12} className="text-amber-500/70 shrink-0" /></>
+              : <><ChevronDown size={9} className="text-slate-400 dark:text-slate-600 shrink-0" /><PiFolderOpenFill size={12} className="text-amber-500/70 shrink-0" /></>}
             {isEditing ? (
               <input autoFocus value={editingGroupId!.draft}
                 onChange={e => setEditingGroupId({ ...editingGroupId!, draft: e.target.value })}
                 onKeyDown={e => { if (e.key === 'Enter') { renameCancelledRef.current = true; groupRename(group.id, editingGroupId!.draft); setEditingGroupId(null) } if (e.key === 'Escape') { renameCancelledRef.current = true; setEditingGroupId(null) } }}
                 onBlur={() => { if (renameCancelledRef.current) { renameCancelledRef.current = false; setEditingGroupId(null); return } if (editingGroupId?.draft.trim()) groupRename(group.id, editingGroupId!.draft); setEditingGroupId(null) }}
                 onClick={e => e.stopPropagation()}
-                className="flex-1 text-[11px] bg-slate-800 border border-[#d97706]/40 rounded px-1 text-slate-200 outline-none min-w-0" />
+                className="flex-1 text-[11px] bg-slate-100 dark:bg-slate-800 border border-[#008542]/40 dark:border-[#d97706]/40 rounded px-1 text-slate-800 dark:text-slate-200 outline-none min-w-0" />
             ) : (
-              <span className="flex-1 truncate text-[11px] text-slate-400">{group.name}</span>
+              <span className="flex-1 truncate text-[11px] text-slate-600 dark:text-slate-400">{group.name}</span>
             )}
           </button>
           {isAdmin() && (
             <div className="flex items-center gap-0.5 pr-1.5 opacity-0 group-hover/grp:opacity-100 transition-opacity">
               <button onClick={() => setCreatingGroup({ parentId: group.id, draft: '' })} title="Criar sub-grupo"
-                className="flex items-center text-slate-600 hover:text-amber-400 transition-colors"><PiFolderPlusFill size={10} /></button>
+                className="flex items-center text-slate-400 dark:text-slate-600 hover:text-[#008542] dark:hover:text-amber-400 transition-colors"><PiFolderPlusFill size={10} /></button>
               <button onClick={() => setMovingGroupId(movingGroupId === group.id ? null : group.id)} title="Mover grupo"
-                className={`flex items-center transition-colors ${movingGroupId === group.id ? 'text-amber-400' : 'text-slate-600 hover:text-amber-400'}`}><PiFolderOpenFill size={10} /></button>
+                className={`flex items-center transition-colors ${movingGroupId === group.id ? 'text-[#008542] dark:text-amber-400' : 'text-slate-400 dark:text-slate-600 hover:text-[#008542] dark:hover:text-amber-400'}`}><PiFolderOpenFill size={10} /></button>
               <button onClick={() => setEditingGroupId({ id: group.id, draft: group.name })} title="Renomear"
-                className="flex items-center text-slate-600 hover:text-amber-400 transition-colors"><Pencil size={10} /></button>
+                className="flex items-center text-slate-400 dark:text-slate-600 hover:text-[#008542] dark:hover:text-amber-400 transition-colors"><Pencil size={10} /></button>
               <button onClick={() => groupDelete(group.id)} title="Excluir grupo"
-                className="flex items-center text-slate-600 hover:text-rose-400 transition-colors"><Trash2 size={10} /></button>
+                className="flex items-center text-slate-400 dark:text-slate-600 hover:text-rose-400 transition-colors"><Trash2 size={10} /></button>
             </div>
           )}
         </div>
@@ -1236,7 +1181,7 @@ export function LogicEditorPanel({ canEdit }: { canEdit: boolean }) {
                   onKeyDown={e => { if (e.key === 'Enter' && creatingGroup.draft.trim()) { renameCancelledRef.current = true; groupCreate(creatingGroup.draft, group.id); setCreatingGroup(null) } if (e.key === 'Escape') { renameCancelledRef.current = true; setCreatingGroup(null) } }}
                   onBlur={() => { if (renameCancelledRef.current) { renameCancelledRef.current = false; setCreatingGroup(null); return } if (creatingGroup?.draft.trim()) groupCreate(creatingGroup.draft, group.id); setCreatingGroup(null) }}
                   placeholder="Nome do sub-grupo…"
-                  className="w-full text-[11px] bg-slate-800 border border-[#d97706]/40 rounded px-2 py-0.5 text-slate-200 outline-none" />
+                  className="w-full text-[11px] bg-slate-100 dark:bg-slate-800 border border-[#008542]/40 dark:border-[#d97706]/40 rounded px-2 py-0.5 text-slate-800 dark:text-slate-200 outline-none" />
               </div>
             )}
           </div>
@@ -1250,6 +1195,20 @@ export function LogicEditorPanel({ canEdit }: { canEdit: boolean }) {
   }, [])
 
   useEffect(() => { void loadScopes() }, [loadScopes])
+
+  // Carrega a configuração de grupos do servidor na montagem — sobrescreve o localStorage
+  // para que múltiplos navegadores/sessões vejam sempre a mesma organização de pastas.
+  useEffect(() => {
+    if (!isApiConfigured()) return
+    void getLogicScopeGroups().then(raw => {
+      if (!raw || typeof raw !== 'object' || !Array.isArray((raw as GroupStorage).groups)) return
+      const server = raw as GroupStorage
+      // Aplica a mesma migração de seed que loadGroupStorage faz no boot local.
+      if ((server._v ?? 0) < SEED_V) return
+      setScopeGroups(server)
+      localStorage.setItem('lep-scope-groups', JSON.stringify(server))
+    }).catch(() => { /* servidor indisponível — mantém o localStorage */ })
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Mantém o registro global de rótulos em sincronia com os overrides — os cards de bloco
   // (`ref`) resolvem o nome vivo por scopeId, refletindo renomeações em todos os fluxogramas.
@@ -1317,7 +1276,7 @@ export function LogicEditorPanel({ canEdit }: { canEdit: boolean }) {
       setSections(deepClone(LOGIC_BY_SCOPE[scopeId] ?? []))
       setBaseLabel('bundle (não modificado)'); return
     }
-    setShowBasePicker(true)
+    setShowImport(true)
   }
   selectScopeRef.current = selectScope
 
@@ -1329,7 +1288,7 @@ export function LogicEditorPanel({ canEdit }: { canEdit: boolean }) {
   }, [overrides]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const applyBase = async (sourceId: string) => {
-    setShowBasePicker(false); setLoading(true)
+    setShowImport(false); setLoading(true)
     try {
       let src: LSec[] = hasOverride(sourceId)
         ? deepClone((await getLogicScope(sourceId)).sections as LSec[])
@@ -2549,20 +2508,6 @@ export function LogicEditorPanel({ canEdit }: { canEdit: boolean }) {
     } finally { setSaving(false) }
   }
 
-  const restore = async () => {
-    if (!selectedScope || !confirm('Restaurar ao bundle original?')) return
-    try {
-      await deleteLogicScope(selectedScope, authHeader())
-      const map: Record<string, unknown[]> = {}
-      scopeList.forEach(s => { const ov = getLogicOverride(s.scopeId); if (ov && s.scopeId !== selectedScope) map[s.scopeId] = ov as unknown[] })
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      setLogicOverrides(map as any)
-      await loadScopes()
-      setSections(deepClone(LOGIC_BY_SCOPE[selectedScope] ?? []))
-      setBaseLabel('bundle (restaurado)'); setDirty(false)
-    } catch (e) { setError(e instanceof Error ? e.message : 'Erro ao restaurar') }
-  }
-
   // ── Histórico de versões ────────────────────────────────────────────────────
   // Estado do fluxograma antes de entrar no preview de uma versão, para poder voltar.
   const previewSnapshotRef = useRef<{ sections: LSec[]; dirty: boolean } | null>(null)
@@ -2619,7 +2564,7 @@ export function LogicEditorPanel({ canEdit }: { canEdit: boolean }) {
   const handleImportSections = (importedSecs: LSec[]) => {
     const secs = deepClone(sectionsRef.current) as LSec[]
     for (const sec of importedSecs) secs.push({ ...sec, id: `sec_${uid()}` })
-    commitSections(secs); setShowImportSection(false)
+    commitSections(secs); setShowImport(false)
   }
 
   const handleCreateScope = async (scopeId: string, label: string) => {
@@ -2689,27 +2634,27 @@ export function LogicEditorPanel({ canEdit }: { canEdit: boolean }) {
     <div className="flex h-full min-h-0">
       {/* ── Sidebar de escopos ── */}
       {showScopeSidebar ? (
-      <div className="shrink-0 border-r border-slate-700/40 flex flex-col relative" style={{ width: sidebarWidth }}>
-        <div className="px-3 py-2.5 border-b border-slate-700/30 flex items-center gap-1">
+      <div className="shrink-0 border-r border-slate-200 dark:border-slate-700/40 flex flex-col relative" style={{ width: sidebarWidth }}>
+        <div className="px-3 py-2.5 border-b border-slate-200 dark:border-slate-700/30 flex items-center gap-1">
           <span className="flex-1 text-[10px] text-slate-500 uppercase tracking-wider font-semibold">Escopos</span>
           {isAdmin() && (
             <>
               <button onClick={() => setCreatingGroup({ parentId: null, draft: '' })} title="Criar grupo"
-                className="w-6 h-6 flex items-center justify-center rounded-lg text-slate-500 hover:text-[#d97706] hover:bg-slate-700/50 transition-colors">
+                className="w-6 h-6 flex items-center justify-center rounded-lg text-slate-500 hover:text-[#008542] dark:hover:text-[#d97706] hover:bg-slate-200/80 dark:hover:bg-slate-700/50 transition-colors">
                 <PiFolderPlusFill size={12} />
               </button>
               <button onClick={() => setNewScopeKind('block')} title="Novo bloco de lógica"
-                className="w-6 h-6 flex items-center justify-center rounded-lg text-slate-400 hover:text-[#d97706] hover:bg-slate-700/50 transition-colors">
+                className="w-6 h-6 flex items-center justify-center rounded-lg text-slate-600 dark:text-slate-400 hover:text-[#008542] dark:hover:text-[#d97706] hover:bg-slate-200/80 dark:hover:bg-slate-700/50 transition-colors">
                 <Puzzle size={12} />
               </button>
               <button onClick={() => setNewScopeKind('scope')} title="Novo escopo customizado"
-                className="w-6 h-6 flex items-center justify-center rounded-lg text-slate-400 hover:text-[#d97706] hover:bg-slate-700/50 transition-colors">
+                className="w-6 h-6 flex items-center justify-center rounded-lg text-slate-600 dark:text-slate-400 hover:text-[#008542] dark:hover:text-[#d97706] hover:bg-slate-200/80 dark:hover:bg-slate-700/50 transition-colors">
                 <Plus size={13} />
               </button>
             </>
           )}
           <button onClick={() => setShowScopeSidebar(false)} title="Ocultar sidebar de escopos"
-            className="w-6 h-6 flex items-center justify-center rounded-lg text-slate-600 hover:text-slate-300 hover:bg-slate-700/50 transition-colors">
+            className="w-6 h-6 flex items-center justify-center rounded-lg text-slate-400 dark:text-slate-600 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-slate-200/80 dark:hover:bg-slate-700/50 transition-colors">
             <ChevronLeft size={12} />
           </button>
         </div>
@@ -2724,14 +2669,14 @@ export function LogicEditorPanel({ canEdit }: { canEdit: boolean }) {
                 onKeyDown={e => { if (e.key === 'Enter' && creatingGroup.draft.trim()) { renameCancelledRef.current = true; groupCreate(creatingGroup.draft, null); setCreatingGroup(null) } if (e.key === 'Escape') { renameCancelledRef.current = true; setCreatingGroup(null) } }}
                 onBlur={() => { if (renameCancelledRef.current) { renameCancelledRef.current = false; setCreatingGroup(null); return } if (creatingGroup?.draft.trim()) groupCreate(creatingGroup.draft, null); setCreatingGroup(null) }}
                 placeholder="Nome do grupo…"
-                className="w-full text-[11px] bg-slate-800 border border-[#d97706]/40 rounded px-2 py-0.5 text-slate-200 outline-none" />
+                className="w-full text-[11px] bg-slate-100 dark:bg-slate-800 border border-[#008542]/40 dark:border-[#d97706]/40 rounded px-2 py-0.5 text-slate-800 dark:text-slate-200 outline-none" />
             </div>
           )}
 
           {/* ── Bundles não agrupados (fallback — normalmente vazio, pois todos estão em grupos) ── */}
           {scopeList.some(s => !s.isCustom && !s.isBlock && (scopeGroups.memberships[s.scopeId] ?? null) === null) && (
             <>
-              <p className="text-[9px] px-3 pt-3 pb-0.5 text-slate-600 uppercase tracking-widest">Escopos</p>
+              <p className="text-[9px] px-3 pt-3 pb-0.5 text-slate-400 dark:text-slate-600 uppercase tracking-widest">Escopos</p>
               {scopeList.filter(s => !s.isCustom && !s.isBlock && (scopeGroups.memberships[s.scopeId] ?? null) === null).map(s => renderScopeItem(s, 0))}
             </>
           )}
@@ -2739,7 +2684,7 @@ export function LogicEditorPanel({ canEdit }: { canEdit: boolean }) {
           {/* ── Blocos não agrupados ── */}
           {scopeList.some(s => s.isBlock && (scopeGroups.memberships[s.scopeId] ?? null) === null) && (
             <>
-              <p className="text-[9px] px-3 pt-3 pb-0.5 text-slate-600 uppercase tracking-widest">Blocos de lógica</p>
+              <p className="text-[9px] px-3 pt-3 pb-0.5 text-slate-400 dark:text-slate-600 uppercase tracking-widest">Blocos de lógica</p>
               {scopeList.filter(s => s.isBlock && (scopeGroups.memberships[s.scopeId] ?? null) === null).map(s => renderScopeItem(s, 0))}
             </>
           )}
@@ -2747,7 +2692,7 @@ export function LogicEditorPanel({ canEdit }: { canEdit: boolean }) {
           {/* ── Customizados não agrupados ── */}
           {scopeList.some(s => s.isCustom && (scopeGroups.memberships[s.scopeId] ?? null) === null) && (
             <>
-              <p className="text-[9px] px-3 pt-3 pb-0.5 text-slate-600 uppercase tracking-widest">Customizados</p>
+              <p className="text-[9px] px-3 pt-3 pb-0.5 text-slate-400 dark:text-slate-600 uppercase tracking-widest">Customizados</p>
               {scopeList.filter(s => s.isCustom && (scopeGroups.memberships[s.scopeId] ?? null) === null).map(s => renderScopeItem(s, 0))}
             </>
           )}
@@ -2756,13 +2701,13 @@ export function LogicEditorPanel({ canEdit }: { canEdit: boolean }) {
         {/* Handle de redimensionamento — arraste a borda direita da sidebar */}
         <div onMouseDown={startSidebarResize}
           title="Arraste para redimensionar"
-          className="absolute top-0 right-0 h-full w-1.5 cursor-col-resize hover:bg-[#d97706]/50 active:bg-[#d97706]/70 transition-colors" />
+          className="absolute top-0 right-0 h-full w-1.5 cursor-col-resize hover:bg-[#006a35] dark:hover:bg-[#d97706]/50 active:bg-[#008542]/70 dark:active:bg-[#d97706]/70 transition-colors" />
       </div>
       ) : (
         /* Sidebar colapsada — tira só 8px, botão para expandir */
-        <div className="border-r border-slate-700/40 flex flex-col items-center py-2 w-8 shrink-0 gap-1">
+        <div className="border-r border-slate-200 dark:border-slate-700/40 flex flex-col items-center py-2 w-8 shrink-0 gap-1">
           <button onClick={() => setShowScopeSidebar(true)} title="Mostrar escopos"
-            className="w-6 h-6 flex items-center justify-center rounded-lg text-slate-600 hover:text-slate-300 hover:bg-slate-700/50 transition-colors">
+            className="w-6 h-6 flex items-center justify-center rounded-lg text-slate-400 dark:text-slate-600 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-slate-200/80 dark:hover:bg-slate-700/50 transition-colors">
             <ChevronRight size={12} />
           </button>
         </div>
@@ -2771,7 +2716,7 @@ export function LogicEditorPanel({ canEdit }: { canEdit: boolean }) {
       {/* ── Área principal ── */}
       <div className="flex-1 flex flex-col min-h-0 min-w-0">
         {!selectedScope ? (
-          <div className="flex-1 flex items-center justify-center text-slate-600">
+          <div className="flex-1 flex items-center justify-center text-slate-400 dark:text-slate-600">
             <div className="text-center space-y-2">
               <Layers size={28} className="opacity-20 mx-auto" />
               <p className="text-sm">Selecione um escopo para configurar</p>
@@ -2780,8 +2725,8 @@ export function LogicEditorPanel({ canEdit }: { canEdit: boolean }) {
         ) : (
           <>
             {/* Header */}
-            <div className="flex items-center gap-2 px-4 py-2 border-b border-slate-700/40 shrink-0 flex-wrap">
-              <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 px-4 py-2 border-b border-slate-200 dark:border-slate-700/40 shrink-0 flex-wrap">
+              <div className="min-w-0 max-w-xs">
                 {editingLabel !== null ? (
                   <input
                     autoFocus
@@ -2797,16 +2742,16 @@ export function LogicEditorPanel({ canEdit }: { canEdit: boolean }) {
                       if (e.key === 'Enter') { e.preventDefault(); const snap = editingLabel; setEditingLabel(null); void commitRename(snap) }
                       if (e.key === 'Escape') { renameCancelledRef.current = true; setEditingLabel(null) }
                     }}
-                    className="w-full text-sm font-semibold bg-slate-800 border border-[#d97706]/60 rounded-md px-2 py-0.5 text-slate-100 outline-none"
+                    className="w-full text-sm font-semibold bg-slate-100 dark:bg-slate-800 border border-[#008542]/60 dark:border-[#d97706]/60 rounded-md px-2 py-0.5 text-slate-900 dark:text-slate-100 outline-none"
                   />
                 ) : (
                   <div className="flex items-center gap-1.5 group/rename">
-                    <h2 className="text-sm font-semibold text-slate-100 truncate">{selectedMeta?.label ?? selectedScope}</h2>
+                    <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100 truncate">{selectedMeta?.label ?? selectedScope}</h2>
                     {canEdit && (selectedMeta?.isBlock || selectedMeta?.isCustom) && (
                       <button
                         onClick={() => setEditingLabel(selectedMeta?.label ?? selectedScope ?? '')}
                         title="Renomear"
-                        className="opacity-0 group-hover/rename:opacity-100 text-slate-500 hover:text-[#d97706] transition-opacity shrink-0">
+                        className="opacity-0 group-hover/rename:opacity-100 text-slate-500 hover:text-[#008542] dark:hover:text-[#d97706] transition-opacity shrink-0">
                         <Pencil size={11} />
                       </button>
                     )}
@@ -2815,37 +2760,41 @@ export function LogicEditorPanel({ canEdit }: { canEdit: boolean }) {
                 {baseLabel && <p className="text-[10px] text-slate-500 mt-0.5">Base: {baseLabel}</p>}
               </div>
 
+              {/* Desfazer / Refazer — lado esquerdo, logo após o título */}
+              {canEdit && (
+                <div className="flex items-center gap-1">
+                  <button
+                    disabled={past.length === 0}
+                    onClick={undo}
+                    title="Desfazer (Ctrl+Z)"
+                    className="w-7 h-7 flex items-center justify-center rounded-lg border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-200/80 dark:hover:bg-slate-700/50 transition-colors disabled:opacity-30 disabled:cursor-not-allowed">
+                    <RotateCcw size={11} />
+                  </button>
+                  <button
+                    disabled={future.length === 0}
+                    onClick={redo}
+                    title="Refazer (Ctrl+Shift+Z)"
+                    className="w-7 h-7 flex items-center justify-center rounded-lg border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-200/80 dark:hover:bg-slate-700/50 transition-colors disabled:opacity-30 disabled:cursor-not-allowed">
+                    <RotateCw size={11} />
+                  </button>
+                </div>
+              )}
+
               {dirty && (
-                <span className="shrink-0 text-[9px] font-semibold uppercase tracking-wider text-amber-400 bg-amber-900/25 border border-amber-700/40 rounded-full px-2 py-0.5">
+                <span className="shrink-0 text-[9px] font-semibold uppercase tracking-wider text-[#008542] dark:text-amber-400 bg-[#008542]/10 dark:bg-amber-900/25 border border-[#008542]/40 dark:border-amber-700/40 rounded-full px-2 py-0.5">
                   não salvo
                 </span>
               )}
 
+              {/* Separador flexível — empurra os botões de ação para a direita */}
+              <div className="flex-1" />
 
               {(
                 <>
-                  {canEdit && (selectedMeta?.isCustom || selectedMeta?.isBlock) && (
-                    <button onClick={() => setShowBasePicker(true)}
-                      className="flex items-center gap-1 text-[10px] text-slate-400 hover:text-[#d97706] border border-slate-700 hover:border-[#d97706]/40 rounded-lg px-2 py-1.5 transition-colors">
-                      <Copy size={10} /> Importar base
-                    </button>
-                  )}
                   {canEdit && (
-                    <button onClick={() => setShowImportSection(true)}
-                      className="flex items-center gap-1 text-[10px] text-slate-400 hover:text-[#d97706] border border-slate-700 hover:border-[#d97706]/40 rounded-lg px-2 py-1.5 transition-colors">
-                      <Download size={10} /> Importar seção
-                    </button>
-                  )}
-                  {canEdit && hasOverride(selectedScope) && !selectedMeta?.deletable && (
-                    <button onClick={restore}
-                      className="flex items-center gap-1 text-[10px] text-slate-400 hover:text-slate-200 border border-slate-700 rounded-lg px-2 py-1.5 transition-colors">
-                      <RotateCcw size={10} /> Restaurar bundle
-                    </button>
-                  )}
-                  {isAdmin() && selectedMeta?.deletable && selectedScope && (
-                    <button onClick={() => void handleDeleteCustom(selectedScope)}
-                      className="flex items-center gap-1 text-[10px] text-slate-600 hover:text-rose-400 border border-slate-700/50 hover:border-rose-500/40 rounded-lg px-2 py-1.5 transition-colors">
-                      <Trash2 size={10} /> Excluir {selectedMeta?.isBlock ? 'bloco' : ''}
+                    <button onClick={() => setShowImport(true)}
+                      className="flex items-center gap-1 text-[10px] text-white bg-[#005889] hover:bg-[#004a75] dark:bg-[#005889] dark:hover:bg-[#004a75] rounded-lg px-2 py-1.5 transition-colors">
+                      <Download size={10} /> Importar
                     </button>
                   )}
                   {error && <p className="text-[10px] text-rose-400 shrink-0">{error}</p>}
@@ -2853,15 +2802,15 @@ export function LogicEditorPanel({ canEdit }: { canEdit: boolean }) {
                     <div className="relative" ref={scopePanelRef}>
                       <button
                         onClick={() => setShowScopePanel(v => !v)}
-                        className={`flex items-center gap-1 text-[10px] border rounded-lg px-2 py-1.5 transition-colors ${
+                        className={`flex items-center gap-1 text-[10px] rounded-lg px-2 py-1.5 transition-colors ${
                           showScopePanel
-                            ? 'border-[#d97706]/60 bg-[#d97706]/10 text-[#d97706]'
-                            : 'text-slate-400 hover:text-amber-300 border-slate-700 hover:border-amber-600/40'
+                            ? 'bg-[#004a75] text-white'
+                            : 'text-white bg-[#005889] hover:bg-[#004a75]'
                         }`}>
                         Sonda/Escopo
                       </button>
                       {showScopePanel && (
-                        <div className="absolute right-0 top-full mt-1.5 z-30 w-56 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl p-3 space-y-3"
+                        <div className="absolute right-0 top-full mt-1.5 z-30 w-56 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl shadow-2xl p-3 space-y-3"
                              onClick={e => e.stopPropagation()}>
                           {/* Fase */}
                           <div>
@@ -2869,7 +2818,7 @@ export function LogicEditorPanel({ canEdit }: { canEdit: boolean }) {
                             <select
                               value={selectedFullMeta.fase ?? ''}
                               onChange={e => handleSaveMeta(e.target.value || null, selectedFullMeta.opTypes ?? null)}
-                              className="w-full text-[10px] bg-slate-800 border border-slate-700 rounded-md px-2 py-1 text-slate-200 outline-none focus:border-[#d97706]/60">
+                              className="w-full text-[10px] bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md px-2 py-1 text-slate-800 dark:text-slate-200 outline-none focus:border-[#005889]/60">
                               <option value="">Qualquer fase</option>
                               <option value="fase_1">Fase 1</option>
                               <option value="fase_2">Fase 2</option>
@@ -2890,7 +2839,7 @@ export function LogicEditorPanel({ canEdit }: { canEdit: boolean }) {
                                 }
                                 return (
                                   <label key={op} className={`flex-1 flex items-center justify-center py-1 rounded-md border text-[10px] cursor-pointer transition-colors ${
-                                    checked ? 'border-[#d97706]/60 bg-[#d97706]/10 text-[#d97706]' : 'border-slate-700 text-slate-500 hover:border-slate-600 hover:text-slate-300'
+                                    checked ? 'border-[#005889] bg-[#005889]/10 text-[#005889] dark:border-[#d97706]/60 dark:bg-[#d97706]/10 dark:text-[#d97706]' : 'border-slate-200 dark:border-slate-700 text-slate-500 hover:border-slate-400 hover:text-slate-700 dark:hover:text-slate-300'
                                   }`}>
                                     <input type="checkbox" className="sr-only" checked={checked} onChange={toggle} />
                                     {op}
@@ -2902,10 +2851,10 @@ export function LogicEditorPanel({ canEdit }: { canEdit: boolean }) {
 
                           {/* Inserir pergunta padrão */}
                           {sections.length > 0 && (
-                            <div className="pt-1 border-t border-slate-700/60">
+                            <div className="pt-1 border-t border-slate-200 dark:border-slate-700/60">
                               <button
                                 onClick={() => { handleInsertOpTypeQuestion(); setShowScopePanel(false) }}
-                                className="w-full text-left text-[10px] text-slate-400 hover:text-amber-300 px-1 py-0.5 transition-colors">
+                                className="w-full text-left text-[10px] text-slate-600 dark:text-slate-400 hover:text-[#005889] dark:hover:text-amber-300 px-1 py-0.5 transition-colors">
                                 + Inserir pergunta "Tipo de sonda DP" no fluxo
                               </button>
                             </div>
@@ -2914,100 +2863,38 @@ export function LogicEditorPanel({ canEdit }: { canEdit: boolean }) {
                       )}
                     </div>
                   )}
-                  {/* Seletor do modo de edição do fluxograma */}
-                  <div className="flex items-center rounded-lg border border-slate-700 overflow-hidden shrink-0">
-                    {([['classic', 'Clássico'], ['flow', 'Fluxo']] as const).map(([m, lbl]) => (
-                      <button key={m}
-                        onClick={() => pickEditorMode(m)}
-                        title={m === 'classic'
-                          ? 'Editor clássico (SVG) — layout automático canônico'
-                          : 'Editor de fluxo (ReactFlow) — nós arrastáveis, minimapa, Ctrl+C/V'}
-                        className={`text-[10px] px-2 py-1.5 transition-colors ${
-                          editorMode === m
-                            ? 'bg-[#d97706]/15 text-[#d97706] font-semibold'
-                            : 'text-slate-400 hover:text-slate-200'
-                        }`}>
-                        {lbl}
-                      </button>
-                    ))}
-                  </div>
-                  {canEdit && (
-                    <div className="flex items-center gap-1">
-                      <button
-                        disabled={past.length === 0}
-                        onClick={undo}
-                        title="Desfazer (Ctrl+Z)"
-                        className="w-7 h-7 flex items-center justify-center rounded-lg border border-slate-700 text-slate-400 hover:text-slate-200 hover:bg-slate-700/50 transition-colors disabled:opacity-30 disabled:cursor-not-allowed">
-                        <RotateCcw size={11} />
-                      </button>
-                      <button
-                        disabled={future.length === 0}
-                        onClick={redo}
-                        title="Refazer (Ctrl+Shift+Z)"
-                        className="w-7 h-7 flex items-center justify-center rounded-lg border border-slate-700 text-slate-400 hover:text-slate-200 hover:bg-slate-700/50 transition-colors disabled:opacity-30 disabled:cursor-not-allowed">
-                        <RotateCw size={11} />
-                      </button>
-                    </div>
-                  )}
-                  {sections.length > 0 && (
-                    <button
-                      onClick={() => setShowParity(true)}
-                      title="Comparar a saída deste fluxo com a engine de sequenciamento"
-                      className="flex items-center gap-1 text-[10px] text-slate-400 hover:text-emerald-300 border border-slate-700 hover:border-emerald-600/40 rounded-lg px-2 py-1.5 transition-colors">
-                      <GitBranch size={10} />
-                      Paridade
-                    </button>
-                  )}
                   <button
-                    onClick={() => setShowAudit(true)}
-                    title="Auditoria de condições de emissão (sonda/operação) usadas nos pacotes"
-                    className="flex items-center gap-1 text-[10px] text-slate-400 hover:text-sky-300 border border-slate-700 hover:border-sky-600/40 rounded-lg px-2 py-1.5 transition-colors">
-                    <BarChart3 size={10} />
-                    Condições
+                    onClick={() => setShowFlowIndex(v => !v)}
+                    title="Índice de perguntas (busca integrada)"
+                    className={`flex items-center gap-1 text-[10px] rounded-lg px-2 py-1.5 transition-colors ${showFlowIndex ? 'bg-[#004a75] text-white' : 'text-white bg-[#005889] hover:bg-[#004a75]'}`}>
+                    <PiListDashesFill size={10} />
+                    Índice
                   </button>
-                  {editorMode === 'flow' && (
-                    <>
-                      <button
-                        onClick={() => setShowFlowIndex(v => !v)}
-                        title="Índice de perguntas (busca integrada)"
-                        className={`flex items-center gap-1 text-[10px] border rounded-lg px-2 py-1.5 transition-colors ${showFlowIndex ? 'text-amber-400 border-amber-700/50' : 'text-slate-400 hover:text-amber-300 border-slate-700 hover:border-amber-600/40'}`}>
-                        <PiListDashesFill size={10} />
-                        Índice
-                      </button>
-                      <button
-                        onClick={() => setShowFlowLegend(v => !v)}
-                        title="Símbolos de referência"
-                        className={`flex items-center gap-1 text-[10px] border rounded-lg px-2 py-1.5 transition-colors ${showFlowLegend ? 'text-amber-400 border-amber-700/50' : 'text-slate-400 hover:text-amber-300 border-slate-700 hover:border-amber-600/40'}`}>
-                        <PiInfoBold size={10} />
-                        Símbolos
-                      </button>
-                      <button
-                        onClick={() => flowEditorRef.current?.reorganize()}
-                        title="Reorganizar: reposiciona todos os nós automaticamente e centraliza a visão"
-                        className="flex items-center gap-1 text-[10px] text-slate-400 hover:text-emerald-300 border border-slate-700 hover:border-emerald-600/40 rounded-lg px-2 py-1.5 transition-colors">
-                        <LayoutDashboard size={10} />
-                        Reorganizar
-                      </button>
-                    </>
-                  )}
+                  <button
+                    onClick={() => setShowFlowLegend(v => !v)}
+                    title="Símbolos de referência"
+                    className={`flex items-center gap-1 text-[10px] rounded-lg px-2 py-1.5 transition-colors ${showFlowLegend ? 'bg-[#004a75] text-white' : 'text-white bg-[#005889] hover:bg-[#004a75]'}`}>
+                    <PiInfoBold size={10} />
+                    Símbolos
+                  </button>
+                  <button
+                    onClick={() => flowEditorRef.current?.reorganize()}
+                    title="Reorganizar: reposiciona todos os nós automaticamente e centraliza a visão"
+                    className="flex items-center gap-1 text-[10px] text-white bg-[#005889] hover:bg-[#004a75] rounded-lg px-2 py-1.5 transition-colors">
+                    <LayoutDashboard size={10} />
+                    Reorganizar
+                  </button>
                   <button
                     onClick={openHistory}
                     title="Histórico de versões — voltar a um estado anterior"
-                    className="flex items-center gap-1 text-[10px] text-slate-400 hover:text-[#d97706] border border-slate-700 hover:border-[#d97706]/40 rounded-lg px-2 py-1.5 transition-colors">
+                    className="flex items-center gap-1 text-[10px] text-white bg-[#005889] hover:bg-[#004a75] rounded-lg px-2 py-1.5 transition-colors">
                     <History size={10} />
                     Histórico
                   </button>
-                  <button
-                    onClick={() => setShowHelp(true)}
-                    title="Ajuda — símbolos e botões do fluxograma"
-                    className="flex items-center gap-1 text-[10px] text-slate-400 hover:text-slate-200 border border-slate-700 rounded-lg px-2 py-1.5 transition-colors">
-                    <HelpCircle size={10} />
-                    Ajuda
-                  </button>
                   {canEdit && sections.length > 0 && (
                     <button disabled={!dirty || saving} onClick={save}
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors disabled:opacity-40 bg-[#d97706] hover:bg-amber-600 text-white">
-                      {saved ? <Check size={12} /> : <Save size={12} />}
+                      className="flex items-center gap-1 text-[10px] font-semibold px-2 py-1.5 rounded-lg transition-colors disabled:opacity-40 bg-[#008542] hover:bg-[#006a35] text-white">
+                      {saved ? <Check size={10} /> : <Save size={10} />}
                       {saved ? 'Salvo!' : saving ? 'Salvando…' : 'Salvar'}
                     </button>
                   )}
@@ -3021,7 +2908,7 @@ export function LogicEditorPanel({ canEdit }: { canEdit: boolean }) {
                 <div className="flex items-center justify-center h-full text-slate-500 text-sm">Carregando…</div>
               )}
               {!loading && sections.length === 0 && (
-                <div className="flex flex-col items-center justify-center h-full gap-4 text-slate-600">
+                <div className="flex flex-col items-center justify-center h-full gap-4 text-slate-400 dark:text-slate-600">
                   <div className="flex flex-col items-center gap-2">
                     <Layers size={28} className="opacity-20" />
                     <p className="text-sm text-slate-500">Escopo vazio</p>
@@ -3034,11 +2921,11 @@ export function LogicEditorPanel({ canEdit }: { canEdit: boolean }) {
                           sec.decisions = [emptyDec()]
                           commitSections([sec])
                         }}
-                        className="flex items-center gap-2 px-4 py-2 rounded-xl bg-[#d97706] hover:bg-amber-600 text-white text-sm font-semibold transition-colors shadow">
+                        className="flex items-center gap-2 px-4 py-2 rounded-xl bg-[#008542] dark:bg-[#d97706] hover:bg-[#006a35] dark:hover:bg-amber-600 text-white text-sm font-semibold transition-colors shadow">
                         <Plus size={15} /> Inserir primeiro elemento
                       </button>
-                      <button onClick={() => setShowBasePicker(true)}
-                        className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-[#d97706] transition-colors">
+                      <button onClick={() => setShowImport(true)}
+                        className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-[#008542] dark:hover:text-[#d97706] transition-colors">
                         <Copy size={12} /> Importar de escopo base ou bloco
                       </button>
                     </div>
@@ -3060,11 +2947,11 @@ export function LogicEditorPanel({ canEdit }: { canEdit: boolean }) {
                   )}
                   {previewVersionId && (
                     <div className="absolute top-2 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2 px-3 py-1.5 rounded-full bg-amber-900/90 border border-amber-600/60 shadow-lg">
-                      <History size={12} className="text-amber-300" />
+                      <History size={12} className="text-[#006a35] dark:text-amber-300" />
                       <span className="text-[11px] text-amber-100 font-medium">Visualizando versão anterior (somente leitura)</span>
                       {canEdit && (
                         <button onClick={() => restoreVersion(previewVersionId)}
-                          className="text-[10px] font-semibold text-white bg-[#d97706] hover:bg-amber-600 rounded px-2 py-0.5 transition-colors">
+                          className="text-[10px] font-semibold text-white bg-[#008542] dark:bg-[#d97706] hover:bg-[#006a35] dark:hover:bg-amber-600 rounded px-2 py-0.5 transition-colors">
                           Restaurar esta
                         </button>
                       )}
@@ -3074,25 +2961,16 @@ export function LogicEditorPanel({ canEdit }: { canEdit: boolean }) {
                       </button>
                     </div>
                   )}
-                  {editorMode === 'flow' ? (
-                    <LogicFlowEditor
-                      ref={flowEditorRef}
-                      sections={sections}
-                      editCb={canEdit && !previewVersionId ? handleEditAction : undefined}
-                      pickMode={!!pendingTransfer}
-                      showIndex={showFlowIndex}
-                      onToggleIndex={() => setShowFlowIndex(v => !v)}
-                      showLegend={showFlowLegend}
-                      onToggleLegend={() => setShowFlowLegend(v => !v)}
-                    />
-                  ) : (
-                    <LogicGraphPanel
-                      secs={sections}
-                      editCb={canEdit && !previewVersionId ? handleEditAction : undefined}
-                      pickMode={!!pendingTransfer}
-                      selRef={null}
-                    />
-                  )}
+                  <LogicFlowEditor
+                    ref={flowEditorRef}
+                    sections={sections}
+                    editCb={canEdit && !previewVersionId ? handleEditAction : undefined}
+                    pickMode={!!pendingTransfer}
+                    showIndex={showFlowIndex}
+                    onToggleIndex={() => setShowFlowIndex(v => !v)}
+                    showLegend={showFlowLegend}
+                    onToggleLegend={() => setShowFlowLegend(v => !v)}
+                  />
                 </div>
               )}
             </div>
@@ -3104,23 +2982,23 @@ export function LogicEditorPanel({ canEdit }: { canEdit: boolean }) {
       {showHistory && (
         <div className="fixed inset-0 z-40 flex justify-end" onClick={() => { setShowHistory(false) }}>
           <div className="absolute inset-0 bg-black/40" />
-          <div className="relative w-80 h-full bg-slate-900 border-l border-slate-700 shadow-2xl flex flex-col"
+          <div className="relative w-80 h-full bg-white dark:bg-slate-900 border-l border-slate-200 dark:border-slate-700 shadow-2xl flex flex-col"
                onClick={e => e.stopPropagation()}>
-            <div className="flex items-center gap-2 px-4 py-3 border-b border-slate-700/50">
-              <History size={15} className="text-[#d97706]" />
+            <div className="flex items-center gap-2 px-4 py-3 border-b border-slate-200 dark:border-slate-700/50">
+              <History size={15} className="text-[#008542] dark:text-[#d97706]" />
               <div className="flex-1 min-w-0">
-                <h3 className="text-sm font-semibold text-slate-100">Histórico de versões</h3>
+                <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Histórico de versões</h3>
                 <p className="text-[10px] text-slate-500 truncate">{selectedMeta?.label ?? selectedScope}</p>
               </div>
               <button onClick={() => setShowHistory(false)}
-                className="text-slate-500 hover:text-slate-200 transition-colors"><X size={16} /></button>
+                className="text-slate-500 hover:text-slate-900 dark:hover:text-slate-200 transition-colors"><X size={16} /></button>
             </div>
             <div className="flex-1 overflow-y-auto scrollbar-custom p-2 space-y-1.5">
               {versionsLoading && <p className="text-xs text-slate-500 text-center py-6">Carregando…</p>}
               {!versionsLoading && versions.length === 0 && (
                 <p className="text-xs text-slate-500 text-center py-6">
                   Nenhuma versão registrada ainda.<br />
-                  <span className="text-[10px] text-slate-600">Cada save cria um snapshot automaticamente.</span>
+                  <span className="text-[10px] text-slate-400 dark:text-slate-600">Cada save cria um snapshot automaticamente.</span>
                 </p>
               )}
               {!versionsLoading && versions.map((v, i) => {
@@ -3131,25 +3009,25 @@ export function LogicEditorPanel({ canEdit }: { canEdit: boolean }) {
                 return (
                   <div key={v.id}
                     className={`rounded-lg border px-3 py-2 transition-colors ${
-                      isActive ? 'border-[#d97706]/60 bg-[#d97706]/10' : 'border-slate-700/60 bg-slate-800/40 hover:border-slate-600'
+                      isActive ? 'border-[#008542]/60 dark:border-[#d97706]/60 bg-[#008542]/10 dark:bg-[#d97706]/10' : 'border-slate-200 dark:border-slate-700/60 bg-slate-100/80 dark:bg-slate-800/40 hover:border-slate-600'
                     }`}>
                     <div className="flex items-center gap-2">
                       <span className="text-[10px] font-mono text-slate-500 shrink-0">
                         {i === 0 ? 'atual' : `#${versions.length - i}`}
                       </span>
-                      <span className="flex-1 text-[11px] text-slate-200 truncate font-medium">{v.note ?? 'Save'}</span>
+                      <span className="flex-1 text-[11px] text-slate-800 dark:text-slate-200 truncate font-medium">{v.note ?? 'Save'}</span>
                     </div>
                     <p className="text-[10px] text-slate-500 mt-0.5">
                       {when} · {v.author ?? '—'} · {v.sectionCount} seção(ões)
                     </p>
                     <div className="flex items-center gap-1.5 mt-1.5">
                       <button onClick={() => previewVersion(v.id)}
-                        className="text-[10px] text-slate-300 hover:text-[#d97706] border border-slate-700 hover:border-[#d97706]/40 rounded px-2 py-0.5 transition-colors">
+                        className="text-[10px] text-slate-700 dark:text-slate-300 hover:text-[#008542] dark:hover:text-[#d97706] border border-slate-200 dark:border-slate-700 hover:border-[#008542]/40 dark:border-[#d97706]/40 rounded px-2 py-0.5 transition-colors">
                         {isActive ? 'Visualizando' : 'Visualizar'}
                       </button>
                       {canEdit && (
                         <button onClick={() => restoreVersion(v.id)}
-                          className="text-[10px] text-white bg-[#d97706]/80 hover:bg-[#d97706] rounded px-2 py-0.5 transition-colors">
+                          className="text-[10px] text-white bg-[#008542]/80 dark:bg-[#d97706]/80 hover:bg-[#006a35] dark:hover:bg-[#d97706] rounded px-2 py-0.5 transition-colors">
                           Restaurar
                         </button>
                       )}
@@ -3164,10 +3042,6 @@ export function LogicEditorPanel({ canEdit }: { canEdit: boolean }) {
 
       {/* ── Modais ── */}
       {newScopeKind && <NewScopeModal kind={newScopeKind} onSave={handleCreateScope} onClose={() => setNewScopeKind(null)} />}
-      {showBasePicker && selectedScope && (
-        <BasePickerModal overrides={overrides} currentScopeId={selectedScope}
-          onPick={applyBase} onClose={() => setShowBasePicker(false)} />
-      )}
       {pendingAdd && (
         <PackagePicker onSelect={handlePackagePick} onClose={() => setPendingAdd(null)} />
       )}
@@ -3184,123 +3058,21 @@ export function LogicEditorPanel({ canEdit }: { canEdit: boolean }) {
           onClose={() => setPendingDec(null)}
         />
       )}
-      {showImportSection && selectedScope && (
-        <ImportSectionModal
+      {showImport && selectedScope && (
+        <UnifiedImportModal
           overrides={overrides}
           currentScopeId={selectedScope}
           loadScopeSections={loadScopeSections}
+          allowBase={!!(selectedMeta?.isCustom || selectedMeta?.isBlock)}
           onImport={handleImportSections}
-          onClose={() => setShowImportSection(false)}
+          onBase={applyBase}
+          onClose={() => setShowImport(false)}
         />
       )}
       {phasePick && (
         <PhasePickerModal current={phasePick.current} onPick={handlePhasePick} onClose={() => setPhasePick(null)} />
       )}
-      {showHelp && <HelpModal onClose={() => setShowHelp(false)} />}
-      {showAudit && (
-        <ConditionAuditPanel
-          sections={sections}
-          scopeLabel={selectedMeta?.label ?? selectedScope ?? 'Este escopo'}
-          scopeId={selectedScope}
-          onClose={() => setShowAudit(false)}
-        />
-      )}
-      {showParity && selectedScope && (
-        <ScopeParityChecker
-          scopeLabel={selectedMeta?.label ?? selectedScope}
-          sections={sections}
-          isCustomScope={!BUNDLE_IDS.includes(selectedScope)}
-          defaultRef={BUNDLE_IDS.includes(selectedScope) ? selectedScope : undefined}
-          onClose={() => setShowParity(false)}
-        />
-      )}
     </div>
   )
 }
 
-// ─── Modal de ajuda ───────────────────────────────────────────────────────────
-function HelpModal({ onClose }: { onClose: () => void }) {
-  const SYMBOLS: { Icon: IconType; color: string; desc: string }[] = [
-    { Icon: PiStarFill, color: '#facc15', desc: 'Marca a resposta como padrão (caminho default do fluxo)' },
-    { Icon: PiFlagPennantFill, color: '#f97316', desc: 'Duplica a resposta como variante de contingência' },
-    { Icon: PiTrashFill, color: '#ef4444', desc: 'Remove o item (resposta, pacote, pergunta ou entrada sequencial)' },
-  ]
-  const MENUS: { Icon: IconType; color: string; label: string; desc: string }[] = [
-    { Icon: PiLegoFill, color: '#3b82f6', label: 'Adicionar pacote', desc: 'Inclui um pacote de serviços nesta resposta ou ponto de convergência' },
-    { Icon: PiPlusCircleFill, color: '#0ea5e9', label: 'Adicionar resposta/pergunta', desc: 'Insere uma resposta ou pergunta neste ponto' },
-    { Icon: PiListNumbersFill, color: '#7c3aed', label: 'Adicionar sequencial', desc: 'Adiciona uma entrada sequencial (etapa ordenada) nesta resposta' },
-    { Icon: PiArrowLineUp, color: '#22d3ee', label: 'Inserir acima/abaixo', desc: 'Cria uma pergunta, bloco ou seção imediatamente antes/depois desta no fluxo' },
-    { Icon: PiArrowUUpLeftFill, color: '#a855f7', label: 'Mover pergunta para cá', desc: 'Move uma pergunta existente para este ponto do fluxo' },
-    { Icon: PiCopySimpleFill, color: '#14b8a6', label: 'Copiar pergunta', desc: 'Copia uma pergunta existente para este ponto do fluxo' },
-  ]
-  return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={onClose}>
-      <div
-        className="relative bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl w-full max-w-lg max-h-[80vh] overflow-y-auto scrollbar-custom m-4"
-        onClick={e => e.stopPropagation()}
-      >
-        {/* Header */}
-        <div className="flex items-center gap-2 px-5 py-3.5 border-b border-slate-700 sticky top-0 bg-slate-900 z-10">
-          <HelpCircle size={15} className="text-[#d97706]" />
-          <span className="text-sm font-semibold text-slate-100">Ajuda — Editor de Lógica</span>
-          <button onClick={onClose} className="ml-auto text-slate-500 hover:text-slate-200 transition-colors">
-            <X size={14} />
-          </button>
-        </div>
-
-        <div className="px-5 py-4 space-y-5">
-          {/* Símbolos inline */}
-          <section>
-            <h3 className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-2">Símbolos no fluxograma</h3>
-            <div className="space-y-1.5">
-              {SYMBOLS.map((s, i) => (
-                <div key={i} className="flex items-start gap-3">
-                  <span className="shrink-0 w-6 flex items-center justify-center mt-0.5" style={{ color: s.color }}><s.Icon size={16} /></span>
-                  <span className="text-[11px] text-slate-300 leading-snug">{s.desc}</span>
-                </div>
-              ))}
-            </div>
-          </section>
-
-          {/* Tipos de losango */}
-          <section>
-            <h3 className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-2">Tipos de losango (pergunta)</h3>
-            <div className="space-y-2">
-              <div className="flex items-start gap-3">
-                <svg className="shrink-0 mt-0.5" width="22" height="16" viewBox="0 0 22 16">
-                  <polygon points="11,1 21,8 11,15 1,8" fill="#fde9c0" stroke="#e7c896" strokeWidth="1.5" />
-                </svg>
-                <span className="text-[11px] text-slate-300 leading-snug">Pergunta padrão — ramificação do fluxo</span>
-              </div>
-              <div className="flex items-start gap-3">
-                <svg className="shrink-0 mt-0.5" width="22" height="16" viewBox="0 0 22 16">
-                  <polygon points="11,1 21,8 11,15 1,8" fill="#0c2340" stroke="#64748b" strokeWidth="2" />
-                </svg>
-                <span className="text-[11px] text-slate-300 leading-snug">
-                  Pergunta <span className="font-semibold text-orange-400">Tipo de sonda</span> — detectada automaticamente pelo nome; ramifica o fluxo por tipo de equipamento (ANC / DP)
-                </span>
-              </div>
-            </div>
-          </section>
-
-          {/* Menus de contexto */}
-          <section>
-            <h3 className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-2">Itens de menu (clique na resposta)</h3>
-            <div className="space-y-1.5">
-              {MENUS.map(m => (
-                <div key={m.label} className="flex items-start gap-3">
-                  <span className="shrink-0 w-6 flex items-center justify-center mt-0.5" style={{ color: m.color }}><m.Icon size={16} /></span>
-                  <div>
-                    <span className="text-[11px] font-semibold leading-none" style={{ color: m.color }}>{m.label}</span>
-                    <p className="text-[10px] text-slate-400 leading-snug mt-0.5">{m.desc}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </section>
-
-        </div>
-      </div>
-    </div>
-  )
-}

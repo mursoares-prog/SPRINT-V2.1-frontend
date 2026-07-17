@@ -403,7 +403,7 @@ function Section({ title, searchText, children, defaultOpen = false, isDirty = f
         ? 'ring-amber-300 dark:ring-amber-700/70'
         : 'ring-slate-200/80 dark:ring-slate-700/60'
     }`}>
-      <div className={`flex items-center gap-1.5 px-2.5 py-2 ${titleHighlighted ? 'bg-sky-50 dark:bg-sky-900/30' : 'bg-slate-50/90 dark:bg-slate-800/50'} ${!effectiveCollapsed ? 'border-b border-slate-200/70 dark:border-slate-700/50' : ''}`}>
+      <div className={`flex items-center gap-1.5 px-2.5 py-2 ${titleHighlighted ? 'bg-sky-50 dark:bg-sky-900/30' : 'bg-[#ebebeb] dark:bg-slate-800/50'} ${!effectiveCollapsed ? 'border-b border-slate-200/70 dark:border-slate-700/50' : ''}`}>
         <button onClick={() => setCollapsed(c => !c)}
           className="flex items-center gap-1.5 flex-1 min-w-0 text-left group">
           <span className={`w-4 font-bold text-sm leading-none select-none transition-colors ${dirty ? 'text-amber-500' : 'text-slate-400 dark:text-slate-500 group-hover:text-slate-600 dark:group-hover:text-slate-300'}`}>
@@ -874,10 +874,6 @@ export function ProjectDataPanel({ onLocate, onClearLocate, locatedTarget, oneBy
   const currentReviewLineId = oneByOneMode && reviewTotal > 0 ? reviewLineIds[0] : null
 
   const [sectionFilter, setSectionFilter] = useState('')
-  const sectionVisible = (title: string) => !sectionFilter ||
-    title.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
-      .includes(sectionFilter.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase())
-
   return (
     <LocateCtx.Provider value={{ onLocate, onClear: onClearLocate, active: locatedTarget ?? null }}>
     <div className="flex flex-col h-full bg-[#f5f5f5] dark:bg-slate-900 overflow-hidden">
@@ -911,7 +907,7 @@ export function ProjectDataPanel({ onLocate, onClearLocate, locatedTarget, oneBy
       </div>
       {/* Subtítulo */}
       <div className="shrink-0 px-4 py-1.5 border-b border-slate-100 dark:border-slate-800">
-        <span className="text-[10px] text-slate-400 dark:text-slate-500 tracking-wide">Assistente de preenchimento</span>
+        <span className="text-[10px] text-slate-400 dark:text-slate-500 tracking-widest uppercase">Assistente de Preenchimento</span>
       </div>
 
       {/* Confirmar alterações — linhas em revisão após "Aplicar" */}

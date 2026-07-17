@@ -1,4 +1,4 @@
-import type { WizardInputs, ScheduleItem, Phase, Technology, SubseaEquipment, OperationMode, Percentile, ScopeId, YesContingencyNo, InvestigationLog, RcmaCementPkg } from '../types'
+import type { WizardInputs, ScheduleItem, Phase, Technology, SubseaEquipment, OperationMode, Percentile, ScopeId, YesContingencyNo, InvestigationLog, RcmaCementPkg, RigType } from '../types'
 import { SEQUENCES } from '../data/sequences'
 import { getPackage, getDuration } from '../data/packages'
 
@@ -12,7 +12,7 @@ function deriveBaseMode(scopeId: ScopeId): OperationMode {
   return scopeId.startsWith('FS2') ? 'through_casing' : 'through_tubing'
 }
 
-function getMountPackage(tech: Technology, rigType: 'ANC' | 'DP', opType: 'Generalista' | 'LWO', _mode: OperationMode): string | null {
+function getMountPackage(tech: Technology, rigType: RigType, opType: 'Generalista' | 'LWO', _mode: OperationMode): string | null {
   if (tech === 'wireline') {
     if (opType === 'LWO') return 'ABAN 031B'
     return rigType === 'ANC' ? 'ABAN 032' : 'ABAN 031A'
@@ -25,7 +25,7 @@ function getMountPackage(tech: Technology, rigType: 'ANC' | 'DP', opType: 'Gener
   return null
 }
 
-function getDismountPackage(tech: Technology, _rigType: 'ANC' | 'DP', opType: 'Generalista' | 'LWO', _mode: OperationMode): string | null {
+function getDismountPackage(tech: Technology, _rigType: RigType, opType: 'Generalista' | 'LWO', _mode: OperationMode): string | null {
   if (tech === 'wireline') return opType === 'LWO' ? 'ABAN 205' : 'ABAN 204'
   if (tech === 'electric') {
     if (_mode === 'through_casing') return null
@@ -1452,7 +1452,7 @@ function makeAutoItem(packageId: string, phase: Phase, percentile: Percentile, i
  */
 export function applyTransitions(
   base: ScheduleItem[],
-  rigType: 'ANC' | 'DP',
+  rigType: RigType,
   operationType: 'Generalista' | 'LWO',
   percentile: Percentile,
   baseMode: OperationMode = 'through_tubing',
@@ -1720,7 +1720,7 @@ export function applyTransitions(
 
 export function recomputeTransitions(
   items: ScheduleItem[],
-  rigType: 'ANC' | 'DP',
+  rigType: RigType,
   operationType: 'Generalista' | 'LWO',
   percentile: Percentile,
   scopeId?: ScopeId,

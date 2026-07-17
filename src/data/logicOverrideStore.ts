@@ -1,5 +1,6 @@
 import type { LSec } from './logicSecs'
 import { LOGIC_BY_SCOPE } from './logicSecs'
+import LOGIC_BUNDLE from './logicScopesBundle.json'
 
 // ── Blocos de lógica reutilizáveis ──────────────────────────────────────────
 // Um "bloco" é uma unidade de lógica definida UMA vez e incluída (via ref vivo) em
@@ -11,8 +12,15 @@ export function isBlockScope(scopeId: string): boolean {
   return scopeId.startsWith(BLOCK_PREFIX)
 }
 
-let _overrides: Record<string, LSec[]> = {}
-let _customScopes: { scopeId: string; label: string; fase: string | null; opTypes: string[] | null }[] = []
+type CustomScopeMeta = { scopeId: string; label: string; fase: string | null; opTypes: string[] | null }
+
+// Estado inicial vem do bundle gerado pelo admin (dump do backend).
+// O backend, quando disponível, sobrepõe esses valores via setLogicOverrides/setCustomScopesMeta.
+let _overrides: Record<string, LSec[]> = LOGIC_BUNDLE.overrides as Record<string, LSec[]>
+let _customScopes: CustomScopeMeta[] =
+  (LOGIC_BUNDLE.scopes as Array<{ scopeId: string; isCustom: boolean; label: string | null; fase: string | null; opTypes: string[] | null }>)
+    .filter(s => s.isCustom && !s.scopeId.startsWith(BLOCK_PREFIX) && s.label !== null)
+    .map(s => ({ scopeId: s.scopeId, label: s.label!, fase: s.fase, opTypes: s.opTypes }))
 
 export function setLogicOverrides(o: Record<string, LSec[]>): void {
   _overrides = o
@@ -31,7 +39,11 @@ export function getLogicOverride(scopeId: string): LSec[] | null {
 // dos cards de inclusão (`ref`) para exibir o nome vivo do bloco pelo scopeId — assim, ao
 // renomear um bloco, todos os fluxogramas que o incluem passam a mostrar o novo nome sem
 // perder o vínculo (que é sempre pelo scopeId, nunca pelo label cacheado no placeholder).
-let _scopeLabels: Record<string, string> = {}
+let _scopeLabels: Record<string, string> = Object.fromEntries(
+  (LOGIC_BUNDLE.scopes as Array<{ scopeId: string; label: string | null }>)
+    .filter(s => s.label !== null)
+    .map(s => [s.scopeId, s.label as string])
+)
 // Merge (não substitui): App e editor contribuem com rótulos sem apagar os do outro.
 export function setScopeLabels(map: Record<string, string>): void { _scopeLabels = { ..._scopeLabels, ...map } }
 export function getScopeLabel(scopeId: string): string | null { return _scopeLabels[scopeId] ?? null }

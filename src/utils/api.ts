@@ -28,6 +28,9 @@ async function req<T>(path: string, init?: RequestInit): Promise<T> {
     ...rest,
   })
   if (!res.ok) {
+    if (res.status === 401 || res.status === 403) {
+      window.dispatchEvent(new CustomEvent('sprint:auth-error'))
+    }
     let detail = `Erro ${res.status}`
     try {
       const body = await res.json()
@@ -225,6 +228,26 @@ export function deletePackage(pkgId: string, authHeaders: Record<string, string>
   )
 }
 
+// ─── Grupos de pacotes ────────────────────────────────────────────────────────
+
+export interface PackageGroupInfo { id: string; label: string }
+
+export function listPackageGroups(): Promise<PackageGroupInfo[]> {
+  return req<PackageGroupInfo[]>('/api/base/package-groups')
+}
+
+export function createPackageGroup(label: string, authHeaders: Record<string, string>): Promise<PackageGroupInfo> {
+  return req<PackageGroupInfo>('/api/base/package-groups', {
+    method: 'POST', headers: authHeaders, body: JSON.stringify({ label }),
+  })
+}
+
+export function deletePackageGroup(id: string, authHeaders: Record<string, string>): Promise<void> {
+  return req<void>(`/api/base/package-groups/${encodeURIComponent(id)}`, {
+    method: 'DELETE', headers: authHeaders,
+  })
+}
+
 // ─── Logic Scope API ─────────────────────────────────────────────────────────
 
 export interface LogicScopeMeta {
@@ -308,4 +331,16 @@ export function restoreLogicScopeVersion(scopeId: string, versionId: string, aut
     `/api/logic/scopes/${encodeURIComponent(scopeId)}/versions/${encodeURIComponent(versionId)}/restore`,
     { method: 'POST', headers: authHeaders },
   )
+}
+
+export function getLogicScopeGroups() {
+  return req<Record<string, unknown>>('/api/logic/scope-groups')
+}
+
+export function saveLogicScopeGroups(data: Record<string, unknown>, authHeaders: Record<string, string>) {
+  return req<{ ok: boolean }>('/api/logic/scope-groups', {
+    method: 'PUT',
+    headers: authHeaders,
+    body: JSON.stringify({ data }),
+  })
 }

@@ -1,0 +1,22 @@
+{
+  "scopes": [
+    {
+      "scopeId": "S1",
+      "isCustom": true,
+      "label": null,
+      "fase": null,
+      "opTypes": null
+    }
+  ],
+  "overrides": {
+    "S1": [
+      {
+        "id": "s0",
+        "label": "Seção 0",
+        "phase": "Fase 0",
+        "color": "gray",
+        "decisions": []
+      }
+    ]
+  }
+}

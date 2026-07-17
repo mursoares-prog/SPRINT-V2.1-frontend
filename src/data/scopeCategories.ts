@@ -5,7 +5,7 @@
 // item for implementada, basta as funções `categoryOfScope`/`categoryOfPackage`
 // passarem a ler a categoria persistida.
 
-export type ScopeCategoryId = 'aban_molhada' | 'aban_seca' | 'workover'
+export type ScopeCategoryId = 'aban_molhada' | 'aban_seca'
 
 export interface ScopeCategory {
   id: ScopeCategoryId
@@ -13,9 +13,8 @@ export interface ScopeCategory {
 }
 
 export const SCOPE_CATEGORIES: ScopeCategory[] = [
-  { id: 'aban_molhada', label: 'Abandono completação molhada' },
-  { id: 'aban_seca',    label: 'Abandono completação seca' },
-  { id: 'workover',     label: 'Workover' },
+  { id: 'aban_molhada', label: 'Pacotes ABAN' },
+  { id: 'aban_seca',    label: 'Pacotes T-AB' },
 ]
 
 // Categoria default — recebe todos os itens existentes (escopos bundle e pacotes ABAN).

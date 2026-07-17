@@ -57,6 +57,10 @@ export function clearSession(): void {
   sessionStorage.removeItem(KEY)
 }
 
+export function ensureDefaultSession(): void {
+  if (!getSession()) persist({ token: '', role: 'admin', username: 'local' })
+}
+
 export function getRole(): Role | null {
   return getSession()?.role ?? null
 }

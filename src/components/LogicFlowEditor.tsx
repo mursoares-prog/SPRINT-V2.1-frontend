@@ -26,7 +26,7 @@ import '@xyflow/react/dist/style.css'
 import { PiStarFill, PiFlagPennantFill, PiXBold, PiPencilSimpleFill } from 'react-icons/pi'
 import type { LSec, LDec, LAns, LSeqEntry, LPkg } from '../data/logicSecs'
 import { CONDITION_LABELS } from '../data/logicSecs'
-import { resolveScopeSections } from '../data/logicOverrideStore'
+import { resolveScopeSections, getScopeLabel } from '../data/logicOverrideStore'
 import {
   PAL, DARK_PAL, type PC, type PEntry,
   ClassicSidePanel, ConditionIcon, qMenuItems, resolveRef, useDark, pkgName,
@@ -88,7 +88,6 @@ function ansH(a: LAns): number {
   return h
 }
 // dec.packages agora é um nó autônomo acima do losango — a altura do nó de pergunta é só QH.
-function qNodeH(_dec?: LDec): number { return QH }
 
 // ─── Larguras de subárvore ────────────────────────────────────────────────────
 function colW(a: LAns): number {
@@ -287,7 +286,7 @@ function FrameNode({ data }: NodeProps) {
           onClick={(e) => d.onClick?.(e)}
           onContextMenu={(e) => { e.preventDefault(); d.onContext?.(e) }}>
           <span className="font-bold uppercase tracking-wide truncate" style={{ fontSize: 11 }}>
-            {isRef ? (d.sec.ref!.label ?? d.sec.label) : d.sec.label}
+            {isRef ? (getScopeLabel(d.sec.ref!.scopeId) ?? d.sec.ref!.label ?? d.sec.label) : d.sec.label}
           </span>
           <span className="shrink-0 rounded px-1.5 py-0.5" style={{ fontSize: 9, border: '1px solid rgba(255,255,255,0.35)' }}>
             {formatPhases(collectSectionPhases(d.sec))}
@@ -809,7 +808,7 @@ function collectSubQs(dec: LDec, base: DecRef | null, depth = 1, out: IdxSub[] =
 
 function buildQuestionIndex(sections: LSec[]): IdxSection[] {
   return sections.map((sec, secIdx) => ({
-    secIdx, label: sec.ref ? (sec.ref.label ?? sec.label) : sec.label, phase: sec.phase,
+    secIdx, label: sec.ref ? (getScopeLabel(sec.ref.scopeId) ?? sec.ref.label ?? sec.label) : sec.label, phase: sec.phase,
     questions: sec.ref ? [] : sec.decisions.map((dec, decIdx) => {
       const ref: DecRef = { secIdx, decIdx, sub: [] }
       return { decIdx, question: dec.question, ref, subs: collectSubQs(dec, ref), hasDefault: dec.answers.some(a => a.active) }
@@ -864,7 +863,7 @@ export const LogicFlowEditor = forwardRef<LogicFlowEditorHandle, {
   onToggleIndex?: () => void
   showLegend?: boolean
   onToggleLegend?: () => void
-}>(function LogicFlowEditor({ sections, editCb, pickMode, showIndex = false, onToggleIndex, showLegend = false, onToggleLegend }, fwdRef) {
+}>(function LogicFlowEditor({ sections, editCb, pickMode, showIndex = false, onToggleIndex, showLegend = false }, fwdRef) {
   const dark = useDark()
   const canEdit = !!editCb
   const [search, setSearch] = useState('')
@@ -1072,23 +1071,6 @@ export const LogicFlowEditor = forwardRef<LogicFlowEditorHandle, {
   }, [sections, fire, dupQuestions])
 
   // Clique esquerdo no campo PACOTES da decisão (nó acima do losango) — sem título.
-  const openDecPkgMenu = useCallback((e: React.MouseEvent, ref: DecRef) => {
-    e.stopPropagation()
-    const dec = resolveRef(sections, ref)
-    if (!dec) return
-    setMenu({
-      items: [],
-      pkgs: {
-        list: dec.packages ?? [],
-        onAdd: () => fire({ type: 'p_add_dec_pkg', ref }),
-        onMove: (i, dir) => fire({ type: 'p_move_dec_pkg', ref, pkgIdx: i, dir }),
-        onRemove: (i) => fire({ type: 'p_remove_dec_pkg', ref, pkgIdx: i }),
-        onCondition: (i, condition) => fire({ type: 'p_set_pkg_condition', ref, pkgIdx: i, condition }),
-      },
-      pkgsRefresh: () => resolveRef(sectionsRef.current, ref)?.packages ?? [],
-      pos: { x: e.clientX, y: e.clientY },
-    })
-  }, [sections, fire])
 
   const openAMenu = useCallback((e: React.MouseEvent, ref: DecRef, ai: number, mode: 'quick' | 'full') => {
     e.stopPropagation()
@@ -1163,7 +1145,7 @@ export const LogicFlowEditor = forwardRef<LogicFlowEditorHandle, {
         setMenu(null)
       }
       setMenu({
-        title: sec.ref.label ?? sec.label,
+        title: getScopeLabel(sec.ref.scopeId) ?? sec.ref.label ?? sec.label,
         items: [
           { label: isExpanded ? 'Recolher visualização' : 'Expandir para visualização', glyph: isExpanded ? '⤡' : '⤢', color: '#22d3ee', onClick: toggleExpand },
           { label: 'Editar bloco (abre o escopo do bloco)', glyph: '◇', color: '#0ea5e9', onClick: () => fire({ type: 'edit_ref_block', scopeId: sec.ref!.scopeId }) },
@@ -1207,7 +1189,6 @@ export const LogicFlowEditor = forwardRef<LogicFlowEditorHandle, {
     const dec = resolveRef(sections, ref)
     const ae = dec?.after?.[afterIdx]
     if (!ae) return
-    const isRoot = ref.sub.length === 0 && ref.adIdx === undefined && !ref.aeRef
     // quick (clique esquerdo) = só a lista de pacotes; full (direito) = ações + pacotes.
     const items: MenuItem[] = mode === 'quick' ? [] : [
       { label: 'Mover campo acima', glyph: '⬆', color: '#94a3b8', onClick: () => fire({ type: 'p_dec_move_after', ref, afterIdx, dir: 'up' }) },
@@ -1670,7 +1651,7 @@ export const LogicFlowEditor = forwardRef<LogicFlowEditorHandle, {
         markerEnd: { type: MarkerType.ArrowClosed, width: 12, height: 12, color: '#d97706' },
         style: { stroke: '#d97706', strokeWidth: 1.4 },
         label: 'vai para', labelStyle: { fontSize: 8, fill: '#d97706' },
-        labelBgStyle: { fill: dark ? '#0f172a' : '#f8fafc', fillOpacity: 0.85 },
+        labelBgStyle: { fill: dark ? '#0f172a' : '#fafafa', fillOpacity: 0.85 },
       } as Edge)
     }
 
@@ -1802,7 +1783,7 @@ export const LogicFlowEditor = forwardRef<LogicFlowEditorHandle, {
                 onKeyDown={e => e.key === 'Escape' && setSearch('')}
                 className={`w-full h-6 pl-2 pr-6 rounded text-[11px] outline-none ${
                   dark ? 'border border-slate-600 bg-slate-800 text-slate-200 placeholder-slate-500 focus:border-amber-500'
-                    : 'border border-slate-300 bg-slate-50 text-slate-700 placeholder-slate-400 focus:border-amber-500'}`} />
+                    : 'border border-slate-300 bg-[#fafafa] text-slate-700 placeholder-slate-400 focus:border-amber-500'}`} />
               {search && (
                 <button onClick={() => setSearch('')} className="absolute right-1.5 text-slate-400 hover:text-slate-600" title="Limpar busca">
                   <PiXBold size={10} />
@@ -1910,15 +1891,13 @@ export const LogicFlowEditor = forwardRef<LogicFlowEditorHandle, {
             </Panel>
           )}
 
-          <Panel position="bottom-center">
-            <p className={`text-[10px] px-3 py-1 rounded-full shadow ${panelCls}`}>
-              {pickMode
-                ? 'Clique na PERGUNTA de origem para mover/copiar'
-                : canEdit
-                  ? 'Clique num nó para abrir as ações · Ctrl+C/V copia/cola · Delete remove'
-                  : 'Modo leitura'}
-            </p>
-          </Panel>
+          {pickMode && (
+            <Panel position="bottom-center">
+              <p className={`text-[10px] px-3 py-1 rounded-full shadow ${panelCls}`}>
+                Clique na PERGUNTA de origem para mover/copiar
+              </p>
+            </Panel>
+          )}
         </ReactFlow>
         </ChipEditorCtx.Provider>
 

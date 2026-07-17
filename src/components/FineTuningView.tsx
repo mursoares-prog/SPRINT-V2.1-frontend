@@ -1,17 +1,16 @@
 ﻿import React, { useState, useRef, useEffect, useLayoutEffect, useMemo } from 'react'
 import {
   Plus, Minus, ChevronDown, ChevronRight, ChevronUp,
-  X, Trash2, Check, Undo2, Redo2, FileText, Download, Search, PencilLine,
+  X, Trash2, Check, Undo2, Redo2, FileText, Download, Search,
   PanelLeftOpen, PanelRightClose, PanelRightOpen, GripVertical,
 } from 'lucide-react'
 
 import { useApp, lineIdsForLocate, NAV_PACKAGE_IDS, type LocateTarget } from '../context/AppContext'
-import type { FineTuningItem, FineTuningLine, WizardInputs, Phase } from '../types'
+import type { FineTuningItem, FineTuningLine, Phase } from '../types'
 import { ProjectDataPanel } from './ProjectDataPanel'
 import { GanttChart } from './ScheduleView'
 import { PACKAGES, getAllPackages } from '../data/packages'
 import { EDS_TYPES } from '../data/edsTypes'
-import { SCOPE_LABEL } from '../data/scopeLabels'
 import { buildProjectFacts } from '../utils/projectFacts'
 import {
   owFases, owAtividades, owOperacoes, owEtapas,
@@ -38,16 +37,6 @@ const TECH_COLORS: Record<string, string> = {
 type ScheduleColumn = 'number' | 'package' | 'type' | 'description' | 'firm' | 'contingency' | 'total'
 
 // ── Phase colors — full palette, mirrors step 2 ───────────────────────────────
-const PHASE_COLORS: Record<string, { bg: string; text: string; bar: string }> = {
-  'Mobilização':    { bg: 'bg-[#f5f5f5] dark:bg-slate-800',   text: 'text-slate-600 dark:text-slate-300',   bar: 'bg-slate-400'  },
-  'Fase 0':         { bg: 'bg-[#fafafa] dark:bg-slate-950',    text: 'text-slate-700 dark:text-slate-400',   bar: 'bg-slate-600'  },
-  'Fase 1A':        { bg: 'bg-sky-50 dark:bg-sky-950',        text: 'text-sky-800 dark:text-sky-400',       bar: 'bg-sky-600'    },
-  'Fase 1B':        { bg: 'bg-cyan-50 dark:bg-cyan-950',      text: 'text-cyan-800 dark:text-cyan-400',     bar: 'bg-cyan-500'   },
-  'Fase 2':         { bg: 'bg-teal-50 dark:bg-teal-950',      text: 'text-teal-800 dark:text-teal-400',     bar: 'bg-teal-500'   },
-  'Extra Abandono': { bg: 'bg-violet-50 dark:bg-violet-950',  text: 'text-violet-800 dark:text-violet-400', bar: 'bg-violet-500' },
-  'Desmobilização': { bg: 'bg-[#f5f5f5] dark:bg-slate-800',   text: 'text-slate-600 dark:text-slate-300',   bar: 'bg-slate-400'  },
-}
-
 // ── Clone helpers ─────────────────────────────────────────────────────────────
 function clonePkg(item: FineTuningItem): FineTuningItem {
   const uid = `clone_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`
@@ -713,7 +702,7 @@ function StatsPanel({ onCollapse }: { onCollapse?: () => void }) {
   const items = state.fineTuningItems.filter(i => !i.isBlank)
   const showHours = state.showHours
   const unit = showHours ? 'h' : 'd'
-  const fmt = (d: number) => showHours ? (d * 24).toFixed(1) : d.toFixed(2)
+  const fmt = (d: number) => (showHours ? (d * 24).toFixed(1) : d.toFixed(2)).replace('.', ',')
   const [contExpanded, setContExpanded] = useState(false)
 
   const editPkgCont = (item: FineTuningItem, targetDays: number) => {
@@ -807,12 +796,14 @@ function StatsPanel({ onCollapse }: { onCollapse?: () => void }) {
         )}
       </div>
 
-      <div className="flex-1 overflow-y-auto min-h-0 scrollbar-custom p-3 flex flex-col gap-4">
+      <div className="flex-1 overflow-y-auto min-h-0 scrollbar-custom p-3 flex flex-col gap-3">
 
         {/* ── Ajuste de Tempos ── */}
-        <div>
-          <p className="text-[10px] font-bold text-slate-600 dark:text-slate-500 uppercase tracking-widest mb-2">Ajuste de Tempos</p>
-          <div className="rounded-lg bg-[#fafafa] dark:bg-slate-800 px-3 py-3 flex flex-col gap-3">
+        <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-[#fafafa] dark:bg-slate-800 overflow-hidden">
+          <div className="px-3 py-1.5 border-b border-slate-200 dark:border-slate-700 bg-[#ebebeb] dark:bg-slate-700">
+            <p className="text-xs font-bold text-slate-700 dark:text-slate-300">Ajuste de Tempos</p>
+          </div>
+          <div className="px-3 py-3 flex flex-col gap-3">
             <TimeAdjustRow label="Firme" currentDays={grandFirme} unit={unit} fmt={fmt} kind="firme" />
             {grandCont > 0 && (
               <>
@@ -868,67 +859,43 @@ function StatsPanel({ onCollapse }: { onCollapse?: () => void }) {
 
         {/* ── Resumo de Tempos ── */}
         {phaseOrder.length > 0 && (
-          <div>
-            <p className="text-[10px] font-bold text-slate-600 dark:text-slate-500 uppercase tracking-widest mb-2">Resumo de Tempos</p>
-            <div className="rounded-lg bg-[#fafafa] dark:bg-slate-800 overflow-hidden">
-              <table className="w-full border-collapse">
-                <thead>
-                  <tr className="border-b border-slate-200 dark:border-slate-700">
-                    <th className="py-1.5 px-2 text-left text-[9px] font-bold text-slate-600 dark:text-slate-500 uppercase tracking-wider"></th>
-                    <th className="py-1.5 px-2 text-right text-[9px] font-bold text-blue-400 dark:text-blue-500 uppercase tracking-wider">Firme</th>
-                    <th className="py-1.5 px-2 text-right text-[9px] font-bold text-[#7d1935] dark:text-rose-400 uppercase tracking-wider">Cont.</th>
-                    <th className="py-1.5 px-2 text-right text-[9px] font-bold text-slate-600 dark:text-slate-500 uppercase tracking-wider">Total</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {phaseOrder.map(phase => {
-                    const g = phaseMap.get(phase)!
-                    const total = g.firme + g.cont
-                    const colors = PHASE_COLORS[phase] ?? PHASE_COLORS['Mobilização']
-                    return (
-                      <React.Fragment key={phase}>
-                        <tr className={`${colors.bg} border-y border-slate-200/60 dark:border-slate-700`}>
-                          <td colSpan={4} className={`py-1 px-2 text-[9px] font-bold uppercase tracking-widest ${colors.text}`}
-                            style={{ fontFamily: "'Barlow Condensed', sans-serif", letterSpacing: '0.1em' }}>
-                            {phase}
-                          </td>
-                        </tr>
-                        <tr className="border-b border-slate-200/40 dark:border-slate-700/50">
-                          <td className="py-1.5 px-2" />
-                          <td className="py-1.5 px-2 text-right font-mono text-xs font-bold text-[#2f5aa8] dark:text-blue-400">
-                            {fmt(g.firme)}<span className="text-slate-500 dark:text-slate-600 font-normal text-[9px] ml-0.5">{unit}</span>
-                          </td>
-                          <td className="py-1.5 px-2 text-right font-mono text-xs font-bold text-[#7d1935] dark:text-rose-400">
-                            {g.cont > 0
-                              ? <>{fmt(g.cont)}<span className="text-slate-500 dark:text-slate-600 font-normal text-[9px] ml-0.5">{unit}</span></>
-                              : <span className="text-slate-200 dark:text-slate-700">—</span>}
-                          </td>
-                          <td className="py-1.5 px-2 text-right font-mono text-xs font-semibold text-slate-700 dark:text-slate-200">
-                            {fmt(total)}<span className="text-slate-600 dark:text-slate-500 font-normal text-[9px] ml-0.5">{unit}</span>
-                          </td>
-                        </tr>
-                      </React.Fragment>
-                    )
-                  })}
-                </tbody>
-                <tfoot>
-                  <tr className="border-t-2 border-slate-200 dark:border-slate-700">
-                    <td className="py-2 px-2 text-[10px] font-bold text-slate-700 dark:text-slate-400 uppercase tracking-wider">Total</td>
-                    <td className="py-2 px-2 text-right font-mono text-sm font-bold text-[#2f5aa8] dark:text-blue-400">
-                      {fmt(grandFirme)}<span className="text-slate-500 dark:text-slate-600 font-normal text-[9px] ml-0.5">{unit}</span>
-                    </td>
-                    <td className="py-2 px-2 text-right font-mono text-sm font-bold text-[#7d1935] dark:text-rose-400">
-                      {grandCont > 0
-                        ? <>{fmt(grandCont)}<span className="text-slate-500 dark:text-slate-600 font-normal text-[9px] ml-0.5">{unit}</span></>
-                        : <span className="text-slate-200 dark:text-slate-700 text-xs">—</span>}
-                    </td>
-                    <td className="py-2 px-2 text-right font-mono text-sm font-bold text-[#0c2340] dark:text-white">
-                      {fmt(grandTotal)}<span className="text-slate-700 dark:text-slate-400 font-normal text-[9px] ml-0.5">{unit}</span>
-                    </td>
-                  </tr>
-                </tfoot>
-              </table>
-            </div>
+          <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-[#fafafa] dark:bg-slate-800 overflow-hidden">
+            <table className="w-full border-collapse">
+              <thead>
+                <tr className="bg-[#ebebeb] dark:bg-slate-700 border-b border-slate-200 dark:border-slate-700">
+                  <th className="py-1.5 px-3 text-left text-xs font-bold text-slate-700 dark:text-slate-300">Resumo de Tempos</th>
+                  <th className="py-1.5 px-2 text-right text-xs text-blue-700 dark:text-blue-500 whitespace-nowrap">Firme</th>
+                  <th className="py-1.5 px-2 text-right text-xs text-[#7d1935] dark:text-rose-400 whitespace-nowrap">Cont.</th>
+                  <th className="py-1.5 px-2 text-right text-xs text-slate-600 dark:text-slate-400 whitespace-nowrap">Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                {phaseOrder.map(phase => {
+                  const g = phaseMap.get(phase)!
+                  const total = g.firme + g.cont
+                  return (
+                    <tr key={phase} className="border-b border-slate-100 dark:border-slate-800">
+                      <td className="py-1.5 px-3 text-xs text-slate-700 dark:text-slate-400 truncate max-w-0">{phase}</td>
+                      <td className="py-1.5 px-2 text-right text-xs text-[#2f5aa8] dark:text-blue-400 whitespace-nowrap">{fmt(g.firme)}</td>
+                      <td className="py-1.5 px-2 text-right text-xs text-[#7d1935] dark:text-rose-400 whitespace-nowrap">
+                        {g.cont > 0 ? fmt(g.cont) : <span className="text-slate-200 dark:text-slate-700">—</span>}
+                      </td>
+                      <td className="py-1.5 px-2 text-right text-xs text-slate-700 dark:text-slate-200 whitespace-nowrap">{fmt(total)}</td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+              <tfoot>
+                <tr className="border-t-2 border-slate-200 dark:border-slate-700 bg-[#ebebeb] dark:bg-slate-700">
+                  <td className="py-1.5 px-3 text-xs font-bold text-slate-700 dark:text-slate-300">Total</td>
+                  <td className="py-1.5 px-2 text-right text-xs text-[#2f5aa8] dark:text-blue-400 whitespace-nowrap">{fmt(grandFirme)}</td>
+                  <td className="py-1.5 px-2 text-right text-xs text-[#7d1935] dark:text-rose-400 whitespace-nowrap">
+                    {grandCont > 0 ? fmt(grandCont) : <span className="text-slate-200 dark:text-slate-700">—</span>}
+                  </td>
+                  <td className="py-1.5 px-2 text-right text-xs text-[#0c2340] dark:text-white whitespace-nowrap">{fmt(grandTotal)}</td>
+                </tr>
+              </tfoot>
+            </table>
           </div>
         )}
 
@@ -955,35 +922,35 @@ function TechCountSection({
 }) {
   if (rows.length === 0 && !hasConting) return null
   return (
-    <div>
-      <p className="text-[10px] font-bold text-slate-600 dark:text-slate-500 uppercase tracking-widest mb-2">{title}</p>
-      <div className="rounded-lg bg-[#fafafa] dark:bg-slate-800 px-3 py-2.5">
-        <div className="grid grid-cols-4 gap-x-1 mb-1.5">
-          <span className="col-span-1" />
-          {TRACKED_MOUNT_TECHS.map(t => (
-            <span key={t} className="text-[10px] font-semibold text-slate-600 dark:text-slate-500 uppercase text-center">{MOUNT_TECH_LABELS[t]}</span>
-          ))}
-        </div>
+    <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-[#fafafa] dark:bg-slate-800 overflow-hidden">
+      <div className="px-3 py-1.5 border-b border-slate-200 dark:border-slate-700 bg-[#ebebeb] dark:bg-slate-700 grid grid-cols-4 gap-x-1 items-center">
+        <span className="col-span-1 text-xs font-bold text-slate-700 dark:text-slate-300">{title}</span>
+        {TRACKED_MOUNT_TECHS.map(t => (
+          <span key={t} className="text-xs text-slate-600 dark:text-slate-500 text-center">{MOUNT_TECH_LABELS[t]}</span>
+        ))}
+      </div>
+      <div className="px-3">
         {rows.map(({ phase, counts }) => (
-          <div key={phase} className="grid grid-cols-4 gap-x-1 py-1 border-t border-slate-200/60 dark:border-slate-700/50">
-            <span className="text-[10px] text-slate-700 dark:text-slate-400 truncate col-span-1">{phase}</span>
+          <div key={phase} className="grid grid-cols-4 gap-x-1 py-1.5 border-t border-slate-100 dark:border-slate-800/60">
+            <span className="text-xs text-slate-700 dark:text-slate-400 truncate col-span-1">{phase}</span>
             {TRACKED_MOUNT_TECHS.map(t => (
-              <span key={t} className={`text-xs font-mono text-center font-semibold ${counts[t] > 0 ? 'text-slate-700 dark:text-slate-200' : 'text-slate-200 dark:text-slate-700'}`}>
+              <span key={t} className={`text-xs text-center ${counts[t] > 0 ? 'text-slate-700 dark:text-slate-200' : 'text-slate-200 dark:text-slate-700'}`}>
                 {counts[t] > 0 ? counts[t] : '—'}
               </span>
             ))}
           </div>
         ))}
         {hasConting && (
-          <div className="grid grid-cols-4 gap-x-1 py-1 mt-1 border-t border-slate-200 dark:border-slate-600">
-            <span className={`text-[10px] font-semibold ${CONTING_TEXT} truncate col-span-1`}>Conting.</span>
+          <div className="grid grid-cols-4 gap-x-1 py-1.5 border-t border-slate-200 dark:border-slate-700">
+            <span className={`text-xs ${CONTING_TEXT} truncate col-span-1`}>Conting.</span>
             {TRACKED_MOUNT_TECHS.map(t => (
-              <span key={t} className={`text-xs font-mono text-center font-semibold ${contingTotals[t] > 0 ? CONTING_TEXT : 'text-slate-200 dark:text-slate-700'}`}>
+              <span key={t} className={`text-xs text-center ${contingTotals[t] > 0 ? CONTING_TEXT : 'text-slate-200 dark:text-slate-700'}`}>
                 {contingTotals[t] > 0 ? contingTotals[t] : '—'}
               </span>
             ))}
           </div>
         )}
+        <div className="pb-1" />
       </div>
     </div>
   )
@@ -1101,7 +1068,7 @@ function PackagePickerModal({ afterUid, onClose }: { afterUid: string | null; on
                     key={pkg.id}
                     onClick={() => pickPackage(pkg.id)}
                     className="w-full flex items-center gap-2 px-2 py-1.5 rounded text-left hover:bg-blue-50 dark:hover:bg-blue-950/40 transition-colors group">
-                    <span className="font-mono text-xs font-medium text-[#2f5aa8] dark:text-blue-400 w-20 shrink-0">{pkg.id}</span>
+                    <span className="text-xs font-medium text-[#2f5aa8] dark:text-blue-400 w-20 shrink-0">{pkg.id}</span>
                     {techLabel ? (
                       <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold shrink-0 ${techColor}`}>{techLabel}</span>
                     ) : <span className="w-8 shrink-0" />}
@@ -1139,7 +1106,7 @@ function DetailIndicator({ line }: { line: FineTuningLine }) {
   )
 }
 
-function ClassicLineRow({ line, itemUid, itemPhase, subNum, onSelectLine, isChecked, onToggleCheck, pkgIsParallel, pkgIsCont, kbEditTick, isLastLine, onEnterFromLastLine, onDeleteRequest, showOntology, showEds, showCsb, bopActiveLineIds, showPkgCol, checkedLines, multiEditLeadId, currentReviewUid, matchRowId, highlightIds, onContextMenu, isDragging, onDragHandleStart, onDragHandleEnd, onRowDragOver, onRowDrop }: {
+function ClassicLineRow({ line, itemUid, itemPhase, subNum, onSelectLine, isChecked, onToggleCheck, pkgIsParallel, pkgIsCont, kbEditTick, isLastLine, onEnterFromLastLine, showOntology, showEds, showCsb, bopActiveLineIds, showPkgCol, checkedLines, multiEditLeadId, currentReviewUid, matchRowId, highlightIds, onContextMenu, isDragging, onDragHandleStart, onDragHandleEnd, onRowDragOver, onRowDrop }: {
   line: FineTuningLine; itemUid: string; itemPhase: Phase
   subNum: string
   onSelectLine: () => void
@@ -1169,7 +1136,7 @@ function ClassicLineRow({ line, itemUid, itemPhase, subNum, onSelectLine, isChec
 }) {
   const { state, dispatch } = useApp()
   const showHours = state.showHours
-  const fmt = (d: number) => showHours ? (d * 24).toFixed(1) : d.toFixed(2)
+  const fmt = (d: number) => (showHours ? (d * 24).toFixed(1) : d.toFixed(2)).replace('.', ',')
   const isCont = line.isContingency || !!pkgIsCont
   const dur = line.duration ?? 0
 
@@ -1202,7 +1169,7 @@ function ClassicLineRow({ line, itemUid, itemPhase, subNum, onSelectLine, isChec
             {isChecked && <Check size={6} strokeWidth={3} />}
           </button>
           <div className="relative w-5 flex items-center justify-center">
-            <span className={`font-mono text-[9px] transition-opacity group-hover:opacity-0 ${isCont ? 'text-[#7d1935]/40 dark:text-rose-400/30' : 'text-slate-200 dark:text-slate-700'}`}>{subNum}</span>
+            <span className={`text-[9px] transition-opacity group-hover:opacity-0 ${isCont ? 'text-[#7d1935]/40 dark:text-rose-400/30' : 'text-slate-200 dark:text-slate-700'}`}>{subNum}</span>
             <button draggable
               onDragStart={e => { e.stopPropagation(); onDragHandleStart?.(e) }}
               onDragEnd={e => { e.stopPropagation(); onDragHandleEnd?.() }}
@@ -1302,7 +1269,7 @@ function ClassicLineRow({ line, itemUid, itemPhase, subNum, onSelectLine, isChec
   )
 }
 
-function ClassicPkgRow({ item, rowNum, isChecked, onToggleCheck, onSelectLine, checkedLines, multiEditLeadId, onToggleLine, kbNavLineId, kbNavTick, nameEditTick, onEnterFromLastLine, onDeleteRequest, onDeleteLine, showOntology, showEds, showCsb, bopActiveLineIds, showPkgCol, isPendingReview, currentReviewUid, matchRowId, highlightIds, onContextMenu, onContextMenuLine, isDragging, onDragHandleStart, onDragHandleEnd, onRowDragOver, onRowDrop, lineDropTarget, onLineDragHandleStart, onLineDragHandleEnd, onLineDragOver, onLineDrop, isDraggingLine }: {
+function ClassicPkgRow({ item, rowNum, isChecked, onToggleCheck, onSelectLine, checkedLines, multiEditLeadId, onToggleLine, kbNavLineId, kbNavTick, nameEditTick, onEnterFromLastLine, onDeleteLine, showOntology, showEds, showCsb, bopActiveLineIds, showPkgCol, isPendingReview, currentReviewUid, matchRowId, highlightIds, onContextMenu, onContextMenuLine, isDragging, onDragHandleStart, onDragHandleEnd, onRowDragOver, onRowDrop, lineDropTarget, onLineDragHandleStart, onLineDragHandleEnd, onLineDragOver, onLineDrop, isDraggingLine }: {
   item: FineTuningItem; rowNum: number | null
   isChecked: boolean; onToggleCheck: () => void
   onSelectLine: (lineId: string) => void
@@ -1336,7 +1303,7 @@ function ClassicPkgRow({ item, rowNum, isChecked, onToggleCheck, onSelectLine, c
 }) {
   const { state, dispatch } = useApp()
   const showHours = state.showHours
-  const fmt = (d: number) => showHours ? (d * 24).toFixed(1) : d.toFixed(2)
+  const fmt = (d: number) => (showHours ? (d * 24).toFixed(1) : d.toFixed(2)).replace('.', ',')
   const trRef = useRef<HTMLTableRowElement>(null)
   const scrollAnchor = useRef<{ container: HTMLElement; offset: number } | null>(null)
 
@@ -1411,7 +1378,7 @@ function ClassicPkgRow({ item, rowNum, isChecked, onToggleCheck, onSelectLine, c
               {isChecked && <Check size={6} strokeWidth={3} />}
             </button>
             <div className="relative w-5 flex items-center justify-center">
-              <span className={`font-mono text-xs transition-opacity group-hover:opacity-0 ${isCont ? 'text-[#7d1935]/50 dark:text-rose-400/40' : 'text-slate-500 dark:text-slate-600'}`}>{rowNum}</span>
+              <span className={`text-xs transition-opacity group-hover:opacity-0 ${isCont ? 'text-[#7d1935]/50 dark:text-rose-400/40' : 'text-slate-500 dark:text-slate-600'}`}>{rowNum}</span>
               <button draggable
                 onDragStart={e => { e.stopPropagation(); onDragHandleStart?.(e) }}
                 onDragEnd={e => { e.stopPropagation(); onDragHandleEnd?.() }}
@@ -1425,7 +1392,7 @@ function ClassicPkgRow({ item, rowNum, isChecked, onToggleCheck, onSelectLine, c
         </td>
         {showPkgCol && (
           <td className="py-2 px-2">
-            <span className={`font-mono text-xs font-medium ${isCont ? 'text-[#7d1935] dark:text-rose-400' : 'text-[#0c2340] dark:text-blue-400'}`}>
+            <span className={`text-xs font-medium ${isCont ? 'text-[#7d1935] dark:text-rose-400' : 'text-[#0c2340] dark:text-blue-400'}`}>
               {(item.packageId === 'BLANK' || item.packageId === 'MANUAL') ? '—' : item.packageId}
             </span>
           </td>
@@ -1605,8 +1572,7 @@ function ClassicSchedulePanel({
     return checked[0]?.id ?? null
   }, [items, checkedLines, showEds, bopActiveLineIds])
 
-  const unit = showHours ? 'h' : 'd'
-  const fmt = (d: number) => showHours ? (d * 24).toFixed(1) : d.toFixed(2)
+  const fmt = (d: number) => (showHours ? (d * 24).toFixed(1) : d.toFixed(2)).replace('.', ',')
   const scrollRef = useRef<HTMLDivElement>(null)
   const headerScrollRef = useRef<HTMLDivElement>(null)
   const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set())
@@ -2109,7 +2075,43 @@ function ClassicSchedulePanel({
                 </th>
               )}
               <th className="py-1 px-1 text-xs font-bold text-white dark:text-slate-300">Tipo</th>
-              <th className="text-left py-1 px-3 text-xs font-bold text-white dark:text-slate-300">Descrição</th>
+              <th className="text-left py-1 px-3 text-xs font-bold text-white dark:text-slate-300">
+                <div className="flex items-center gap-2">
+                  <span>Descrição</span>
+                  <div className="flex items-center gap-1 ml-auto rounded px-1.5 py-1 bg-[#004070]/60 dark:bg-slate-800/60 focus-within:bg-[#003560]/80">
+                    <Search size={11} className="shrink-0 text-white/50" />
+                    <input
+                      value={findQuery}
+                      onChange={e => setFindQuery(e.target.value)}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter') { e.preventDefault(); gotoMatchRef.current?.(e.shiftKey ? matchIdx - 1 : matchIdx + 1) }
+                        else if (e.key === 'Escape') { e.preventDefault(); setFindQuery('') }
+                      }}
+                      placeholder="Localizar..."
+                      className="w-28 bg-transparent text-xs text-white placeholder:text-white/40 outline-none font-normal"
+                    />
+                    {findQuery && (
+                      <>
+                        <span className="shrink-0 text-[10px] font-mono tabular-nums text-white/60">
+                          {matches.length ? `${matchIdx + 1}/${matches.length}` : '0/0'}
+                        </span>
+                        <button onClick={() => gotoMatchRef.current?.(matchIdx - 1)} disabled={!matches.length} title="Anterior (Shift+Enter)"
+                          className="shrink-0 text-white/60 hover:text-white disabled:opacity-30 transition-colors">
+                          <ChevronUp size={12} />
+                        </button>
+                        <button onClick={() => gotoMatchRef.current?.(matchIdx + 1)} disabled={!matches.length} title="Próximo (Enter)"
+                          className="shrink-0 text-white/60 hover:text-white disabled:opacity-30 transition-colors">
+                          <ChevronDown size={12} />
+                        </button>
+                        <button onClick={() => setFindQuery('')} title="Limpar (Esc)"
+                          className="shrink-0 text-white/60 hover:text-white transition-colors">
+                          <X size={11} />
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </th>
               {showOntology ? (
                 <th colSpan={3} className="text-left py-1 px-3 text-xs font-bold text-white dark:text-slate-300">Ontologia (OpenWells)</th>
               ) : showEds ? (
@@ -2118,9 +2120,9 @@ function ClassicSchedulePanel({
                 <th colSpan={3} className="text-left py-1 px-3 text-xs font-bold text-white dark:text-slate-300">CSB</th>
               ) : (
                 <>
-                  <th className="text-right py-1 px-3 text-xs font-bold text-white dark:text-blue-400">F ({unit})</th>
-                  <th className="text-right py-1 px-3 text-xs font-bold text-white dark:text-rose-400">C ({unit})</th>
-                  <th className="text-right py-1 px-3 text-xs font-bold text-white dark:text-slate-300">Total ({unit})</th>
+                  <th className="text-right py-1 px-3 text-xs font-bold text-white dark:text-blue-400">F</th>
+                  <th className="text-right py-1 px-3 text-xs font-bold text-white dark:text-rose-400">C</th>
+                  <th className="text-right py-1 px-3 text-xs font-bold text-white dark:text-slate-300">Total</th>
                 </>
               )}
             </tr>
@@ -2146,7 +2148,6 @@ function ClassicSchedulePanel({
               return (
                 <>
                   {sections.map(({ phase, sectionKey, items: sItems }) => {
-                    const colors = PHASE_COLORS[phase] ?? PHASE_COLORS['Fase 0']
                     const isCollapsed = collapsedSections.has(sectionKey)
                     return (
                       <React.Fragment key={sectionKey}>
@@ -2234,13 +2235,13 @@ function ClassicSchedulePanel({
                   Total
                 </td>
                 <td className="py-2 px-3 text-right text-xs font-bold font-mono text-[#0c2340] dark:text-blue-400">
-                  {grandFirme > 0 ? <>{fmt(grandFirme)}<span className="text-[9px] ml-0.5 text-slate-500 dark:text-slate-600 font-normal">{unit}</span></> : <span className="text-slate-300 dark:text-slate-700 select-none">—</span>}
+                  {grandFirme > 0 ? fmt(grandFirme) : <span className="text-slate-300 dark:text-slate-700 select-none">—</span>}
                 </td>
                 <td className="py-2 px-3 text-right text-xs font-bold font-mono text-[#7d1935] dark:text-rose-400">
-                  {grandCont > 0 ? <>{fmt(grandCont)}<span className="text-[9px] ml-0.5 text-slate-500 dark:text-slate-600 font-normal">{unit}</span></> : <span className="text-slate-300 dark:text-slate-700 select-none">—</span>}
+                  {grandCont > 0 ? fmt(grandCont) : <span className="text-slate-300 dark:text-slate-700 select-none">—</span>}
                 </td>
                 <td className="py-2 px-3 text-right text-xs font-bold font-mono text-[#0c2340] dark:text-white">
-                  {fmt(grandTotal)}<span className="text-[9px] ml-0.5 text-slate-500 dark:text-slate-600 font-normal">{unit}</span>
+                  {fmt(grandTotal)}
                 </td>
               </tr>
             </tfoot>
@@ -2488,8 +2489,8 @@ export function FineTuningView() {
   const [deleteTarget,  setDeleteTarget]  = useState<DeleteTarget | null>(null)
   const [activeTab,     setActiveTab]     = useState<'list' | 'gantt'>('list')
   const [findQuery,     setFindQuery]     = useState('')
-  const [matchCount,    setMatchCount]    = useState(0)
-  const [matchIdx,      setMatchIdx]      = useState(0)
+  const [,              setMatchCount]    = useState(0)
+  const [,              setMatchIdx]      = useState(0)
   const gotoMatchRef = useRef<((idx: number) => void) | null>(null)
   const [showDetail,    setShowDetail]    = useState(false)
   const [showStats,     setShowStats]     = useState(false)
@@ -2878,8 +2879,6 @@ export function FineTuningView() {
     }, 30)
   }
 
-  const pct = state.inputs.percentile ?? 75
-
   const handleExportJson = () => {
     const data = buildProjectFacts(state)
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
@@ -2946,54 +2945,19 @@ export function FineTuningView() {
               className="flex items-center gap-1 text-xs text-slate-700 hover:text-slate-700 dark:hover:text-slate-500 transition-colors px-2 py-1 rounded border border-slate-200 dark:border-slate-600 bg-[#f5f5f5] dark:bg-slate-800 disabled:opacity-30 disabled:cursor-not-allowed">
               <Redo2 size={12} /> Refazer
             </button>
-            {/* Localizar */}
-            {activeTab === 'list' && (
-              <div className="flex items-center gap-1 py-1 px-2 rounded border border-slate-200 dark:border-slate-600 bg-[#fafafa] dark:bg-slate-700">
-                <Search size={12} className="shrink-0 text-slate-500 dark:text-slate-400" />
-                <input
-                  value={findQuery}
-                  onChange={e => setFindQuery(e.target.value)}
-                  onKeyDown={e => {
-                    if (e.key === 'Enter') { e.preventDefault(); gotoMatchRef.current?.(e.shiftKey ? matchIdx - 1 : matchIdx + 1) }
-                    else if (e.key === 'Escape') { e.preventDefault(); setFindQuery('') }
-                  }}
-                  placeholder="Localizar..."
-                  className="w-32 bg-transparent text-xs text-slate-700 dark:text-slate-200 outline-none placeholder:text-slate-500 dark:placeholder:text-slate-500"
-                />
-                {findQuery && (
-                  <>
-                    <span className="shrink-0 text-[10px] font-mono tabular-nums text-slate-500 dark:text-slate-400">
-                      {matchCount ? `${matchIdx + 1}/${matchCount}` : '0/0'}
-                    </span>
-                    <button onClick={() => gotoMatchRef.current?.(matchIdx - 1)} disabled={!matchCount} title="Anterior (Shift+Enter)"
-                      className="shrink-0 text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 disabled:opacity-30 transition-colors">
-                      <ChevronUp size={13} />
-                    </button>
-                    <button onClick={() => gotoMatchRef.current?.(matchIdx + 1)} disabled={!matchCount} title="Próximo (Enter)"
-                      className="shrink-0 text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 disabled:opacity-30 transition-colors">
-                      <ChevronDown size={13} />
-                    </button>
-                    <button onClick={() => setFindQuery('')} title="Limpar (Esc)"
-                      className="shrink-0 text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition-colors">
-                      <X size={12} />
-                    </button>
-                  </>
-                )}
-              </div>
-            )}
             <div className="ml-auto flex items-center gap-2">
               {/* Lista / Gantt */}
               <div className="flex gap-1 shrink-0">
                 <button onClick={() => setActiveTab('list')}
                   className={`px-2.5 py-1 text-xs rounded border transition-colors ${activeTab === 'list'
                     ? 'border-slate-500 dark:border-slate-400 bg-slate-100 dark:bg-slate-600 text-slate-800 dark:text-slate-100'
-                    : 'border-slate-200 dark:border-slate-600 bg-[#fafafa] dark:bg-slate-700 text-slate-500 dark:text-slate-400 hover:bg-slate-100 hover:border-slate-300 dark:hover:border-slate-500'}`}>
+                    : 'border-slate-200 dark:border-slate-600 bg-[#fafafa] dark:bg-slate-700 text-slate-500 dark:text-slate-400 hover:bg-slate-100 hover:border-slate-300 dark:hover:bg-slate-600 dark:hover:border-slate-500'}`}>
                   Lista
                 </button>
                 <button onClick={() => setActiveTab('gantt')}
                   className={`px-2.5 py-1 text-xs rounded border transition-colors ${activeTab === 'gantt'
                     ? 'border-slate-500 dark:border-slate-400 bg-slate-100 dark:bg-slate-600 text-slate-800 dark:text-slate-100'
-                    : 'border-slate-200 dark:border-slate-600 bg-[#fafafa] dark:bg-slate-700 text-slate-500 dark:text-slate-400 hover:bg-slate-100 hover:border-slate-300 dark:hover:border-slate-500'}`}>
+                    : 'border-slate-200 dark:border-slate-600 bg-[#fafafa] dark:bg-slate-700 text-slate-500 dark:text-slate-400 hover:bg-slate-100 hover:border-slate-300 dark:hover:bg-slate-600 dark:hover:border-slate-500'}`}>
                   Gantt
                 </button>
               </div>
@@ -3007,7 +2971,7 @@ export function FineTuningView() {
                 className={`flex items-center gap-1 text-xs px-2 py-1 rounded border transition-colors ${
                   showOntology
                     ? 'border-slate-500 dark:border-slate-400 bg-slate-100 dark:bg-slate-600 text-slate-800 dark:text-slate-100'
-                    : 'border-slate-200 dark:border-slate-600 bg-[#fafafa] dark:bg-slate-700 text-slate-500 dark:text-slate-400 hover:bg-slate-100 hover:border-slate-300 dark:hover:border-slate-500'
+                    : 'border-slate-200 dark:border-slate-600 bg-[#fafafa] dark:bg-slate-700 text-slate-500 dark:text-slate-400 hover:bg-slate-100 hover:border-slate-300 dark:hover:bg-slate-600 dark:hover:border-slate-500'
                 }`}>
                 Ontologia
                 {!showOntology && nOntology > 0 && (
@@ -3024,7 +2988,7 @@ export function FineTuningView() {
                 className={`flex items-center gap-1 text-xs px-2 py-1 rounded border transition-colors ${
                   showEds
                     ? 'border-slate-500 dark:border-slate-400 bg-slate-100 dark:bg-slate-600 text-slate-800 dark:text-slate-100'
-                    : 'border-slate-200 dark:border-slate-600 bg-[#fafafa] dark:bg-slate-700 text-slate-500 dark:text-slate-400 hover:bg-slate-100 hover:border-slate-300 dark:hover:border-slate-500'
+                    : 'border-slate-200 dark:border-slate-600 bg-[#fafafa] dark:bg-slate-700 text-slate-500 dark:text-slate-400 hover:bg-slate-100 hover:border-slate-300 dark:hover:bg-slate-600 dark:hover:border-slate-500'
                 }`}>
                 EDS
                 {!showEds && nEds > 0 && (
@@ -3041,7 +3005,7 @@ export function FineTuningView() {
                 className={`flex items-center gap-1 text-xs px-2 py-1 rounded border transition-colors ${
                   showCsb
                     ? 'border-slate-500 dark:border-slate-400 bg-slate-100 dark:bg-slate-600 text-slate-800 dark:text-slate-100'
-                    : 'border-slate-200 dark:border-slate-600 bg-[#fafafa] dark:bg-slate-700 text-slate-500 dark:text-slate-400 hover:bg-slate-100 hover:border-slate-300 dark:hover:border-slate-500'
+                    : 'border-slate-200 dark:border-slate-600 bg-[#fafafa] dark:bg-slate-700 text-slate-500 dark:text-slate-400 hover:bg-slate-100 hover:border-slate-300 dark:hover:bg-slate-600 dark:hover:border-slate-500'
                 }`}>
                 CSB
                 {!showCsb && nCsb > 0 && (
@@ -3073,15 +3037,15 @@ export function FineTuningView() {
                 <button onClick={() => state.showHours && dispatch({ type: 'TOGGLE_HOURS' })}
                   className={`px-2 py-1 text-xs rounded border transition-colors ${!state.showHours
                     ? 'border-slate-500 dark:border-slate-400 bg-slate-100 dark:bg-slate-600 text-slate-800 dark:text-slate-100'
-                    : 'border-slate-200 dark:border-slate-600 bg-[#fafafa] dark:bg-slate-700 text-slate-500 dark:text-slate-400 hover:bg-slate-100 hover:border-slate-300 dark:hover:border-slate-500'}`}>d</button>
+                    : 'border-slate-200 dark:border-slate-600 bg-[#fafafa] dark:bg-slate-700 text-slate-500 dark:text-slate-400 hover:bg-slate-100 hover:border-slate-300 dark:hover:bg-slate-600 dark:hover:border-slate-500'}`}>d</button>
                 <button onClick={() => !state.showHours && dispatch({ type: 'TOGGLE_HOURS' })}
                   className={`px-2 py-1 text-xs rounded border transition-colors ${state.showHours
                     ? 'border-slate-500 dark:border-slate-400 bg-slate-100 dark:bg-slate-600 text-slate-800 dark:text-slate-100'
-                    : 'border-slate-200 dark:border-slate-600 bg-[#fafafa] dark:bg-slate-700 text-slate-500 dark:text-slate-400 hover:bg-slate-100 hover:border-slate-300 dark:hover:border-slate-500'}`}>h</button>
+                    : 'border-slate-200 dark:border-slate-600 bg-[#fafafa] dark:bg-slate-700 text-slate-500 dark:text-slate-400 hover:bg-slate-100 hover:border-slate-300 dark:hover:bg-slate-600 dark:hover:border-slate-500'}`}>h</button>
               </div>
               <button
                 onClick={handleExportJson}
-                className="flex items-center gap-1.5 px-3 py-1 rounded text-xs font-semibold whitespace-nowrap transition-colors bg-[#008542] text-white dark:border dark:border-cyan-600/50 dark:bg-slate-700 dark:text-cyan-400 hover:opacity-90 dark:hover:border-cyan-400">
+                className="flex items-center gap-1.5 px-3 py-1 rounded text-xs font-semibold whitespace-nowrap transition-colors bg-[#008542] text-white hover:opacity-90 dark:bg-[#1a3a5c] dark:border dark:border-sky-700 dark:text-sky-300 dark:hover:bg-[#1e4570] dark:hover:border-sky-500">
                 <Download size={12} /> Finalizar Edição
               </button>
             </div>

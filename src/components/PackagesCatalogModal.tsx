@@ -80,15 +80,15 @@ function PackagesPanel({ abanList, tabList, activeLines }: {
       {total === 0
         ? <p className="text-sm text-slate-600 text-center py-8">Nenhum pacote encontrado.</p>
         : <>
-            <PkgSection title="Completação Molhada (ABAN)" list={abanList} activeLines={activeLines} />
-            <PkgSection title="Completação Seca (T-AB)" list={tabList} activeLines={activeLines} />
+            <PkgSection title="Pacotes ABAN" list={abanList} activeLines={activeLines} />
+            <PkgSection title="Pacotes T-AB" list={tabList} activeLines={activeLines} />
           </>
       }
     </div>
   )
 }
 
-export function PackagesCatalogModal({ onClose }: { onClose: () => void }) {
+export function PackagesCatalogModal({ onClose, anchorRect }: { onClose: () => void; anchorRect?: DOMRect }) {
   const [query, setQuery] = useState('')
   const [activeLines, setActiveLines] = useState<PackageLines>(BUNDLED_LINES as PackageLines)
 
@@ -119,9 +119,22 @@ export function PackagesCatalogModal({ onClose }: { onClose: () => void }) {
     }
   }, [query])
 
+  const dropdownLeft = anchorRect
+    ? Math.min(anchorRect.left, window.innerWidth - 380)
+    : 0
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-start pl-4 pointer-events-none">
-      <div className="pointer-events-auto relative flex flex-col bg-slate-100 dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-[40rem] max-h-[90vh] overflow-hidden ring-1 ring-slate-300/60 dark:ring-slate-700/60">
+    <>
+      <div className="fixed inset-0 z-40" onClick={onClose} />
+      <div
+        className="fixed z-50 flex flex-col bg-[#f5f5f5] dark:bg-slate-900 rounded-xl shadow-2xl overflow-hidden ring-1 ring-slate-300/60 dark:ring-slate-700/60"
+        style={{
+          top: anchorRect ? anchorRect.bottom + 4 : 48,
+          left: dropdownLeft,
+          width: '360px',
+          maxHeight: 'calc(100vh - 60px)',
+        }}
+      >
 
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200 dark:border-slate-700 shrink-0">
@@ -159,6 +172,6 @@ export function PackagesCatalogModal({ onClose }: { onClose: () => void }) {
           {abanList.length + tabList.length} pacotes encontrados · {abanList.length} ABAN · {tabList.length} T-AB
         </div>
       </div>
-    </div>
+    </>
   )
 }

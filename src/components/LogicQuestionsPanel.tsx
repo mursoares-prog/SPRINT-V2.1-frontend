@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import type { LSec, LDec, LAns, LPkg, LSeqEntry } from '../data/logicSecs'
 import { conditionMatches } from '../data/logicSecs'
 import { buildDecisionKey } from '../engines/logicEngine'
@@ -30,37 +30,7 @@ function decVisible(dec: LDec, rigType?: string, opType?: string): boolean {
 }
 
 // Coleta as chaves de todas as sub-perguntas visíveis na subárvore (caminho selecionado).
-function collectVisibleKeys(
-  dec: LDec, pathPrefix: string, decIndex: number,
-  answers: Record<string, string>, rigType?: string, opType?: string
-): string[] {
-  if (dec.reuseScope) return []
-  const key = buildDecisionKey(pathPrefix, decIndex, dec.question)
-  const keys = [key]
-  const selected = answers[key]
-  const selectedAns = dec.answers.find(a => a.label === selected)
-    ?? dec.answers.find(a => a.active)
-    ?? dec.answers[0]
-  selectedAns?.sub?.forEach((sub, si) => {
-    if (decVisible(sub, rigType, opType))
-      keys.push(...collectVisibleKeys(sub, `${key}::${selectedAns.label}`, si, answers, rigType, opType))
-  })
-  dec.afterDec?.forEach((ad, ai) => {
-    if (decVisible(ad, rigType, opType))
-      keys.push(...collectVisibleKeys(ad, `${key}::after`, ai, answers, rigType, opType))
-  })
-  return keys
-}
 
-const PHASE_ACCENT: Record<string, string> = {
-  'Mobilização':    'border-slate-400 dark:border-slate-600',
-  'Fase 0':         'border-gray-400 dark:border-gray-600',
-  'Fase 1A':        'border-blue-400 dark:border-blue-600',
-  'Fase 1B':        'border-amber-400 dark:border-amber-600',
-  'Fase 2':         'border-violet-500 dark:border-violet-600',
-  'Extra Abandono': 'border-rose-400 dark:border-rose-600',
-  'Desmobilização': 'border-slate-400 dark:border-slate-600',
-}
 
 interface Props {
   sections: LSec[]
@@ -76,7 +46,16 @@ export function LogicQuestionsPanel({ sections, answers, onAnswer, rigType, oper
 
   const [openKey, setOpenKey] = useState<string | null>(null)
   const [checkedKeys, setCheckedKeys] = useState<Set<string>>(new Set())
-  const [collapsedPhases, setCollapsedPhases] = useState<Set<string>>(new Set())
+
+  // Sync checks with answers: undo/redo adds or removes answers → mirror in checks
+  useEffect(() => {
+    setCheckedKeys(prev => {
+      const next = new Set<string>()
+      for (const k of prev) { if (k in answers) next.add(k) }
+      for (const k of Object.keys(answers)) next.add(k)
+      return next
+    })
+  }, [answers])
 
   const phaseOrder: string[] = []
   const byPhase: Record<string, LSec[]> = {}
@@ -84,16 +63,6 @@ export function LogicQuestionsPanel({ sections, answers, onAnswer, rigType, oper
     if (!byPhase[sec.phase]) { byPhase[sec.phase] = []; phaseOrder.push(sec.phase) }
     byPhase[sec.phase].push(sec)
   }
-
-  const allCollapsed = collapsedPhases.size >= phaseOrder.length
-
-  const toggleAll = () => allCollapsed
-    ? setCollapsedPhases(new Set())
-    : setCollapsedPhases(new Set(phaseOrder))
-
-  const togglePhase = (phase: string) => setCollapsedPhases(prev => {
-    const n = new Set(prev); n.has(phase) ? n.delete(phase) : n.add(phase); return n
-  })
 
   // Recebe array de chaves (raiz + sub-perguntas visíveis).
   // Se a raiz já está marcada → desmarca tudo; senão → marca tudo e fecha qualquer painel aberto.
@@ -110,17 +79,7 @@ export function LogicQuestionsPanel({ sections, answers, onAnswer, rigType, oper
 
   return (
     <div>
-      <div className="flex items-center justify-between px-2 py-1 mb-0.5">
-        <span className="text-[9px] font-semibold text-slate-500 dark:text-slate-600 uppercase tracking-widest">Definições</span>
-        <button
-          onClick={toggleAll}
-          className="text-[10px] text-slate-500 dark:text-slate-600 hover:text-slate-700 dark:hover:text-slate-400 transition-colors"
-          title={allCollapsed ? 'Expandir tudo' : 'Compactar tudo'}
-        >
-          {allCollapsed ? '+ Expandir tudo' : '− Compactar tudo'}
-        </button>
-      </div>
-      <div className="space-y-3">
+      <div className="space-y-2">
         {phaseOrder.map(phase => (
           <PhaseGroup
             key={phase}
@@ -130,8 +89,6 @@ export function LogicQuestionsPanel({ sections, answers, onAnswer, rigType, oper
             onAnswer={onAnswer}
             rigType={rigType}
             operationType={operationType}
-            collapsed={collapsedPhases.has(phase)}
-            onToggleCollapse={() => togglePhase(phase)}
             openKey={openKey}
             setOpenKey={setOpenKey}
             checkedKeys={checkedKeys}
@@ -143,19 +100,23 @@ export function LogicQuestionsPanel({ sections, answers, onAnswer, rigType, oper
   )
 }
 
-function PhaseGroup({ phase, sections, answers, onAnswer, rigType, operationType, collapsed, onToggleCollapse, openKey, setOpenKey, checkedKeys, onCheck }: {
+function PhaseGroup({ phase, sections, answers, onAnswer, rigType, operationType, openKey, setOpenKey, checkedKeys, onCheck }: {
   phase: string; sections: LSec[]; answers: Record<string, string>
   onAnswer: (key: string, label: string) => void; rigType?: string; operationType?: string
-  collapsed: boolean; onToggleCollapse: () => void
   openKey: string | null; setOpenKey: (k: string | null) => void
   checkedKeys: Set<string>; onCheck: (keys: string[]) => void
 }) {
-  const accent = PHASE_ACCENT[phase] ?? 'border-slate-400 dark:border-slate-500'
+  const [collapsed, setCollapsed] = useState(false)
   return (
-    <div className={`pl-1.5 border-l-2 ${accent}`}>
-      <button onClick={onToggleCollapse} className="flex items-center gap-1 w-full text-left mb-1.5 px-1">
-        <span className="text-slate-600 dark:text-slate-500 font-bold text-sm leading-none select-none">{collapsed ? '+' : '−'}</span>
-        <span className="text-[10px] font-bold text-slate-600 dark:text-slate-500 uppercase tracking-widest">{phase}</span>
+    <div data-isp-container>
+      <button
+        onClick={() => setCollapsed(c => !c)}
+        className="flex items-center gap-1.5 w-full text-left py-1.5 px-1 group"
+      >
+        <span className="w-4 font-bold text-sm leading-none select-none text-slate-400 dark:text-slate-500 group-hover:text-slate-600 dark:group-hover:text-slate-300">
+          {collapsed ? '+' : '−'}
+        </span>
+        <span data-isp-label className="text-xs font-bold tracking-wide text-slate-700 dark:text-slate-300 group-hover:text-slate-900 dark:group-hover:text-slate-100">{phase}</span>
       </button>
       {!collapsed && (
         <div>
@@ -233,48 +194,48 @@ function DecisionRow({ dec, pathPrefix, decIndex, answers, onAnswer, depth, rigT
   }
 
   return (
-    <div>
-      <div className={`rounded transition-all ${isChecked ? 'bg-emerald-50/60 dark:bg-emerald-950/20' : isEditing ? 'bg-sky-50 dark:bg-sky-950/40 ring-1 ring-sky-200 dark:ring-sky-800' : ''}`}>
-        <div className={`flex items-center w-full py-1.5 px-1 rounded transition-colors ${!isEditing ? 'hover:bg-slate-50 dark:hover:bg-slate-800' : ''}`}>
-
-          <button
-              onClick={handleRootCheck}
-              className={`shrink-0 mr-1.5 w-3 h-3 rounded border transition-colors flex items-center justify-center ${
-                isChecked
-                  ? 'bg-emerald-500 dark:bg-emerald-600 border-emerald-500 dark:border-emerald-600'
-                  : 'border-slate-300 dark:border-slate-600 hover:border-emerald-400 dark:hover:border-emerald-500'
-              }`}
-              title={isChecked ? 'Desmarcar revisão' : 'Marcar como revisado'}
-            >
-              {isChecked && <span className="text-white leading-none select-none" style={{ fontSize: 8 }}>✓</span>}
-            </button>
+    <div data-isp-container>
+      <div className={`rounded transition-all ${isEditing ? 'bg-sky-50 dark:bg-sky-950/40 ring-1 ring-sky-200 dark:ring-sky-800' : ''}`}>
+        <div className={`flex items-start w-full py-1.5 px-2 rounded transition-colors ${!isEditing ? 'hover:bg-slate-50 dark:hover:bg-slate-800' : ''}`}>
 
           {/* Pergunta */}
           <button
             onClick={() => setOpenKey(isEditing ? null : key)}
-            className="flex-1 flex justify-between items-center text-left gap-1.5 min-w-0"
+            className="flex-1 flex justify-between items-start text-left gap-2 min-w-0"
           >
-            <span className={`flex items-center gap-1 leading-tight min-w-0 ${
+            <span className={`flex items-center gap-1 min-w-0 ${
               isChecked
-                ? 'text-[11px] text-slate-400 dark:text-slate-600'
-                : 'text-[11px] font-semibold text-slate-700 dark:text-slate-400'
+                ? 'text-xs text-slate-400 dark:text-slate-600'
+                : 'text-xs text-slate-600 dark:text-slate-500'
             }`}>
               {!hasDefault && !isChecked && (
                 <span title="Sem resposta padrão definida" className="shrink-0 text-amber-500 dark:text-amber-400 font-bold leading-none" style={{ fontSize: 10 }}>⚠</span>
               )}
-              <span className="truncate">{dec.question}</span>
+              <span data-isp-label title={dec.question} className="truncate min-w-0">{dec.question}</span>
             </span>
             {!isEditing && (
-              <span className={`text-[10px] font-medium shrink-0 ${
+              <span className={`text-xs font-semibold shrink-0 text-right ${
                 isChecked
                   ? 'text-emerald-600 dark:text-emerald-500'
                   : !selected && !selectedAns
                     ? 'text-slate-400 dark:text-slate-600'
-                    : 'text-slate-600 dark:text-white'
+                    : 'text-slate-700 dark:text-slate-200'
               }`}>
                 {selected ?? selectedAns?.label ?? '—'}
               </span>
             )}
+          </button>
+
+          <button
+            onClick={handleRootCheck}
+            className={`shrink-0 ml-1.5 mt-0.5 w-3 h-3 rounded border transition-colors flex items-center justify-center ${
+              isChecked
+                ? 'bg-emerald-500 dark:bg-emerald-600 border-emerald-500 dark:border-emerald-600'
+                : 'border-slate-300 dark:border-slate-600 hover:border-emerald-400 dark:hover:border-emerald-500'
+            }`}
+            title={isChecked ? 'Desmarcar revisão' : 'Marcar como revisado'}
+          >
+            {isChecked && <span className="text-white leading-none select-none" style={{ fontSize: 8 }}>✓</span>}
           </button>
         </div>
 
@@ -282,9 +243,9 @@ function DecisionRow({ dec, pathPrefix, decIndex, answers, onAnswer, depth, rigT
           <div className="px-2 pb-1 pt-0.5 space-y-px">
             {dec.answers.map(ans => (
               <label key={ans.label}
-                className={`flex items-center gap-1.5 px-1.5 py-0.5 rounded cursor-pointer transition-colors text-[10px]
+                className={`flex items-center gap-2 px-2 py-1 rounded cursor-pointer transition-colors text-xs
                   ${(selected ?? selectedAns?.label) === ans.label
-                    ? 'bg-slate-100 dark:bg-slate-700 text-sky-800 dark:text-sky-300 font-semibold ring-1 ring-sky-200 dark:ring-sky-700'
+                    ? 'bg-[#f5f5f5] dark:bg-slate-700 text-sky-800 dark:text-sky-300 font-semibold shadow-sm ring-1 ring-sky-200 dark:ring-sky-700'
                     : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100/60 dark:hover:bg-slate-800'}`}>
                 <input
                   type="radio"

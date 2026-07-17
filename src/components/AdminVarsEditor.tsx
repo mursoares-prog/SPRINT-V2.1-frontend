@@ -6,10 +6,11 @@
 // entre pacotes, e — para pacotes CUSTOMIZADOS — editar nome/categoria/tecnologia,
 // criar, duplicar e apagar. Salva o array completo por pacote (savePackageLines).
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Trash2, Plus, Check, Loader2, AlertTriangle, X, ChevronDown, ChevronRight, Copy, ClipboardPaste, ArrowUp, ArrowDown, CopyPlus, FilePlus2, Braces } from 'lucide-react'
+import { Trash2, Plus, Check, Loader2, AlertTriangle, X, ChevronDown, ChevronRight, Copy, ClipboardPaste, ArrowUp, ArrowDown, CopyPlus, FilePlus2, Braces, FolderPlus } from 'lucide-react'
 import {
   savePackageLines, createPackage, updatePackageMeta, deletePackage,
-  type BaseLine, type CustomPackageMeta, type LineOverride, type PackageLines,
+  createPackageGroup, deletePackageGroup,
+  type BaseLine, type CustomPackageMeta, type LineOverride, type PackageLines, type PackageGroupInfo,
 } from '../utils/api'
 import { authHeader } from '../utils/auth'
 import { PACKAGES } from '../data/packages'
@@ -42,12 +43,13 @@ function uid() { return `el_${Date.now().toString(36)}_${(_seq++).toString(36)}`
 const stripId = (l: EditLine): BaseLine => { const { _id, ...rest } = l; void _id; return rest }
 const numFromPrefix = (id: string) => parseInt(id.replace(/\D/g, ''), 10) || 0
 
-export function AdminVarsEditor({ query, serverBase, pkgOverrides, legacyOverrides, customMetas, fields, canEdit, reload }: {
+export function AdminVarsEditor({ query, serverBase, pkgOverrides, legacyOverrides, customMetas, customGroups, fields, canEdit, reload }: {
   query: string
   serverBase: PackageLines | null
   pkgOverrides: Record<string, BaseLine[]>
   legacyOverrides: Map<string, LineOverride>
   customMetas: CustomPackageMeta[]
+  customGroups: PackageGroupInfo[]
   fields: string[]
   canEdit: boolean
   reload: () => Promise<void>
@@ -68,6 +70,8 @@ export function AdminVarsEditor({ query, serverBase, pkgOverrides, legacyOverrid
   const toggleCat = (id: string) => setCollapsedCats(prev => {
     const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n
   })
+  const [showNewGroupForm, setShowNewGroupForm] = useState(false)
+  const [newGroupLabel, setNewGroupLabel] = useState('')
 
   useEffect(() => {
     if (!scrollTarget) return
@@ -219,23 +223,68 @@ export function AdminVarsEditor({ query, serverBase, pkgOverrides, legacyOverrid
     catch (e) { setError((e as Error).message) } finally { setBusy(null) }
   }
 
+  const submitNewGroup = async () => {
+    const label = newGroupLabel.trim()
+    if (!label) return
+    setBusy('__newgroup__'); setError('')
+    try {
+      await createPackageGroup(label, authHeader())
+      await reload()
+      setNewGroupLabel('')
+      setShowNewGroupForm(false)
+    } catch (e) { setError((e as Error).message) } finally { setBusy(null) }
+  }
+
+  const removeGroup = async (id: string) => {
+    setBusy(`__group__${id}`); setError('')
+    try { await deletePackageGroup(id, authHeader()); await reload() }
+    catch (e) { setError((e as Error).message) } finally { setBusy(null) }
+  }
+
   const q = query.trim().toLowerCase()
   const visible = pkgIds.filter(id => !q || id.toLowerCase().includes(q) || nameOf(id).toLowerCase().includes(q))
 
   return (
     <div className="p-3 space-y-2">
       {canEdit && (
-        <div className="flex items-center gap-2">
-          <button onClick={createNew} disabled={!!busy}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-white bg-[#0c2340] hover:bg-[#0e3a60] transition-colors disabled:opacity-50">
-            <FilePlus2 size={13} /> Novo pacote
-          </button>
-          <button onClick={copySelected} disabled={selected.size === 0}
-            title="Copiar linhas selecionadas"
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:border-[#d97706] hover:text-[#d97706] transition-colors disabled:opacity-40">
-            <Copy size={13} /> Copiar ({selected.size})
-          </button>
-          {clipboard && <span className="text-[11px] text-slate-500">{clipboard.length} linha(s) na área de transferência</span>}
+        <div className="flex flex-col gap-2">
+          <div className="flex items-center gap-2">
+            <button onClick={createNew} disabled={!!busy}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-white bg-[#0c2340] hover:bg-[#0e3a60] transition-colors disabled:opacity-50">
+              <FilePlus2 size={13} /> Novo pacote
+            </button>
+            <button onClick={() => { setShowNewGroupForm(v => !v); setNewGroupLabel('') }} disabled={!!busy}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:border-[#0c2340] hover:text-[#0c2340] dark:hover:border-sky-400 dark:hover:text-sky-400 transition-colors disabled:opacity-50">
+              <FolderPlus size={13} /> Novo grupo
+            </button>
+            <button onClick={copySelected} disabled={selected.size === 0}
+              title="Copiar linhas selecionadas"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:border-[#d97706] hover:text-[#d97706] transition-colors disabled:opacity-40">
+              <Copy size={13} /> Copiar ({selected.size})
+            </button>
+            {clipboard && <span className="text-[11px] text-slate-500">{clipboard.length} linha(s) na área de transferência</span>}
+          </div>
+          {showNewGroupForm && (
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                autoFocus
+                placeholder="Nome do grupo..."
+                value={newGroupLabel}
+                onChange={e => setNewGroupLabel(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') void submitNewGroup(); if (e.key === 'Escape') setShowNewGroupForm(false) }}
+                className="rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-1.5 text-xs text-slate-800 dark:text-slate-100 focus:outline-none focus:border-[#0c2340] dark:focus:border-sky-500 w-56"
+              />
+              <button onClick={() => void submitNewGroup()} disabled={!newGroupLabel.trim() || !!busy}
+                className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold text-white bg-[#008542] hover:bg-[#006b35] transition-colors disabled:opacity-40">
+                <Check size={12} /> Criar
+              </button>
+              <button onClick={() => setShowNewGroupForm(false)}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors">
+                <X size={14} />
+              </button>
+            </div>
+          )}
         </div>
       )}
       {error && (
@@ -265,7 +314,7 @@ export function AdminVarsEditor({ query, serverBase, pkgOverrides, legacyOverrid
         return (
           <div key={pkgId} ref={el => { pkgRefs.current[pkgId] = el }} className="rounded-lg border border-slate-200 dark:border-slate-700 overflow-hidden">
             {/* Cabeçalho do pacote */}
-            <div className="flex items-center gap-2 px-3 py-2 bg-slate-100 dark:bg-slate-800/60">
+            <div className="flex items-center gap-2 px-3 py-2 bg-[#f5f5f5] dark:bg-slate-800/60">
               <button onClick={() => openPkg(pkgId)} className="text-slate-500 hover:text-slate-800 dark:hover:text-slate-200">
                 {isOpen ? <ChevronDown size={15} /> : <ChevronRight size={15} />}
               </button>
@@ -390,10 +439,33 @@ export function AdminVarsEditor({ query, serverBase, pkgOverrides, legacyOverrid
         )
       })}
 
+      {customGroups.map(grp => {
+        const collapsed = collapsedCats.has(grp.id)
+        return (
+          <div key={grp.id} className="space-y-2">
+            <div className="w-full flex items-center gap-1.5 pt-1">
+              <button onClick={() => toggleCat(grp.id)} className="flex items-center gap-1.5 text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition-colors">
+                {collapsed ? <ChevronRight size={14} className="shrink-0" /> : <ChevronDown size={14} className="shrink-0" />}
+                <span className="text-[11px] font-bold uppercase tracking-wider">{grp.label}</span>
+              </button>
+              {canEdit && (
+                <button onClick={() => void removeGroup(grp.id)} disabled={!!busy} title="Remover grupo"
+                  className="ml-1 p-0.5 rounded text-slate-400 hover:text-rose-600 transition-colors disabled:opacity-40">
+                  <Trash2 size={12} />
+                </button>
+              )}
+            </div>
+            {!collapsed && (
+              <p className="pl-6 text-[11px] text-slate-400 italic">vazio</p>
+            )}
+          </div>
+        )
+      })}
+
       {/* Popover de placeholders */}
       {ph && (
         <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/40 p-4" onClick={() => setPh(null)}>
-          <div onClick={e => e.stopPropagation()} className="bg-slate-100 dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-700 w-full max-w-md max-h-[70vh] flex flex-col">
+          <div onClick={e => e.stopPropagation()} className="bg-[#f5f5f5] dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-700 w-full max-w-md max-h-[70vh] flex flex-col">
             <div className="flex items-center gap-2 px-4 py-3 border-b border-slate-200 dark:border-slate-700">
               <Braces size={14} className="text-[#d97706]" />
               <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-200 flex-1">Inserir placeholder</h3>

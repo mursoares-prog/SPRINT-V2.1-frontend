@@ -1,12 +1,13 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect, useCallback, createContext, useContext } from 'react'
 import { createPortal } from 'react-dom'
-import { X, ChevronLeft, ChevronRight, FilePlus, FolderOpen } from 'lucide-react'
-import { ServerProjectsModal } from './ServerProjectsModal'
+import { X, Search, ChevronUp, ChevronDown } from 'lucide-react'
 import { useApp } from '../context/AppContext'
 import { generateSchedule } from '../engines/scheduleRouter'
 import { resolveScopeSections, expandScopeRefs, getCustomScopesMeta } from '../data/logicOverrideStore'
 import { LogicQuestionsPanel } from './LogicQuestionsPanel'
 import type { WizardInputs, FlowlineLine, ScopeId, YesContingencyNo, TmfPlugBore, IsolationPlugType, IsolationCorrMethod, FishingElement, FishingMethod, VglAction, GaugeTech, InvestigationLog, RcmaCsbPrincipal, RcmaCementPkg, TcapSurfaceFluid } from '../types'
+
+export const SearchCtx = createContext('')
 
 const FISHING_ELEMENT_LABELS: Record<FishingElement, string> = {
   camisao: 'Camisão', stv_r: 'STV nipple R 2,75"', stv_f: 'STV nipple F 2,81"',
@@ -99,8 +100,34 @@ export function InputSummaryPanel({ onClose }: { onClose?: () => void }) {
   const { state, dispatch } = useApp()
   const { inputs } = state
   const [editing, setEditing] = useState<string | null>(null)
-  const [collapsed, setCollapsed] = useState(() => typeof window !== 'undefined' && window.innerWidth < 1400)
-  const [showProjectsModal, setShowProjectsModal] = useState(false)
+
+  const [panelWidth, setPanelWidth] = useState(() => {
+    const saved = localStorage.getItem('sprint_left_panel_width')
+    return saved ? Math.max(220, Math.min(600, parseInt(saved))) : 340
+  })
+  const widthRef = useRef(panelWidth)
+
+  const handleResizeStart = useCallback((e: React.MouseEvent) => {
+    e.preventDefault()
+    const startX = e.clientX
+    const startW = widthRef.current
+    document.body.style.cursor = 'col-resize'
+    document.body.style.userSelect = 'none'
+    const onMove = (ev: MouseEvent) => {
+      const newW = Math.max(220, Math.min(600, startW + ev.clientX - startX))
+      widthRef.current = newW
+      setPanelWidth(newW)
+    }
+    const onUp = () => {
+      document.body.style.cursor = ''
+      document.body.style.userSelect = ''
+      localStorage.setItem('sprint_left_panel_width', String(widthRef.current))
+      window.removeEventListener('mousemove', onMove)
+      window.removeEventListener('mouseup', onUp)
+    }
+    window.addEventListener('mousemove', onMove)
+    window.addEventListener('mouseup', onUp)
+  }, [])
 
   const apply = (data: Partial<WizardInputs>, autoClose = true) => {
     const merged = { ...inputs, ...data } as WizardInputs
@@ -180,44 +207,131 @@ const showRemoveANM = isTT || isFS1Mec
 
   const scopeOpts = ALL_SCOPE_OPTS.filter(o => !isLWO || LWO_SCOPES.has(o.value))
 
-  if (collapsed && !onClose) {
-    return (
-      <aside className="w-8 shrink-0 border-r border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-900 flex flex-col items-center overflow-hidden">
-        <button
-          onClick={() => setCollapsed(false)}
-          title="Expandir painel de abandono"
-          className="flex-1 flex items-center justify-center text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors w-full">
-          <ChevronRight size={14} />
-        </button>
-      </aside>
-    )
+  // ── Search ──
+  const [search, setSearch] = useState('')
+  const [matchIdx, setMatchIdx] = useState(0)
+  const [matchCount, setMatchCount] = useState(0)
+  const scrollAreaRef = useRef<HTMLDivElement>(null)
+  const activeContainerRef = useRef<HTMLElement | null>(null)
+
+  const applyHighlight = useCallback((idx: number, matches: Element[]) => {
+    if (activeContainerRef.current) {
+      activeContainerRef.current.style.outline = ''
+      activeContainerRef.current = null
+    }
+    if (matches.length === 0) return
+    const label = matches[idx]
+    const container = label.closest('[data-isp-container]') as HTMLElement | null
+    if (container) {
+      container.style.outline = '2px solid #009957'
+      container.style.outlineOffset = '-1px'
+      container.style.borderRadius = '6px'
+      container.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+      activeContainerRef.current = container
+    }
+  }, [])
+
+  useEffect(() => {
+    if (activeContainerRef.current) {
+      activeContainerRef.current.style.outline = ''
+      activeContainerRef.current = null
+    }
+    if (!search.trim() || !scrollAreaRef.current) { setMatchCount(0); setMatchIdx(0); return }
+    const q = search.toLowerCase()
+    const matches = Array.from(scrollAreaRef.current.querySelectorAll('[data-isp-label]'))
+      .filter(el => el.textContent?.toLowerCase().includes(q))
+    setMatchCount(matches.length)
+    setMatchIdx(0)
+    applyHighlight(0, matches)
+  }, [search, applyHighlight])
+
+  const navigate = (dir: 1 | -1) => {
+    if (matchCount === 0 || !scrollAreaRef.current) return
+    const q = search.toLowerCase()
+    const matches = Array.from(scrollAreaRef.current.querySelectorAll('[data-isp-label]'))
+      .filter(el => el.textContent?.toLowerCase().includes(q))
+    const next = ((matchIdx + dir) % matchCount + matchCount) % matchCount
+    setMatchIdx(next)
+    applyHighlight(next, matches)
   }
 
   return (
-    <aside className={`${onClose ? 'flex-1' : 'w-96 shrink-0'} border-r border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-900 flex flex-col overflow-hidden`}>
-      <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between shrink-0">
-        <span className="text-xs font-bold text-slate-700 dark:text-slate-400 uppercase tracking-widest">Painel de Intervenção</span>
-        <div className="flex items-center gap-0.5">
-          {!onClose && (
-            <button onClick={() => setCollapsed(true)}
-              title="Recolher painel"
-              className="p-1 rounded hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-500 hover:text-slate-700 dark:hover:text-slate-200 transition-colors">
-              <ChevronLeft size={14} />
-            </button>
-          )}
-          {onClose && (
-            <button onClick={onClose}
-              className="p-1 rounded hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 hover:text-slate-700 dark:hover:text-slate-200 transition-colors">
-              <X size={16} />
-            </button>
+    <aside className={`${onClose ? 'flex-1' : 'shrink-0'} relative border-r border-slate-200 dark:border-slate-700 bg-[#f5f5f5] dark:bg-slate-900 flex flex-col`}
+      style={!onClose ? { width: `${panelWidth}px` } : undefined}>
+
+      {!onClose && (
+        <div
+          onMouseDown={handleResizeStart}
+          className="absolute top-0 h-full z-20 cursor-col-resize group/resize"
+          style={{ right: '-5px', width: '10px' }}
+        >
+          <div className="absolute inset-y-0 inset-x-0 transition-colors group-hover/resize:bg-[#005889]/30" />
+        </div>
+      )}
+
+      {onClose && (
+        <button onClick={onClose}
+          className="absolute top-2 right-2 z-10 p-1 rounded hover:bg-[#f5f5f5] dark:hover:bg-slate-800 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors">
+          <X size={16} />
+        </button>
+      )}
+
+      {/* Search bar */}
+      <div className="px-3 border-b border-slate-200 dark:border-slate-700 shrink-0 flex items-center" style={{ height: '38px' }}>
+        <div className="flex items-center gap-1.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-lg px-2.5 h-7 w-full">
+          <Search size={12} className="text-slate-400 shrink-0" />
+          <input
+            type="text"
+            placeholder="Localizar"
+            value={search}
+            onChange={e => { setSearch(e.target.value) }}
+            onKeyDown={e => { if (e.key === 'Enter') navigate(e.shiftKey ? -1 : 1) }}
+            className="flex-1 text-xs bg-transparent outline-none text-slate-700 dark:text-slate-200 placeholder:text-slate-400"
+          />
+          {search && (
+            <>
+              <span className="text-[10px] text-slate-400 shrink-0 tabular-nums">
+                {matchCount > 0 ? `${matchIdx + 1}/${matchCount}` : '0'}
+              </span>
+              <button onClick={() => navigate(-1)} title="Anterior (Shift+Enter)"
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors">
+                <ChevronUp size={12} />
+              </button>
+              <button onClick={() => navigate(1)} title="Próximo (Enter)"
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors">
+                <ChevronDown size={12} />
+              </button>
+              <button onClick={() => setSearch('')} title="Limpar busca"
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors">
+                <X size={12} />
+              </button>
+            </>
           )}
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-4 space-y-5 scrollbar-custom">
+      <SearchCtx.Provider value={search}>
+      <div ref={scrollAreaRef} className="flex-1 overflow-y-auto p-4 space-y-5 scrollbar-custom">
+
+        {/* ── Árvore de Decisão (topo) ── */}
+        {!isCustomScope && (
+          <Row label="Árvore de Decisão"
+            tooltip="Usar as Árvores de Decisão do escopo como engine de perguntas"
+            value={flowStrict ? 'Sim' : 'Engine antiga'}
+            isEditing={isEd('engineMode')} onEdit={() => edit('engineMode')}>
+            <InlineRadio
+              options={[
+                { value: 'flowchart', label: 'Sim' },
+                { value: 'wizard',    label: 'Engine antiga' },
+              ]}
+              value={inputs.engineMode === 'none' ? 'flowchart' : (inputs.engineMode ?? 'flowchart')}
+              onChange={v => apply({ engineMode: v as WizardInputs['engineMode'] })}
+            />
+          </Row>
+        )}
 
         {/* ── Sonda e Escopo ── */}
-        <Section label="Sonda e Escopo">
+        <Section label="Sonda e Escopo" defaultExpanded grayHeader>
           <Row label="Tipo de intervenção"
             tooltip="Completação molhada (ANM submersa — ANC/DP) ou completação seca (árvore de natal seca — outras sondas)"
             value={(['ANC', 'DP'] as string[]).includes(inputs.rigType ?? '') ? 'Abandono Comp. Molhada' : inputs.rigType ? 'Abandono Comp. Seca' : '—'}
@@ -313,36 +427,6 @@ const showRemoveANM = isTT || isFS1Mec
             </Row>
           )}
 
-          {!isCustomScope && (
-            <Row label="Árvore de Decisão"
-              tooltip="Usar as Árvores de Decisão do escopo como engine de perguntas"
-              value={flowStrict ? 'Sim' : inputs.engineMode === 'none' ? 'Não' : 'Engine antiga'}
-              isEditing={isEd('engineMode')} onEdit={() => edit('engineMode')}>
-              <InlineRadio
-                options={[
-                  { value: 'flowchart', label: 'Sim' },
-                  { value: 'none',      label: 'Não' },
-                  { value: 'wizard',    label: 'Engine antiga' },
-                ]}
-                value={inputs.engineMode ?? 'flowchart'}
-                onChange={v => apply({ engineMode: v as WizardInputs['engineMode'] })}
-              />
-              {inputs.engineMode === 'none' && (
-                <div className="mt-2 flex flex-col gap-1.5">
-                  <button
-                    onClick={() => dispatch({ type: 'ENTER_FINE_TUNING_BLANK' })}
-                    className="flex items-center gap-2 px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:border-slate-400 dark:hover:border-slate-500 hover:text-slate-800 dark:hover:text-slate-200 transition-colors text-xs font-semibold">
-                    <FilePlus size={13} /> Cronograma em branco
-                  </button>
-                  <button
-                    onClick={() => setShowProjectsModal(true)}
-                    className="flex items-center gap-2 px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:border-slate-400 dark:hover:border-slate-500 hover:text-slate-800 dark:hover:text-slate-200 transition-colors text-xs font-semibold">
-                    <FolderOpen size={13} /> Copiar de projeto
-                  </button>
-                </div>
-              )}
-            </Row>
-          )}
         </Section>
 
         {!isCustomScope && !flowStrict && <>
@@ -1957,7 +2041,7 @@ const showRemoveANM = isTT || isFS1Mec
 
         </>}
 
-        {/* ── Perguntas do fluxograma (escopos custom e engine 'flowchart') ── */}
+        {/* ── Definições ── */}
         {useFlowQuestions && inputs.rigType && inputs.scopeId && (() => {
           const secs = (customSecs ?? []).filter(sec => {
             if (sec.rigTypes?.length && !sec.rigTypes.includes(inputs.rigType!)) return false
@@ -1966,41 +2050,58 @@ const showRemoveANM = isTT || isFS1Mec
           })
           if (!secs.length) return null
           return (
-            <LogicQuestionsPanel
-              sections={secs}
-              showSectionLabels={flowStrict}
-              rigType={inputs.rigType}
-              operationType={inputs.operationType}
-              answers={inputs.logicAnswers ?? {}}
-              onAnswer={(key, label) => {
-                apply({ logicAnswers: { ...(inputs.logicAnswers ?? {}), [key]: label } }, false)
-              }}
-            />
+            <Section label="Definições" grayHeader>
+              <LogicQuestionsPanel
+                sections={secs}
+                showSectionLabels={flowStrict}
+                rigType={inputs.rigType}
+                operationType={inputs.operationType}
+                answers={inputs.logicAnswers ?? {}}
+                onAnswer={(key, label) => {
+                  apply({ logicAnswers: { ...(inputs.logicAnswers ?? {}), [key]: label } }, false)
+                }}
+              />
+            </Section>
           )
         })()}
 
       </div>
-      {showProjectsModal && <ServerProjectsModal onClose={() => setShowProjectsModal(false)} />}
+      </SearchCtx.Provider>
     </aside>
   )
 }
 
-function Section({ label, children, accent }: { label: string; children: React.ReactNode; accent?: string }) {
-  const [collapsed, setCollapsed] = useState(false)
+function Section({ label, children, accent, collapsible = true, defaultExpanded = false, grayHeader = false }: {
+  label: string; children: React.ReactNode; accent?: string; collapsible?: boolean; defaultExpanded?: boolean; grayHeader?: boolean
+}) {
+  const [collapsed, setCollapsed] = useState(!defaultExpanded)
+  const searchTerm = useContext(SearchCtx)
+  const isExpanded = !collapsible || !collapsed || !!searchTerm.trim()
+  const ringClass = accent
+    ? accent.replace(/border-/g, 'ring-')
+    : 'ring-slate-200/80 dark:ring-slate-700/60'
   return (
-    <div className={accent ? `pl-2 border-l-2 ${accent}` : ''}>
-      <button
-        onClick={() => setCollapsed(c => !c)}
-        className="flex items-center gap-1.5 w-full text-left mb-1.5 px-1 group"
-      >
-        <span className="text-slate-600 dark:text-slate-500 group-hover:text-slate-600 dark:group-hover:text-slate-500 font-bold text-sm leading-none select-none transition-colors">
-          {collapsed ? '+' : '−'}
-        </span>
-        <span className="text-xs font-bold text-slate-600 dark:text-slate-500 group-hover:text-slate-600 dark:group-hover:text-slate-500 uppercase tracking-widest transition-colors">
-          {label}
-        </span>
-      </button>
-      {!collapsed && <div className="space-y-0.5">{children}</div>}
+    <div data-isp-container className={`rounded-xl overflow-hidden shadow-sm ring-1 transition-colors ${ringClass}`}>
+      <div className={`flex items-center gap-1.5 px-2.5 py-2 ${grayHeader ? 'bg-[#ebebeb] dark:bg-slate-800/50' : 'bg-slate-50/90 dark:bg-slate-800/50'} ${isExpanded ? 'border-b border-slate-200/70 dark:border-slate-700/50' : ''}`}>
+        {collapsible ? (
+          <button
+            onClick={() => setCollapsed(c => !c)}
+            className="flex items-center gap-1.5 flex-1 min-w-0 text-left group"
+          >
+            <span className="w-4 font-bold text-sm leading-none select-none transition-colors text-slate-400 dark:text-slate-500 group-hover:text-slate-600 dark:group-hover:text-slate-300">
+              {isExpanded ? '−' : '+'}
+            </span>
+            <span data-isp-label className="text-xs font-bold tracking-wide transition-colors text-slate-700 dark:text-slate-300 group-hover:text-slate-900 dark:group-hover:text-slate-100">
+              {label}
+            </span>
+          </button>
+        ) : (
+          <span data-isp-label className="text-xs font-bold tracking-wide text-slate-700 dark:text-slate-300">
+            {label}
+          </span>
+        )}
+      </div>
+      {isExpanded && <div className="px-2.5 py-1.5 space-y-0.5">{children}</div>}
     </div>
   )
 }
@@ -2026,7 +2127,7 @@ function Row({ label, value, isEditing, onEdit, children, tooltip }: {
   }
 
   return (
-    <div className={`rounded-lg transition-colors ${isEditing ? 'bg-sky-50 dark:bg-sky-950/40 ring-1 ring-sky-200 dark:ring-sky-800' : ''}`}>
+    <div data-isp-container className={`rounded-lg transition-colors ${isEditing ? 'bg-sky-50 dark:bg-sky-950/40 ring-1 ring-sky-200 dark:ring-sky-800' : ''}`}>
       <button
         onClick={onEdit}
         className={`w-full flex justify-between items-center py-1.5 px-2 rounded-lg text-left group transition-colors
@@ -2034,7 +2135,9 @@ function Row({ label, value, isEditing, onEdit, children, tooltip }: {
       >
         <span
           ref={labelRef}
-          className="flex items-center text-xs text-slate-600 dark:text-slate-500 shrink-0 mr-2 cursor-default"
+          data-isp-label
+          title={label}
+          className="text-xs text-slate-600 dark:text-slate-500 shrink-0 mr-2 cursor-default whitespace-nowrap"
           onMouseEnter={tooltip ? showTip : undefined}
           onMouseLeave={tooltip ? () => setTipVisible(false) : undefined}
           onClick={e => e.stopPropagation()}
@@ -2043,7 +2146,7 @@ function Row({ label, value, isEditing, onEdit, children, tooltip }: {
         </span>
         <span className={`text-xs font-semibold text-right flex items-center gap-1.5 min-w-0
           ${value === '—' ? 'text-slate-500 dark:text-slate-600' : isEditing ? 'text-sky-700 dark:text-sky-400' : 'text-slate-700 dark:text-slate-200'}`}>
-          <span className="truncate">{value}</span>
+          <span className="text-right truncate min-w-0">{value}</span>
           <span className="text-slate-500 dark:text-slate-600 text-xs opacity-0 group-hover:opacity-100 transition-opacity shrink-0">✎</span>
         </span>
       </button>
@@ -2075,7 +2178,7 @@ function InlineRadio({ options, value, onChange }: {
         <label key={opt.value}
           className={`flex items-center gap-2 px-2 py-1 rounded cursor-pointer transition-colors text-xs
             ${value === opt.value
-              ? 'bg-slate-100 dark:bg-slate-700 text-sky-800 dark:text-sky-300 font-semibold shadow-sm ring-1 ring-sky-200 dark:ring-sky-700'
+              ? 'bg-[#f5f5f5] dark:bg-slate-700 text-sky-800 dark:text-sky-300 font-semibold shadow-sm ring-1 ring-sky-200 dark:ring-sky-700'
               : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100/60 dark:hover:bg-slate-800'}`}>
           <input type="radio" checked={value === opt.value} onChange={() => onChange(opt.value)}
             className="accent-[#0c2340] shrink-0" />
@@ -2097,7 +2200,7 @@ function InlineCheckboxes({ options, values, onToggle }: {
         <label key={opt.value}
           className={`flex items-center gap-2 px-2 py-1 rounded cursor-pointer transition-colors text-xs
             ${values.includes(opt.value)
-              ? 'bg-slate-100 dark:bg-slate-700 text-sky-800 dark:text-sky-300 font-semibold shadow-sm ring-1 ring-sky-200 dark:ring-sky-700'
+              ? 'bg-[#f5f5f5] dark:bg-slate-700 text-sky-800 dark:text-sky-300 font-semibold shadow-sm ring-1 ring-sky-200 dark:ring-sky-700'
               : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100/60 dark:hover:bg-slate-800'}`}>
           <input type="checkbox" checked={values.includes(opt.value)} onChange={() => onToggle(opt.value)}
             className="accent-[#0c2340] shrink-0" />

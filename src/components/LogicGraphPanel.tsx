@@ -13,6 +13,7 @@ import { GiOffshorePlatform } from 'react-icons/gi'
 import { getPackage } from '../data/packages'
 import { resolveScopeSections, expandScopeRefs, getScopeLabel } from '../data/logicOverrideStore'
 import { CONDITION_LABELS } from '../data/logicSecs'
+import type { LCondition } from '../data/logicSecs'
 
 // Original/canonical package name (falls back to the flowchart's own label)
 export const pkgName = (p: LPkg): string => getPackage(p.id)?.name ?? p.name
@@ -109,7 +110,7 @@ function toDisplayList(answers: LAns[]): DisplayAns[] {
 }
 
 // Types compatible with AdminView.tsx (structural typing)
-type LPkg = { id: string; name: string; isContingency?: boolean; condition?: string }
+type LPkg = { id: string; name: string; isContingency?: boolean; condition?: LCondition }
 type LSeqEntry = { label: string; note?: string; packages?: LPkg[]; sub?: LDec[]; afterSub?: LDec[]; contingency?: boolean }
 interface LAns { label: string; active?: boolean; note?: string; packages?: LPkg[]; sub?: LDec[]; afterSub?: LDec[]; seq?: LSeqEntry[]; after?: LSeqEntry[]; goto?: string; contingency?: boolean; _dirty?: boolean }
 interface LDec { question: string; answers: LAns[]; packages?: LPkg[]; after?: LSeqEntry[]; afterDec?: LDec[]; reuseScope?: boolean; _dirty?: boolean }
@@ -358,7 +359,7 @@ export type PEntry = {
 }
 
 export const PAL: Record<PC, PEntry> = {
-  gray:  { hdr:'#334155', hdrT:'#f8fafc', dec:'#475569', decT:'#f1f5f9', ans:'#f1f5f9', ansB:'#94a3b8', ansT:'#1e293b', act:'#1e3a8a', actT:'#f0f9ff', alw:'#e2e8f0', bg:'#f8fafc', bgB:'#cbd5e1', code:'#2563eb', arr:'#64748b', bb:'#cbd5e1', bT:'#1e293b', lbl:'#e2e8f0', lblT:'#1e293b', empty:'#94a3b8', noteT:'#64748b' },
+  gray:  { hdr:'#334155', hdrT:'#fafafa', dec:'#475569', decT:'#f1f5f9', ans:'#f1f5f9', ansB:'#94a3b8', ansT:'#1e293b', act:'#1e3a8a', actT:'#f0f9ff', alw:'#e2e8f0', bg:'#fafafa', bgB:'#cbd5e1', code:'#2563eb', arr:'#64748b', bb:'#cbd5e1', bT:'#1e293b', lbl:'#e2e8f0', lblT:'#1e293b', empty:'#94a3b8', noteT:'#64748b' },
   blue:  { hdr:'#312e81', hdrT:'#eef2ff',  dec:'#4338ca', decT:'#eef2ff',  ans:'#f1f5f9', ansB:'#94a3b8', ansT:'#1e293b', act:'#312e81', actT:'#eef2ff',  alw:'#e0e7ff', bg:'#eef2ff', bgB:'#a5b4fc', code:'#3730a3', arr:'#818cf8', bb:'#a5b4fc', bT:'#1e1b4b', lbl:'#e2e8f0', lblT:'#1e293b', empty:'#94a3b8', noteT:'#64748b' },
   amber: { hdr:'#92400e', hdrT:'#fff',    dec:'#b45309', decT:'#fff',    ans:'#fefce8', ansB:'#fcd34d', ansT:'#451a03', act:'#92400e', actT:'#fef3c7', alw:'#fde68a', bg:'#fffbeb', bgB:'#fcd34d', code:'#b45309', arr:'#d97706', bb:'#fcd34d', bT:'#451a03', lbl:'#fde68a', lblT:'#451a03', empty:'#d97706', noteT:'#b45309' },
 }
@@ -511,7 +512,7 @@ export type MenuState = { title?: string; items: MenuItem[]; pkgs?: MenuPkgList;
 let _menuCb: ((m: MenuState | null) => void) | null = null
 // Key of the currently-selected element — highlighted with amber ring in the SVG
 let _hlKey: string | null = null
-function openMenu(e: React.MouseEvent, title: string, items: MenuItem[], pkgs?: MenuPkgList, hlKey?: string, onTitleChange?: (v: string) => void) {
+function openMenu(e: React.MouseEvent, title: string | undefined, items: MenuItem[], pkgs?: MenuPkgList, hlKey?: string, onTitleChange?: (v: string) => void) {
   e.stopPropagation()
   _menuCb?.({ title, items, pkgs, pos: { x: e.clientX, y: e.clientY }, hlKey, onTitleChange })
 }

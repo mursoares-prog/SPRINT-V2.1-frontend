@@ -58,15 +58,15 @@ html.dark {
 @layer utilities {
   .scrollbar-custom {
     scrollbar-width: thin;
-    scrollbar-color: #94a3b8 #e2e8f0;
+    scrollbar-color: #d1d5db #f3f4f6;
   }
-  .scrollbar-custom::-webkit-scrollbar { width: 8px; height: 8px; }
-  .scrollbar-custom::-webkit-scrollbar-track { background: #e2e8f0; border-radius: 9999px; }
+  .scrollbar-custom::-webkit-scrollbar { width: 6px; height: 6px; }
+  .scrollbar-custom::-webkit-scrollbar-track { background: #f3f4f6; border-radius: 9999px; }
   .scrollbar-custom::-webkit-scrollbar-thumb {
-    background: #94a3b8;
+    background: #d1d5db;
     border-radius: 9999px;
   }
-  .scrollbar-custom::-webkit-scrollbar-thumb:hover { background: #64748b; }
+  .scrollbar-custom::-webkit-scrollbar-thumb:hover { background: #9ca3af; }
   .dark .scrollbar-custom {
     scrollbar-color: #475569 #1e293b;
   }

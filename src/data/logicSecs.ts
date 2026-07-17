@@ -1,4 +1,6 @@
-﻿export type LCondition = 'rig_anc' | 'rig_dp' | 'rig_lwo' | 'rig_dp_gen'
+﻿import type { RigType } from '../types'
+
+export type LCondition = 'rig_anc' | 'rig_dp' | 'rig_lwo' | 'rig_dp_gen'
 
 // Rótulos humanos das condições de emissão de pacote (editor/admin).
 export const CONDITION_LABELS: Record<LCondition, string> = {
@@ -99,7 +101,7 @@ export interface LSec {
   alwaysAfterIdx?: number  // posição do chip SEMPRE: -1 (ou omisso) = antes de todas decisões; N = após decisions[N]
   decisions: LDec[]
   // Filtros de execução (ausentes = aplica para todos):
-  rigTypes?: ('ANC' | 'DP')[]
+  rigTypes?: RigType[]
   opTypes?: ('Generalista' | 'LWO')[]
   // Reuso vivo: quando presente, esta seção é um PLACEHOLDER que inclui as seções de
   // outro escopo (resolvidas na geração/consumo, não copiadas). Edições no escopo de

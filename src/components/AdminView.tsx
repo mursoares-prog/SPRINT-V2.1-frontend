@@ -2,8 +2,8 @@ import { X, Search, ShieldCheck, History, Table2, Pencil, Trash2, Plus, Workflow
 import { useState, useMemo, useEffect, useCallback } from 'react'
 import {
   isApiConfigured, listChangelog, getMergedPackageLines, getBaseFields,
-  getBaseOverrides, getBasePackageOverrides, getCustomPackages,
-  type PackageLines, type LineOverride, type BaseLine, type CustomPackageMeta,
+  getBaseOverrides, getBasePackageOverrides, getCustomPackages, listPackageGroups,
+  type PackageLines, type LineOverride, type BaseLine, type CustomPackageMeta, type PackageGroupInfo,
 } from '../utils/api'
 import { isAdmin } from '../utils/auth'
 import { setExtraPackages, metaToPackage } from '../data/packages'
@@ -39,12 +39,12 @@ const fmtData = (iso: string) => {
 }
 
 const TIPO_STYLE: Record<string, { label: string; cls: string; Icon: typeof Pencil }> = {
-  'edição':         { label: 'Edição',         cls: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300',     Icon: Pencil },
+  'edição':         { label: 'Edição',         cls: 'bg-green-100 text-green-700 dark:bg-amber-900/40 dark:text-amber-300',      Icon: Pencil },
   'remoção':        { label: 'Remoção',        cls: 'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300',         Icon: Trash2 },
   'inclusão':       { label: 'Inclusão',       cls: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300', Icon: Plus },
   'criação':        { label: 'Criação',        cls: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300',         Icon: Plus },
   'reestruturação': { label: 'Reestruturação', cls: 'bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300', Icon: Pencil },
-  'metadado':       { label: 'Metadado',       cls: 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400',        Icon: Pencil },
+  'metadado':       { label: 'Metadado',       cls: 'bg-[#f5f5f5] text-slate-600 dark:bg-slate-800 dark:text-slate-400',        Icon: Pencil },
 }
 
 type Tab = 'vars' | 'log' | 'engine'
@@ -58,6 +58,7 @@ export function AdminView({ onClose, initialTab = 'vars' }: { onClose: () => voi
   const [serverOverrides, setServerOverrides] = useState<OverridesMap>(new Map())
   const [pkgOverrides, setPkgOverrides] = useState<Record<string, BaseLine[]>>({})
   const [customMetas, setCustomMetas] = useState<CustomPackageMeta[]>([])
+  const [customGroups, setCustomGroups] = useState<PackageGroupInfo[]>([])
   const [serverLog, setServerLog] = useState<LogEntry[] | null>(null)
   const [fields, setFields] = useState<string[]>([])
   const canEdit = isAdmin() && isApiConfigured()
@@ -65,14 +66,15 @@ export function AdminView({ onClose, initialTab = 'vars' }: { onClose: () => voi
   const reload = useCallback(async () => {
     if (!isApiConfigured()) return
     try {
-      const [base, ovs, pkgOvs, metas, logs] = await Promise.all([
+      const [base, ovs, pkgOvs, metas, logs, groups] = await Promise.all([
         getMergedPackageLines(), getBaseOverrides(), getBasePackageOverrides(),
-        getCustomPackages(), listChangelog(),
+        getCustomPackages(), listChangelog(), listPackageGroups(),
       ])
       setServerBase(base)
       setServerOverrides(new Map(ovs.map(o => [ovKey(o.pkgId, o.lineIndex), o])))
       setPkgOverrides(Object.fromEntries(pkgOvs.map(o => [o.pkgId, o.lines])))
       setCustomMetas(metas)
+      setCustomGroups(groups)
       setServerLog(logs as LogEntry[])
       // Sincroniza os stores globais usados pela geração de cronograma, para que
       // edições do Admin reflitam em cronogramas NOVOS na mesma sessão (sem F5).
@@ -106,13 +108,13 @@ export function AdminView({ onClose, initialTab = 'vars' }: { onClose: () => voi
   }, [query, log])
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center bg-black/40 backdrop-blur-sm p-0">
-      <div className="relative flex flex-col bg-slate-100 dark:bg-slate-900 shadow-2xl overflow-hidden w-full h-full rounded-none">
+    <div className="fixed inset-x-0 bottom-0 top-12 z-50 flex items-center bg-black/40 backdrop-blur-sm p-0">
+      <div className="relative flex flex-col bg-[#f5f5f5] dark:bg-slate-900 shadow-2xl overflow-hidden w-full h-full rounded-none">
 
         {/* Header + Tabs combinados em uma linha */}
         <div className="flex items-center gap-1 px-3 border-b border-slate-200 dark:border-slate-700 shrink-0">
           <div className="flex items-center gap-1.5 shrink-0 pr-3 mr-1 border-r border-slate-200 dark:border-slate-700 py-2">
-            <ShieldCheck size={13} className="text-[#d97706]" />
+            <ShieldCheck size={13} className="text-[#008542] dark:text-[#d97706]" />
             <span className="text-xs font-semibold text-slate-800 dark:text-slate-100">Admin</span>
           </div>
           <TabButton active={tab === 'vars'} onClick={() => setTab('vars')} Icon={Table2}>
@@ -136,7 +138,7 @@ export function AdminView({ onClose, initialTab = 'vars' }: { onClose: () => voi
 
         {/* Search */}
         {tab !== 'engine' && <div className="px-5 py-3 border-b border-slate-100 dark:border-slate-800 shrink-0">
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800">
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#f5f5f5] dark:bg-slate-800">
             <Search size={14} className="text-slate-600 shrink-0" />
             <input
               type="text"
@@ -166,6 +168,7 @@ export function AdminView({ onClose, initialTab = 'vars' }: { onClose: () => voi
             <AdminVarsEditor
               query={query} serverBase={serverBase} pkgOverrides={pkgOverrides}
               legacyOverrides={serverOverrides} customMetas={customMetas}
+              customGroups={customGroups}
               fields={fields} canEdit={canEdit} reload={reload}
             />
           </>
@@ -196,7 +199,7 @@ function TabButton({ active, onClick, Icon, children }: {
       onClick={onClick}
       className={`flex items-center gap-1.5 px-3 py-2 -mb-px text-xs font-medium rounded-t-lg border-b-2 transition-colors ${
         active
-          ? 'border-[#d97706] text-[#d97706]'
+          ? 'border-[#008542] text-[#008542] dark:border-[#d97706] dark:text-[#d97706]'
           : 'border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
       }`}>
       <Icon size={14} />
