@@ -117,7 +117,7 @@ esquema relacional por campo — o backend guarda o documento como está.
 | `routers/logic.py` | Escopos de lógica: CRUD, versionamento, grupos. |
 
 Contrato completo de endpoints: README do repo do backend —
-[SPRINT-V2.1-backend](https://github.com/mursoares-prog/SPRINT-V2.1-backtend).
+[SPRINT-V2.1-backend](https://github.com/mursoares-prog/SPRINT-V2.1-backend).
 
 ---
 

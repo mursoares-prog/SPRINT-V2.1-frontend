@@ -5,7 +5,7 @@ refino do cronograma de abandono, e editores administrativos de lógica e da bas
 
 > Contexto geral do sistema (frontend + backend) em [`docs/ARQUITETURA.md`](docs/ARQUITETURA.md).
 > O **backend** vive em um repositório separado:
-> [SPRINT-V2.1-backend](https://github.com/mursoares-prog/SPRINT-V2.1-backtend).
+> [SPRINT-V2.1-backend](https://github.com/mursoares-prog/SPRINT-V2.1-backend).
 
 ## Stack
 
@@ -100,4 +100,4 @@ os dados base com edições vindas do backend.
 
 - [`docs/ARQUITETURA.md`](docs/ARQUITETURA.md) — arquitetura geral, domínio e a engine de
   árvores de decisão.
-- Backend (repo separado): [SPRINT-V2.1-backend](https://github.com/mursoares-prog/SPRINT-V2.1-backtend).
+- Backend (repo separado): [SPRINT-V2.1-backend](https://github.com/mursoares-prog/SPRINT-V2.1-backend).
