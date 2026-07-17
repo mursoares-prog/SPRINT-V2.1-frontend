@@ -189,9 +189,10 @@ const showRemoveANM = isTT || isFS1Mec
   const isLWIV = inputs.operationType === 'LWO'
   const ccapEffectiveMethod = inputs.ccapRemovalMethod ?? (isLWIV ? 'cable' : 'workstring')
   const isCustomScope = !!inputs.scopeId && !(inputs.scopeId in SCOPE_SHORT)
-  // Engine 'flowchart' (escopos bundle): substitui o painel wizard pelas perguntas do
-  // fluxograma do editor de lógica — idênticas e na mesma ordem do fluxograma.
-  const flowStrict = !isCustomScope && (inputs.engineMode ?? 'flowchart') === 'flowchart'
+  // Engine 'flowchart' (escopos bundle): as perguntas do painel vêm do fluxograma do editor
+  // de lógica — idênticas e na mesma ordem do fluxograma. A engine antiga (wizard) foi
+  // aposentada, então todo escopo bundle usa sempre o fluxograma.
+  const flowStrict = !isCustomScope
   const useFlowQuestions = isCustomScope || flowStrict
   // Expande seções `ref` (reuso vivo) para que as perguntas/seções do fluxograma incluído
   // (ex.: MOB_descida) também apareçam no passo 2 — mesma expansão usada na geração.
@@ -313,25 +314,8 @@ const showRemoveANM = isTT || isFS1Mec
       <SearchCtx.Provider value={search}>
       <div ref={scrollAreaRef} className="flex-1 overflow-y-auto p-4 space-y-5 scrollbar-custom">
 
-        {/* ── Árvore de Decisão (topo) ── */}
-        {!isCustomScope && (
-          <Row label="Árvore de Decisão"
-            tooltip="Usar as Árvores de Decisão do escopo como engine de perguntas"
-            value={flowStrict ? 'Sim' : 'Engine antiga'}
-            isEditing={isEd('engineMode')} onEdit={() => edit('engineMode')}>
-            <InlineRadio
-              options={[
-                { value: 'flowchart', label: 'Sim' },
-                { value: 'wizard',    label: 'Engine antiga' },
-              ]}
-              value={inputs.engineMode === 'none' ? 'flowchart' : (inputs.engineMode ?? 'flowchart')}
-              onChange={v => apply({ engineMode: v as WizardInputs['engineMode'] })}
-            />
-          </Row>
-        )}
-
         {/* ── Sonda e Escopo ── */}
-        <Section label="Sonda e Escopo" defaultExpanded grayHeader>
+        <Section label="Sonda e Escopo" defaultExpanded>
           <Row label="Tipo de intervenção"
             tooltip="Completação molhada (ANM submersa — ANC/DP) ou completação seca (árvore de natal seca — outras sondas)"
             value={(['ANC', 'DP'] as string[]).includes(inputs.rigType ?? '') ? 'Abandono Comp. Molhada' : inputs.rigType ? 'Abandono Comp. Seca' : '—'}
@@ -433,7 +417,7 @@ const showRemoveANM = isTT || isFS1Mec
 
         {/* ── Fase 0 — Mobilização (só existe quando há TCap, Fase Única / Fase 1) ── */}
         {inputs.rigType && inputs.scopeId && !isFS2 && hasTC && hasSecPhase('Fase 0') && (
-          <Section label="Fase 0" accent="border-amber-400 dark:border-amber-600">
+          <Section label="Fase 0">
             {inputs.rigType === 'DP' && (
               <Row label="Transponder"
                 tooltip="Modo de instalação do transponder acústico: por COT (com garateia) ou por ROV"
@@ -570,7 +554,7 @@ const showRemoveANM = isTT || isFS1Mec
 
         {/* ── Fase 1A — Operações de Abandono ── */}
         {inputs.rigType && inputs.scopeId && !isFS2 && hasSecPhase('Fase 1A') && (
-          <Section label="Fase 1A" accent="border-sky-500 dark:border-sky-600">
+          <Section label="Fase 1A">
             {/* Sem TCap: mobilização é Fase 1A, itens ficam aqui */}
             {!hasTC && hasSec('mob') && (
               <>
@@ -1655,7 +1639,7 @@ const showRemoveANM = isTT || isFS1Mec
 
         {/* ── Extra Abandono — Limpeza de Flowlines ── */}
         {inputs.rigType && inputs.scopeId && !isFS2 && hasSec('flow') && (
-          <Section label="Extra Abandono" accent="border-teal-500 dark:border-teal-600">
+          <Section label="Extra Abandono">
             <Row label="Hidrato na(s) flowline(s)?"
               tooltip="Prever dissociação de hidrato nas flowlines antes da limpeza das linhas (ABAN 167–176, conforme rig e presença de BRV)"
               value={ync(inputs.flowlineHydrate)}
@@ -1727,7 +1711,7 @@ const showRemoveANM = isTT || isFS1Mec
 
         {/* ── Fase 1B — Retirada do WO ── */}
         {inputs.rigType && inputs.scopeId && !isFS2 && (showRemoveANM || (isCustomScope && (cSecIds.has('ret_conv') || cSecIds.has('ret')))) && (
-          <Section label="Fase 1B" accent="border-cyan-500 dark:border-cyan-600">
+          <Section label="Fase 1B">
             <Row label="Retirar ANM"
               tooltip="A ANM (Árvore de Natal Molhada) será retirada ao final da intervenção?"
               value={inputs.removeANM === true ? 'Sim' : inputs.removeANM === false ? 'Não' : '—'}
@@ -1747,7 +1731,7 @@ const showRemoveANM = isTT || isFS1Mec
 
         {/* ── Fase 2 — BOP / Cimentação ── */}
         {inputs.rigType && inputs.scopeId && (hasBopCement || (isCustomScope && customSecs?.some(s => s.phase === 'Fase 2'))) && (
-          <Section label="Fase 2" accent="border-violet-500 dark:border-violet-600">
+          <Section label="Fase 2">
             {/* FS2: mobilização é Fase 2, equip e CCAP ficam aqui */}
             {isFS2 && (
               <>
@@ -2050,7 +2034,7 @@ const showRemoveANM = isTT || isFS1Mec
           })
           if (!secs.length) return null
           return (
-            <Section label="Definições" grayHeader>
+            <Section label="Definições" defaultExpanded>
               <LogicQuestionsPanel
                 sections={secs}
                 showSectionLabels={flowStrict}
@@ -2071,18 +2055,15 @@ const showRemoveANM = isTT || isFS1Mec
   )
 }
 
-function Section({ label, children, accent, collapsible = true, defaultExpanded = false, grayHeader = false }: {
-  label: string; children: React.ReactNode; accent?: string; collapsible?: boolean; defaultExpanded?: boolean; grayHeader?: boolean
+function Section({ label, children, collapsible = true, defaultExpanded = false }: {
+  label: string; children: React.ReactNode; collapsible?: boolean; defaultExpanded?: boolean
 }) {
   const [collapsed, setCollapsed] = useState(!defaultExpanded)
   const searchTerm = useContext(SearchCtx)
   const isExpanded = !collapsible || !collapsed || !!searchTerm.trim()
-  const ringClass = accent
-    ? accent.replace(/border-/g, 'ring-')
-    : 'ring-slate-200/80 dark:ring-slate-700/60'
   return (
-    <div data-isp-container className={`rounded-xl overflow-hidden shadow-sm ring-1 transition-colors ${ringClass}`}>
-      <div className={`flex items-center gap-1.5 px-2.5 py-2 ${grayHeader ? 'bg-[#ebebeb] dark:bg-slate-800/50' : 'bg-slate-50/90 dark:bg-slate-800/50'} ${isExpanded ? 'border-b border-slate-200/70 dark:border-slate-700/50' : ''}`}>
+    <div data-isp-container className="rounded-xl overflow-hidden shadow-sm ring-1 transition-colors ring-slate-300 dark:ring-slate-700/60">
+      <div className={`flex items-center gap-1.5 px-2.5 py-2 bg-[#ebebeb] dark:bg-slate-800/50 ${isExpanded ? 'border-b border-slate-300 dark:border-slate-700/50' : ''}`}>
         {collapsible ? (
           <button
             onClick={() => setCollapsed(c => !c)}
@@ -2127,7 +2108,7 @@ function Row({ label, value, isEditing, onEdit, children, tooltip }: {
   }
 
   return (
-    <div data-isp-container className={`rounded-lg transition-colors ${isEditing ? 'bg-sky-50 dark:bg-sky-950/40 ring-1 ring-sky-200 dark:ring-sky-800' : ''}`}>
+    <div data-isp-container className={`rounded-lg border-b border-slate-200 dark:border-slate-800 last:border-0 transition-colors ${isEditing ? 'bg-sky-50 dark:bg-sky-950/40 ring-1 ring-sky-200 dark:ring-sky-800' : ''}`}>
       <button
         onClick={onEdit}
         className={`w-full flex justify-between items-center py-1.5 px-2 rounded-lg text-left group transition-colors
