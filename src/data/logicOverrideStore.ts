@@ -1,11 +1,10 @@
 import type { LSec } from './logicSecs'
-import { LOGIC_BY_SCOPE } from './logicSecs'
 import LOGIC_BUNDLE from './logicScopesBundle.json'
 
 // ── Blocos de lógica reutilizáveis ──────────────────────────────────────────
 // Um "bloco" é uma unidade de lógica definida UMA vez e incluída (via ref vivo) em
 // vários escopos: editar o bloco propaga para todos que o usam. É armazenado como um
-// escopo custom (mesma tabela/ferramenta), mas distinguido pelo prefixo do scopeId —
+// escopo comum (mesma tabela/ferramenta), mas distinguido pelo prefixo do scopeId —
 // assim NÃO aparece como escopo selecionável no gerador e ganha categoria própria na UI.
 export const BLOCK_PREFIX = 'BLK_'
 export function isBlockScope(scopeId: string): boolean {
@@ -22,23 +21,30 @@ export function isBlockScope(scopeId: string): boolean {
 // Etapa 1 do wizard (App.tsx) — ver getKnownWellClasses/getKnownRigTags abaixo.
 type CustomScopeMeta = { scopeId: string; label: string; fase: string | null; opTypes: string[] | null; rigTypes: string[] | null; wellClass: string | null }
 
-// Estado inicial vem do bundle gerado pelo admin (dump do backend).
-// O backend, quando disponível, sobrepõe esses valores via setLogicOverrides/setCustomScopesMeta.
+// Estado inicial (fallback offline) vem do bundle gerado pelo backend (dump do DB).
+// Com o servidor disponível, o App sobrepõe tudo via setLogicOverrides/setCustomScopesMeta.
+// No modelo unificado, TODO escopo não-bloco com rótulo é selecionável no gerador — não
+// há mais distinção bundle/custom.
 let _overrides: Record<string, LSec[]> = LOGIC_BUNDLE.overrides as Record<string, LSec[]>
 let _customScopes: CustomScopeMeta[] =
-  (LOGIC_BUNDLE.scopes as Array<{ scopeId: string; isCustom: boolean; label: string | null; fase: string | null; opTypes: string[] | null; rigTypes?: string[] | null; wellClass?: string | null }>)
-    .filter(s => s.isCustom && !s.scopeId.startsWith(BLOCK_PREFIX) && s.label !== null)
+  (LOGIC_BUNDLE.scopes as Array<{ scopeId: string; label: string | null; fase: string | null; opTypes: string[] | null; rigTypes?: string[] | null; wellClass?: string | null }>)
+    .filter(s => !s.scopeId.startsWith(BLOCK_PREFIX) && s.label !== null)
     .map(s => ({ scopeId: s.scopeId, label: s.label!, fase: s.fase, opTypes: s.opTypes, rigTypes: s.rigTypes ?? null, wellClass: s.wellClass ?? null }))
 
 export function setLogicOverrides(o: Record<string, LSec[]>): void {
   _overrides = o
 }
 
+// Todas as seções carregadas (DB), por scopeId. Usado para catálogos derivados de todo o
+// acervo (ex.: templates de perguntas no editor).
+export function getAllScopeSections(): Record<string, LSec[]> {
+  return _overrides
+}
+
 export function getLogicOverride(scopeId: string): LSec[] | null {
   const ov = _overrides[scopeId]
-  // Um override VAZIO não é uma edição válida: ele costuma ser criado como efeito colateral
-  // (ex.: PATCH de metadados cria a linha com sections=[]) e NÃO deve mascarar o bundle do
-  // código. Tratamos [] como "sem override" quando existe um bundle para o escopo.
+  // [] = escopo sem lógica (ex.: linha metadata-only criada por um PATCH de rename antes
+  // do primeiro save) → tratado como "sem lógica" para a geração.
   if (ov && ov.length > 0) return ov
   return null
 }
@@ -92,14 +98,10 @@ export function getKnownRigTags(wellClass?: string | null): string[] {
 }
 
 // ── Reuso vivo de fluxogramas (seções `ref`) ────────────────────────────────
-// Seções de um escopo, sem expandir refs: override salvo (memória/backend) ou bundle.
-// Um override VAZIO não mascara o bundle: só usamos o override quando ele tem conteúdo
-// (evita que um override acidental com sections=[] apague o bloco definido no código).
-// Blocos custom (sem bundle) permanecem podendo ficar vazios — caem no `ov ?? []` final.
+// Seções de um escopo, sem expandir refs. Fonte única: o DB (via _overrides, populado
+// no boot pelo App; bundle JSON como fallback offline). Sem árvore hardcoded no código.
 export function resolveScopeSections(scopeId: string): LSec[] {
-  const ov = _overrides[scopeId]
-  if (ov && ov.length > 0) return ov
-  return LOGIC_BY_SCOPE[scopeId] ?? ov ?? []
+  return _overrides[scopeId] ?? []
 }
 
 // Expande recursivamente as seções `ref` (placeholders que incluem outro escopo) pelas

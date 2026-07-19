@@ -21,19 +21,7 @@ import { setPackageLines } from './data/packageLinesStore'
 import { applyDetailOverrides, applyPackageOverrides } from './data/lineDetailsStore'
 import { setExtraPackages, metaToPackage } from './data/packages'
 import { setLogicOverrides, setCustomScopesMeta, getCustomScopesMeta, getKnownWellClasses, getKnownRigTags, isBlockScope, setScopeLabels, DEFAULT_WELL_CLASS } from './data/logicOverrideStore'
-import { SCOPE_LABEL } from './data/scopeLabels'
 
-// ── Scope data ────────────────────────────────────────────────────────────────
-const SCOPE_BY_PHASE: Record<string, ScopeId[]> = {
-  fase_unica: ['FSU_TT_FT', 'FSU_TT_BDC', 'FSU_Conv_BOP', 'FSU_Conv_RCMA', 'FSU_Sup_COP', 'FSU_Sup_PWC'],
-  fase_1:     ['FS1_Mec'],
-  fase_2:     ['FS2_Conv_BOP', 'FS2_Conv_RCMA', 'FS2_Sup_COP', 'FS2_Sup_PWC'],
-}
-const SCOPE_BY_PHASE_LWO: Record<string, ScopeId[]> = {
-  fase_unica: ['FSU_TT_FT', 'FSU_TT_BDC', 'FSU_Conv_RCMA'],
-  fase_1:     ['FS1_Mec'],
-  fase_2:     ['FS2_Conv_RCMA'],
-}
 // ── Step 1 wizard panel ───────────────────────────────────────────────────────
 function WizardPanel() {
   const { state, dispatch } = useApp()
@@ -64,9 +52,6 @@ function WizardPanel() {
     setPhaseFilter(v); setScopeId('')
   }
 
-  const scopeMap = opType === 'LWO' ? SCOPE_BY_PHASE_LWO : SCOPE_BY_PHASE
-  const scopeOptions = phaseFilter ? scopeMap[phaseFilter] ?? [] : []
-
   // Classes de "Tipo de poço" extras (além das 3 hardcoded) já usadas por algum escopo
   // customizado — viram botões adicionais no wizard automaticamente. Lista pequena
   // (poucos escopos custom): computada direto no render, sem memoização, para sempre
@@ -83,12 +68,17 @@ function WizardPanel() {
   // seu próprio nome como chave).
   const rigTagsForClass = isGenericCustom ? getKnownRigTags(tipoPoco) : []
 
+  // Lista única de escopos selecionáveis, DB-driven (não há mais catálogo hardcoded).
+  // Completação Molhada: filtra por classe + sonda (tag) + fase escolhida — os 11 escopos
+  // antes "bundle" agora vêm do DB com esses metadados, junto de quaisquer escopos novos
+  // classificados como Molhada. Demais classes: por classe + sonda.
   const customScopes = useMemo(() => {
     if (isMolhada && molhadaRigTag) {
+      if (!phaseFilter) return []
       return getCustomScopesMeta().filter(cs => {
         if ((cs.wellClass ?? DEFAULT_WELL_CLASS) !== WET_CLASS) return false
         if (!cs.rigTypes?.includes(molhadaRigTag)) return false
-        if (cs.fase && phaseFilter && cs.fase !== phaseFilter) return false
+        if (cs.fase && cs.fase !== phaseFilter) return false
         return true
       })
     }
@@ -205,18 +195,8 @@ function WizardPanel() {
             </WizStep>
           )}
 
-          {isMolhada && phaseFilter && scopeOptions.length > 0 && (
-            <WizStep label="Escopo previsto">
-              {scopeOptions.map(id => (
-                <WizOption key={id} active={scopeId === id} onClick={() => setScopeId(id)}>
-                  {SCOPE_LABEL[id]}
-                </WizOption>
-              ))}
-            </WizStep>
-          )}
-
           {customScopes.length > 0 && (
-            <WizStep label="Fluxogramas customizados">
+            <WizStep label="Escopo previsto">
               {customScopes.map(cs => (
                 <WizOption key={cs.scopeId} active={scopeId === cs.scopeId} onClick={() => setScopeId(cs.scopeId)}>
                   <span className="flex flex-col min-w-0">
@@ -408,7 +388,7 @@ export default function App() {
       Object.fromEntries(ms.map(m => [m.pkgId, metaToPackage(m)])),
     )).catch(() => {})
     getLogicScopes().then(scopes => {
-      setCustomScopesMeta(scopes.filter(s => s.isCustom && !isBlockScope(s.scopeId)).map(s => ({ scopeId: s.scopeId, label: s.label ?? s.scopeId, fase: s.fase, opTypes: s.opTypes, rigTypes: s.rigTypes, wellClass: s.wellClass })))
+      setCustomScopesMeta(scopes.filter(s => !isBlockScope(s.scopeId)).map(s => ({ scopeId: s.scopeId, label: s.label ?? s.scopeId, fase: s.fase, opTypes: s.opTypes, rigTypes: s.rigTypes, wellClass: s.wellClass })))
       setScopeLabels(Object.fromEntries(scopes.filter(s => s.label).map(s => [s.scopeId, s.label as string])))
       const active = scopes.filter(s => s.sectionCount > 0)
       if (!active.length) return

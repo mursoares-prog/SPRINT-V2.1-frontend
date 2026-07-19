@@ -8,7 +8,6 @@ import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 // antes vindos de lucide-react — mantém todos os call sites (<Save/>, <Layers/>…) intactos.
 import {
   PiStackFill as Layers,
-  PiGitBranchFill as GitBranch,
   PiPuzzlePieceFill as Puzzle,
   PiPlusBold as Plus,
   PiTrashFill as Trash2,
@@ -34,7 +33,6 @@ import {
   PiListDashesFill, PiInfoBold,
 } from 'react-icons/pi'
 import type { LSec, LDec, LAns, LPkg, LCondition, LSeqEntry } from '../data/logicSecs'
-import { LOGIC_BY_SCOPE } from '../data/logicSecs'
 import {
   getLogicScopes, getLogicScope, saveLogicScope, saveLogicScopeMeta,
   createLogicScope, deleteLogicScope, type LogicScopeMeta,
@@ -45,7 +43,7 @@ import {
 import { isAdmin, authHeader } from '../utils/auth'
 import { updateCustomScopeMeta, getKnownWellClasses, getKnownRigTags, DEFAULT_WELL_CLASS } from '../data/logicOverrideStore'
 import { PACKAGES } from '../data/packages'
-import { setLogicOverrides, getLogicOverride, expandScopeRefs, resolveScopeSections, setScopeLabels } from '../data/logicOverrideStore'
+import { setLogicOverrides, getLogicOverride, expandScopeRefs, resolveScopeSections, setScopeLabels, getAllScopeSections } from '../data/logicOverrideStore'
 import { type EditAction, type DecRef } from './LogicGraphPanel'
 import { LogicFlowEditor, type LogicFlowEditorHandle } from './LogicFlowEditor'
 import { ComboInput } from './ComboInput'
@@ -53,37 +51,11 @@ import { TagInput } from './TagInput'
 
 // ─── Constantes ───────────────────────────────────────────────────────────────
 
-const BUNDLE_LABELS: Record<string, string> = {
-  FSU_TT_FT: 'FSU · TT-FT', FSU_TT_BDC: 'FSU · TT-BDC',
-  FSU_Conv_BOP: 'FSU · Conv-BOP', FSU_Conv_RCMA: 'FSU · Conv-RCMA',
-  FSU_Sup_COP: 'FSU · Sup-COP', FSU_Sup_PWC: 'FSU · Sup-PWC',
-  FS1_Mec: 'FS1 · Mec',
-  FS2_Conv_BOP: 'FS2 · Conv-BOP', FS2_Conv_RCMA: 'FS2 · Conv-RCMA',
-  FS2_Sup_COP: 'FS2 · Sup-COP', FS2_Sup_PWC: 'FS2 · Sup-PWC',
-}
-const BUNDLE_IDS = Object.keys(BUNDLE_LABELS)
-
-const BLOCK_LABELS: Record<string, string> = {
-  // Bloco de MOB por condicionais de sonda — usado (via ref) no início dos escopos FSU/FS1.
-  BLK_MOB_DESCIDA_DP_COND: 'MOB · Descida DP (condicionais por sonda)',
-  // Blocos fatorados de subsequências repetidas entre escopos.
-  BLK_ACESSO_AMORTEC: 'Acesso inicial e amortecimento',
-  BLK_CORTE_MEC_FS1: 'Corte Mecânico (FS1)',
-  BLK_MOB_FS2:       'Mobilização (Fase 2)',
-  BLK_BOP_INSTALA:   'BOP · Instalação',
-  BLK_RET_COLUNA:    'Retirada de coluna (FETH + COP)',
-  BLK_ISOLAMENTO:    'Isolamento (tampão)',
-  BLK_BOP_RETIRA:    'BOP · Retirada',
-}
-const BLOCK_IDS = Object.keys(BLOCK_LABELS)
-
 // Sugestões fixas para os campos "Tipo de poço"/"Tipo de sonda" do popover Sonda/Escopo —
-// espelham as opções hardcoded da Etapa 1 do wizard (App.tsx). Ambos os campos aceitam
-// qualquer texto livre além dessas sugestões (classes/sondas novas criadas pelo admin).
+// espelham as opções da Etapa 1 do wizard (App.tsx). Ambos os campos aceitam qualquer texto
+// livre além dessas sugestões (classes/sondas novas criadas pelo admin).
 const WELL_CLASS_PRESETS = ['Completação Molhada', 'Completação Molhada Nordeste', DEFAULT_WELL_CLASS]
 const RIG_TAG_PRESETS = ['Ancorada', 'DP Generalista', 'DP LWIV', 'PA', 'SPH', 'SPM/SM', 'Rigless']
-
-function isReservedId(id: string) { return BUNDLE_IDS.includes(id) || BLOCK_IDS.includes(id) }
 function uid() { return `_${Math.random().toString(36).slice(2,9)}` }
 function deepClone<T>(v: T): T { return JSON.parse(JSON.stringify(v)) }
 
@@ -95,11 +67,11 @@ function emptySection(): LSec {
   return { id: `sec_${uid()}`, label: 'Nova seção', phase: 'Fase 1A', color: 'blue', decisions: [] }
 }
 
-// Catálogo de decisões de todos os bundles (deduplicated by question)
+// Catálogo de decisões de todo o acervo carregado do DB (deduplicated by question)
 function buildDecisionTemplates(): LDec[] {
   const seen = new Set<string>()
   const result: LDec[] = []
-  for (const secs of Object.values(LOGIC_BY_SCOPE)) {
+  for (const secs of Object.values(getAllScopeSections())) {
     for (const sec of secs) {
       for (const dec of sec.decisions) {
         if (!seen.has(dec.question)) {
@@ -227,7 +199,8 @@ function DecisionPickerModal({ overrides, currentScopeId, loadScopeSections, onP
 }) {
   const [tab, setTab] = useState<'library' | 'scope'>('library')
   const [q, setQ] = useState('')
-  const templates = useMemo(buildDecisionTemplates, [])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const templates = useMemo(buildDecisionTemplates, [overrides])
   const filtered = q.trim()
     ? templates.filter(t => t.question.toLowerCase().includes(q.toLowerCase()))
     : templates
@@ -238,11 +211,9 @@ function DecisionPickerModal({ overrides, currentScopeId, loadScopeSections, onP
   const [secIdx, setSecIdx] = useState<number | null>(null)
   const [loadingSrc, setLoadingSrc] = useState(false)
 
-  const scopeOptions = [
-    ...BUNDLE_IDS.filter(id => id !== currentScopeId).map(id => ({ id, label: BUNDLE_LABELS[id], isCustom: false, isBlock: false })),
-    ...BLOCK_IDS.filter(id => id !== currentScopeId).map(id => ({ id, label: BLOCK_LABELS[id], isCustom: false, isBlock: true })),
-    ...overrides.filter(o => o.isCustom && o.scopeId !== currentScopeId && !isReservedId(o.scopeId)).map(o => ({ id: o.scopeId, label: o.label ?? o.scopeId, isCustom: true, isBlock: false })),
-  ]
+  const scopeOptions = overrides
+    .filter(o => o.scopeId !== currentScopeId)
+    .map(o => ({ id: o.scopeId, label: o.label ?? o.scopeId, isBlock: o.scopeId.startsWith('BLK_') }))
 
   const handleSelectSource = async (id: string) => {
     setSourceId(id); setSecIdx(null); setLoadingSrc(true)
@@ -302,20 +273,10 @@ function DecisionPickerModal({ overrides, currentScopeId, loadScopeSections, onP
           <div className="flex flex-1 min-h-0">
             {/* Scope list */}
             <div className="w-40 shrink-0 border-r border-slate-700/40 py-1 overflow-y-auto scrollbar-custom">
-              {scopeOptions.filter(s => !s.isCustom && !s.isBlock).length > 0 && (
-                <p className="text-[9px] text-slate-600 uppercase tracking-widest px-3 py-1">Bundle</p>
-              )}
-              {scopeOptions.filter(s => !s.isCustom && !s.isBlock).map(s => (
-                <button key={s.id} onClick={() => handleSelectSource(s.id)}
-                  className={`w-full text-left px-3 py-2 text-[11px] transition-colors
-                    ${sourceId === s.id ? 'bg-slate-700 text-slate-100' : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'}`}>
-                  {s.label}
-                </button>
-              ))}
-              {scopeOptions.some(s => s.isBlock) && (
+              {scopeOptions.some(s => !s.isBlock) && (
                 <>
-                  <p className="text-[9px] text-slate-600 uppercase tracking-widest px-3 pt-2 pb-1">Blocos de lógica</p>
-                  {scopeOptions.filter(s => s.isBlock).map(s => (
+                  <p className="text-[9px] text-slate-600 uppercase tracking-widest px-3 py-1">Escopos</p>
+                  {scopeOptions.filter(s => !s.isBlock).map(s => (
                     <button key={s.id} onClick={() => handleSelectSource(s.id)}
                       className={`w-full text-left px-3 py-2 text-[11px] transition-colors
                         ${sourceId === s.id ? 'bg-slate-700 text-slate-100' : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'}`}>
@@ -324,10 +285,10 @@ function DecisionPickerModal({ overrides, currentScopeId, loadScopeSections, onP
                   ))}
                 </>
               )}
-              {scopeOptions.some(s => s.isCustom) && (
+              {scopeOptions.some(s => s.isBlock) && (
                 <>
-                  <p className="text-[9px] text-slate-600 uppercase tracking-widest px-3 pt-2 pb-1">Customizados</p>
-                  {scopeOptions.filter(s => s.isCustom).map(s => (
+                  <p className="text-[9px] text-slate-600 uppercase tracking-widest px-3 pt-2 pb-1">Blocos de lógica</p>
+                  {scopeOptions.filter(s => s.isBlock).map(s => (
                     <button key={s.id} onClick={() => handleSelectSource(s.id)}
                       className={`w-full text-left px-3 py-2 text-[11px] transition-colors
                         ${sourceId === s.id ? 'bg-slate-700 text-slate-100' : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'}`}>
@@ -411,9 +372,8 @@ function UnifiedImportModal({ overrides, currentScopeId, loadScopeSections, allo
   const [loadingSrc, setLoadingSrc] = useState(false)
   const [selected, setSelected] = useState<Set<number>>(new Set())
 
-  const bundles = BUNDLE_IDS.filter(id => id !== currentScopeId)
-  const blocks = BLOCK_IDS.filter(id => id !== currentScopeId)
-  const customs = overrides.filter(o => o.isCustom && o.scopeId !== currentScopeId && !isReservedId(o.scopeId))
+  const scopeSources = overrides.filter(o => o.scopeId !== currentScopeId && !o.scopeId.startsWith('BLK_'))
+  const blockSources = overrides.filter(o => o.scopeId !== currentScopeId && o.scopeId.startsWith('BLK_'))
 
   const handleSelectSource = async (id: string) => {
     setSourceId(id); setSelected(new Set()); setLoadingSrc(true)
@@ -443,32 +403,22 @@ function UnifiedImportModal({ overrides, currentScopeId, loadScopeSections, allo
         <div className="flex flex-1 min-h-0">
           {/* Scope list */}
           <div className="w-48 shrink-0 border-r border-slate-200 dark:border-slate-700/40 py-2 overflow-y-auto scrollbar-custom">
-            {bundles.length > 0 && (
+            {scopeSources.length > 0 && (
               <>
-                <p className="text-[9px] text-slate-400 dark:text-slate-600 uppercase tracking-widest px-3 pb-1">Bundle</p>
-                {bundles.map(id => (
-                  <button key={id} onClick={() => handleSelectSource(id)} className={scopeItemCls(id)}>
-                    <span className="flex items-center gap-1.5"><Layers size={9} className="opacity-40 shrink-0" />{BUNDLE_LABELS[id]}</span>
+                <p className="text-[9px] text-slate-400 dark:text-slate-600 uppercase tracking-widest px-3 pb-1">Escopos</p>
+                {scopeSources.map(o => (
+                  <button key={o.scopeId} onClick={() => handleSelectSource(o.scopeId)} className={scopeItemCls(o.scopeId)}>
+                    <span className="flex items-center gap-1.5"><Layers size={9} className="opacity-40 shrink-0" />{o.label ?? o.scopeId}</span>
                   </button>
                 ))}
               </>
             )}
-            {blocks.length > 0 && (
+            {blockSources.length > 0 && (
               <>
                 <p className="text-[9px] text-slate-400 dark:text-slate-600 uppercase tracking-widest px-3 pt-3 pb-1">Blocos de lógica</p>
-                {blocks.map(id => (
-                  <button key={id} onClick={() => handleSelectSource(id)} className={scopeItemCls(id)}>
-                    <span className="flex items-center gap-1.5"><Puzzle size={9} className="text-[#d97706]/50 shrink-0" />{BLOCK_LABELS[id]}</span>
-                  </button>
-                ))}
-              </>
-            )}
-            {customs.length > 0 && (
-              <>
-                <p className="text-[9px] text-slate-400 dark:text-slate-600 uppercase tracking-widest px-3 pt-3 pb-1">Customizados</p>
-                {customs.map(o => (
+                {blockSources.map(o => (
                   <button key={o.scopeId} onClick={() => handleSelectSource(o.scopeId)} className={scopeItemCls(o.scopeId)}>
-                    <span className="flex items-center gap-1.5"><GitBranch size={9} className="text-[#d97706]/50 shrink-0" />{o.label ?? o.scopeId}</span>
+                    <span className="flex items-center gap-1.5"><Puzzle size={9} className="text-[#d97706]/50 shrink-0" />{o.label ?? o.scopeId}</span>
                   </button>
                 ))}
               </>
@@ -556,8 +506,8 @@ function NewScopeModal({ kind, onSave, onClose }: {
   // Blocos usam prefixo obrigatório 'BLK_' (a UI os classifica como bloco por esse
   // prefixo) — gerado automaticamente a partir do nome, sem o usuário precisar sabê-lo.
   const id = slug ? (isBlock ? `BLK_${slug}` : slug) : ''
-  const reserved = !!id && (BUNDLE_IDS.includes(id) || BLOCK_IDS.includes(id))
-  const valid = !creating && !!trimmedName && !!id && !reserved
+  // Colisão de id (escopo já existente) é validada no servidor (409) e exibida em localError.
+  const valid = !creating && !!trimmedName && !!id
 
   const handleCreate = async () => {
     if (!valid) return
@@ -571,7 +521,7 @@ function NewScopeModal({ kind, onSave, onClose }: {
       <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-2xl w-full max-w-sm p-5 space-y-4">
         <div className="flex items-center gap-2">
           {isBlock ? <Puzzle size={14} className="text-[#008542] dark:text-[#d97706]" /> : <Plus size={14} className="text-[#008542] dark:text-[#d97706]" />}
-          <span className="text-sm font-semibold text-slate-900 dark:text-slate-100">{isBlock ? 'Novo bloco de lógica' : 'Novo escopo customizado'}</span>
+          <span className="text-sm font-semibold text-slate-900 dark:text-slate-100">{isBlock ? 'Novo bloco de lógica' : 'Novo escopo'}</span>
         </div>
         <p className="text-[11px] text-slate-500 dark:text-slate-500">
           {isBlock
@@ -584,7 +534,6 @@ function NewScopeModal({ kind, onSave, onClose }: {
             placeholder={isBlock ? 'ex: Meu bloco reutilizável' : 'ex: Escopo customizado'}
             onKeyDown={e => e.key === 'Enter' && handleCreate()}
             className="w-full mt-1 text-sm bg-slate-100 dark:bg-slate-800 rounded-lg px-3 py-2 text-slate-900 dark:text-slate-100 outline-none border border-slate-200 dark:border-slate-700 focus:border-[#008542]/60 dark:focus:border-[#d97706]/60" />
-          {reserved && <p className="text-[10px] text-rose-500 dark:text-rose-400 mt-0.5">Esse nome já está em uso — escolha outro.</p>}
         </div>
         {localError && <p className="text-[11px] text-rose-500 dark:text-rose-400">{localError}</p>}
         <div className="flex justify-end gap-2 pt-1">
@@ -725,9 +674,15 @@ function loadGroupStorage(): GroupStorage {
       const existingIds = new Set(stored.groups.map(g => g.id))
       const existingNames = new Set(stored.groups.map(g => g.name))
       const newGroups = [...stored.groups, ...SEED_GROUPS.filter(g => !existingIds.has(g.id) && !existingNames.has(g.name))]
-      // Todos os bundles vão para "Completação Molhada" se ainda sem grupo
+      // Semeia a pasta "Completação Molhada" com os escopos molhada no primeiro run (apenas
+      // conveniência de organização; a config real de grupos vem do servidor). Lista estática
+      // só para este seed de localStorage legado — não reintroduz distinção de escopo.
+      const DEFAULT_MOLHADA_SCOPES = [
+        'FSU_TT_FT', 'FSU_TT_BDC', 'FSU_Conv_BOP', 'FSU_Conv_RCMA', 'FSU_Sup_COP', 'FSU_Sup_PWC',
+        'FS1_Mec', 'FS2_Conv_BOP', 'FS2_Conv_RCMA', 'FS2_Sup_COP', 'FS2_Sup_PWC',
+      ]
       const newMem = { ...stored.memberships }
-      for (const id of BUNDLE_IDS) { if (!newMem[id]) newMem[id] = 'cat_molhada' }
+      for (const id of DEFAULT_MOLHADA_SCOPES) { if (!newMem[id]) newMem[id] = 'cat_molhada' }
       const next: GroupStorage = { groups: newGroups, memberships: newMem, _v: SEED_V }
       localStorage.setItem('lep-scope-groups', JSON.stringify(next))
       return next
@@ -876,21 +831,15 @@ export function LogicEditorPanel({ canEdit }: { canEdit: boolean }) {
     return () => window.removeEventListener('keydown', handler)
   }, [undo, redo])
 
-  // `deletable`: só overrides criados pelo usuário (não bundles/blocos hardcoded do código).
-  // Blocos custom = override cujo scopeId começa com 'BLK_' → aparecem na seção "Blocos".
-  const scopeList = [
-    ...BUNDLE_IDS.map(id => ({ scopeId: id, label: BUNDLE_LABELS[id], isCustom: false, isBlock: false, deletable: false })),
-    ...BLOCK_IDS.map(id => {
-      const serverMeta = overrides.find(o => o.scopeId === id)
-      return { scopeId: id, label: serverMeta?.label ?? BLOCK_LABELS[id], isCustom: false, isBlock: true, deletable: false }
-    }),
-    ...overrides.filter(o => o.isCustom && !isReservedId(o.scopeId)).map(o => {
-      const isBlk = o.scopeId.startsWith('BLK_')
-      return { scopeId: o.scopeId, label: o.label ?? o.scopeId, isCustom: !isBlk, isBlock: isBlk, deletable: true }
-    }),
-  ]
+  // Modelo unificado: todo escopo/bloco é uma linha do DB, gerível e deletável. Blocos
+  // (scopeId 'BLK_') vão para a seção "Blocos"; os demais são escopos. `isCustom` aqui
+  // significa apenas "não é bloco" (mantido pelos filtros da UI). A trava de exclusão de
+  // um bloco em uso fica em renderScopeItem (usedBy).
+  const scopeList = overrides.map(o => {
+    const isBlk = o.scopeId.startsWith('BLK_')
+    return { scopeId: o.scopeId, label: o.label ?? o.scopeId, isCustom: !isBlk, isBlock: isBlk, deletable: true }
+  })
 
-  const hasOverride = (scopeId: string) => overrides.some(o => o.scopeId === scopeId)
   // scopeIds de blocos incluídos (via `ref`) nas seções de um escopo (não expandidas).
   const refUsers = (scopeId: string): string[] =>
     resolveScopeSections(scopeId).filter(s => s.ref).map(s => s.ref!.scopeId)
@@ -1065,8 +1014,8 @@ export function LogicEditorPanel({ canEdit }: { canEdit: boolean }) {
     const siblings = currentGroup !== null ? membersOfGroup(currentGroup) : []
     const pos = siblings.findIndex(x => x.scopeId === s.scopeId)
     const canReorder = currentGroup !== null && siblings.length > 1
-    const Icon = s.isBlock ? Puzzle : s.isCustom ? GitBranch : Layers
-    const iconCls = s.isBlock || s.isCustom ? 'text-[#008542] dark:text-[#d97706]/70' : 'opacity-50'
+    const Icon = s.isBlock ? Puzzle : Layers
+    const iconCls = 'text-[#008542] dark:text-[#d97706]/70'
     // Só mostra excluir se não houver outros escopos que dependem deste bloco.
     const usedBy = s.deletable && s.isBlock ? scopeList.filter(o => refUsers(o.scopeId).includes(s.scopeId)) : []
     const canDelete = s.deletable && usedBy.length === 0
@@ -1079,9 +1028,6 @@ export function LogicEditorPanel({ canEdit }: { canEdit: boolean }) {
             className="flex-1 text-left flex items-center gap-2 px-3 py-1.5 text-xs text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 min-w-0">
             <Icon size={10} className={`shrink-0 ${iconCls}`} />
             <span className="flex-1 truncate">{s.label}</span>
-            {hasOverride(s.scopeId) && !s.isCustom && (
-              <span className="w-1.5 h-1.5 rounded-full bg-[#008542] dark:bg-[#d97706] shrink-0" title="Override ativo" />
-            )}
           </button>
           <div className="flex items-center gap-0.5 pr-1.5 opacity-0 group-hover/item:opacity-100 transition-opacity">
             {canReorder && (
@@ -1224,8 +1170,6 @@ export function LogicEditorPanel({ canEdit }: { canEdit: boolean }) {
   // (`ref`) resolvem o nome vivo por scopeId, refletindo renomeações em todos os fluxogramas.
   useEffect(() => {
     const labels: Record<string, string> = {}
-    for (const id of BUNDLE_IDS) labels[id] = BUNDLE_LABELS[id]
-    for (const id of BLOCK_IDS) labels[id] = overrides.find(o => o.scopeId === id)?.label ?? BLOCK_LABELS[id]
     for (const o of overrides) if (o.label) labels[o.scopeId] = o.label
     setScopeLabels(labels)
   }, [overrides])
@@ -1266,44 +1210,30 @@ export function LogicEditorPanel({ canEdit }: { canEdit: boolean }) {
     previewSnapshotRef.current = null
     setPreviewVersionId(null); setShowHistory(false)
 
+    // Fonte única: o DB. Usa o cache do store se já carregado; senão busca no servidor.
     const memOverride = getLogicOverride(scopeId)
-    if (memOverride) { setSections(memOverride as LSec[]); setBaseLabel('override salvo'); return }
-    if (hasOverride(scopeId)) {
-      setLoading(true)
-      try {
-        const d = await getLogicScope(scopeId)
-        const secs = d.sections as LSec[]
-        // Override vazio (ex.: criado por edição de metadados) não deve mascarar o bundle
-        // do código — carrega o bundle quando existe.
-        if (secs.length > 0) { setSections(secs); setBaseLabel('override salvo') }
-        else if (LOGIC_BY_SCOPE[scopeId]) { setSections(deepClone(LOGIC_BY_SCOPE[scopeId])); setBaseLabel('bundle (não modificado)') }
-        else { setSections([]); setBaseLabel('override salvo') }
-      } catch { setError('Erro ao carregar override.') } finally { setLoading(false) }
-      return
-    }
-    if (BUNDLE_IDS.includes(scopeId) || BLOCK_IDS.includes(scopeId)) {
-      setSections(deepClone(LOGIC_BY_SCOPE[scopeId] ?? []))
-      setBaseLabel('bundle (não modificado)'); return
-    }
-    setShowImport(true)
+    if (memOverride) { setSections(memOverride as LSec[]); setBaseLabel(null); return }
+    setLoading(true)
+    try {
+      const d = await getLogicScope(scopeId)
+      setSections(deepClone(d.sections as LSec[]))
+      setBaseLabel(null)
+    } catch { setError('Erro ao carregar o escopo.') } finally { setLoading(false) }
   }
   selectScopeRef.current = selectScope
 
   const loadScopeSections = useCallback(async (sourceId: string): Promise<LSec[]> => {
-    if (hasOverride(sourceId)) {
-      return deepClone((await getLogicScope(sourceId)).sections as LSec[])
-    }
-    return deepClone(LOGIC_BY_SCOPE[sourceId] ?? [])
-  }, [overrides]) // eslint-disable-line react-hooks/exhaustive-deps
+    try { return deepClone((await getLogicScope(sourceId)).sections as LSec[]) }
+    catch { return deepClone(resolveScopeSections(sourceId)) }
+  }, [])
 
   const applyBase = async (sourceId: string) => {
     setShowImport(false); setLoading(true)
     try {
-      let src: LSec[] = hasOverride(sourceId)
-        ? deepClone((await getLogicScope(sourceId)).sections as LSec[])
-        : deepClone(LOGIC_BY_SCOPE[sourceId] ?? [])
+      const src = await loadScopeSections(sourceId)
       commitSections(src)
-      setBaseLabel(`baseado em ${BUNDLE_LABELS[sourceId] ?? BLOCK_LABELS[sourceId] ?? sourceId}`)
+      const label = overrides.find(o => o.scopeId === sourceId)?.label ?? sourceId
+      setBaseLabel(`baseado em ${label}`)
     } catch { setError('Erro ao carregar escopo base.') } finally { setLoading(false) }
   }
 
@@ -2672,19 +2602,11 @@ export function LogicEditorPanel({ canEdit }: { canEdit: boolean }) {
             </div>
           )}
 
-          {/* ── Bundles não agrupados (fallback — normalmente vazio, pois todos estão em grupos) ── */}
-          {scopeList.some(s => !s.isCustom && !s.isBlock && (scopeGroups.memberships[s.scopeId] ?? null) === null) && (
+          {/* ── Escopos não agrupados (fora de qualquer pasta) ── */}
+          {scopeList.some(s => !s.isBlock && (scopeGroups.memberships[s.scopeId] ?? null) === null) && (
             <>
               <p className="text-[9px] px-3 pt-3 pb-0.5 text-slate-400 dark:text-slate-600 uppercase tracking-widest">Escopos</p>
-              {scopeList.filter(s => !s.isCustom && !s.isBlock && (scopeGroups.memberships[s.scopeId] ?? null) === null).map(s => renderScopeItem(s, 0))}
-            </>
-          )}
-
-          {/* ── Customizados não agrupados ── */}
-          {scopeList.some(s => s.isCustom && (scopeGroups.memberships[s.scopeId] ?? null) === null) && (
-            <>
-              <p className="text-[9px] px-3 pt-3 pb-0.5 text-slate-400 dark:text-slate-600 uppercase tracking-widest">Customizados</p>
-              {scopeList.filter(s => s.isCustom && (scopeGroups.memberships[s.scopeId] ?? null) === null).map(s => renderScopeItem(s, 0))}
+              {scopeList.filter(s => !s.isBlock && (scopeGroups.memberships[s.scopeId] ?? null) === null).map(s => renderScopeItem(s, 0))}
             </>
           )}
 
@@ -2754,7 +2676,7 @@ export function LogicEditorPanel({ canEdit }: { canEdit: boolean }) {
                 ) : (
                   <div className="flex items-center gap-1.5 group/rename">
                     <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100 truncate">{selectedMeta?.label ?? selectedScope}</h2>
-                    {canEdit && (selectedMeta?.isBlock || selectedMeta?.isCustom) && (
+                    {canEdit && !!selectedMeta && (
                       <button
                         onClick={() => setEditingLabel(selectedMeta?.label ?? selectedScope ?? '')}
                         title="Renomear"
@@ -2805,7 +2727,7 @@ export function LogicEditorPanel({ canEdit }: { canEdit: boolean }) {
                     </button>
                   )}
                   {error && <p className="text-[10px] text-rose-400 shrink-0">{error}</p>}
-                  {canEdit && selectedMeta?.isCustom && selectedFullMeta && (
+                  {canEdit && selectedMeta && !selectedMeta.isBlock && selectedFullMeta && (
                     <div className="relative" ref={scopePanelRef}>
                       <button
                         onClick={() => setShowScopePanel(v => !v)}
@@ -3067,7 +2989,7 @@ export function LogicEditorPanel({ canEdit }: { canEdit: boolean }) {
           overrides={overrides}
           currentScopeId={selectedScope}
           loadScopeSections={loadScopeSections}
-          allowBase={!!(selectedMeta?.isCustom || selectedMeta?.isBlock)}
+          allowBase={!!selectedMeta}
           onImport={handleImportSections}
           onBase={applyBase}
           onClose={() => setShowImport(false)}
