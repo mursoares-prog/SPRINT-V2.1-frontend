@@ -5,6 +5,7 @@ import { useApp } from '../context/AppContext'
 import { generateSchedule } from '../engines/scheduleRouter'
 import { resolveScopeSections, expandScopeRefs, getCustomScopesMeta } from '../data/logicOverrideStore'
 import { LogicQuestionsPanel } from './LogicQuestionsPanel'
+import { ProjectNameField } from './ProjectNameField'
 import type { WizardInputs, ScopeId, IsolationPlugType, IsolationCorrMethod } from '../types'
 
 export const SearchCtx = createContext('')
@@ -174,8 +175,10 @@ export function InputSummaryPanel({ onClose }: { onClose?: () => void }) {
         </button>
       )}
 
+      <ProjectNameField />
+
       {/* Search bar */}
-      <div className="px-3 border-b border-slate-200 dark:border-slate-700 shrink-0 flex items-center" style={{ height: '38px' }}>
+      <div className="px-4 shrink-0 flex items-center" style={{ height: '38px' }}>
         <div className="flex items-center gap-1.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-lg px-2.5 h-7 w-full">
           <Search size={12} className="text-slate-400 shrink-0" />
           <input
@@ -267,15 +270,14 @@ export function InputSummaryPanel({ onClose }: { onClose?: () => void }) {
               value={inputs.rigType}
               isEditing={isEd('rigTypeSeca')} onEdit={() => edit('rigTypeSeca')}>
               <InlineRadio
-                options={[
-                  { value: 'PA',      label: 'PA' },
-                  { value: 'SPH',     label: 'SPH' },
-                  { value: 'SM',      label: 'SM' },
-                  { value: 'SPM',     label: 'SPM' },
-                  { value: 'Rigless', label: 'Rigless' },
-                ]}
+                // Tags de "Tipo de sonda" já usadas por algum escopo customizado (qualquer
+                // classe de poço), definidas livremente pelo admin no editor de Árvores de
+                // Decisão — não é mais uma lista fixa.
+                options={[...new Set(getCustomScopesMeta().flatMap(cs => cs.rigTypes ?? []))]
+                  .sort()
+                  .map(rig => ({ value: rig, label: rig }))}
                 value={inputs.rigType ?? ''}
-                onChange={v => apply({ rigType: v as 'PA' | 'SPH' | 'SM' | 'SPM' | 'Rigless' })}
+                onChange={v => apply({ rigType: v })}
               />
             </Row>
           )}

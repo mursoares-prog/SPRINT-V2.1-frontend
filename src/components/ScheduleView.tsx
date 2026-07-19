@@ -30,14 +30,14 @@ export function ScheduleToolbar({ showStats, onToggleStats }: { showStats: boole
           onClick={() => dispatch({ type: 'UNDO_INPUTS' })}
           disabled={!canUndoInputs}
           title="Desfazer (Ctrl+Z)"
-          className="flex items-center gap-1 h-7 px-2 rounded text-xs font-semibold transition-colors border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:border-slate-300 dark:hover:border-slate-500 bg-[#fafafa] dark:bg-slate-700 disabled:opacity-30 disabled:cursor-not-allowed">
+          className="flex items-center gap-1 h-7 px-2 rounded text-xs font-normal transition-colors border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:border-slate-300 dark:hover:border-slate-500 bg-[#fafafa] dark:bg-slate-700 disabled:opacity-30 disabled:cursor-not-allowed">
           <Undo2 size={12} /><span className="hidden md:inline">Desfazer</span>
         </button>
         <button
           onClick={() => dispatch({ type: 'REDO_INPUTS' })}
           disabled={!canRedoInputs}
           title="Refazer (Ctrl+Y)"
-          className="flex items-center gap-1 h-7 px-2 rounded text-xs font-semibold transition-colors border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:border-slate-300 dark:hover:border-slate-500 bg-[#fafafa] dark:bg-slate-700 disabled:opacity-30 disabled:cursor-not-allowed">
+          className="flex items-center gap-1 h-7 px-2 rounded text-xs font-normal transition-colors border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:border-slate-300 dark:hover:border-slate-500 bg-[#fafafa] dark:bg-slate-700 disabled:opacity-30 disabled:cursor-not-allowed">
           <Redo2 size={12} /><span className="hidden md:inline">Refazer</span>
         </button>
       </div>
@@ -541,7 +541,7 @@ function PackageList({ items, showHours, onDurationChange }: {
                     const rowBorder = 'border-b border-slate-200 dark:border-slate-800'
                     const isMatch = findQuery.trim() && matches.includes(item.uid)
                     const isActive = item.uid === activeMatchUid
-                    const rowBg = highlightedUids.has(item.uid) ? 'bg-blue-100 dark:bg-blue-900/50' : item.autoInserted ? 'bg-slate-50/50 dark:bg-slate-800/30' : isMatch ? 'bg-sky-50 dark:bg-sky-900/20' : ''
+                    const rowBg = highlightedUids.has(item.uid) ? 'bg-blue-100 dark:bg-blue-900/50' : isMatch ? 'bg-sky-50 dark:bg-sky-900/20' : ''
                     return (
                       <React.Fragment key={item.uid}>
                         <tr data-uid={item.uid} className={`transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/60 ${rowBg} ${isActive ? 'outline outline-2 -outline-offset-2 outline-sky-500 dark:outline-sky-400' : ''}`}>
@@ -723,7 +723,7 @@ export function GanttChart({ items }: { items: ScheduleItem[] }) {
           return (
             <div key={sectionKey} className="mb-5">
               <div className="flex items-center mb-1.5 cursor-pointer select-none" onClick={() => togglePhase(sectionKey)}>
-                <div style={{ width: labelW, fontFamily: "'Barlow Condensed', sans-serif" }}
+                <div style={{ width: labelW, fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif" }}
                   className="text-xs font-bold px-2 py-1 rounded-l uppercase tracking-widest bg-[#ebebeb] dark:bg-slate-800 text-slate-700 dark:text-slate-300 shrink-0 flex items-center gap-1.5">
                   <span className="font-bold text-sm leading-none">{collapsedPhases.has(sectionKey) ? '+' : '−'}</span>
                   {phase}

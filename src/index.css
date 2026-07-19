@@ -1,28 +1,36 @@
-@import url('https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap');
 @import "tailwindcss";
 
 @variant dark (&:where(.dark, .dark *));
 
 @theme {
-  --font-sans: 'Barlow', system-ui, sans-serif;
+  --font-sans: 'Helvetica Neue', Helvetica, Arial, system-ui, sans-serif;
   --font-mono: 'JetBrains Mono', monospace;
 
-  /* ── Tema CLARO "Sálvia Calma" ─────────────────────────────────────────────
-     A escala `slate` é o neutro usado em todo o app. Aqui ela é remapeada para
-     um verde-acinzentado suave e dessaturado (descansa a vista, sem brilho de
-     branco puro, texto escuro sem preto). O tema ESCURO restaura os valores
-     originais do slate em `html.dark` abaixo, ficando 100% inalterado. */
-  --color-slate-50:  #fafbf9;   /* card de topo — quase-branco com leve sálvia */
+  /* ── Tema CLARO ─────────────────────────────────────────────────────────
+     A escala `slate` é remapeada aqui para um cinza levemente dessaturado
+     (não é o slate azulado padrão do Tailwind, mas na prática lê como cinza
+     neutro, não como um tom sálvia/esverdeado perceptível). É usada via
+     classes Tailwind (text-slate-*, border-slate-*, bg-slate-*) para texto,
+     ícones e bordas na maior parte do app.
+     A maioria dos fundos de painel/toolbar/card NÃO usa esta escala: são
+     hexs neutros literais espalhados pelos componentes, ex.: #fafafa,
+     #f5f5f5, #ebebeb, #dde3ea. O `body` abaixo também define um fundo
+     (#e4e9e3) que raramente aparece, pois o shell do app (`App.tsx`, div
+     raiz de `Main()`) já cobre 100dvh com `bg-[#fafafa]`.
+     O tema ESCURO restaura os valores originais do slate em `html.dark`
+     abaixo, ficando 100% inalterado. */
+  --color-slate-50:  #fafbf9;   /* card de topo — quase-branco */
   --color-slate-100: #f1f4f0;   /* painéis / superfícies */
   --color-slate-200: #e3e8e2;   /* bordas suaves */
   --color-slate-300: #d2dad1;   /* bordas fortes / divisórias */
   --color-slate-400: #a4ada2;   /* ícones, placeholders, texto desabilitado */
-  --color-slate-500: #6f7670;   /* texto secundário (cinza-sálvia) */
+  --color-slate-500: #6f7670;   /* texto secundário */
   --color-slate-600: #545b54;   /* rótulos / labels */
-  --color-slate-700: #3c443c;   /* texto principal (verde-cinza escuro, não preto) */
+  --color-slate-700: #3c443c;   /* texto principal (cinza escuro, não preto) */
   --color-slate-800: #282e28;   /* títulos fortes */
   --color-slate-900: #171c17;   /* ênfase máxima */
-  --color-slate-950: #0b0e0b;   /* quase-preto sálvia */
+  --color-slate-950: #0b0e0b;   /* quase-preto */
 }
 
 /* ── Tema ESCURO — restaura o slate original do Tailwind v4 (sem alterações) ── */
@@ -45,7 +53,7 @@ html.dark {
   body {
     margin: 0;
     font-family: var(--font-sans);
-    background: #e4e9e3;   /* mesa sálvia (Sálvia Calma) */
+    background: #e4e9e3;   /* fallback — na prática coberto pelo shell (#fafafa) em Main() */
     color: #3c443c;
   }
   .dark body {
@@ -74,3 +82,16 @@ html.dark {
   .dark .scrollbar-custom::-webkit-scrollbar-thumb { background: #475569; }
   .dark .scrollbar-custom::-webkit-scrollbar-thumb:hover { background: #64748b; }
 }
+
+/* Botões de zoom/controles do React Flow (fluxograma) — cores do tema escuro.
+   Fora de @layer: o CSS do @xyflow/react não usa layers, e estilos sem layer
+   sempre vencem os de dentro de um @layer, não importa a especificidade. */
+.dark .react-flow__controls-button {
+  background: #1e293b;
+  border-bottom: 1px solid #334155;
+  fill: #cbd5e1;
+  color: #cbd5e1;
+}
+.dark .react-flow__controls-button:hover { background: #334155; }
+.dark .react-flow__controls-button svg { fill: #cbd5e1; }
+.dark .react-flow__controls-button.react-flow__controls-interactive { border-bottom: none; }

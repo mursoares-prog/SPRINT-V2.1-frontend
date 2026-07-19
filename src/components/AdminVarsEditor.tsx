@@ -6,7 +6,7 @@
 // entre pacotes, e — para pacotes CUSTOMIZADOS — editar nome/categoria/tecnologia,
 // criar, duplicar e apagar. Salva o array completo por pacote (savePackageLines).
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Trash2, Plus, Check, Loader2, AlertTriangle, X, ChevronDown, ChevronRight, Copy, ClipboardPaste, GripVertical, CopyPlus, FilePlus2, Braces, FolderPlus } from 'lucide-react'
+import { Trash2, Plus, Check, Loader2, AlertTriangle, X, ChevronDown, ChevronRight, Copy, ClipboardPaste, GripVertical, CopyPlus, FilePlus2, Braces, FolderPlus, History } from 'lucide-react'
 import {
   savePackageLines, createPackage, updatePackageMeta, deletePackage,
   createPackageGroup, deletePackageGroup,
@@ -93,7 +93,7 @@ function ColResizer({ onResize, onCommit }: { onResize: (dx: number) => void; on
   )
 }
 
-export function AdminVarsEditor({ query, serverBase, pkgOverrides, legacyOverrides, customMetas, customGroups, fields, canEdit, reload }: {
+export function AdminVarsEditor({ query, serverBase, pkgOverrides, legacyOverrides, customMetas, customGroups, fields, canEdit, reload, onOpenLog, logCount }: {
   query: string
   serverBase: PackageLines | null
   pkgOverrides: Record<string, BaseLine[]>
@@ -103,6 +103,8 @@ export function AdminVarsEditor({ query, serverBase, pkgOverrides, legacyOverrid
   fields: string[]
   canEdit: boolean
   reload: () => Promise<void>
+  onOpenLog: () => void
+  logCount: number
 }) {
   const [open, setOpen] = useState<Set<string>>(new Set())
   const [drafts, setDrafts] = useState<Record<string, EditLine[]>>({})
@@ -331,25 +333,35 @@ export function AdminVarsEditor({ query, serverBase, pkgOverrides, legacyOverrid
 
   return (
     <div className="p-3 space-y-2">
-      {canEdit && (
-        <div className="flex flex-col gap-2">
-          <div className="flex items-center gap-2">
-            <button onClick={createNew} disabled={!!busy}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-slate-200 dark:border-slate-600 bg-[#fafafa] dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100 hover:border-slate-300 dark:hover:bg-slate-600 dark:hover:border-slate-500 transition-colors disabled:opacity-50">
-              <FilePlus2 size={13} /> Novo pacote
-            </button>
-            <button onClick={() => { setShowNewGroupForm(v => !v); setNewGroupLabel('') }} disabled={!!busy}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-slate-200 dark:border-slate-600 bg-[#fafafa] dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100 hover:border-slate-300 dark:hover:bg-slate-600 dark:hover:border-slate-500 transition-colors disabled:opacity-50">
-              <FolderPlus size={13} /> Novo grupo
-            </button>
-            <button onClick={copySelected} disabled={selected.size === 0}
-              title="Copiar linhas selecionadas"
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-slate-200 dark:border-slate-600 bg-[#fafafa] dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100 hover:border-slate-300 dark:hover:bg-slate-600 dark:hover:border-slate-500 transition-colors disabled:opacity-40">
-              <Copy size={13} /> Copiar ({selected.size})
-            </button>
-            {clipboard && <span className="text-[11px] text-slate-500">{clipboard.length} linha(s) na área de transferência</span>}
-          </div>
-          {showNewGroupForm && (
+      <div className="flex flex-col gap-2">
+        <div className="flex items-center gap-2">
+          {canEdit && (
+            <>
+              <button onClick={createNew} disabled={!!busy}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-slate-200 dark:border-slate-600 bg-[#fafafa] dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100 hover:border-slate-300 dark:hover:bg-slate-600 dark:hover:border-slate-500 transition-colors disabled:opacity-50">
+                <FilePlus2 size={13} /> Novo pacote
+              </button>
+              <button onClick={() => { setShowNewGroupForm(v => !v); setNewGroupLabel('') }} disabled={!!busy}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-slate-200 dark:border-slate-600 bg-[#fafafa] dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100 hover:border-slate-300 dark:hover:bg-slate-600 dark:hover:border-slate-500 transition-colors disabled:opacity-50">
+                <FolderPlus size={13} /> Novo grupo
+              </button>
+              <button onClick={copySelected} disabled={selected.size === 0}
+                title="Copiar linhas selecionadas"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-slate-200 dark:border-slate-600 bg-[#fafafa] dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100 hover:border-slate-300 dark:hover:bg-slate-600 dark:hover:border-slate-500 transition-colors disabled:opacity-40">
+                <Copy size={13} /> Copiar ({selected.size})
+              </button>
+              {clipboard && <span className="text-[11px] text-slate-500">{clipboard.length} linha(s) na área de transferência</span>}
+            </>
+          )}
+          <button onClick={onOpenLog}
+            className="ml-auto flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-slate-200 dark:border-slate-600 bg-[#fafafa] dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100 hover:border-slate-300 dark:hover:bg-slate-600 dark:hover:border-slate-500 transition-colors">
+            <History size={13} /> Log de alterações
+            <span className="px-1.5 py-px rounded-full bg-slate-200 dark:bg-slate-600 text-[10px] font-semibold text-slate-600 dark:text-slate-300">
+              {logCount}
+            </span>
+          </button>
+        </div>
+        {canEdit && showNewGroupForm && (
             <div className="flex items-center gap-2">
               <input
                 type="text"
@@ -370,8 +382,7 @@ export function AdminVarsEditor({ query, serverBase, pkgOverrides, legacyOverrid
               </button>
             </div>
           )}
-        </div>
-      )}
+      </div>
       {error && (
         <div className="flex items-start gap-2 text-xs text-red-600 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800 rounded-lg px-3 py-2">
           <AlertTriangle size={14} className="shrink-0 mt-0.5" /><span>{error}</span>

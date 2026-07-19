@@ -1,12 +1,27 @@
-import type { ScopeId, WizardInputs, IsolationConfig } from '../types'
+import type { ScopeId, WizardInputs, IsolationConfig, RigType } from '../types'
 
 // Inputs default do wizard para um escopo (movido de App.tsx para reuso no
 // ScopeParityChecker — mesma parametrização usada ao iniciar um projeto novo).
 export function getDefaultInputs(
-  rigType: 'ANC' | 'DP',
+  rigType: RigType,
   operationType: 'Generalista' | 'LWO',
   scopeId: ScopeId,
 ): Partial<WizardInputs> {
+  // Sondas de completação seca (PA e demais, quando vierem) usam escopos custom sem
+  // perguntas de wizard (decisions-free) — nenhum dos campos de completação molhada
+  // abaixo é lido nesse caso; retorna só o mínimo consumido por generateScheduleFromLogic.
+  if (rigType !== 'ANC' && rigType !== 'DP') {
+    return {
+      rigType,
+      operationType,
+      scopeId,
+      subseaEquipments: [],
+      cleanFlowlines: false,
+      percentile: 75,
+      startDate: new Date().toISOString().split('T')[0],
+    }
+  }
+
   const isFS2        = scopeId.startsWith('FS2')
   const isTT         = scopeId === 'FSU_TT_FT' || scopeId === 'FSU_TT_BDC'
   const isTTFT       = scopeId === 'FSU_TT_FT'

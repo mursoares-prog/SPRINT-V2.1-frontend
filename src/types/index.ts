@@ -1,4 +1,5 @@
-export type RigType = 'ANC' | 'DP' | 'PA' | 'SPH' | 'SM' | 'SPM' | 'Rigless'
+// eslint-disable-next-line @typescript-eslint/no-redundant-type-constituents
+export type RigType = 'ANC' | 'DP' | 'PA' | 'SPH' | 'SM' | 'SPM' | 'Rigless' | (string & {})
 export type OperationType = 'Generalista' | 'LWO'
 export type Technology = 'wireline' | 'ct' | 'electric' | 'workstring' | 'bop' | 'none'
 export type Phase = 'Fase 0' | 'Fase 1A' | 'Fase 1B' | 'Fase 2' | 'Extra Abandono' | 'Mobilização' | 'Desmobilização'
@@ -480,6 +481,10 @@ export interface AppState {
   projectSections: ProjectSection[]
   projectData: ProjectData
   wellName: string
+  /** Nome do projeto (recebido do sistema externo; pode haver vários projetos por poço). */
+  projectName?: string
+  /** Papel do usuário (recebido do sistema externo, onde ele já está logado). */
+  role: 'admin' | 'projetista'
   /** id do projeto no servidor (presente quando carregado/salvo via API). */
   projectId?: string
   showHours: boolean

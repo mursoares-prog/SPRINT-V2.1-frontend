@@ -1078,7 +1078,7 @@ function PackagePickerModal({ afterUid, onClose }: { afterUid: string | null; on
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 dark:border-slate-800">
           <div className="flex items-center gap-2">
-            <span className="text-sm font-bold text-slate-700 dark:text-slate-200 uppercase tracking-wide" style={{ fontFamily: "'Barlow Condensed', sans-serif", letterSpacing: '0.1em' }}>
+            <span className="text-sm font-bold text-slate-700 dark:text-slate-200 uppercase tracking-wide" style={{ fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif", letterSpacing: '0.1em' }}>
               Inserir pacote
             </span>
             <span className="text-xs text-slate-600 dark:text-slate-500">{filtered.length} resultado{filtered.length === 1 ? '' : 's'}</span>
@@ -2245,7 +2245,7 @@ function ClassicSchedulePanel({
         </table>
       </div>
       {/* Corpo scrollável — barra vertical começa aqui, abaixo do cabeçalho */}
-      <div ref={scrollRef} className="flex-1 overflow-auto scrollbar-custom"
+      <div ref={scrollRef} className="flex-1 overflow-auto scrollbar-custom flex flex-col"
         onScroll={e => { if (headerScrollRef.current) headerScrollRef.current.scrollLeft = (e.target as HTMLElement).scrollLeft }}>
         <table className="text-xs border-collapse" style={tableStyle}>
           <colgroup>
@@ -2405,25 +2405,36 @@ function ClassicSchedulePanel({
               )
             })()}
           </tbody>
-          {!showOntology && !showEds && !showCsb && items.some(i => !i.isBlank) && (
+        </table>
+        {!showOntology && !showEds && !showCsb && items.some(i => !i.isBlank) && (
+          <table className="text-xs border-collapse mt-auto" style={tableStyle}>
+            <colgroup>
+              <col style={{ width: visibleColumnWidths.number }} />
+              {showPkgCol && <col style={{ width: visibleColumnWidths.package }} />}
+              <col style={{ width: visibleColumnWidths.type }} />
+              <col style={{ width: descriptionWidth }} />
+              <col style={{ width: visibleColumnWidths.firm }} />
+              <col style={{ width: visibleColumnWidths.contingency }} />
+              <col style={{ width: visibleColumnWidths.total }} />
+            </colgroup>
             <tfoot>
-              <tr className="border-t-2 border-slate-200 dark:border-slate-700 bg-[#fafafa] dark:bg-slate-800">
-                <td colSpan={showPkgCol ? 4 : 3} className="py-2 px-3 text-xs font-bold text-slate-600 dark:text-slate-400 text-right uppercase tracking-wide">
+              <tr className="bg-[#ebebeb] dark:bg-slate-800">
+                <td colSpan={showPkgCol ? 4 : 3} className="py-1.5 px-3 text-xs font-bold text-slate-700 dark:text-slate-400 text-right border-t-2 border-slate-300 dark:border-slate-700">
                   Total
                 </td>
-                <td className="py-2 px-3 text-right text-xs text-[#0c2340] dark:text-blue-400">
-                  {grandFirme > 0 ? fmt(grandFirme) : <span className="text-slate-300 dark:text-slate-700 select-none">—</span>}
+                <td className="py-1.5 px-3 text-right text-xs text-[#0c2340] dark:text-blue-400 border-t-2 border-slate-300 dark:border-slate-700">
+                  {fmt(grandFirme)}
                 </td>
-                <td className="py-2 px-3 text-right text-xs text-[#7d1935] dark:text-rose-400">
-                  {grandCont > 0 ? fmt(grandCont) : <span className="text-slate-300 dark:text-slate-700 select-none">—</span>}
+                <td className="py-1.5 px-3 text-right text-xs text-[#7d1935] dark:text-rose-400 border-t-2 border-slate-300 dark:border-slate-700">
+                  {fmt(grandCont)}
                 </td>
-                <td className="py-2 px-3 text-right text-xs text-[#0c2340] dark:text-white">
+                <td className="py-1.5 px-3 text-right text-xs text-[#0c2340] dark:text-white border-t-2 border-slate-300 dark:border-slate-700">
                   {fmt(grandTotal)}
                 </td>
               </tr>
             </tfoot>
-          )}
-        </table>
+          </table>
+        )}
       </div>
         </>
       )}
@@ -3088,8 +3099,11 @@ export function FineTuningView() {
 
         {/* White toolbar — mesma altura do header do painel esquerdo (38px), para alinhar com a base do campo Localizar */}
         <div className="shrink-0 flex items-center bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 px-4" style={{ height: '38px' }}>
-          {/* Buttons row */}
-          <div className="flex items-center gap-2 overflow-x-auto h-full w-full">
+          {/* Buttons row — sem scroll próprio (nem horizontal nem vertical): em janelas
+              estreitas o conteúdo excedente é apenas recortado aqui; o scroll horizontal,
+              quando necessário, acontece no cronograma abaixo (ver `scrollRef`), não nesta
+              barra. */}
+          <div className="flex items-center gap-2 overflow-hidden h-full w-full">
             <button
               onClick={() => dispatch({ type: 'UNDO' })}
               disabled={!canUndo}

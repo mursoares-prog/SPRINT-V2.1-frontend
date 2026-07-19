@@ -572,6 +572,127 @@ export const PACKAGE_DURATIONS: Record<string, { P50: number; P90: number }> = {
   'ABAN 212': { P50: 3.53, P90: 3.91 },  // prep CWO+TRT reentrada na ANM (sem TCap) — ajustar
   'ABAN 143': { P50: 1.08, P90: 1.20 },  // abertura de válvula da ANM com martelete — estimado (ajustar)
   'ABAN 253': { P50: 0.33, P90: 0.40 },  // plug no TMF (bore anular) a mar aberto — estimado (ajustar)
+  // Pacotes T-AB (Completação Seca) — P50=P90 derivado da soma das durações de linha em
+  // packageLines.json (horas/24); sem distinção de percentil (não usada no SPRINT).
+  'T-AB 001': { P50: 4.083, P90: 4.083 },  // soma das linhas (packageLines.json), sem percentil
+  'T-AB 002': { P50: 2.083, P90: 2.083 },  // soma das linhas (packageLines.json), sem percentil
+  'T-AB 003': { P50: 0.667, P90: 0.667 },  // soma das linhas (packageLines.json), sem percentil
+  'T-AB 004': { P50: 1.812, P90: 1.812 },  // soma das linhas (packageLines.json), sem percentil
+  'T-AB 005': { P50: 0.333, P90: 0.333 },  // soma das linhas (packageLines.json), sem percentil
+  'T-AB 006': { P50: 0.354, P90: 0.354 },  // soma das linhas (packageLines.json), sem percentil
+  'T-AB 007': { P50: 0.333, P90: 0.333 },  // soma das linhas (packageLines.json), sem percentil
+  'T-AB 008': { P50: 0.688, P90: 0.688 },  // soma das linhas (packageLines.json), sem percentil
+  'T-AB 009': { P50: 0.375, P90: 0.375 },  // soma das linhas (packageLines.json), sem percentil
+  'T-AB 010': { P50: 1.5, P90: 1.5 },  // soma das linhas (packageLines.json), sem percentil
+  'T-AB 011': { P50: 0.375, P90: 0.375 },  // soma das linhas (packageLines.json), sem percentil
+  'T-AB 012': { P50: 0.292, P90: 0.292 },  // soma das linhas (packageLines.json), sem percentil
+  'T-AB 013': { P50: 0.646, P90: 0.646 },  // soma das linhas (packageLines.json), sem percentil
+  'T-AB 014': { P50: 0.875, P90: 0.875 },  // soma das linhas (packageLines.json), sem percentil
+  'T-AB 015': { P50: 0.708, P90: 0.708 },  // soma das linhas (packageLines.json), sem percentil
+  'T-AB 016': { P50: 1.333, P90: 1.333 },  // soma das linhas (packageLines.json), sem percentil
+  'T-AB 017': { P50: 0.542, P90: 0.542 },  // soma das linhas (packageLines.json), sem percentil
+  'T-AB 018': { P50: 0.5, P90: 0.5 },  // soma das linhas (packageLines.json), sem percentil
+  'T-AB 019': { P50: 0.333, P90: 0.333 },  // soma das linhas (packageLines.json), sem percentil
+  'T-AB 020': { P50: 0.542, P90: 0.542 },  // soma das linhas (packageLines.json), sem percentil
+  'T-AB 021': { P50: 0.417, P90: 0.417 },  // soma das linhas (packageLines.json), sem percentil
+  'T-AB 022': { P50: 0.333, P90: 0.333 },  // soma das linhas (packageLines.json), sem percentil
+  'T-AB 023': { P50: 0.5, P90: 0.5 },  // soma das linhas (packageLines.json), sem percentil
+  'T-AB 024': { P50: 0.229, P90: 0.229 },  // soma das linhas (packageLines.json), sem percentil
+  'T-AB 025': { P50: 0.333, P90: 0.333 },  // soma das linhas (packageLines.json), sem percentil
+  'T-AB 026': { P50: 2.354, P90: 2.354 },  // soma das linhas (packageLines.json), sem percentil
+  'T-AB 027': { P50: 1.667, P90: 1.667 },  // soma das linhas (packageLines.json), sem percentil
+  'T-AB 028': { P50: 0.521, P90: 0.521 },  // soma das linhas (packageLines.json), sem percentil
+  'T-AB 029': { P50: 1.583, P90: 1.583 },  // soma das linhas (packageLines.json), sem percentil
+  'T-AB 030': { P50: 1.542, P90: 1.542 },  // soma das linhas (packageLines.json), sem percentil
+  'T-AB 031': { P50: 0.208, P90: 0.208 },  // soma das linhas (packageLines.json), sem percentil
+  'T-AB 032': { P50: 1.458, P90: 1.458 },  // soma das linhas (packageLines.json), sem percentil
+  'T-AB 033': { P50: 1.125, P90: 1.125 },  // soma das linhas (packageLines.json), sem percentil
+  'T-AB 034': { P50: 0.146, P90: 0.146 },  // soma das linhas (packageLines.json), sem percentil
+  'T-AB 035': { P50: 0.208, P90: 0.208 },  // soma das linhas (packageLines.json), sem percentil
+  'T-AB 036': { P50: 0.458, P90: 0.458 },  // soma das linhas (packageLines.json), sem percentil
+  'T-AB 037': { P50: 1.125, P90: 1.125 },  // soma das linhas (packageLines.json), sem percentil
+  'T-AB 038': { P50: 0.271, P90: 0.271 },  // soma das linhas (packageLines.json), sem percentil
+  'T-AB 039': { P50: 0.208, P90: 0.208 },  // soma das linhas (packageLines.json), sem percentil
+  'T-AB 040': { P50: 0.979, P90: 0.979 },  // soma das linhas (packageLines.json), sem percentil
+  'T-AB 041': { P50: 0.583, P90: 0.583 },  // soma das linhas (packageLines.json), sem percentil
+  'T-AB 042': { P50: 0.375, P90: 0.375 },  // soma das linhas (packageLines.json), sem percentil
+  'T-AB 044': { P50: 0.854, P90: 0.854 },  // soma das linhas (packageLines.json), sem percentil
+  'T-AB 045': { P50: 2.5, P90: 2.5 },  // soma das linhas (packageLines.json), sem percentil
+  'T-AB 046': { P50: 0.271, P90: 0.271 },  // soma das linhas (packageLines.json), sem percentil
+  'T-AB 047': { P50: 0.333, P90: 0.333 },  // soma das linhas (packageLines.json), sem percentil
+  'T-AB 048': { P50: 0.167, P90: 0.167 },  // soma das linhas (packageLines.json), sem percentil
+  'T-AB 049': { P50: 1.25, P90: 1.25 },  // soma das linhas (packageLines.json), sem percentil
+  'T-AB 050': { P50: 0.438, P90: 0.438 },  // soma das linhas (packageLines.json), sem percentil
+  'T-AB 051': { P50: 0.354, P90: 0.354 },  // soma das linhas (packageLines.json), sem percentil
+  'T-AB 052': { P50: 0.542, P90: 0.542 },  // soma das linhas (packageLines.json), sem percentil
+  'T-AB 053': { P50: 0.333, P90: 0.333 },  // soma das linhas (packageLines.json), sem percentil
+  'T-AB 054': { P50: 0.25, P90: 0.25 },  // soma das linhas (packageLines.json), sem percentil
+  'T-AB 055': { P50: 1.292, P90: 1.292 },  // soma das linhas (packageLines.json), sem percentil
+  'T-AB 056': { P50: 1.542, P90: 1.542 },  // soma das linhas (packageLines.json), sem percentil
+  'T-AB 057': { P50: 0.292, P90: 0.292 },  // soma das linhas (packageLines.json), sem percentil
+  'T-AB 058': { P50: 0.271, P90: 0.271 },  // soma das linhas (packageLines.json), sem percentil
+  'T-AB 059': { P50: 0.312, P90: 0.312 },  // soma das linhas (packageLines.json), sem percentil
+  'T-AB 060': { P50: 0.604, P90: 0.604 },  // soma das linhas (packageLines.json), sem percentil
+  'T-AB 061': { P50: 0.542, P90: 0.542 },  // soma das linhas (packageLines.json), sem percentil
+  'T-AB 062': { P50: 0.125, P90: 0.125 },  // soma das linhas (packageLines.json), sem percentil
+  'T-AB 063': { P50: 1.104, P90: 1.104 },  // soma das linhas (packageLines.json), sem percentil
+  'T-AB 064': { P50: 0.292, P90: 0.292 },  // soma das linhas (packageLines.json), sem percentil
+  'T-AB 065': { P50: 0.75, P90: 0.75 },  // soma das linhas (packageLines.json), sem percentil
+  'T-AB 066': { P50: 0.208, P90: 0.208 },  // soma das linhas (packageLines.json), sem percentil
+  'T-AB 067': { P50: 0.5, P90: 0.5 },  // soma das linhas (packageLines.json), sem percentil
+  'T-AB 068': { P50: 0.792, P90: 0.792 },  // soma das linhas (packageLines.json), sem percentil
+  'T-AB 069': { P50: 0.583, P90: 0.583 },  // soma das linhas (packageLines.json), sem percentil
+  'T-AB 070': { P50: 0.167, P90: 0.167 },  // soma das linhas (packageLines.json), sem percentil
+  'T-AB 071': { P50: 0.167, P90: 0.167 },  // soma das linhas (packageLines.json), sem percentil
+  'T-AB 072': { P50: 0.25, P90: 0.25 },  // soma das linhas (packageLines.json), sem percentil
+  'T-AB 073': { P50: 6.417, P90: 6.417 },  // soma das linhas (packageLines.json), sem percentil
+  'T-AB 074': { P50: 0.208, P90: 0.208 },  // soma das linhas (packageLines.json), sem percentil
+  'T-AB 100': { P50: 0.25, P90: 0.25 },  // soma das linhas (packageLines.json), sem percentil
+  'T-AB 101': { P50: 0.542, P90: 0.542 },  // soma das linhas (packageLines.json), sem percentil
+  'T-AB 102': { P50: 0.25, P90: 0.25 },  // soma das linhas (packageLines.json), sem percentil
+  'T-AB 103': { P50: 0.25, P90: 0.25 },  // soma das linhas (packageLines.json), sem percentil
+  'T-AB 105': { P50: 2.0, P90: 2.0 },  // soma das linhas (packageLines.json), sem percentil
+  'T-AB 106': { P50: 1.167, P90: 1.167 },  // soma das linhas (packageLines.json), sem percentil
+  'T-AB 107': { P50: 1.583, P90: 1.583 },  // soma das linhas (packageLines.json), sem percentil
+  'T-AB 108': { P50: 2.042, P90: 2.042 },  // soma das linhas (packageLines.json), sem percentil
+  'T-AB 109': { P50: 1.667, P90: 1.667 },  // soma das linhas (packageLines.json), sem percentil
+  'T-AB 110': { P50: 1.667, P90: 1.667 },  // soma das linhas (packageLines.json), sem percentil
+  'T-AB 111': { P50: 0.833, P90: 0.833 },  // soma das linhas (packageLines.json), sem percentil
+  'T-AB 112': { P50: 0.833, P90: 0.833 },  // soma das linhas (packageLines.json), sem percentil
+  'T-AB 113': { P50: 1.667, P90: 1.667 },  // soma das linhas (packageLines.json), sem percentil
+  'T-AB 114': { P50: 2.0, P90: 2.0 },  // soma das linhas (packageLines.json), sem percentil
+  'T-AB 115': { P50: 0.917, P90: 0.917 },  // soma das linhas (packageLines.json), sem percentil
+  'T-AB 116': { P50: 1.583, P90: 1.583 },  // soma das linhas (packageLines.json), sem percentil
+  'T-AB 121': { P50: 5.042, P90: 5.042 },  // soma das linhas (packageLines.json), sem percentil
+  'T-AB 122': { P50: 2.208, P90: 2.208 },  // soma das linhas (packageLines.json), sem percentil
+  'T-AB 123': { P50: 1.833, P90: 1.833 },  // soma das linhas (packageLines.json), sem percentil
+  'T-AB 124': { P50: 1.208, P90: 1.208 },  // soma das linhas (packageLines.json), sem percentil
+  'T-AB 125': { P50: 5.667, P90: 5.667 },  // soma das linhas (packageLines.json), sem percentil
+  'T-AB 126': { P50: 1.0, P90: 1.0 },  // soma das linhas (packageLines.json), sem percentil
+  'T-AB 127': { P50: 3.583, P90: 3.583 },  // soma das linhas (packageLines.json), sem percentil
+  'T-AB 128': { P50: 6.417, P90: 6.417 },  // soma das linhas (packageLines.json), sem percentil
+  'T-AB 129': { P50: 1.083, P90: 1.083 },  // soma das linhas (packageLines.json), sem percentil
+  'T-AB 130': { P50: 0.917, P90: 0.917 },  // soma das linhas (packageLines.json), sem percentil
+  'T-AB 131': { P50: 2.583, P90: 2.583 },  // soma das linhas (packageLines.json), sem percentil
+  'T-AB 132': { P50: 4.75, P90: 4.75 },  // soma das linhas (packageLines.json), sem percentil
+  'T-AB 133': { P50: 1.708, P90: 1.708 },  // soma das linhas (packageLines.json), sem percentil
+  'T-AB 134': { P50: 0.958, P90: 0.958 },  // soma das linhas (packageLines.json), sem percentil
+  'T-AB 135': { P50: 5.5, P90: 5.5 },  // soma das linhas (packageLines.json), sem percentil
+  'T-AB 136': { P50: 5.5, P90: 5.5 },  // soma das linhas (packageLines.json), sem percentil
+  'T-AB 137': { P50: 3.583, P90: 3.583 },  // soma das linhas (packageLines.json), sem percentil
+  'T-AB 140': { P50: 1.25, P90: 1.25 },  // soma das linhas (packageLines.json), sem percentil
+  'T-AB 141': { P50: 0.333, P90: 0.333 },  // soma das linhas (packageLines.json), sem percentil
+  'T-AB-133': { P50: 0.0, P90: 0.0 },  // soma das linhas (packageLines.json), sem percentil
+  'T-AB 057A': { P50: 0.458, P90: 0.458 },  // soma das linhas (packageLines.json), sem percentil
+  'T-AB 058A': { P50: 0.708, P90: 0.708 },  // soma das linhas (packageLines.json), sem percentil
+  'T-AB 104A': { P50: 2.0, P90: 2.0 },  // soma das linhas (packageLines.json), sem percentil
+  'T-AB 104B': { P50: 17.0, P90: 17.0 },  // soma das linhas (packageLines.json), sem percentil
+  'T-AB 117 RGL': { P50: 4.667, P90: 4.667 },  // soma das linhas (packageLines.json), sem percentil
+  'T-AB 118 RGL': { P50: 1.583, P90: 1.583 },  // soma das linhas (packageLines.json), sem percentil
+  'T-AB 119 RGL': { P50: 1.667, P90: 1.667 },  // soma das linhas (packageLines.json), sem percentil
+  'T-AB 120 RGL': { P50: 1.667, P90: 1.667 },  // soma das linhas (packageLines.json), sem percentil
+  'T-AB 138 RGL': { P50: 2.0, P90: 2.0 },  // soma das linhas (packageLines.json), sem percentil
+  'T-AB 139 RGL': { P50: 1.167, P90: 1.167 },  // soma das linhas (packageLines.json), sem percentil
 }
 
 // Pacotes CUSTOMIZADOS (criados/duplicados no Admin), carregados do servidor no

@@ -1,11 +1,14 @@
 import { useState, useEffect, useMemo } from 'react'
 import { AppProvider, useApp } from './context/AppContext'
+import { AutosaveProvider } from './context/AutosaveContext'
 import { Sidebar } from './components/Sidebar'
 import { ScheduleView, ScheduleToolbar } from './components/ScheduleView'
 import { FineTuningView } from './components/FineTuningView'
 import { AdminView } from './components/AdminView'
 import { PackagesCatalogModal } from './components/PackagesCatalogModal'
 import { InputSummaryPanel } from './components/InputSummaryPanel'
+import { ProjectNameField } from './components/ProjectNameField'
+import { TestIdentityModal } from './components/TestIdentityModal'
 import { generateSchedule } from './engines/scheduleRouter'
 import type { ScopeId, WizardInputs, RigType } from './types'
 import { ArrowRight, AlertTriangle, FilePlus } from 'lucide-react'
@@ -17,7 +20,7 @@ import { LoginModal } from './components/LoginModal'
 import { setPackageLines } from './data/packageLinesStore'
 import { applyDetailOverrides, applyPackageOverrides } from './data/lineDetailsStore'
 import { setExtraPackages, metaToPackage } from './data/packages'
-import { setLogicOverrides, setCustomScopesMeta, getCustomScopesMeta, isBlockScope, setScopeLabels } from './data/logicOverrideStore'
+import { setLogicOverrides, setCustomScopesMeta, getCustomScopesMeta, getKnownWellClasses, getKnownRigTags, isBlockScope, setScopeLabels, DEFAULT_WELL_CLASS } from './data/logicOverrideStore'
 import { SCOPE_LABEL } from './data/scopeLabels'
 
 // ── Scope data ────────────────────────────────────────────────────────────────
@@ -33,17 +36,25 @@ const SCOPE_BY_PHASE_LWO: Record<string, ScopeId[]> = {
 }
 // ── Step 1 wizard panel ───────────────────────────────────────────────────────
 function WizardPanel() {
-  const { dispatch } = useApp()
+  const { state, dispatch } = useApp()
   const [wizardMode,  setWizardMode]  = useState<'auto' | null>(null)
-  const [tipoPoco,    setTipoPoco]    = useState<'molhada' | 'molhada_nordeste' | 'seca' | ''>('')
+  // Tipo de poço: "Completação Molhada" é o único caminho com engine hardcoded (bundle
+  // ANC/DP/Fase/Escopo previsto — WET_CLASS abaixo); qualquer outro valor (Molhada
+  // Nordeste, Seca, ou uma classe nova criada pelo admin) passa pelo motor de escopo
+  // customizado genérico — ver `isGenericCustom`. Os valores canônicos são o próprio
+  // texto exibido nos botões, para casar 1:1 com o `wellClass` gravado no editor.
+  const WET_CLASS = 'Completação Molhada'
+  const HARDCODED_WELL_CLASSES = [WET_CLASS, 'Completação Molhada Nordeste', DEFAULT_WELL_CLASS]
+  const [tipoPoco,    setTipoPoco]    = useState<string>('')
   const [rigType,     setRigType]     = useState<RigType | ''>('')
   const [opType,      setOpType]      = useState<'Generalista' | 'LWO'>('Generalista')
   const [phaseFilter, setPhaseFilter] = useState<'fase_unica' | 'fase_1' | 'fase_2' | ''>('')
   const [scopeId,     setScopeId]     = useState<ScopeId | ''>('')
 
-  const isMolhada = tipoPoco === 'molhada'
+  const isMolhada = tipoPoco === WET_CLASS
+  const isGenericCustom = !!tipoPoco && tipoPoco !== WET_CLASS
 
-  const handleTipoPocoChange = (v: typeof tipoPoco) => {
+  const handleTipoPocoChange = (v: string) => {
     setTipoPoco(v); setRigType(''); setOpType('Generalista'); setPhaseFilter(''); setScopeId('')
   }
   const handleRigChange = (rig: RigType, op: 'Generalista' | 'LWO' = 'Generalista') => {
@@ -55,23 +66,56 @@ function WizardPanel() {
 
   const scopeMap = opType === 'LWO' ? SCOPE_BY_PHASE_LWO : SCOPE_BY_PHASE
   const scopeOptions = phaseFilter ? scopeMap[phaseFilter] ?? [] : []
-  const customScopes = useMemo(() => {
-    if (!isMolhada || !rigType) return []
-    return getCustomScopesMeta().filter(cs => {
-      if (cs.fase && phaseFilter && cs.fase !== phaseFilter) return false
-      if (cs.opTypes?.length && !cs.opTypes.includes(opType)) return false
-      return true
-    })
-  }, [isMolhada, rigType, phaseFilter, opType])
 
-  const canGenerate = isMolhada && (rigType === 'ANC' || rigType === 'DP') && !!scopeId
+  // Classes de "Tipo de poço" extras (além das 3 hardcoded) já usadas por algum escopo
+  // customizado — viram botões adicionais no wizard automaticamente. Lista pequena
+  // (poucos escopos custom): computada direto no render, sem memoização, para sempre
+  // refletir o estado atual do store (que é populado assincronamente pelo App).
+  const dynamicWellClasses = getKnownWellClasses().filter(w => !HARDCODED_WELL_CLASSES.includes(w))
+  // Tag única correspondente à sonda ANC/DP selecionada na etapa hardcoded de Completação
+  // Molhada — usada para casar com o "Tipo de sonda" (rigTypes) unificado gravado no editor.
+  const molhadaRigTag = rigType === 'ANC' ? 'Ancorada'
+    : rigType === 'DP' && opType === 'Generalista' ? 'DP Generalista'
+    : rigType === 'DP' && opType === 'LWO' ? 'DP LWIV'
+    : null
+  // Tags de "Tipo de sonda" cadastradas para a classe de poço selecionada (bucket
+  // DEFAULT_WELL_CLASS quando tipoPoco==='Completação Seca'; qualquer outra classe usa
+  // seu próprio nome como chave).
+  const rigTagsForClass = isGenericCustom ? getKnownRigTags(tipoPoco) : []
+
+  const customScopes = useMemo(() => {
+    if (isMolhada && molhadaRigTag) {
+      return getCustomScopesMeta().filter(cs => {
+        if ((cs.wellClass ?? DEFAULT_WELL_CLASS) !== WET_CLASS) return false
+        if (!cs.rigTypes?.includes(molhadaRigTag)) return false
+        if (cs.fase && phaseFilter && cs.fase !== phaseFilter) return false
+        return true
+      })
+    }
+    if (isGenericCustom && rigType) {
+      return getCustomScopesMeta().filter(cs => (cs.wellClass ?? DEFAULT_WELL_CLASS) === tipoPoco && cs.rigTypes?.includes(rigType))
+    }
+    return []
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isMolhada, isGenericCustom, tipoPoco, rigType, molhadaRigTag, phaseFilter])
+
+  const canGenerate = ((isMolhada && (rigType === 'ANC' || rigType === 'DP')) || (isGenericCustom && !!rigType)) && !!scopeId
 
   const handleGenerate = () => {
-    if (!rigType || !scopeId || (rigType !== 'ANC' && rigType !== 'DP')) return
+    if (!rigType || !scopeId || !(rigType === 'ANC' || rigType === 'DP' || isGenericCustom)) return
     const defaults = getDefaultInputs(rigType, opType, scopeId)
+    // RESET limpa wellName/projectName/projectId para o estado inicial — preserva o que
+    // já estava definido (hoje, pelo pop-up de teste; futuramente, pelo sistema externo)
+    // em vez de sobrescrever com o placeholder fixo 'Poço' e perder o vínculo com o
+    // projeto já salvo no servidor (o que faria o autosave criar um registro duplicado).
+    const wellName = state.wellName || 'Poço'
+    const projectName = state.projectName
+    const projectId = state.projectId
     dispatch({ type: 'RESET' })
-    dispatch({ type: 'SET_WELL_NAME', wellName: 'Poço' })
-    dispatch({ type: 'PROJECT_UPDATE_DATA', patch: { poco: 'Poço' } })
+    dispatch({ type: 'SET_WELL_NAME', wellName })
+    if (projectName) dispatch({ type: 'SET_PROJECT_NAME', projectName })
+    if (projectId) dispatch({ type: 'SET_PROJECT_ID', projectId })
+    dispatch({ type: 'PROJECT_UPDATE_DATA', patch: { poco: wellName } })
     dispatch({ type: 'UPDATE_INPUTS', inputs: defaults })
     try {
       const schedule = generateSchedule(defaults as WizardInputs)
@@ -84,8 +128,9 @@ function WizardPanel() {
       style={{ width: '340px' }}>
 
       {/* Header — same height as ScheduleToolbar */}
-      <div className="shrink-0 flex items-center justify-center px-3 border-b border-slate-200 dark:border-slate-700" style={{ height: '38px' }}>
-        <span className="text-xs font-bold tracking-widest uppercase text-slate-400 dark:text-slate-500">Novo Cronograma</span>
+      <ProjectNameField />
+      <div className="shrink-0 px-4 py-1.5 border-b border-slate-200 dark:border-slate-800">
+        <span className="text-[10px] tracking-widest uppercase text-slate-400 dark:text-slate-500">Novo Cronograma</span>
       </div>
 
       {/* Escolha inicial */}
@@ -93,15 +138,15 @@ function WizardPanel() {
         <div className="flex-1 flex flex-col gap-3 p-4 pt-6">
           <button
             onClick={() => setWizardMode('auto')}
-            className="w-full flex flex-col items-center justify-center gap-1 py-5 rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:border-[#005889] dark:hover:border-sky-500 hover:text-[#005889] dark:hover:text-sky-400 transition-colors">
+            className="w-full flex flex-col items-center justify-center gap-1 py-5 rounded-xl border border-slate-200 dark:border-slate-600 bg-[#fafafa] dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100 hover:border-slate-300 dark:hover:bg-slate-600 dark:hover:border-slate-500 transition-colors">
             <LuNetwork size={18} className="mb-0.5" />
-            <span className="text-sm font-semibold">Cronograma por Árvores de Decisão</span>
+            <span className="text-sm">Cronograma por Árvores de Decisão</span>
           </button>
           <button
             onClick={() => dispatch({ type: 'ENTER_FINE_TUNING_BLANK' })}
-            className="w-full flex flex-col items-center justify-center gap-1 py-5 rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:border-[#005889] dark:hover:border-sky-500 hover:text-[#005889] dark:hover:text-sky-400 transition-colors">
+            className="w-full flex flex-col items-center justify-center gap-1 py-5 rounded-xl border border-slate-200 dark:border-slate-600 bg-[#fafafa] dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100 hover:border-slate-300 dark:hover:bg-slate-600 dark:hover:border-slate-500 transition-colors">
             <FilePlus size={18} className="mb-0.5" />
-            <span className="text-sm font-semibold">Cronograma em branco</span>
+            <span className="text-sm">Cronograma em branco</span>
           </button>
         </div>
       )}
@@ -118,9 +163,15 @@ function WizardPanel() {
             </WizStep>
 
             <WizStep label="Tipo de poço">
-              <WizOption active={tipoPoco === 'molhada'}          onClick={() => handleTipoPocoChange('molhada')}>Completação Molhada</WizOption>
-              <WizOption active={tipoPoco === 'molhada_nordeste'} onClick={() => handleTipoPocoChange('molhada_nordeste')}>Completação Molhada Nordeste</WizOption>
-              <WizOption active={tipoPoco === 'seca'}             onClick={() => handleTipoPocoChange('seca')}>Completação Seca</WizOption>
+              <WizOption active={tipoPoco === 'Completação Molhada'}          onClick={() => handleTipoPocoChange('Completação Molhada')}>Completação Molhada</WizOption>
+              <WizOption active={tipoPoco === 'Completação Molhada Nordeste'} onClick={() => handleTipoPocoChange('Completação Molhada Nordeste')}>Completação Molhada Nordeste</WizOption>
+              <WizOption active={tipoPoco === DEFAULT_WELL_CLASS}             onClick={() => handleTipoPocoChange(DEFAULT_WELL_CLASS)}>Completação Seca</WizOption>
+              {/* Classes extras definidas livremente pelo admin no editor de Árvores de
+                  Decisão (Tipo de poço de um escopo customizado) — aparecem aqui assim
+                  que algum escopo for classificado com esse valor. */}
+              {dynamicWellClasses.map(w => (
+                <WizOption key={w} active={tipoPoco === w} onClick={() => handleTipoPocoChange(w)}>{w}</WizOption>
+              ))}
             </WizStep>
 
             {isMolhada && (
@@ -131,10 +182,16 @@ function WizardPanel() {
               </WizStep>
             )}
 
-            {(tipoPoco === 'seca' || tipoPoco === 'molhada_nordeste') && (
-              <div className="flex items-center justify-center py-4 rounded-xl border border-dashed border-slate-300 dark:border-slate-700">
-                <span className="text-[10px] font-bold tracking-widest text-slate-400 dark:text-slate-500 uppercase">Em desenvolvimento</span>
-              </div>
+            {isGenericCustom && (
+              <WizStep label="Tipo de sonda">
+                {rigTagsForClass.length > 0 ? rigTagsForClass.map(rig => (
+                  <WizOption key={rig} active={rigType === rig} onClick={() => handleRigChange(rig)}>{rig}</WizOption>
+                )) : (
+                  <p className="text-[10px] text-slate-400 dark:text-slate-500 px-1 py-1">
+                    Nenhuma sonda cadastrada para "{tipoPoco}" ainda — classifique um escopo no editor de Árvores de Decisão.
+                  </p>
+                )}
+              </WizStep>
             )}
 
           </div>
@@ -186,7 +243,7 @@ function WizardPanel() {
           <button
             onClick={handleGenerate}
             disabled={!canGenerate}
-            className="w-full flex items-center justify-center gap-2 h-9 rounded-lg text-sm font-semibold transition-colors bg-[#008542] text-white hover:opacity-90 dark:bg-[#1a3a5c] dark:border dark:border-sky-700 dark:text-sky-300 dark:hover:bg-[#1e4570] dark:hover:border-sky-500 disabled:opacity-30 disabled:cursor-not-allowed">
+            className="w-full flex items-center justify-center gap-2 h-9 rounded-lg text-sm transition-colors bg-[#008542] text-white hover:opacity-90 dark:bg-[#1a3a5c] dark:border dark:border-sky-700 dark:text-sky-300 dark:hover:bg-[#1e4570] dark:hover:border-sky-500 disabled:opacity-30 disabled:cursor-not-allowed">
             Gerar Cronograma <ArrowRight size={14} />
           </button>
         </div>
@@ -198,7 +255,7 @@ function WizardPanel() {
 function WizStep({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div>
-      <p className="text-xs font-bold text-slate-500 dark:text-slate-500 uppercase tracking-widest mb-1.5 px-1">{label}</p>
+      <p className="text-xs text-slate-500 dark:text-slate-500 uppercase tracking-widest mb-1.5 px-1">{label}</p>
       <div className="space-y-0.5">{children}</div>
     </div>
   )
@@ -207,13 +264,13 @@ function WizStep({ label, children }: { label: string; children: React.ReactNode
 function WizOption({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
   return (
     <button onClick={onClick}
-      className={`w-full flex items-center gap-2.5 py-1.5 px-2 rounded-lg text-left text-xs transition-colors
+      className={`w-full flex items-center gap-2.5 py-1.5 px-2 rounded-lg text-left text-xs border transition-colors
         ${active
-          ? 'bg-[#005889] text-white dark:bg-[#1a3a5c] dark:border dark:border-sky-700 dark:text-sky-300 font-semibold'
-          : 'text-slate-700 dark:text-slate-300 hover:bg-slate-200/70 dark:hover:bg-slate-800'}`}>
+          ? 'border-slate-500 dark:border-slate-400 bg-slate-100 dark:bg-slate-600 text-slate-800 dark:text-slate-100'
+          : 'border-slate-200 dark:border-slate-600 bg-[#fafafa] dark:bg-slate-700 text-slate-500 dark:text-slate-400 hover:bg-slate-100 hover:border-slate-300 dark:hover:bg-slate-600 dark:hover:border-slate-500'}`}>
       <span className={`shrink-0 w-3 h-3 rounded-full border-2 flex items-center justify-center
-        ${active ? 'border-white' : 'border-slate-400 dark:border-slate-600'}`}>
-        {active && <span className="w-1.5 h-1.5 rounded-full bg-white" />}
+        ${active ? 'border-slate-800 dark:border-slate-100' : 'border-slate-400 dark:border-slate-600'}`}>
+        {active && <span className="w-1.5 h-1.5 rounded-full bg-slate-800 dark:bg-slate-100" />}
       </span>
       {children}
     </button>
@@ -232,6 +289,9 @@ function Main() {
   const [navWarnTarget, setNavWarnTarget] = useState<'home' | 'wizard' | 'schedule' | 'fine_tuning' | null>(null)
   const [navWarnFrom, setNavWarnFrom] = useState<'schedule' | 'fine_tuning' | null>(null)
   const [showStats, setShowStats] = useState(() => typeof window !== 'undefined' && window.innerWidth >= 1400)
+  // TEMPORÁRIO (harness de teste — ver TestIdentityModal): exibido uma vez ao abrir a
+  // página, simulando a entrada do sistema externo (poço, projeto, papel).
+  const [showIdentityModal, setShowIdentityModal] = useState(true)
   const toggleDark = () => setIsDark(d => !d)
 
   const handleBeforeStepNav = (targetView: string): boolean => {
@@ -321,6 +381,10 @@ function Main() {
         </div>
       )}
 
+      {showIdentityModal && (
+        <TestIdentityModal onClose={() => setShowIdentityModal(false)} />
+      )}
+
     </div>
   )
 }
@@ -344,7 +408,7 @@ export default function App() {
       Object.fromEntries(ms.map(m => [m.pkgId, metaToPackage(m)])),
     )).catch(() => {})
     getLogicScopes().then(scopes => {
-      setCustomScopesMeta(scopes.filter(s => s.isCustom && !isBlockScope(s.scopeId)).map(s => ({ scopeId: s.scopeId, label: s.label ?? s.scopeId, fase: s.fase, opTypes: s.opTypes })))
+      setCustomScopesMeta(scopes.filter(s => s.isCustom && !isBlockScope(s.scopeId)).map(s => ({ scopeId: s.scopeId, label: s.label ?? s.scopeId, fase: s.fase, opTypes: s.opTypes, rigTypes: s.rigTypes, wellClass: s.wellClass })))
       setScopeLabels(Object.fromEntries(scopes.filter(s => s.label).map(s => [s.scopeId, s.label as string])))
       const active = scopes.filter(s => s.sectionCount > 0)
       if (!active.length) return
@@ -359,7 +423,9 @@ export default function App() {
 
   return (
     <AppProvider>
-      <Main />
+      <AutosaveProvider>
+        <Main />
+      </AutosaveProvider>
       {showLoginModal && (
         <LoginModal
           onLogin={session => {

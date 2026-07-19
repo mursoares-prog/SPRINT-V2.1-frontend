@@ -23,7 +23,7 @@ function PackageRow({ pkg, lines }: { pkg: Package; lines: string[] }) {
           )}
         </td>
         <td className="py-1.5 pr-3 w-24 shrink-0">
-          <span className="font-mono text-xs font-semibold text-blue-700 dark:text-blue-400 whitespace-nowrap">{pkg.id}</span>
+          <span className="text-xs font-medium text-[#0c2340] dark:text-blue-400 whitespace-nowrap">{pkg.id}</span>
         </td>
         <td className="py-1.5 pr-3 text-xs text-slate-700 dark:text-slate-300 leading-snug">{pkg.name}</td>
       </tr>

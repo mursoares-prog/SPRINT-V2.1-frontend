@@ -43,11 +43,13 @@ import {
   getLogicScopeGroups, saveLogicScopeGroups, isApiConfigured,
 } from '../utils/api'
 import { isAdmin, authHeader } from '../utils/auth'
-import { updateCustomScopeMeta } from '../data/logicOverrideStore'
+import { updateCustomScopeMeta, getKnownWellClasses, getKnownRigTags, DEFAULT_WELL_CLASS } from '../data/logicOverrideStore'
 import { PACKAGES } from '../data/packages'
 import { setLogicOverrides, getLogicOverride, expandScopeRefs, resolveScopeSections, setScopeLabels } from '../data/logicOverrideStore'
 import { type EditAction, type DecRef } from './LogicGraphPanel'
 import { LogicFlowEditor, type LogicFlowEditorHandle } from './LogicFlowEditor'
+import { ComboInput } from './ComboInput'
+import { TagInput } from './TagInput'
 
 // ─── Constantes ───────────────────────────────────────────────────────────────
 
@@ -74,6 +76,12 @@ const BLOCK_LABELS: Record<string, string> = {
   BLK_BOP_RETIRA:    'BOP · Retirada',
 }
 const BLOCK_IDS = Object.keys(BLOCK_LABELS)
+
+// Sugestões fixas para os campos "Tipo de poço"/"Tipo de sonda" do popover Sonda/Escopo —
+// espelham as opções hardcoded da Etapa 1 do wizard (App.tsx). Ambos os campos aceitam
+// qualquer texto livre além dessas sugestões (classes/sondas novas criadas pelo admin).
+const WELL_CLASS_PRESETS = ['Completação Molhada', 'Completação Molhada Nordeste', DEFAULT_WELL_CLASS]
+const RIG_TAG_PRESETS = ['Ancorada', 'DP Generalista', 'DP LWIV', 'PA', 'SPH', 'SPM/SM', 'Rigless']
 
 function isReservedId(id: string) { return BUNDLE_IDS.includes(id) || BLOCK_IDS.includes(id) }
 function uid() { return `_${Math.random().toString(36).slice(2,9)}` }
@@ -422,22 +430,22 @@ function UnifiedImportModal({ overrides, currentScopeId, loadScopeSections, allo
   }
 
   const scopeItemCls = (id: string) =>
-    `w-full text-left px-3 py-2 text-xs transition-colors ${sourceId === id ? 'bg-slate-700 text-slate-100' : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'}`
+    `w-full text-left px-3 py-2 text-xs transition-colors ${sourceId === id ? 'bg-slate-200 text-slate-900 dark:bg-slate-700 dark:text-slate-100' : 'text-slate-500 hover:bg-slate-100 hover:text-slate-800 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-200'}`
 
   return (
     <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/60">
-      <div className="bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl w-full max-w-2xl flex flex-col max-h-[85vh]">
-        <div className="flex items-center gap-2 px-5 py-4 border-b border-slate-700">
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-2xl w-full max-w-2xl flex flex-col max-h-[85vh]">
+        <div className="flex items-center gap-2 px-5 py-4 border-b border-slate-200 dark:border-slate-700">
           <Download size={14} className="text-[#d97706]" />
-          <span className="text-sm font-semibold text-slate-100 flex-1">Importar de outro escopo</span>
-          <button onClick={onClose}><X size={14} className="text-slate-400" /></button>
+          <span className="text-sm font-semibold text-slate-900 dark:text-slate-100 flex-1">Importar de outro escopo</span>
+          <button onClick={onClose}><X size={14} className="text-slate-500 dark:text-slate-400" /></button>
         </div>
         <div className="flex flex-1 min-h-0">
           {/* Scope list */}
-          <div className="w-48 shrink-0 border-r border-slate-700/40 py-2 overflow-y-auto scrollbar-custom">
+          <div className="w-48 shrink-0 border-r border-slate-200 dark:border-slate-700/40 py-2 overflow-y-auto scrollbar-custom">
             {bundles.length > 0 && (
               <>
-                <p className="text-[9px] text-slate-600 uppercase tracking-widest px-3 pb-1">Bundle</p>
+                <p className="text-[9px] text-slate-400 dark:text-slate-600 uppercase tracking-widest px-3 pb-1">Bundle</p>
                 {bundles.map(id => (
                   <button key={id} onClick={() => handleSelectSource(id)} className={scopeItemCls(id)}>
                     <span className="flex items-center gap-1.5"><Layers size={9} className="opacity-40 shrink-0" />{BUNDLE_LABELS[id]}</span>
@@ -447,7 +455,7 @@ function UnifiedImportModal({ overrides, currentScopeId, loadScopeSections, allo
             )}
             {blocks.length > 0 && (
               <>
-                <p className="text-[9px] text-slate-600 uppercase tracking-widest px-3 pt-3 pb-1">Blocos de lógica</p>
+                <p className="text-[9px] text-slate-400 dark:text-slate-600 uppercase tracking-widest px-3 pt-3 pb-1">Blocos de lógica</p>
                 {blocks.map(id => (
                   <button key={id} onClick={() => handleSelectSource(id)} className={scopeItemCls(id)}>
                     <span className="flex items-center gap-1.5"><Puzzle size={9} className="text-[#d97706]/50 shrink-0" />{BLOCK_LABELS[id]}</span>
@@ -457,7 +465,7 @@ function UnifiedImportModal({ overrides, currentScopeId, loadScopeSections, allo
             )}
             {customs.length > 0 && (
               <>
-                <p className="text-[9px] text-slate-600 uppercase tracking-widest px-3 pt-3 pb-1">Customizados</p>
+                <p className="text-[9px] text-slate-400 dark:text-slate-600 uppercase tracking-widest px-3 pt-3 pb-1">Customizados</p>
                 {customs.map(o => (
                   <button key={o.scopeId} onClick={() => handleSelectSource(o.scopeId)} className={scopeItemCls(o.scopeId)}>
                     <span className="flex items-center gap-1.5"><GitBranch size={9} className="text-[#d97706]/50 shrink-0" />{o.label ?? o.scopeId}</span>
@@ -470,48 +478,48 @@ function UnifiedImportModal({ overrides, currentScopeId, loadScopeSections, allo
           {/* Section selector */}
           <div className="flex-1 flex flex-col min-h-0">
             {!sourceId && (
-              <div className="flex-1 flex items-center justify-center text-slate-600 text-xs text-center px-4">
+              <div className="flex-1 flex items-center justify-center text-slate-400 dark:text-slate-600 text-xs text-center px-4">
                 Selecione um escopo ou bloco à esquerda
               </div>
             )}
             {sourceId && loadingSrc && (
-              <div className="flex-1 flex items-center justify-center text-slate-500 text-xs">Carregando…</div>
+              <div className="flex-1 flex items-center justify-center text-slate-500 dark:text-slate-500 text-xs">Carregando…</div>
             )}
             {sourceId && !loadingSrc && (
               <>
-                <div className="px-4 py-2 border-b border-slate-700/40">
-                  <p className="text-[10px] text-slate-400">Selecione as seções a adicionar ao final do fluxo atual</p>
+                <div className="px-4 py-2 border-b border-slate-200 dark:border-slate-700/40">
+                  <p className="text-[10px] text-slate-500 dark:text-slate-400">Selecione as seções a adicionar ao final do fluxo atual</p>
                 </div>
                 <div className="flex-1 overflow-y-auto scrollbar-custom py-1">
                   {sourceSecs.map((sec, i) => (
                     <button key={i} onClick={() => toggleSec(i)}
                       className={`w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors border-l-2
-                        ${selected.has(i) ? 'bg-[#d97706]/10 border-[#d97706]' : 'hover:bg-slate-800 border-transparent'}`}>
+                        ${selected.has(i) ? 'bg-[#d97706]/10 border-[#d97706]' : 'hover:bg-slate-100 dark:hover:bg-slate-800 border-transparent'}`}>
                       <div className={`w-4 h-4 rounded flex items-center justify-center shrink-0 border
-                        ${selected.has(i) ? 'bg-[#d97706] border-[#d97706]' : 'border-slate-600'}`}>
+                        ${selected.has(i) ? 'bg-[#d97706] border-[#d97706]' : 'border-slate-300 dark:border-slate-600'}`}>
                         {selected.has(i) && <Check size={10} className="text-white" />}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-xs font-medium text-slate-200">{sec.label}</p>
-                        <p className="text-[10px] text-slate-500">
+                        <p className="text-xs font-medium text-slate-800 dark:text-slate-200">{sec.label}</p>
+                        <p className="text-[10px] text-slate-500 dark:text-slate-500">
                           {sec.phase} · {sec.decisions.length} decisões{sec.always?.length ? ` · ${sec.always.length} sempre` : ''}
                         </p>
                       </div>
                     </button>
                   ))}
                   {sourceSecs.length === 0 && (
-                    <p className="text-xs text-slate-500 px-4 py-4">Nenhuma seção encontrada.</p>
+                    <p className="text-xs text-slate-500 dark:text-slate-500 px-4 py-4">Nenhuma seção encontrada.</p>
                   )}
                 </div>
-                <div className="px-4 py-3 border-t border-slate-700/40 flex items-center gap-2 justify-end">
+                <div className="px-4 py-3 border-t border-slate-200 dark:border-slate-700/40 flex items-center gap-2 justify-end">
                   {allowBase && sourceId && (
                     <button onClick={() => onBase(sourceId)}
                       title="Substitui todo o conteúdo atual pelo deste escopo"
-                      className="flex items-center gap-1 text-xs text-slate-400 hover:text-amber-300 border border-slate-700 hover:border-amber-600/40 rounded-lg px-3 py-1.5 transition-colors">
+                      className="flex items-center gap-1 text-xs text-slate-500 hover:text-amber-600 border border-slate-200 hover:border-amber-400/60 dark:text-slate-400 dark:hover:text-amber-300 dark:border-slate-700 dark:hover:border-amber-600/40 rounded-lg px-3 py-1.5 transition-colors">
                       <Copy size={11} /> Usar como base
                     </button>
                   )}
-                  <button onClick={onClose} className="text-xs text-slate-400 px-3 py-1.5 rounded-lg border border-slate-700">Cancelar</button>
+                  <button onClick={onClose} className="text-xs text-slate-600 dark:text-slate-400 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700">Cancelar</button>
                   <button disabled={selected.size === 0} onClick={handleImport}
                     className="text-xs text-white bg-[#d97706] hover:bg-amber-600 px-4 py-1.5 rounded-lg font-semibold disabled:opacity-40">
                     Adicionar {selected.size > 0 ? `(${selected.size})` : 'seções'}
@@ -528,61 +536,61 @@ function UnifiedImportModal({ overrides, currentScopeId, loadScopeSections, allo
 
 // ─── Modal: novo escopo customizado ──────────────────────────────────────────
 
+// Deriva um ID técnico a partir do nome digitado pelo usuário (único campo do modal) —
+// remove acentos (normalize NFD) antes de descartar caracteres não alfanuméricos, para
+// que "Único" vire "Unico_..." em vez de perder a primeira letra.
+const slugifyId = (s: string) => s.trim()
+  .normalize('NFD').replace(/[̀-ͯ]/g, '')
+  .replace(/[^a-zA-Z0-9]+/g, '_').replace(/^_+|_+$/g, '')
+
 function NewScopeModal({ kind, onSave, onClose }: {
   kind: 'scope' | 'block'
   onSave: (scopeId: string, label: string) => Promise<void>; onClose: () => void
 }) {
   const isBlock = kind === 'block'
-  // Blocos usam prefixo obrigatório 'BLK_' (a UI os classifica como bloco por esse prefixo).
-  const [scopeId, setScopeId] = useState(isBlock ? 'BLK_' : '')
-  const [label, setLabel] = useState('')
+  const [name, setName] = useState('')
   const [creating, setCreating] = useState(false)
   const [localError, setLocalError] = useState<string | null>(null)
-  const id = scopeId.trim()
-  const idOk = isBlock ? (id.startsWith('BLK_') && id.length > 4) : id.length > 0
-  const valid = !creating && idOk && label.trim() && !BUNDLE_IDS.includes(id) && !BLOCK_IDS.includes(id)
+  const trimmedName = name.trim()
+  const slug = slugifyId(trimmedName)
+  // Blocos usam prefixo obrigatório 'BLK_' (a UI os classifica como bloco por esse
+  // prefixo) — gerado automaticamente a partir do nome, sem o usuário precisar sabê-lo.
+  const id = slug ? (isBlock ? `BLK_${slug}` : slug) : ''
+  const reserved = !!id && (BUNDLE_IDS.includes(id) || BLOCK_IDS.includes(id))
+  const valid = !creating && !!trimmedName && !!id && !reserved
 
   const handleCreate = async () => {
     if (!valid) return
     setCreating(true); setLocalError(null)
-    try { await onSave(id, label.trim()) }
+    try { await onSave(id, trimmedName) }
     catch (e) { setLocalError(e instanceof Error ? e.message : `Erro ao criar ${isBlock ? 'bloco' : 'escopo'}`); setCreating(false) }
   }
 
   return (
     <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/60">
-      <div className="bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl w-full max-w-sm p-5 space-y-4">
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-2xl w-full max-w-sm p-5 space-y-4">
         <div className="flex items-center gap-2">
-          {isBlock ? <Puzzle size={14} className="text-[#d97706]" /> : <Plus size={14} className="text-[#d97706]" />}
-          <span className="text-sm font-semibold text-slate-100">{isBlock ? 'Novo bloco de lógica' : 'Novo escopo customizado'}</span>
+          {isBlock ? <Puzzle size={14} className="text-[#008542] dark:text-[#d97706]" /> : <Plus size={14} className="text-[#008542] dark:text-[#d97706]" />}
+          <span className="text-sm font-semibold text-slate-900 dark:text-slate-100">{isBlock ? 'Novo bloco de lógica' : 'Novo escopo customizado'}</span>
         </div>
-        <p className="text-[11px] text-slate-500">
+        <p className="text-[11px] text-slate-500 dark:text-slate-500">
           {isBlock
             ? 'Um bloco é reutilizável: pode ser incluído em vários escopos. Após criar, edite o fluxograma do bloco.'
             : 'Após criar, escolha um escopo base e edite no fluxograma.'}
         </p>
-        <div className="space-y-3">
-          <div>
-            <label className="text-[10px] text-slate-400">ID único</label>
-            <input value={scopeId} onChange={e => { setScopeId(e.target.value.replace(/\s/g,'')); setLocalError(null) }}
-              placeholder={isBlock ? 'ex: BLK_MEU_BLOCO' : 'ex: FSU_Custom_01'}
-              onKeyDown={e => e.key === 'Enter' && handleCreate()}
-              className="w-full mt-1 text-sm bg-slate-800 rounded-lg px-3 py-2 text-slate-100 outline-none border border-slate-700 focus:border-[#d97706]/60" />
-            {id && (BUNDLE_IDS.includes(id) || BLOCK_IDS.includes(id)) && <p className="text-[10px] text-rose-400 mt-0.5">ID reservado.</p>}
-            {isBlock && id.length > 0 && !id.startsWith('BLK_') && <p className="text-[10px] text-rose-400 mt-0.5">O ID de um bloco deve começar com “BLK_”.</p>}
-          </div>
-          <div>
-            <label className="text-[10px] text-slate-400">Rótulo</label>
-            <input value={label} onChange={e => setLabel(e.target.value)} placeholder={isBlock ? 'ex: Meu bloco reutilizável' : 'ex: FSU customizado'}
-              onKeyDown={e => e.key === 'Enter' && handleCreate()}
-              className="w-full mt-1 text-sm bg-slate-800 rounded-lg px-3 py-2 text-slate-100 outline-none border border-slate-700 focus:border-[#d97706]/60" />
-          </div>
+        <div>
+          <label className="text-[10px] text-slate-500 dark:text-slate-400">Nome</label>
+          <input autoFocus value={name} onChange={e => { setName(e.target.value); setLocalError(null) }}
+            placeholder={isBlock ? 'ex: Meu bloco reutilizável' : 'ex: Escopo customizado'}
+            onKeyDown={e => e.key === 'Enter' && handleCreate()}
+            className="w-full mt-1 text-sm bg-slate-100 dark:bg-slate-800 rounded-lg px-3 py-2 text-slate-900 dark:text-slate-100 outline-none border border-slate-200 dark:border-slate-700 focus:border-[#008542]/60 dark:focus:border-[#d97706]/60" />
+          {reserved && <p className="text-[10px] text-rose-500 dark:text-rose-400 mt-0.5">Esse nome já está em uso — escolha outro.</p>}
         </div>
-        {localError && <p className="text-[11px] text-rose-400">{localError}</p>}
+        {localError && <p className="text-[11px] text-rose-500 dark:text-rose-400">{localError}</p>}
         <div className="flex justify-end gap-2 pt-1">
-          <button onClick={onClose} disabled={creating} className="px-3 py-1.5 text-sm text-slate-400 rounded-lg border border-slate-700 disabled:opacity-40">Cancelar</button>
+          <button onClick={onClose} disabled={creating} className="px-3 py-1.5 text-sm text-slate-600 dark:text-slate-400 rounded-lg border border-slate-200 dark:border-slate-700 disabled:opacity-40">Cancelar</button>
           <button disabled={!valid} onClick={handleCreate}
-            className="px-4 py-1.5 text-sm bg-[#d97706] hover:bg-amber-600 text-white rounded-lg disabled:opacity-40 font-semibold">
+            className="px-4 py-1.5 text-sm bg-[#008542] hover:bg-[#006a35] dark:bg-[#d97706] dark:hover:bg-amber-600 text-white rounded-lg disabled:opacity-40 font-semibold">
             {creating ? 'Criando…' : 'Criar'}
           </button>
         </div>
@@ -1125,8 +1133,10 @@ export function LogicEditorPanel({ canEdit }: { canEdit: boolean }) {
 
   const renderScopeGroup = (group: ScopeGroup, depth: number): React.ReactNode => {
     const collapsed = collapsedGroups.has(group.id)
-    const childScopes = membersOfGroup(group.id)
-    const childGroups = scopeGroups.groups.filter(g => g.parentId === group.id)
+    // Blocos de lógica não aparecem aqui — têm seção própria, fisicamente separada
+    // (ver groupHasNonBlockContent / seção "Blocos de lógica" mais abaixo).
+    const childScopes = membersOfGroup(group.id).filter(s => !s.isBlock)
+    const childGroups = scopeGroups.groups.filter(g => g.parentId === group.id && groupHasNonBlockContent(g.id))
     const isEditing = editingGroupId?.id === group.id
     return (
       <div key={group.id} style={{ paddingLeft: `${depth * 10}px` }}>
@@ -1247,7 +1257,6 @@ export function LogicEditorPanel({ canEdit }: { canEdit: boolean }) {
   const selectScope = async (scopeId: string) => {
     if (dirty && !confirm('Há alterações não salvas. Descartar?')) return
     setShowScopePanel(false)
-    setShowScopeSidebar(false)
     setShowFlowIndex(true)
     setSelectedScope(scopeId)
     setSections([])
@@ -2599,7 +2608,7 @@ export function LogicEditorPanel({ canEdit }: { canEdit: boolean }) {
       setOverrides(prev => {
         const exists = prev.some(o => o.scopeId === selectedScope)
         if (exists) return prev.map(o => o.scopeId === selectedScope ? { ...o, label: trimmed } : o)
-        return [...prev, { scopeId: selectedScope, isCustom: false, label: trimmed, fase: null, opTypes: null, sectionCount: 0, author: null, updatedAt: '' }]
+        return [...prev, { scopeId: selectedScope, isCustom: false, label: trimmed, fase: null, opTypes: null, rigTypes: null, wellClass: null, sectionCount: 0, author: null, updatedAt: '' }]
       })
     } catch (e) { setError(e instanceof Error ? e.message : 'Erro ao renomear') }
   }
@@ -2607,34 +2616,28 @@ export function LogicEditorPanel({ canEdit }: { canEdit: boolean }) {
   const selectedMeta = scopeList.find(s => s.scopeId === selectedScope)
   const selectedFullMeta = overrides.find(o => o.scopeId === selectedScope)
 
-  const handleSaveMeta = useCallback(async (fase: string | null, opTypes: string[] | null) => {
+  const handleSaveMeta = useCallback(async (fase: string | null, opTypes: string[] | null, rigTypes: string[] | null, wellClass: string | null) => {
     if (!selectedScope || !canEdit) return
     try {
-      await saveLogicScopeMeta(selectedScope, { fase, opTypes }, authHeader())
-      setOverrides(prev => prev.map(o => o.scopeId === selectedScope ? { ...o, fase, opTypes } : o))
-      updateCustomScopeMeta(selectedScope, { fase, opTypes })
+      await saveLogicScopeMeta(selectedScope, { fase, opTypes, rigTypes, wellClass }, authHeader())
+      setOverrides(prev => prev.map(o => o.scopeId === selectedScope ? { ...o, fase, opTypes, rigTypes, wellClass } : o))
+      updateCustomScopeMeta(selectedScope, { fase, opTypes, rigTypes, wellClass })
     } catch { /* offline */ }
   }, [selectedScope, canEdit])
 
-  const handleInsertOpTypeQuestion = useCallback(() => {
-    if (!canEdit || sections.length === 0) return
-    const opTypeQuestion: LDec = {
-      question: 'Tipo de sonda DP',
-      answers: [
-        { label: 'Generalista', active: true, field: 'operationType', value: 'Generalista' },
-        { label: 'LWO (NS-51/NS-52)', field: 'operationType', value: 'LWO' },
-      ],
-    }
-    const s2 = deepClone(sections) as LSec[]
-    s2[0].decisions.unshift(opTypeQuestion)
-    commitSections(s2)
-  }, [canEdit, sections, commitSections])
+  // Um grupo só aparece na árvore de Escopos se tiver, direta ou recursivamente, algum
+  // item que NÃO seja bloco — blocos de lógica têm seção própria (ver abaixo), separada
+  // fisicamente da árvore de escopos.
+  const groupHasNonBlockContent = (groupId: string): boolean => {
+    if (membersOfGroup(groupId).some(s => !s.isBlock)) return true
+    return scopeGroups.groups.filter(g => g.parentId === groupId).some(g => groupHasNonBlockContent(g.id))
+  }
 
   return (
     <div className="flex h-full min-h-0">
       {/* ── Sidebar de escopos ── */}
       {showScopeSidebar ? (
-      <div className="shrink-0 border-r border-slate-200 dark:border-slate-700/40 flex flex-col relative" style={{ width: sidebarWidth }}>
+      <div className="shrink-0 border-r border-slate-200 dark:border-slate-700/40 flex flex-col min-h-0 relative" style={{ width: sidebarWidth }}>
         <div className="px-3 py-2.5 border-b border-slate-200 dark:border-slate-700/30 flex items-center gap-1">
           <span className="flex-1 text-[10px] text-slate-500 uppercase tracking-wider font-semibold">Escopos</span>
           {isAdmin() && (
@@ -2642,10 +2645,6 @@ export function LogicEditorPanel({ canEdit }: { canEdit: boolean }) {
               <button onClick={() => setCreatingGroup({ parentId: null, draft: '' })} title="Criar grupo"
                 className="w-6 h-6 flex items-center justify-center rounded-lg text-slate-500 hover:text-[#008542] dark:hover:text-[#d97706] hover:bg-slate-200/80 dark:hover:bg-slate-700/50 transition-colors">
                 <PiFolderPlusFill size={12} />
-              </button>
-              <button onClick={() => setNewScopeKind('block')} title="Novo bloco de lógica"
-                className="w-6 h-6 flex items-center justify-center rounded-lg text-slate-600 dark:text-slate-400 hover:text-[#008542] dark:hover:text-[#d97706] hover:bg-slate-200/80 dark:hover:bg-slate-700/50 transition-colors">
-                <Puzzle size={12} />
               </button>
               <button onClick={() => setNewScopeKind('scope')} title="Novo escopo customizado"
                 className="w-6 h-6 flex items-center justify-center rounded-lg text-slate-600 dark:text-slate-400 hover:text-[#008542] dark:hover:text-[#d97706] hover:bg-slate-200/80 dark:hover:bg-slate-700/50 transition-colors">
@@ -2658,10 +2657,10 @@ export function LogicEditorPanel({ canEdit }: { canEdit: boolean }) {
             <ChevronLeft size={12} />
           </button>
         </div>
-        <div className="flex-1 overflow-y-auto scrollbar-custom py-1">
+        <div className="flex-1 overflow-y-auto scrollbar-custom py-1 min-h-0">
 
           {/* ── Grupos do usuário (aparecem primeiro, contêm qualquer tipo de escopo) ── */}
-          {scopeGroups.groups.filter(g => g.parentId === null).map(g => renderScopeGroup(g, 0))}
+          {scopeGroups.groups.filter(g => g.parentId === null && groupHasNonBlockContent(g.id)).map(g => renderScopeGroup(g, 0))}
           {creatingGroup?.parentId === null && (
             <div className="mx-3 my-1">
               <input autoFocus value={creatingGroup.draft}
@@ -2681,14 +2680,6 @@ export function LogicEditorPanel({ canEdit }: { canEdit: boolean }) {
             </>
           )}
 
-          {/* ── Blocos não agrupados ── */}
-          {scopeList.some(s => s.isBlock && (scopeGroups.memberships[s.scopeId] ?? null) === null) && (
-            <>
-              <p className="text-[9px] px-3 pt-3 pb-0.5 text-slate-400 dark:text-slate-600 uppercase tracking-widest">Blocos de lógica</p>
-              {scopeList.filter(s => s.isBlock && (scopeGroups.memberships[s.scopeId] ?? null) === null).map(s => renderScopeItem(s, 0))}
-            </>
-          )}
-
           {/* ── Customizados não agrupados ── */}
           {scopeList.some(s => s.isCustom && (scopeGroups.memberships[s.scopeId] ?? null) === null) && (
             <>
@@ -2696,6 +2687,22 @@ export function LogicEditorPanel({ canEdit }: { canEdit: boolean }) {
               {scopeList.filter(s => s.isCustom && (scopeGroups.memberships[s.scopeId] ?? null) === null).map(s => renderScopeItem(s, 0))}
             </>
           )}
+
+          {/* ── Blocos de lógica — menu próprio, fisicamente separado (borda) da árvore
+              de Escopos acima, logo abaixo dela; mesma formatação do cabeçalho de
+              Escopos. Lista TODOS os blocos, independentemente de agrupamento antigo. ── */}
+          <div className="mt-1 pt-2.5 border-t border-slate-200 dark:border-slate-700/30">
+            <div className="px-3 pb-1 flex items-center gap-1">
+              <span className="flex-1 text-[10px] text-slate-500 uppercase tracking-wider font-semibold">Blocos de lógica</span>
+              {isAdmin() && (
+                <button onClick={() => setNewScopeKind('block')} title="Novo bloco de lógica"
+                  className="w-6 h-6 flex items-center justify-center rounded-lg text-slate-600 dark:text-slate-400 hover:text-[#008542] dark:hover:text-[#d97706] hover:bg-slate-200/80 dark:hover:bg-slate-700/50 transition-colors">
+                  <Puzzle size={12} />
+                </button>
+              )}
+            </div>
+            {scopeList.filter(s => s.isBlock).map(s => renderScopeItem(s, 0))}
+          </div>
         </div>
 
         {/* Handle de redimensionamento — arraste a borda direita da sidebar */}
@@ -2726,7 +2733,7 @@ export function LogicEditorPanel({ canEdit }: { canEdit: boolean }) {
           <>
             {/* Header */}
             <div className="flex items-center gap-2 px-4 py-2 border-b border-slate-200 dark:border-slate-700/40 shrink-0 flex-wrap">
-              <div className="min-w-0 max-w-xs">
+              <div className={`min-w-0 ${editingLabel !== null ? 'w-full max-w-md' : 'max-w-xs'}`}>
                 {editingLabel !== null ? (
                   <input
                     autoFocus
@@ -2793,7 +2800,7 @@ export function LogicEditorPanel({ canEdit }: { canEdit: boolean }) {
                 <>
                   {canEdit && (
                     <button onClick={() => setShowImport(true)}
-                      className="flex items-center gap-1 text-[10px] text-white bg-[#005889] hover:bg-[#004a75] dark:bg-[#005889] dark:hover:bg-[#004a75] rounded-lg px-2 py-1.5 transition-colors">
+                      className="flex items-center gap-1 text-[10px] text-white bg-[#005889] hover:bg-[#004a75] dark:bg-slate-700 dark:text-slate-300 dark:hover:bg-slate-600 rounded-lg px-2 py-1.5 transition-colors">
                       <Download size={10} /> Importar
                     </button>
                   )}
@@ -2812,12 +2819,27 @@ export function LogicEditorPanel({ canEdit }: { canEdit: boolean }) {
                       {showScopePanel && (
                         <div className="absolute right-0 top-full mt-1.5 z-30 w-56 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl shadow-2xl p-3 space-y-3"
                              onClick={e => e.stopPropagation()}>
+                          {/* Tipo de poço — classificação livre. Vazio = bucket legado
+                              "Completação Seca" (compat. com escopos criados antes deste
+                              campo, ex.: PGA5). Opções fixas espelham a Etapa 1 do wizard;
+                              qualquer outro texto digitado vira uma classe nova. */}
+                          <div>
+                            <p className="text-[9px] text-slate-500 uppercase tracking-widest font-semibold mb-1">Tipo de poço</p>
+                            <ComboInput
+                              value={selectedFullMeta.wellClass ?? ''}
+                              onChange={v => handleSaveMeta(selectedFullMeta.fase ?? null, selectedFullMeta.opTypes ?? null, selectedFullMeta.rigTypes ?? null, v.trim() || null)}
+                              options={[...new Set([...WELL_CLASS_PRESETS, ...getKnownWellClasses()])]}
+                              placeholder={`${DEFAULT_WELL_CLASS} (padrão)`}
+                              className="text-[10px] bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md px-2 py-1 text-slate-800 dark:text-slate-200 outline-none focus:border-[#005889]/60"
+                            />
+                          </div>
+
                           {/* Fase */}
                           <div>
-                            <p className="text-[9px] text-slate-500 uppercase tracking-widest font-semibold mb-1">Fase (etapa 1)</p>
+                            <p className="text-[9px] text-slate-500 uppercase tracking-widest font-semibold mb-1">Fase</p>
                             <select
                               value={selectedFullMeta.fase ?? ''}
-                              onChange={e => handleSaveMeta(e.target.value || null, selectedFullMeta.opTypes ?? null)}
+                              onChange={e => handleSaveMeta(e.target.value || null, selectedFullMeta.opTypes ?? null, selectedFullMeta.rigTypes ?? null, selectedFullMeta.wellClass ?? null)}
                               className="w-full text-[10px] bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md px-2 py-1 text-slate-800 dark:text-slate-200 outline-none focus:border-[#005889]/60">
                               <option value="">Qualquer fase</option>
                               <option value="fase_1">Fase 1</option>
@@ -2826,39 +2848,21 @@ export function LogicEditorPanel({ canEdit }: { canEdit: boolean }) {
                             </select>
                           </div>
 
-                          {/* Tipo de sonda */}
+                          {/* Tipo de sonda — classificação livre e multivalor, escopada
+                              pelo Tipo de poço acima (sugestões de outros escopos da
+                              mesma classe). Opções fixas cobrem os casos comuns; qualquer
+                              texto digitado que não esteja na lista vira uma sonda nova
+                              ("outra"), sem precisar de outro campo. */}
                           <div>
-                            <p className="text-[9px] text-slate-500 uppercase tracking-widest font-semibold mb-1">Tipo de sonda (etapa 1)</p>
-                            <div className="flex gap-1.5">
-                              {(['Generalista', 'LWO'] as const).map(op => {
-                                const cur = selectedFullMeta.opTypes ?? []
-                                const checked = cur.includes(op)
-                                const toggle = () => {
-                                  const next = checked ? cur.filter(v => v !== op) : [...cur, op]
-                                  handleSaveMeta(selectedFullMeta.fase ?? null, next.length ? next : null)
-                                }
-                                return (
-                                  <label key={op} className={`flex-1 flex items-center justify-center py-1 rounded-md border text-[10px] cursor-pointer transition-colors ${
-                                    checked ? 'border-[#005889] bg-[#005889]/10 text-[#005889] dark:border-[#d97706]/60 dark:bg-[#d97706]/10 dark:text-[#d97706]' : 'border-slate-200 dark:border-slate-700 text-slate-500 hover:border-slate-400 hover:text-slate-700 dark:hover:text-slate-300'
-                                  }`}>
-                                    <input type="checkbox" className="sr-only" checked={checked} onChange={toggle} />
-                                    {op}
-                                  </label>
-                                )
-                              })}
-                            </div>
+                            <p className="text-[9px] text-slate-500 uppercase tracking-widest font-semibold mb-1">Tipo de sonda</p>
+                            <TagInput
+                              values={selectedFullMeta.rigTypes ?? []}
+                              onChange={next => handleSaveMeta(selectedFullMeta.fase ?? null, selectedFullMeta.opTypes ?? null, next.length ? next : null, selectedFullMeta.wellClass ?? null)}
+                              presets={RIG_TAG_PRESETS}
+                              options={getKnownRigTags(selectedFullMeta.wellClass).filter(t => !RIG_TAG_PRESETS.includes(t))}
+                              placeholder="outra…"
+                            />
                           </div>
-
-                          {/* Inserir pergunta padrão */}
-                          {sections.length > 0 && (
-                            <div className="pt-1 border-t border-slate-200 dark:border-slate-700/60">
-                              <button
-                                onClick={() => { handleInsertOpTypeQuestion(); setShowScopePanel(false) }}
-                                className="w-full text-left text-[10px] text-slate-600 dark:text-slate-400 hover:text-[#005889] dark:hover:text-amber-300 px-1 py-0.5 transition-colors">
-                                + Inserir pergunta "Tipo de sonda DP" no fluxo
-                              </button>
-                            </div>
-                          )}
                         </div>
                       )}
                     </div>
@@ -2866,34 +2870,34 @@ export function LogicEditorPanel({ canEdit }: { canEdit: boolean }) {
                   <button
                     onClick={() => setShowFlowIndex(v => !v)}
                     title="Índice de perguntas (busca integrada)"
-                    className={`flex items-center gap-1 text-[10px] rounded-lg px-2 py-1.5 transition-colors ${showFlowIndex ? 'bg-[#004a75] text-white' : 'text-white bg-[#005889] hover:bg-[#004a75]'}`}>
+                    className={`flex items-center gap-1 text-[10px] rounded-lg px-2 py-1.5 transition-colors ${showFlowIndex ? 'bg-[#004a75] text-white dark:bg-slate-600 dark:text-slate-100' : 'text-white bg-[#005889] hover:bg-[#004a75] dark:bg-slate-700 dark:text-slate-300 dark:hover:bg-slate-600'}`}>
                     <PiListDashesFill size={10} />
                     Índice
                   </button>
                   <button
                     onClick={() => setShowFlowLegend(v => !v)}
-                    title="Símbolos de referência"
-                    className={`flex items-center gap-1 text-[10px] rounded-lg px-2 py-1.5 transition-colors ${showFlowLegend ? 'bg-[#004a75] text-white' : 'text-white bg-[#005889] hover:bg-[#004a75]'}`}>
+                    title="Legenda"
+                    className={`flex items-center gap-1 text-[10px] rounded-lg px-2 py-1.5 transition-colors ${showFlowLegend ? 'bg-[#004a75] text-white dark:bg-slate-600 dark:text-slate-100' : 'text-white bg-[#005889] hover:bg-[#004a75] dark:bg-slate-700 dark:text-slate-300 dark:hover:bg-slate-600'}`}>
                     <PiInfoBold size={10} />
-                    Símbolos
+                    Legenda
                   </button>
                   <button
                     onClick={() => flowEditorRef.current?.reorganize()}
                     title="Reorganizar: reposiciona todos os nós automaticamente e centraliza a visão"
-                    className="flex items-center gap-1 text-[10px] text-white bg-[#005889] hover:bg-[#004a75] rounded-lg px-2 py-1.5 transition-colors">
+                    className="flex items-center gap-1 text-[10px] text-white bg-[#005889] hover:bg-[#004a75] dark:bg-slate-700 dark:text-slate-300 dark:hover:bg-slate-600 rounded-lg px-2 py-1.5 transition-colors">
                     <LayoutDashboard size={10} />
                     Reorganizar
                   </button>
                   <button
                     onClick={openHistory}
                     title="Histórico de versões — voltar a um estado anterior"
-                    className="flex items-center gap-1 text-[10px] text-white bg-[#005889] hover:bg-[#004a75] rounded-lg px-2 py-1.5 transition-colors">
+                    className="flex items-center gap-1 text-[10px] text-white bg-[#005889] hover:bg-[#004a75] dark:bg-slate-700 dark:text-slate-300 dark:hover:bg-slate-600 rounded-lg px-2 py-1.5 transition-colors">
                     <History size={10} />
                     Histórico
                   </button>
                   {canEdit && sections.length > 0 && (
                     <button disabled={!dirty || saving} onClick={save}
-                      className="flex items-center gap-1 text-[10px] font-semibold px-2 py-1.5 rounded-lg transition-colors disabled:opacity-40 bg-[#008542] hover:bg-[#006a35] text-white">
+                      className="flex items-center gap-1 text-[10px] font-semibold px-2 py-1.5 rounded-lg transition-colors disabled:opacity-40 bg-[#008542] hover:bg-[#006a35] dark:bg-slate-700 dark:hover:bg-slate-600 text-white dark:text-slate-300">
                       {saved ? <Check size={10} /> : <Save size={10} />}
                       {saved ? 'Salvo!' : saving ? 'Salvando…' : 'Salvar'}
                     </button>

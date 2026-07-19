@@ -136,8 +136,9 @@ type FData = {
   sec: LSec; secIdx: number; pc: PC; dark: boolean; hit: boolean
   width: number; height: number; canEdit: boolean
   expanded?: boolean                            // bloco ref expandido inline
-  onClick?: (e: React.MouseEvent) => void       // clique esquerdo (editar rótulo)
+  onClick?: (e: React.MouseEvent) => void       // clique esquerdo (editar rótulo / expandir ref)
   onContext?: (e: React.MouseEvent) => void     // clique direito (menu completo)
+  onNameClick?: (e: React.MouseEvent) => void   // clique no nome de um bloco ref (ir ao editor do bloco)
 }
 type ChipData = {
   label: string; pkgs: LPkg[]; pc: PC; dark: boolean; canEdit: boolean; hit: boolean
@@ -189,6 +190,18 @@ function collectSectionPhases(sec: LSec): string[] {
 function formatPhases(phases: string[]): string {
   if (phases.length <= 1) return phases[0] ?? ''
   return phases.slice(0, -1).join(', ') + ' e ' + phases[phases.length - 1]
+}
+
+// Fases de uma seção para exibição no cabeçalho da moldura. Para seções `ref` (bloco
+// incluído por referência), a própria seção fica "vazia" (decisions: []) — o conteúdo real
+// vive no escopo referenciado — então as fases precisam ser coletadas de lá, senão o
+// cabeçalho mostra só a fase-padrão do placeholder em vez das fases reais do bloco.
+function displayPhases(sec: LSec): string[] {
+  if (!sec.ref) return collectSectionPhases(sec)
+  const refSections = resolveScopeSections(sec.ref.scopeId)
+  const phases = new Set<string>()
+  refSections.forEach(rs => collectSectionPhases(rs).forEach(ph => phases.add(ph)))
+  return Array.from(phases).sort((a, b) => PHASE_ORDER.indexOf(a) - PHASE_ORDER.indexOf(b))
 }
 
 // ─── Linha de pacote (mesma anatomia do clássico: código + condição + nome) ──
@@ -282,24 +295,22 @@ function FrameNode({ data }: NodeProps) {
         <div
           className="flex items-center gap-2 px-3 shrink-0"
           style={{ height: FRAME_HEADER, background: p.hdr, color: p.hdrT, pointerEvents: 'auto', cursor: d.canEdit ? 'pointer' : 'default' }}
-          title={d.canEdit ? 'Esquerdo: editar rótulo · Direito: ações da seção' : undefined}
+          title={isRef ? (d.expanded ? 'Esquerdo: recolher visualização · Direito: ações da seção · Nome: abrir bloco' : 'Esquerdo: expandir para visualização · Direito: ações da seção · Nome: abrir bloco') : d.canEdit ? 'Esquerdo: editar rótulo · Direito: ações da seção' : undefined}
           onClick={(e) => d.onClick?.(e)}
           onContextMenu={(e) => { e.preventDefault(); d.onContext?.(e) }}>
-          <span className="font-bold uppercase tracking-wide truncate" style={{ fontSize: 11 }}>
+          <span className="font-bold uppercase tracking-wide truncate" style={{ fontSize: 11, cursor: isRef ? 'pointer' : undefined, textDecoration: isRef ? 'underline' : undefined, textDecorationStyle: isRef ? 'dotted' : undefined, textUnderlineOffset: isRef ? 2 : undefined }}
+            title={isRef ? 'Abrir o editor deste bloco de lógica' : undefined}
+            onClick={isRef ? (e) => { e.stopPropagation(); d.onNameClick?.(e) } : undefined}>
             {isRef ? (getScopeLabel(d.sec.ref!.scopeId) ?? d.sec.ref!.label ?? d.sec.label) : d.sec.label}
           </span>
           <span className="shrink-0 rounded px-1.5 py-0.5" style={{ fontSize: 9, border: '1px solid rgba(255,255,255,0.35)' }}>
-            {formatPhases(collectSectionPhases(d.sec))}
+            {formatPhases(displayPhases(d.sec))}
           </span>
-          {isRef && (
-            <span className="shrink-0 rounded px-1.5 py-0.5 font-semibold" style={{ fontSize: 9, background: 'rgba(255,255,255,0.16)' }}
-              title={d.expanded ? 'Bloco expandido para visualização inline' : 'Bloco incluído por referência — edições no bloco propagam para cá'}>
-              {d.expanded ? 'expandido' : 'fluxograma incluído'}
+          {!isRef && (
+            <span className="ml-auto shrink-0" style={{ fontSize: 9, opacity: 0.7 }}>
+              {`${d.sec.decisions.length} pergunta${d.sec.decisions.length !== 1 ? 's' : ''}`}
             </span>
           )}
-          <span className="ml-auto shrink-0" style={{ fontSize: 9, opacity: 0.7 }}>
-            {isRef ? d.sec.ref!.scopeId : `${d.sec.decisions.length} pergunta${d.sec.decisions.length !== 1 ? 's' : ''}`}
-          </span>
         </div>
         <div className="flex-1" />
       </div>
@@ -425,13 +436,11 @@ function PkgEditRows({ pkgList, p, dark, secPhase, onFlagPkg, onCondition, onPha
                       onClick={e => { e.stopPropagation(); if (onPhase) setEditPhaseIdx(i) }}>
                       {(() => {
                         const ph = pkg.phase ?? secPhase
-                        const isExplicit = !!pkg.phase
                         return <span style={{
-                          fontSize: 7, fontWeight: 600,
-                          color: ph ? '#a855f7' : p.lblT,
-                          border: `1px solid ${ph ? (isExplicit ? 'rgba(168,85,247,0.55)' : 'rgba(168,85,247,0.3)') : p.ansB}`,
-                          borderRadius: 2, padding: '0 2px', lineHeight: '11px', display: 'inline-block',
-                          opacity: ph ? (isExplicit ? 0.85 : 0.5) : 0.35, position: 'relative', top: -1
+                          fontSize: 7, fontWeight: 600, color: p.lblT, opacity: ph ? 0.6 : 0.35,
+                          border: `1px solid ${p.ansB}`, borderRadius: 2,
+                          padding: '0 2px', lineHeight: '11px', display: 'inline-block',
+                          position: 'relative', top: -1
                         }}>{ph ?? '?'}</span>
                       })()}
                     </button>
@@ -552,9 +561,11 @@ function ChipNode({ data, id, selected }: NodeProps) {
 }
 
 // ─── Nó de PERGUNTA (losango, cores do clássico) ─────────────────────────────
-function QuestionNode({ data, selected }: NodeProps) {
+function QuestionNode({ data, id, selected }: NodeProps) {
   const d = data as unknown as QData
   const p = pal(d.dark, d.pc)
+  const editor = useContext(ChipEditorCtx)
+  const isActive = !!editor && editor.nodeId === id
   const isRigQ = RIG_TYPE_Q_RE.test(d.dec.question)
   const qc = isRigQ
     ? { fill: '#0c2340', stroke: '#64748b', text: '#d97706' }
@@ -574,14 +585,36 @@ function QuestionNode({ data, selected }: NodeProps) {
           <polygon
             points={`${QW / 2},1 ${QW - 1},${QH / 2} ${QW / 2},${QH - 1} 1,${QH / 2}`}
             fill={dirty ? '#0c2340' : reuse ? reuseFill : qc.fill}
-            stroke={selected ? '#fbbf24' : d.pick ? '#22c55e' : dirty ? '#3b82f6' : d.hit ? '#d97706' : qc.stroke}
-            strokeWidth={selected || d.pick || dirty || d.hit ? 2.2 : 1.4}
+            stroke={isActive ? '#3b82f6' : selected ? '#fbbf24' : d.pick ? '#22c55e' : dirty ? '#3b82f6' : d.hit ? '#d97706' : qc.stroke}
+            strokeWidth={isActive || selected || d.pick || dirty || d.hit ? 2.2 : 1.4}
           />
         </svg>
-        <div className="absolute inset-0 flex items-center justify-center px-8 text-center">
-          <span className="font-semibold leading-tight" style={{ fontSize: 10.5, color: dirty ? '#bfdbfe' : reuse ? reuseText : qc.text }} title={d.dec.question}>
-            {tr(d.dec.question || '(sem texto)', 72)}
-          </span>
+        <div className="absolute inset-0 flex items-center justify-center px-8 text-center"
+          onMouseDown={isActive ? e => e.stopPropagation() : undefined}
+          onClick={isActive ? e => e.stopPropagation() : undefined}>
+          {isActive && editor?.onTitleChange ? (
+            <textarea
+              className="nodrag w-full bg-transparent outline-none border-none resize-none text-center font-semibold leading-tight"
+              style={{
+                fontSize: 10.5, color: dirty ? '#bfdbfe' : reuse ? reuseText : qc.text,
+                padding: 0, margin: 0, boxSizing: 'border-box', lineHeight: 1.25,
+              }}
+              rows={2}
+              defaultValue={editor.title ?? d.dec.question}
+              placeholder="Texto da pergunta…"
+              autoFocus
+              onFocus={e => e.currentTarget.select()}
+              onBlur={e => editor.onTitleChange!(e.target.value)}
+              onKeyDown={e => {
+                if (e.key === 'Enter') { e.preventDefault(); editor.onTitleChange!(e.currentTarget.value); editor.onClose() }
+                if (e.key === 'Escape') editor.onClose()
+              }}
+            />
+          ) : (
+            <span className="font-semibold leading-tight" style={{ fontSize: 10.5, color: dirty ? '#bfdbfe' : reuse ? reuseText : qc.text }} title={d.dec.question}>
+              {tr(d.dec.question || '(sem texto)', 72)}
+            </span>
+          )}
         </div>
         {!d.hasDefault && !reuse && (
           <span className="absolute -top-2 -left-2 font-bold leading-none"
@@ -867,6 +900,26 @@ export const LogicFlowEditor = forwardRef<LogicFlowEditorHandle, {
   const dark = useDark()
   const canEdit = !!editCb
   const [search, setSearch] = useState('')
+  const [indexWidth, setIndexWidth] = useState(240)
+  const resizingIndexRef = useRef(false)
+  const onIndexResizeStart = useCallback((e: React.MouseEvent) => {
+    e.preventDefault()
+    resizingIndexRef.current = true
+    const startX = e.clientX
+    const startW = indexWidth
+    const onMove = (ev: MouseEvent) => {
+      if (!resizingIndexRef.current) return
+      const w = startW + (ev.clientX - startX)
+      setIndexWidth(Math.min(480, Math.max(160, w)))
+    }
+    const onUp = () => {
+      resizingIndexRef.current = false
+      window.removeEventListener('mousemove', onMove)
+      window.removeEventListener('mouseup', onUp)
+    }
+    window.addEventListener('mousemove', onMove)
+    window.addEventListener('mouseup', onUp)
+  }, [indexWidth])
   const [expandedRefs, setExpandedRefs] = useState<Set<number>>(new Set())
   const [menu, setMenu] = useState<{
     title?: string; items: MenuItem[]; pkgs?: ResolvedPkgList
@@ -921,7 +974,16 @@ export const LogicFlowEditor = forwardRef<LogicFlowEditorHandle, {
   // ── Editor inline de chip (clique ESQUERDO em campos de pacotes) ─────────────
   // Só gerencia pacotes — ações estruturais ficam exclusivamente no clique direito.
   const openChipInline = useCallback((nodeId: string, m: NodeMeta) => {
-    if (m.kind === 'a') {
+    if (m.kind === 'q') {
+      const dec = resolveRef(sections, m.ref)
+      if (!dec) return
+      setActiveChip({
+        nodeId,
+        title: dec.question,
+        onTitleChange: (v) => fire({ type: 'p_set_q', ref: m.ref, value: v }),
+        items: [],
+      })
+    } else if (m.kind === 'a') {
       const dec = resolveRef(sections, m.ref)
       const a = dec?.answers[m.ansIdx]
       if (!a) return
@@ -1040,30 +1102,18 @@ export const LogicFlowEditor = forwardRef<LogicFlowEditorHandle, {
     }
   }, [sections, fire])
 
-  // ── Menus (painel lateral — mesmos itens/símbolos do clássico) ──────────────
-  // mode 'quick' (clique ESQUERDO) = editar rótulo + LISTA DE PACOTES (o conteúdo do nó).
-  // mode 'full' (clique DIREITO) = ações estruturais (inserir/mover/remover/contingência…).
-  const openQMenu = useCallback((e: React.MouseEvent, ref: DecRef, mode: 'quick' | 'full', opts?: { noAddAnswer?: boolean; noTitle?: boolean }) => {
+  // ── Menu lateral (clique DIREITO) — ações estruturais (inserir/mover/remover/contingência…).
+  // Edição do texto da pergunta (clique ESQUERDO) é inline, no próprio losango — ver openChipInline.
+  const openQMenu = useCallback((e: React.MouseEvent, ref: DecRef, opts?: { noAddAnswer?: boolean; noTitle?: boolean }) => {
     e.stopPropagation()
     const dec = resolveRef(sections, ref)
     if (!dec) return
-    const pkgs = {
-      list: dec.packages ?? [],
-      onAdd: () => fire({ type: 'p_add_dec_pkg', ref }),
-      onMove: (i: number, dir: 'up' | 'down') => fire({ type: 'p_move_dec_pkg', ref, pkgIdx: i, dir }),
-      onRemove: (i: number) => fire({ type: 'p_remove_dec_pkg', ref, pkgIdx: i }),
-      onCondition: (i: number, condition?: string) => fire({ type: 'p_set_pkg_condition', ref, pkgIdx: i, condition }),
-    }
-    if (mode === 'quick') {
-      setMenu({ title: dec.question, items: [], pkgs, pkgsRefresh: () => resolveRef(sectionsRef.current, ref)?.packages ?? [], pos: { x: e.clientX, y: e.clientY }, onTitleChange: (v) => fire({ type: 'p_set_q', ref, value: v }) })
-      return
-    }
     const isFirstInSection = ref.sub.length === 0 && ref.adIdx === undefined && !ref.aeRef && ref.decIdx === 0
     const items: MenuItem[] = qMenuItems(ref, fire, { isFirstInSection, noAddAnswer: opts?.noAddAnswer })
     if (dupQuestions.has(dec.question.trim())) {
       items.splice(2, 0, {
         label: dec.reuseScope ? 'Desmarcar "já respondida no escopo"' : 'Marcar "já respondida no escopo"',
-        glyph: '⤿', color: '#d97706', onClick: () => fire({ type: 'p_toggle_reuse', ref }),
+        glyph: '☑', onClick: () => fire({ type: 'p_toggle_reuse', ref }),
       })
     }
     const titleProps = opts?.noTitle ? {} : { title: dec.question, onTitleChange: (v: string) => fire({ type: 'p_set_q', ref, value: v }) }
@@ -1090,9 +1140,9 @@ export const LogicFlowEditor = forwardRef<LogicFlowEditorHandle, {
     }
     const items: MenuItem[] = [
       { label: 'Inserir sub-pergunta abaixo', glyph: '↓', color: '#22d3ee', onClick: () => fire({ type: 'p_add_aftersub_dec', ref, ansIdx: ai }) },
-      { label: 'Adicionar campo após convergência', glyph: '⤵', color: '#7c3aed', onClick: () => fire({ type: 'p_dec_add_after', ref, atIdx: 0 }) },
-      { label: 'Mover resposta para a esquerda', glyph: '⬆', color: '#94a3b8', onClick: () => fire({ type: 'p_move_ans', ref, ansIdx: ai, dir: 'up' }) },
-      { label: 'Mover resposta para a direita', glyph: '⬇', color: '#94a3b8', onClick: () => fire({ type: 'p_move_ans', ref, ansIdx: ai, dir: 'down' }) },
+      { label: 'Adicionar campo após convergência', glyph: '⑂', onClick: () => fire({ type: 'p_dec_add_after', ref, atIdx: 0 }) },
+      { label: 'Mover resposta para a esquerda', glyph: '⬅', color: '#94a3b8', onClick: () => fire({ type: 'p_move_ans', ref, ansIdx: ai, dir: 'up' }) },
+      { label: 'Mover resposta para a direita', glyph: '➡', color: '#94a3b8', onClick: () => fire({ type: 'p_move_ans', ref, ansIdx: ai, dir: 'down' }) },
       { label: 'Mover pergunta para cá (como sub-pergunta)', glyph: '⤿', color: '#a855f7', onClick: () => fire({ type: 'transfer_target', mode: 'move', ref, ansIdx: ai }) },
       { label: 'Remover resposta', glyph: '×', color: '#ef4444', danger: true, onClick: () => fire({ type: 'p_remove_ans', ref, ansIdx: ai }) },
     ]
@@ -1629,8 +1679,17 @@ export const LogicFlowEditor = forwardRef<LogicFlowEditorHandle, {
         data: {
           sec, secIdx: si, pc, dark, hit: !!s && (sec.label.toLowerCase().includes(s) || pkgsHit(sec.always, s)),
           width: fw, height: fh, canEdit, expanded: isExpanded,
-          onClick: canEdit ? (e: React.MouseEvent) => openSecMenu(e, si, 'quick') : undefined,
+          onClick: sec.ref
+            ? (e: React.MouseEvent) => { e.stopPropagation(); setExpandedRefs(prev => { const n = new Set(prev); n.has(si) ? n.delete(si) : n.add(si); return n }) }
+            : canEdit ? (e: React.MouseEvent) => openSecMenu(e, si, 'quick') : undefined,
           onContext: canEdit ? (e: React.MouseEvent) => openSecMenu(e, si, 'full') : undefined,
+          onNameClick: sec.ref
+            ? () => {
+                if (confirm('Sair do editor deste escopo e ir para o editor do bloco de lógica referenciado?')) {
+                  fire({ type: 'edit_ref_block', scopeId: sec.ref!.scopeId })
+                }
+              }
+            : undefined,
         } satisfies FData as unknown as Record<string, unknown>,
       })
       meta.set(`frame|${si}`, { kind: 'sec', secIdx: si })
@@ -1688,8 +1747,8 @@ export const LogicFlowEditor = forwardRef<LogicFlowEditorHandle, {
     fire({ type: 'set_node_pos', target, pos: { x: Math.round(node.position.x), y: Math.round(node.position.y) } })
   }, [canEdit, fire])
 
-  // Clique ESQUERDO → pergunta/resposta = painel rápido; chips = editor inline no nó.
-  const onNodeClick = useCallback((e: React.MouseEvent, node: Node) => {
+  // Clique ESQUERDO → editor inline no próprio nó (pergunta, resposta ou chip de pacotes).
+  const onNodeClick = useCallback((_e: React.MouseEvent, node: Node) => {
     if (node.type === 'framenode') return  // moldura: tratada pelo próprio cabeçalho
     const m = metaRef.current.get(node.id)
     if (!m) return
@@ -1699,13 +1758,9 @@ export const LogicFlowEditor = forwardRef<LogicFlowEditorHandle, {
       return
     }
     if (!canEdit || m.kind === 'free') return
-    if (m.kind === 'q') openQMenu(e, m.ref, 'quick')
-    else {
-      // Respostas e chips de pacotes: editor inline dentro do nó
-      setActiveChip(null)
-      openChipInline(node.id, m)
-    }
-  }, [pickMode, canEdit, sections, fire, openQMenu, openChipInline])
+    setActiveChip(null)
+    openChipInline(node.id, m)
+  }, [pickMode, canEdit, sections, fire, openChipInline])
 
   // Clique DIREITO → menu completo (full) com todas as ações.
   const onNodeContextMenu = useCallback((e: React.MouseEvent, node: Node) => {
@@ -1714,8 +1769,8 @@ export const LogicFlowEditor = forwardRef<LogicFlowEditorHandle, {
     if (node.type === 'framenode') return  // moldura: tratada pelo cabeçalho (onContextMenu)
     const m = metaRef.current.get(node.id)
     if (!m || !canEdit || m.kind === 'free') return
-    if (m.kind === 'q') openQMenu(e, m.ref, 'full')
-    else if (m.kind === 'decpkg') openQMenu(e, m.ref, 'full', { noAddAnswer: true, noTitle: true })
+    if (m.kind === 'q') openQMenu(e, m.ref)
+    else if (m.kind === 'decpkg') openQMenu(e, m.ref, { noAddAnswer: true, noTitle: true })
     else if (m.kind === 'a') openAMenu(e, m.ref, m.ansIdx, 'full')
     else if (m.kind === 'sempre') openSempreMenu(e, m.secIdx, 'full')
     else if (m.kind === 'decafter') openDecAfterChipMenu(e, m.ref, m.afterIdx, 'full')
@@ -1769,7 +1824,8 @@ export const LogicFlowEditor = forwardRef<LogicFlowEditorHandle, {
     <div className="flex w-full h-full overflow-hidden" style={{ background: bg }}>
       {/* Índice de perguntas — sidebar docada à esquerda (idêntico ao clássico) */}
       {showIndex && (
-        <aside className={`h-full w-60 shrink-0 flex flex-col border-r ${dark ? 'bg-slate-900 border-slate-700' : 'bg-white border-slate-300'}`}>
+        <aside className={`relative h-full shrink-0 flex flex-col border-r ${dark ? 'bg-slate-900 border-slate-700' : 'bg-white border-slate-300'}`}
+          style={{ width: indexWidth }}>
           <div className={`shrink-0 px-3 pt-2 pb-1.5 border-b ${dark ? 'bg-slate-900 border-slate-700' : 'bg-white border-slate-200'}`}>
             <div className="flex items-center justify-between mb-1.5">
               <span className={`text-[11px] font-bold uppercase tracking-wide ${dark ? 'text-slate-300' : 'text-slate-700'}`}>Índice</span>
@@ -1813,12 +1869,13 @@ export const LogicFlowEditor = forwardRef<LogicFlowEditorHandle, {
                   ))}
                 </div>
               ))}
-              {secEntry.questions.length === 0 && (
-                <p className={`pl-6 pr-3 py-0.5 text-[10px] italic ${dark ? 'text-slate-700' : 'text-slate-400'}`}>sem perguntas</p>
-              )}
             </div>
           ))}
           </div>{/* flex-1 overflow-y-auto */}
+          <div onMouseDown={onIndexResizeStart}
+            className="absolute top-0 right-0 h-full w-1.5 cursor-col-resize hover:bg-amber-500/40 active:bg-amber-500/60 z-10"
+            style={{ transform: 'translateX(50%)' }}
+            title="Arrastar para redimensionar" />
         </aside>
       )}
 
@@ -1861,32 +1918,21 @@ export const LogicFlowEditor = forwardRef<LogicFlowEditorHandle, {
           {showLegend && (
             <Panel position="bottom-right">
               <div className={`rounded-xl px-3 py-2.5 shadow-lg space-y-1.5 text-[10px] ${panelCls}`} style={{ maxWidth: 250 }}>
-                <p className="font-bold uppercase tracking-wide text-[9px] opacity-70">Símbolos de referência</p>
-                <div className="flex items-center gap-2"><PiStarFill size={11} color="#facc15" /> Resposta padrão (pré-selecionada)</div>
-                <div className="flex items-center gap-2"><PiFlagPennantFill size={11} color="#f97316" /> Contingência (resposta/pacote)</div>
+                <p className="font-bold uppercase tracking-wide text-[9px] opacity-70">Legenda</p>
+                <div className="flex items-center gap-2"><PiStarFill size={11} color="#facc15" /> Resposta padrão</div>
+                <div className="flex items-center gap-2"><PiFlagPennantFill size={11} color="#f97316" /> Contingência</div>
                 <div className="flex items-center gap-2">
                   <span style={{ color: '#f59e0b', fontWeight: 'bold', fontSize: 11 }}>⚠</span>
                   Sem resposta padrão definida
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="inline-block rounded" style={{ width: 12, height: 12, background: dark ? '#475569' : '#e2e8f0', border: `1.5px solid ${dark ? '#64748b' : '#94a3b8'}`, transform: 'rotate(45deg)' }} />
-                  Já respondida no escopo (losango neutro)
+                  Já respondida no escopo (não repete pergunta no índice)
                 </div>
-                <div className="flex items-center gap-2"><span style={{ color: '#d97706' }}>┈▶</span> Link "vai para" (goto)</div>
-                <div className="flex items-center gap-2"><span style={{ color: pal(dark, 'gray').lblT }}>▭</span> Campo (SEMPRE / após convergência)</div>
-                <p className="font-bold uppercase tracking-wide text-[9px] opacity-70 pt-1">Condição de emissão</p>
+                <p className="font-bold uppercase tracking-wide text-[9px] opacity-70 pt-1">Condicionais</p>
                 {Object.entries(CONDITION_LABELS).slice(0, 4).map(([k, lbl]) => (
                   <div key={k} className="flex items-center gap-2"><ConditionIcon condition={k} size={11} /> {lbl}</div>
                 ))}
-                <p className="font-bold uppercase tracking-wide text-[9px] opacity-70 pt-1">Cores de seção</p>
-                <div className="flex items-center gap-2">
-                  {(['gray', 'blue', 'amber'] as PC[]).map(c => (
-                    <span key={c} className="flex items-center gap-1">
-                      <span className="inline-block rounded" style={{ width: 10, height: 10, background: pal(dark, c).hdr }} />
-                      {c === 'gray' ? 'Fase 0/Mob' : c === 'blue' ? 'Fase 1' : 'Fase 2'}
-                    </span>
-                  ))}
-                </div>
               </div>
             </Panel>
           )}

@@ -437,8 +437,10 @@ type Action =
   | { type: 'UPDATE_SCHEDULE'; schedule: ScheduleItem[] }
   | { type: 'UPDATE_ITEM_DURATION'; uid: string; duration: number }
   | { type: 'SET_WELL_NAME'; wellName: string }
+  | { type: 'SET_PROJECT_NAME'; projectName: string | undefined }
+  | { type: 'SET_ROLE'; role: 'admin' | 'projetista' }
   | { type: 'SET_PROJECT_ID'; projectId: string | undefined }
-  | { type: 'LOAD_PROJECT'; wellName: string; inputs: WizardInputs; schedule: ScheduleItem[]; projectData?: ProjectData; fineTuningItems?: FineTuningItem[]; projectId?: string }
+  | { type: 'LOAD_PROJECT'; wellName: string; inputs: WizardInputs; schedule: ScheduleItem[]; projectData?: ProjectData; fineTuningItems?: FineTuningItem[]; projectId?: string; projectName?: string }
   | { type: 'TOGGLE_HOURS' }
   | { type: 'RESET' }
   // Fine Tuning — package level
@@ -495,6 +497,7 @@ const initial: AppState = {
   projectSections: DEFAULT_PROJECT_SECTIONS,
   projectData: DEFAULT_PROJECT_DATA,
   wellName: '',
+  role: 'admin',
   showHours: true,
   pendingReview: [],
   reviewSnapshot: null,
@@ -540,13 +543,15 @@ function reducer(state: AppState, action: Action): AppState {
       ),
     }
     case 'SET_WELL_NAME': return { ...state, wellName: action.wellName }
+    case 'SET_PROJECT_NAME': return { ...state, projectName: action.projectName }
+    case 'SET_ROLE': return { ...state, role: action.role }
     case 'SET_PROJECT_ID': return { ...state, projectId: action.projectId }
     case 'LOAD_PROJECT': {
       const hasFt = !!action.fineTuningItems && action.fineTuningItems.length > 0
       const pd = action.projectData ?? DEFAULT_PROJECT_DATA
       return {
         ...state, wellName: action.wellName, inputs: action.inputs,
-        projectId: action.projectId,
+        projectId: action.projectId, projectName: action.projectName,
         schedule: action.schedule,
         projectData: pd,
         fineTuningItems: syncDataTemplates(action.fineTuningItems ?? [], pd),
@@ -568,7 +573,9 @@ function reducer(state: AppState, action: Action): AppState {
 
     // ── Fine Tuning — package ─────────────────────────────────────────
     case 'ENTER_FINE_TUNING_BLANK':
-      return { ...state, fineTuningItems: [], view: 'fine_tuning' }
+      // wellName é preenchido pela aplicação externa (igual ao caminho auto); usa
+      // 'Poço' como placeholder até a integração existir, para o autosave ser válido.
+      return { ...state, wellName: state.wellName || 'Poço', fineTuningItems: [], view: 'fine_tuning' }
     case 'ENTER_FINE_TUNING': {
       // Regenera fineTuningItems quando o schedule mudou (uids diferentes do que estava salvo).
       // Garante que alterações na etapa 2 sejam refletidas ao retornar à etapa 3.

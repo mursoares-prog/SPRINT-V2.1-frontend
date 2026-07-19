@@ -1,6 +1,7 @@
 import { Check, Moon, Sun, Settings, Network, Sliders, Download, HelpCircle } from 'lucide-react'
 import { BsBoxes } from 'react-icons/bs'
 import { useRef, useState, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { useApp } from '../context/AppContext'
 import { isAdmin } from '../utils/auth'
 import { buildProjectFacts } from '../utils/projectFacts'
@@ -21,12 +22,18 @@ const SUPPORT_EMAIL = 'emai@xxx'
 
 function HelpButton() {
   const [open, setOpen] = useState(false)
+  const [pos, setPos] = useState<{ top: number; right: number } | null>(null)
   const wrapRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     if (!open) return
     const onDown = (e: MouseEvent) => {
-      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setOpen(false)
+      const target = e.target as Node
+      // O menu é renderizado via portal (fora do header, que tem overflow-hidden para os
+      // cantos arredondados) — por isso o clique-fora também precisa considerar o portal.
+      if (wrapRef.current?.contains(target)) return
+      if ((target as HTMLElement).closest?.('[data-help-portal]')) return
+      setOpen(false)
     }
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false) }
     document.addEventListener('mousedown', onDown)
@@ -37,16 +44,30 @@ function HelpButton() {
     }
   }, [open])
 
+  const toggle = () => {
+    if (!open && wrapRef.current) {
+      const r = wrapRef.current.getBoundingClientRect()
+      setPos({ top: r.bottom + 4, right: window.innerWidth - r.right })
+    }
+    setOpen(o => !o)
+  }
+
   return (
     <div ref={wrapRef} className="relative">
       <button
-        onClick={() => setOpen(o => !o)}
+        onClick={toggle}
         title="Ajuda"
         className="w-9 h-9 rounded-lg flex items-center justify-center text-slate-700 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-black/8 dark:hover:bg-white/10 transition-colors">
         <HelpCircle size={17} />
       </button>
-      {open && (
-        <div className="absolute right-0 top-full mt-1 z-50 w-64 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-lg p-3">
+      {/* Renderizado via portal: o <header> pai tem overflow-hidden (para os cantos
+          arredondados dos dois blocos de cor) e cortaria este menu se ele fosse absolute
+          dentro dele — por isso escapa para document.body com position: fixed. */}
+      {open && pos && createPortal(
+        <div
+          data-help-portal
+          style={{ position: 'fixed', top: pos.top, right: pos.right }}
+          className="z-[300] w-64 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-lg p-3">
           <p className="text-xs font-bold text-slate-700 dark:text-slate-200 mb-1">Ajuda</p>
           <p className="text-xs text-slate-600 dark:text-slate-400">
             Contato para suporte da aplicação:
@@ -56,7 +77,8 @@ function HelpButton() {
             className="text-xs font-medium text-sky-600 dark:text-sky-400 hover:underline break-all">
             {SUPPORT_EMAIL}
           </a>
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   )
@@ -165,7 +187,7 @@ export function Sidebar({ isDark, onToggleDark, onOpenConfig, onOpenPackages, on
           boxShadow: 'inset 0 0 0 1px rgba(0,0,0,0.22)',
         }}>
         <BsBoxes size={26} className="text-white" />
-        <span style={{ fontFamily: "'Barlow Condensed', sans-serif" }}
+        <span style={{ fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif" }}
           className="text-2xl font-bold tracking-[0.15em] text-white uppercase leading-none select-none">
           SPRINT
         </span>

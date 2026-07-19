@@ -12,15 +12,23 @@ export function isBlockScope(scopeId: string): boolean {
   return scopeId.startsWith(BLOCK_PREFIX)
 }
 
-type CustomScopeMeta = { scopeId: string; label: string; fase: string | null; opTypes: string[] | null }
+// `wellClass`: classe de "Tipo de poço" (etapa 1) — texto livre definido pelo admin no
+// editor. null/ausente = bucket legado "seca" (mantém escopos criados antes desse campo
+// existir, ex.: PGA5_Abandono_Seca_PA, funcionando sem re-classificação).
+// `rigTypes`: tags de "Tipo de sonda" (etapa 1) às quais o escopo se aplica — um escopo
+// pode ter mais de uma. null/[] no bucket legado "seca" = comportamento antigo (nenhum
+// escopo aparece até ser marcado). Ambos os campos são livres (não um enum fixo): o admin
+// cria classes novas no editor (LogicEditorPanel) e elas aparecem dinamicamente na
+// Etapa 1 do wizard (App.tsx) — ver getKnownWellClasses/getKnownRigTags abaixo.
+type CustomScopeMeta = { scopeId: string; label: string; fase: string | null; opTypes: string[] | null; rigTypes: string[] | null; wellClass: string | null }
 
 // Estado inicial vem do bundle gerado pelo admin (dump do backend).
 // O backend, quando disponível, sobrepõe esses valores via setLogicOverrides/setCustomScopesMeta.
 let _overrides: Record<string, LSec[]> = LOGIC_BUNDLE.overrides as Record<string, LSec[]>
 let _customScopes: CustomScopeMeta[] =
-  (LOGIC_BUNDLE.scopes as Array<{ scopeId: string; isCustom: boolean; label: string | null; fase: string | null; opTypes: string[] | null }>)
+  (LOGIC_BUNDLE.scopes as Array<{ scopeId: string; isCustom: boolean; label: string | null; fase: string | null; opTypes: string[] | null; rigTypes?: string[] | null; wellClass?: string | null }>)
     .filter(s => s.isCustom && !s.scopeId.startsWith(BLOCK_PREFIX) && s.label !== null)
-    .map(s => ({ scopeId: s.scopeId, label: s.label!, fase: s.fase, opTypes: s.opTypes }))
+    .map(s => ({ scopeId: s.scopeId, label: s.label!, fase: s.fase, opTypes: s.opTypes, rigTypes: s.rigTypes ?? null, wellClass: s.wellClass ?? null }))
 
 export function setLogicOverrides(o: Record<string, LSec[]>): void {
   _overrides = o
@@ -48,16 +56,39 @@ let _scopeLabels: Record<string, string> = Object.fromEntries(
 export function setScopeLabels(map: Record<string, string>): void { _scopeLabels = { ..._scopeLabels, ...map } }
 export function getScopeLabel(scopeId: string): string | null { return _scopeLabels[scopeId] ?? null }
 
-export function setCustomScopesMeta(scopes: { scopeId: string; label: string; fase?: string | null; opTypes?: string[] | null }[]): void {
-  _customScopes = scopes.map(s => ({ ...s, fase: s.fase ?? null, opTypes: s.opTypes ?? null }))
+export function setCustomScopesMeta(scopes: { scopeId: string; label: string; fase?: string | null; opTypes?: string[] | null; rigTypes?: string[] | null; wellClass?: string | null }[]): void {
+  _customScopes = scopes.map(s => ({ ...s, fase: s.fase ?? null, opTypes: s.opTypes ?? null, rigTypes: s.rigTypes ?? null, wellClass: s.wellClass ?? null }))
 }
 
-export function getCustomScopesMeta(): { scopeId: string; label: string; fase: string | null; opTypes: string[] | null }[] {
+export function getCustomScopesMeta(): CustomScopeMeta[] {
   return _customScopes
 }
 
-export function updateCustomScopeMeta(scopeId: string, patch: { fase?: string | null; opTypes?: string[] | null }): void {
+export function updateCustomScopeMeta(scopeId: string, patch: { fase?: string | null; opTypes?: string[] | null; rigTypes?: string[] | null; wellClass?: string | null }): void {
   _customScopes = _customScopes.map(s => s.scopeId === scopeId ? { ...s, ...patch } : s)
+}
+
+// Bucket implícito quando `wellClass` é null (compatibilidade com escopos criados antes
+// desse campo existir, ex.: PGA5_Abandono_Seca_PA — ver comentário em CustomScopeMeta).
+// Igual ao rótulo exibido no botão "Completação Seca" da Etapa 1 (App.tsx), para que
+// null e o valor explícito resolvam para o mesmo bucket.
+export const DEFAULT_WELL_CLASS = 'Completação Seca'
+
+// Classes de "Tipo de poço" (etapa 1) já usadas por algum escopo custom — usado tanto para
+// sugestões no editor (ComboInput) quanto para os botões extras na Etapa 1 do wizard.
+export function getKnownWellClasses(): string[] {
+  return [...new Set(_customScopes.map(s => s.wellClass).filter((w): w is string => !!w))].sort()
+}
+
+// Tags de "Tipo de sonda" (etapa 1) já usadas por escopos de uma classe de poço (ou de
+// todas, se omitido) — usado para sugestões no editor e para os botões de sonda no wizard.
+export function getKnownRigTags(wellClass?: string | null): string[] {
+  const target = wellClass ?? DEFAULT_WELL_CLASS
+  return [...new Set(
+    _customScopes
+      .filter(s => (s.wellClass ?? DEFAULT_WELL_CLASS) === target)
+      .flatMap(s => s.rigTypes ?? []),
+  )].sort()
 }
 
 // ── Reuso vivo de fluxogramas (seções `ref`) ────────────────────────────────

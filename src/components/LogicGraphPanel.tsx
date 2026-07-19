@@ -2,13 +2,17 @@ import { useRef, useState, useCallback, useMemo, useEffect, useLayoutEffect, use
 import type { IconType } from 'react-icons'
 import { MdOutlineAnchor } from 'react-icons/md'
 import {
-  PiFan, PiLegoFill, PiTrashFill, PiPlusCircleFill, PiDiamondFill,
-  PiArrowLineUp, PiArrowLineDown, PiArrowFatUp, PiArrowFatDown,
-  PiCopySimpleFill, PiArrowUUpLeftFill, PiListNumbersFill,
+  PiFan, PiTrashFill,
   PiStarFill, PiFlagPennantFill, PiListDashesFill, PiPlusBold, PiXBold,
   PiPencilSimpleFill,
 } from 'react-icons/pi'
 import { SiCodeship } from 'react-icons/si'
+import { IoIosGitNetwork } from 'react-icons/io'
+import {
+  LuSquareArrowLeft, LuSquareArrowRight, LuSquareArrowUp, LuSquareArrowDown,
+  LuPackage, LuTrash2, LuPlus, LuDiamond, LuCopy, LuCornerUpLeft, LuListOrdered,
+  LuMinimize2, LuMaximize2, LuSquareCheck,
+} from 'react-icons/lu'
 import { GiOffshorePlatform } from 'react-icons/gi'
 import { getPackage } from '../data/packages'
 import { resolveScopeSections, expandScopeRefs, getScopeLabel } from '../data/logicOverrideStore'
@@ -34,21 +38,28 @@ const CONDITION_ICON_PAIRS: Record<string, [IconType, IconType]> = {
   rig_lwo:    [PiFan, SiCodeship],          // DP LWIV
 }
 
-// Mapa dos antigos glyphs (emoji/unicode) dos menus para ícones react-icons (Phosphor Fill).
+// Mapa dos antigos glyphs (emoji/unicode) dos menus para ícones react-icons (Lucide).
 // A chave é o próprio glyph usado nos MenuItem, evitando alterar todos os call sites.
 // Exportado para o LogicFlowEditor (editor ReactFlow) usar o MESMO vocabulário visual.
+// Todos neutros — a cor é decidida no render do menu (ClassicSidePanel), não aqui.
 export const GLYPH_ICONS: Record<string, IconType> = {
-  '📦': PiLegoFill,          // adicionar pacote
-  '×': PiTrashFill,          // remover
-  '➕': PiPlusCircleFill,     // adicionar resposta/decisão
-  '◇': PiDiamondFill,        // inserir sub-pergunta
-  '↑': PiArrowLineUp,        // inserir acima
-  '↓': PiArrowLineDown,      // inserir abaixo
-  '⬆': PiArrowFatUp,         // mover acima
-  '⬇': PiArrowFatDown,       // mover abaixo
-  '⧉': PiCopySimpleFill,     // copiar
-  '⤿': PiArrowUUpLeftFill,   // mover pergunta para cá
-  '⤵': PiListNumbersFill,    // sequencial / após convergência
+  '📦': LuPackage,           // adicionar pacote
+  '×': LuTrash2,             // remover
+  '➕': LuPlus,               // adicionar resposta/decisão
+  '◇': LuDiamond,            // inserir sub-pergunta
+  '↑': LuSquareArrowUp,      // inserir acima
+  '↓': LuSquareArrowDown,    // inserir abaixo
+  '⬆': LuSquareArrowUp,      // mover acima
+  '⬇': LuSquareArrowDown,    // mover abaixo
+  '⬅': LuSquareArrowLeft,    // mover resposta para a esquerda
+  '➡': LuSquareArrowRight,   // mover resposta para a direita
+  '⧉': LuCopy,               // copiar
+  '⤿': LuCornerUpLeft,       // mover pergunta para cá
+  '⤵': LuListOrdered,        // sequencial / após convergência
+  '⤡': LuMinimize2,          // recolher visualização
+  '⤢': LuMaximize2,          // expandir para visualização
+  '☑': LuSquareCheck,        // marcar/desmarcar "já respondida no escopo"
+  '⑂': IoIosGitNetwork,      // adicionar campo após convergência
 }
 
 // Renderiza um ícone react-icons centrado num ponto do SVG. `cx`/`cyText` são as mesmas
@@ -801,7 +812,7 @@ function drawDiamondLabel(cx: number, topY: number, text: string, fill: string, 
   if (t.length <= diaCap(F_M, Math.abs(4 - 0.72 * F_M))) {
     els.push(
       <text key={K()} x={cx} y={cy + 4} fontSize={F_M} fontWeight={600} fill={fill}
-        textAnchor="middle" fontFamily="ui-sans-serif,system-ui,sans-serif"><title>{t}</title>{t}</text>
+        textAnchor="middle" fontFamily="'Helvetica Neue',Helvetica,Arial,sans-serif"><title>{t}</title>{t}</text>
     )
     return
   }
@@ -821,7 +832,7 @@ function drawDiamondLabel(cx: number, topY: number, text: string, fill: string, 
   const cap = Math.min(diaCap(fs, 2 + 0.72 * fs), diaCap(fs, 10 + 0.24 * fs))
   l1 = tr(l1, cap); l2 = tr(l2, cap)
   els.push(
-    <text key={K()} textAnchor="middle" fontFamily="ui-sans-serif,system-ui,sans-serif" fill={fill} fontSize={fs} fontWeight={600}>
+    <text key={K()} textAnchor="middle" fontFamily="'Helvetica Neue',Helvetica,Arial,sans-serif" fill={fill} fontSize={fs} fontWeight={600}>
       <title>{t}</title>
       <tspan x={cx} y={cy - 2}>{l1}</tspan>
       <tspan x={cx} dy={fs + 1.5}>{l2}</tspan>
@@ -875,16 +886,16 @@ function drawPkgRow(
          {...tipAttrs(`${pkg.id}${pkg.condition ? ` · condição: ${condLabel(pkg.condition)}` : ''} — clique para opções`)}>
         <rect x={leftX + 4} y={topY + 1} width={w - 8} height={rowH - 2} rx={3} fill="transparent" />
         <text x={textX} y={idY} fontSize={F_S} fontFamily="ui-monospace,monospace" fontWeight={600} fill={codeColor}>{pkg.id}</text>
-        <text x={textX} y={nameY} fontSize={F_S - 0.5} fontFamily="ui-sans-serif,system-ui,sans-serif" fill={p.ansT} opacity={0.85}>{nameLine1}</text>
-        {nameLine2 && <text x={textX} y={name2Y} fontSize={F_S - 0.5} fontFamily="ui-sans-serif,system-ui,sans-serif" fill={p.ansT} opacity={0.72}>{nameLine2}</text>}
+        <text x={textX} y={nameY} fontSize={F_S - 0.5} fontFamily="'Helvetica Neue',Helvetica,Arial,sans-serif" fill={p.ansT} opacity={0.85}>{nameLine1}</text>
+        {nameLine2 && <text x={textX} y={name2Y} fontSize={F_S - 0.5} fontFamily="'Helvetica Neue',Helvetica,Arial,sans-serif" fill={p.ansT} opacity={0.72}>{nameLine2}</text>}
       </g>
     )
   } else {
     els.push(
       <g key={K()}>
         <text x={textX} y={idY} fontSize={F_S} fontFamily="ui-monospace,monospace" fontWeight={600} fill={codeColor}>{pkg.id}<title>{`${pkg.id} — ${full}`}</title></text>
-        <text x={textX} y={nameY} fontSize={F_S - 0.5} fontFamily="ui-sans-serif,system-ui,sans-serif" fill={p.ansT} opacity={0.85}>{nameLine1}{!nameLine2 && <title>{full}</title>}</text>
-        {nameLine2 && <text x={textX} y={name2Y} fontSize={F_S - 0.5} fontFamily="ui-sans-serif,system-ui,sans-serif" fill={p.ansT} opacity={0.72}>{nameLine2}<title>{full}</title></text>}
+        <text x={textX} y={nameY} fontSize={F_S - 0.5} fontFamily="'Helvetica Neue',Helvetica,Arial,sans-serif" fill={p.ansT} opacity={0.85}>{nameLine1}{!nameLine2 && <title>{full}</title>}</text>
+        {nameLine2 && <text x={textX} y={name2Y} fontSize={F_S - 0.5} fontFamily="'Helvetica Neue',Helvetica,Arial,sans-serif" fill={p.ansT} opacity={0.72}>{nameLine2}<title>{full}</title></text>}
       </g>
     )
   }
@@ -1073,7 +1084,7 @@ function renderAnswer(
   const headColor = cont ? contingCode() : p.lblT
   if (contLabel) {
     els.push(
-      <text key={K()} x={lblTextX} y={y + LBLH * 0.68} fontSize={F_M} fontFamily="ui-sans-serif,system-ui,sans-serif">
+      <text key={K()} x={lblTextX} y={y + LBLH * 0.68} fontSize={F_M} fontFamily="'Helvetica Neue',Helvetica,Arial,sans-serif">
         <tspan fontWeight={700} fill={headColor}>{tr(a.label, canEdit ? 18 : 24)} / </tspan>
         <tspan fontWeight={600} fill={cont ? contingCode() : '#d97706'} fontSize={F_M - 0.5}>{contLabel}</tspan>
       </text>
@@ -1081,7 +1092,7 @@ function renderAnswer(
   } else {
     els.push(
       <text key={K()} x={lblTextX} y={y + LBLH * 0.68} fontSize={F_M} fontWeight={700}
-        fill={headColor} fontFamily="ui-sans-serif,system-ui,sans-serif">
+        fill={headColor} fontFamily="'Helvetica Neue',Helvetica,Arial,sans-serif">
         {tr(a.label, canEdit ? 28 : 44)}
       </text>
     )
@@ -1113,9 +1124,9 @@ function renderAnswer(
     const ansMenuItems: MenuItem[] = [
       { label: 'Adicionar pacote', glyph: '📦', color: '#0ea5e9', onClick: () => fire({ type: 'p_add_pkg', ref, ansIdx: ai }) },
       { label: 'Inserir sub-pergunta abaixo', glyph: '↓', color: '#22d3ee', onClick: () => fire({ type: 'p_add_aftersub_dec', ref, ansIdx: ai }) },
-      { label: 'Adicionar campo após convergência', glyph: '⤵', color: '#7c3aed', onClick: () => fire({ type: 'p_dec_add_after', ref, atIdx: 0 }) },
-      { label: 'Mover resposta para a esquerda', glyph: '⬆', color: '#94a3b8', onClick: () => fire({ type: 'p_move_ans', ref, ansIdx: ai, dir: 'up' }) },
-      { label: 'Mover resposta para a direita', glyph: '⬇', color: '#94a3b8', onClick: () => fire({ type: 'p_move_ans', ref, ansIdx: ai, dir: 'down' }) },
+      { label: 'Adicionar campo após convergência', glyph: '⑂', onClick: () => fire({ type: 'p_dec_add_after', ref, atIdx: 0 }) },
+      { label: 'Mover resposta para a esquerda', glyph: '⬅', color: '#94a3b8', onClick: () => fire({ type: 'p_move_ans', ref, ansIdx: ai, dir: 'up' }) },
+      { label: 'Mover resposta para a direita', glyph: '➡', color: '#94a3b8', onClick: () => fire({ type: 'p_move_ans', ref, ansIdx: ai, dir: 'down' }) },
       { label: 'Mover pergunta para cá (como sub-pergunta)', glyph: '⤿', color: '#a855f7', onClick: () => fire({ type: 'transfer_target', mode: 'move', ref, ansIdx: ai }) },
       { label: 'Remover resposta', glyph: '×', color: '#ef4444', danger: true, onClick: () => fire({ type: 'p_remove_ans', ref, ansIdx: ai }) },
     ]
@@ -1143,7 +1154,7 @@ function renderAnswer(
   if (a.note) {
     els.push(
       <text key={K()} x={x + 8} y={bY + NOTE_R * 0.8} fontSize={F_S} fontStyle="italic"
-        fill={p.noteT} fontFamily="ui-sans-serif,system-ui,sans-serif">
+        fill={p.noteT} fontFamily="'Helvetica Neue',Helvetica,Arial,sans-serif">
         {tr(a.note, 36)}
       </text>
     )
@@ -1269,7 +1280,7 @@ function renderAnswer(
       // Label text
       els.push(
         <text key={K()} x={canEdit ? seX + 22 : seX + 8} y={seCardY + LBLH * 0.68} fontSize={F_M} fontWeight={600}
-          fill={p.lblT} fontFamily="ui-sans-serif,system-ui,sans-serif">
+          fill={p.lblT} fontFamily="'Helvetica Neue',Helvetica,Arial,sans-serif">
           {tr(se.label, canEdit ? 24 : 44)}
         </text>
       )
@@ -1330,7 +1341,7 @@ function renderAnswer(
         els.push(<rect key={K()} x={schipX} y={schipCardY} width={schipW} height={schipH} rx={4} fill={p.ans} stroke={p.ansB} strokeWidth={1} />)
         els.push(<rect key={K()} x={schipX} y={schipCardY} width={schipW} height={LBLH} rx={4} fill={p.lbl} />)
         els.push(<rect key={K()} x={schipX} y={schipCardY + LBLH - 4} width={schipW} height={4} fill={p.lbl} />)
-        els.push(<text key={K()} x={schipX + 8} y={schipCardY + LBLH * 0.68} fontSize={F_M} fontWeight={700} fill={p.lblT} fontFamily="ui-sans-serif,system-ui,sans-serif" letterSpacing={0.8}>PACOTES</text>)
+        els.push(<text key={K()} x={schipX + 8} y={schipCardY + LBLH * 0.68} fontSize={F_M} fontWeight={700} fill={p.lblT} fontFamily="'Helvetica Neue',Helvetica,Arial,sans-serif" letterSpacing={0.8}>PACOTES</text>)
         const sPkgBY = schipCardY + LBLH + BPAD
         sub.packages!.forEach((pkg, pi) => {
           drawPkgRow(schipX, sPkgBY + pi * PKG, PKG, schipW, pkg, p, hit(pkg.id) || hit(pkgName(pkg)), null, null, els)
@@ -1484,7 +1495,7 @@ function renderAnswer(
             </g>
           )
         }
-        els.push(<text key={K()} x={canEdit ? safX + 22 : safX + 8} y={safCardY + LBLH * 0.68} fontSize={F_M} fontWeight={600} fill={p.lblT} fontFamily="ui-sans-serif,system-ui,sans-serif">{tr(saf.label || 'Após convergência', canEdit ? 20 : 40)}</text>)
+        els.push(<text key={K()} x={canEdit ? safX + 22 : safX + 8} y={safCardY + LBLH * 0.68} fontSize={F_M} fontWeight={600} fill={p.lblT} fontFamily="'Helvetica Neue',Helvetica,Arial,sans-serif">{tr(saf.label || 'Após convergência', canEdit ? 20 : 40)}</text>)
         const safPkgs = saf.packages ?? []
         const safBY = safCardY + LBLH + BPAD
         if (safPkgs.length || canEdit) {
@@ -1530,7 +1541,7 @@ function renderAnswer(
       els.push(<rect key={K()} x={chipX} y={chipCardY + LBLH - 4} width={chipW} height={4} fill={p.lbl} />)
       els.push(
         <text key={K()} x={chipX + 8} y={chipCardY + LBLH * 0.68} fontSize={F_M} fontWeight={600}
-          fill={p.lblT} fontFamily="ui-sans-serif,system-ui,sans-serif">
+          fill={p.lblT} fontFamily="'Helvetica Neue',Helvetica,Arial,sans-serif">
           Pacotes
         </text>
       )
@@ -1702,7 +1713,7 @@ function renderAnswer(
             </g>
           )
         }
-        els.push(<text key={K()} x={canEdit ? asSafX + 22 : asSafX + 8} y={asSafCardY + LBLH * 0.68} fontSize={F_M} fontWeight={600} fill={p.lblT} fontFamily="ui-sans-serif,system-ui,sans-serif">{tr(asSaf.label || 'Após convergência', canEdit ? 20 : 40)}</text>)
+        els.push(<text key={K()} x={canEdit ? asSafX + 22 : asSafX + 8} y={asSafCardY + LBLH * 0.68} fontSize={F_M} fontWeight={600} fill={p.lblT} fontFamily="'Helvetica Neue',Helvetica,Arial,sans-serif">{tr(asSaf.label || 'Após convergência', canEdit ? 20 : 40)}</text>)
         const asSafPkgs = asSaf.packages ?? []
         const asSafBY = asSafCardY + LBLH + BPAD
         if (asSafPkgs.length || canEdit) {
@@ -1793,7 +1804,7 @@ function renderAnswer(
           </g>
         )
       }
-      els.push(<text key={K()} x={canEdit ? afX + 22 : afX + 8} y={afCardY + LBLH * 0.68} fontSize={F_M} fontWeight={600} fill={p.lblT} fontFamily="ui-sans-serif,system-ui,sans-serif">{tr(af.label || 'Após convergência', canEdit ? 20 : 40)}</text>)
+      els.push(<text key={K()} x={canEdit ? afX + 22 : afX + 8} y={afCardY + LBLH * 0.68} fontSize={F_M} fontWeight={600} fill={p.lblT} fontFamily="'Helvetica Neue',Helvetica,Arial,sans-serif">{tr(af.label || 'Após convergência', canEdit ? 20 : 40)}</text>)
       const afPkgs = af.packages ?? []
       const afBY = afCardY + LBLH + BPAD
       const afHlKey = `chip:af:${ref.secIdx}:${ref.decIdx}:${ref.sub.join(',')}:${ai}:${afi}`
@@ -1897,7 +1908,7 @@ function drawAfterDecision(
     els.push(<rect key={K()} x={achipX} y={achipCardY} width={achipW} height={achipH} rx={4} fill={p.ans} stroke={p.ansB} strokeWidth={1} />)
     els.push(<rect key={K()} x={achipX} y={achipCardY} width={achipW} height={LBLH} rx={4} fill={p.lbl} />)
     els.push(<rect key={K()} x={achipX} y={achipCardY + LBLH - 4} width={achipW} height={4} fill={p.lbl} />)
-    els.push(<text key={K()} x={achipX + 8} y={achipCardY + LBLH * 0.68} fontSize={F_M} fontWeight={700} fill={p.lblT} fontFamily="ui-sans-serif,system-ui,sans-serif" letterSpacing={0.8}>PACOTES</text>)
+    els.push(<text key={K()} x={achipX + 8} y={achipCardY + LBLH * 0.68} fontSize={F_M} fontWeight={700} fill={p.lblT} fontFamily="'Helvetica Neue',Helvetica,Arial,sans-serif" letterSpacing={0.8}>PACOTES</text>)
     const adPkgBY = achipCardY + LBLH + BPAD
     ad.packages!.forEach((pkg, pi) => {
       drawPkgRow(achipX, adPkgBY + pi * PKG, PKG, achipW, pkg, p, hit(pkg.id) || hit(pkgName(pkg)), null, null, els)
@@ -2070,7 +2081,7 @@ function drawRefSection(sec: LSec, CX: number, Y: number, sw: number, si: number
       <rect x={sx} y={Y} width={sw - (_editCb ? 90 : 34)} height={hdrH} fill="transparent" />
       {titleLines.map((ln, i) => (
         <text key={K()} x={sx + SPAD + (i === 0 ? 0 : 16)} y={Y + SHH * 0.63 + i * REF_TITLE_LH}
-          fontSize={F_L} fontWeight={700} fill="white" fontFamily="ui-sans-serif,system-ui,sans-serif" letterSpacing={0.6}>
+          fontSize={F_L} fontWeight={700} fill="white" fontFamily="'Helvetica Neue',Helvetica,Arial,sans-serif" letterSpacing={0.6}>
           {i === 0 ? `${expanded ? '▾' : '▸'} 🔗 ${ln}` : ln}
         </text>
       ))}
@@ -2113,13 +2124,13 @@ function drawRefSection(sec: LSec, CX: number, Y: number, sw: number, si: number
     const bodyY = Y + hdrH + 16
     els.push(
       <text key={K()} x={sx + SPAD} y={bodyY} fontSize={F_M} fill={_dark ? '#c7d2fe' : '#4338ca'}
-        fontFamily="ui-sans-serif,system-ui,sans-serif">
+        fontFamily="'Helvetica Neue',Helvetica,Arial,sans-serif">
         {tr(info.labels.join(' · ') || '(bloco vazio)', Math.floor((sw - SPAD * 2) / 5.6))}
       </text>
     )
     els.push(
       <text key={K()} x={sx + SPAD} y={bodyY + 18} fontSize={F_S} fill={_dark ? '#818cf8' : '#6366f1'}
-        fontFamily="ui-sans-serif,system-ui,sans-serif">
+        fontFamily="'Helvetica Neue',Helvetica,Arial,sans-serif">
         {`atualiza automaticamente · ${info.labels.length} seção(ões) · ${info.decisions} decisão(ões)`}
       </text>
     )
@@ -2130,7 +2141,7 @@ function drawRefSection(sec: LSec, CX: number, Y: number, sw: number, si: number
   // para não permitir edição inline nem poluir o índice de navegação do escopo pai).
   els.push(
     <text key={K()} x={sx + SPAD} y={Y + hdrH + 18} fontSize={F_S} fill={_dark ? '#818cf8' : '#6366f1'}
-      fontFamily="ui-sans-serif,system-ui,sans-serif" fontStyle="italic">
+      fontFamily="'Helvetica Neue',Helvetica,Arial,sans-serif" fontStyle="italic">
       somente leitura · use “⋯ › Editar bloco” para modificar
     </text>
   )
@@ -2216,7 +2227,7 @@ function drawFlowColumn(secs: LSec[], colCX: number, topY: number, els: React.Re
 
     els.push(
       <text key={K()} x={sx + SPAD} y={Y + SHH * 0.63} fontSize={F_L} fontWeight={700}
-        fill={p.hdrT} fontFamily="ui-sans-serif,system-ui,sans-serif" letterSpacing={1.2}>
+        fill={p.hdrT} fontFamily="'Helvetica Neue',Helvetica,Arial,sans-serif" letterSpacing={1.2}>
         {tr(sec.label, maxLblChars)}
       </text>
     )
@@ -2234,7 +2245,7 @@ function drawFlowColumn(secs: LSec[], colCX: number, topY: number, els: React.Re
            style={{ cursor: 'pointer' }} {...tipAttrs('Editar fase')}>
           <rect x={badgeX} y={Y + 9} width={bl} height={17} rx={8} fill={p.bb} stroke="white" strokeWidth={1} strokeDasharray="3,2" opacity={0.9} />
           <text x={badgeX + bl / 2} y={Y + 21} fontSize={9} fontWeight={700}
-            fill={p.bT} textAnchor="middle" fontFamily="ui-sans-serif,system-ui,sans-serif">
+            fill={p.bT} textAnchor="middle" fontFamily="'Helvetica Neue',Helvetica,Arial,sans-serif">
             {sec.phase}
           </text>
         </g>
@@ -2289,7 +2300,7 @@ function drawFlowColumn(secs: LSec[], colCX: number, topY: number, els: React.Re
       els.push(<rect key={K()} x={badgeX} y={Y + 9} width={bl} height={17} rx={8} fill={p.bb} />)
       els.push(
         <text key={K()} x={badgeX + bl / 2} y={Y + 21} fontSize={9} fontWeight={700}
-          fill={p.bT} textAnchor="middle" fontFamily="ui-sans-serif,system-ui,sans-serif">
+          fill={p.bT} textAnchor="middle" fontFamily="'Helvetica Neue',Helvetica,Arial,sans-serif">
           {sec.phase}
         </text>
       )
@@ -2308,7 +2319,7 @@ function drawFlowColumn(secs: LSec[], colCX: number, topY: number, els: React.Re
       els.push(<rect key={K()} x={chipX} y={iY + LBLH - 4} width={chipW} height={4} fill={p.lbl} />)
       els.push(
         <text key={K()} x={chipX + 8} y={iY + LBLH * 0.68} fontSize={F_M} fontWeight={700}
-          fill={p.lblT} fontFamily="ui-sans-serif,system-ui,sans-serif" letterSpacing={1}>
+          fill={p.lblT} fontFamily="'Helvetica Neue',Helvetica,Arial,sans-serif" letterSpacing={1}>
           SEMPRE
         </text>
       )
@@ -2356,7 +2367,7 @@ function drawFlowColumn(secs: LSec[], colCX: number, topY: number, els: React.Re
         els.push(<rect key={K()} x={chipX} y={chipCardY} width={chipW} height={chipH} rx={4} fill={p.ans} stroke={p.ansB} strokeWidth={1} />)
         els.push(<rect key={K()} x={chipX} y={chipCardY} width={chipW} height={LBLH} rx={4} fill={p.lbl} />)
         els.push(<rect key={K()} x={chipX} y={chipCardY + LBLH - 4} width={chipW} height={4} fill={p.lbl} />)
-        els.push(<text key={K()} x={chipX + 8} y={chipCardY + LBLH * 0.68} fontSize={F_M} fontWeight={700} fill={p.lblT} fontFamily="ui-sans-serif,system-ui,sans-serif" letterSpacing={0.8}>PACOTES</text>)
+        els.push(<text key={K()} x={chipX + 8} y={chipCardY + LBLH * 0.68} fontSize={F_M} fontWeight={700} fill={p.lblT} fontFamily="'Helvetica Neue',Helvetica,Arial,sans-serif" letterSpacing={0.8}>PACOTES</text>)
         dec.packages!.forEach((pkg, pi) => {
           drawPkgRow(chipX, pkgBY + pi * PKG, PKG, chipW, pkg, p, hit(pkg.id) || hit(pkgName(pkg)), null, null, els)
         })
@@ -2549,7 +2560,7 @@ function drawFlowColumn(secs: LSec[], colCX: number, topY: number, els: React.Re
         // Label text
         els.push(
           <text key={K()} x={aeX + 8} y={aeCardY + LBLH * 0.68} fontSize={F_M} fontWeight={600}
-            fill={p.lblT} fontFamily="ui-sans-serif,system-ui,sans-serif">
+            fill={p.lblT} fontFamily="'Helvetica Neue',Helvetica,Arial,sans-serif">
             {tr(ae.label, 48)}
           </text>
         )
@@ -2645,7 +2656,7 @@ function drawBranchLabel(cx: number, cy: number, text: string, els: React.ReactN
     fill={p.lbl} stroke={p.bgB} strokeWidth={1} />)
   els.push(
     <text key={K()} x={cx} y={cy + 4} fontSize={F_M} fontWeight={600} fill={p.lblT}
-      textAnchor="middle" fontFamily="ui-sans-serif,system-ui,sans-serif">
+      textAnchor="middle" fontFamily="'Helvetica Neue',Helvetica,Arial,sans-serif">
       {t}
     </text>
   )
@@ -2817,7 +2828,7 @@ export function ClassicSidePanel({ title, items, pkgs, onClose, dark, pos, onTit
           return (
             <button key={i} onClick={() => { it.onClick(); onClose() }}
               className={`w-full flex items-center gap-2.5 px-3 py-2 text-left text-xs transition-colors hover:bg-white/10 ${it.danger ? 'text-rose-300' : 'text-slate-200'}`}>
-              <span className="w-4 flex items-center justify-center shrink-0" style={{ color: it.color }}>
+              <span className="w-4 flex items-center justify-center shrink-0" style={{ color: it.danger ? '#fb7185' : '#94a3b8' }}>
                 {Icon ? <Icon size={15} /> : <span className="text-[13px]">{it.glyph}</span>}
               </span>
               <span>{it.label}</span>
@@ -2829,7 +2840,7 @@ export function ClassicSidePanel({ title, items, pkgs, onClose, dark, pos, onTit
             {items.length > 0 && <div className="border-t border-white/10 my-1" />}
             <button onClick={() => pkgs.onAdd()}
               className="w-full flex items-center gap-2.5 px-3 py-2 text-left text-xs transition-colors hover:bg-white/10 text-slate-200">
-              <span className="w-4 flex items-center justify-center shrink-0" style={{ color: '#3b82f6' }}><PiLegoFill size={15} /></span>
+              <span className="w-4 flex items-center justify-center shrink-0" style={{ color: '#94a3b8' }}><LuPackage size={15} /></span>
               <span>Adicionar pacote</span>
             </button>
             {pkgs.list.length > 0 && <div className="border-t border-white/10 my-1" />}
@@ -3148,9 +3159,6 @@ export function LogicGraphPanel({ secs, tree, editCb, pickMode, selRef }: LogicG
                   ))}
                 </div>
               ))}
-              {secEntry.questions.length === 0 && (
-                <p className={`pl-6 pr-3 py-0.5 text-[10px] italic ${dark ? 'text-slate-700' : 'text-slate-400'}`}>sem perguntas</p>
-              )}
             </div>
           ))}
         </aside>

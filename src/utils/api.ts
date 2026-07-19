@@ -21,12 +21,27 @@ export function isApiConfigured(): boolean {
   return API_URL.length > 0
 }
 
-async function req<T>(path: string, init?: RequestInit): Promise<T> {
-  const { headers, ...rest } = init ?? {}
-  const res = await fetch(`${API_URL}${path}`, {
-    headers: { 'Content-Type': 'application/json', ...(headers as Record<string, string> | undefined) },
-    ...rest,
-  })
+type ReqInit = RequestInit & { timeoutMs?: number }
+
+async function req<T>(path: string, init?: ReqInit): Promise<T> {
+  const { headers, timeoutMs, ...rest } = init ?? {}
+  // Timeout opcional: aborta a requisição se o servidor não responder a tempo, para
+  // que uma conexão travada não deixe o chamador (ex.: autosave) preso para sempre.
+  const controller = timeoutMs != null ? new AbortController() : undefined
+  const timer = controller ? setTimeout(() => controller.abort(), timeoutMs) : undefined
+  let res: Response
+  try {
+    res = await fetch(`${API_URL}${path}`, {
+      headers: { 'Content-Type': 'application/json', ...(headers as Record<string, string> | undefined) },
+      ...(controller && { signal: controller.signal }),
+      ...rest,
+    })
+  } catch (e) {
+    if (controller?.signal.aborted) throw new Error('Tempo de conexão esgotado', { cause: e })
+    throw e
+  } finally {
+    if (timer) clearTimeout(timer)
+  }
   if (!res.ok) {
     if (res.status === 401 || res.status === 403) {
       window.dispatchEvent(new CustomEvent('sprint:auth-error'))
@@ -54,12 +69,19 @@ export function deleteServerProject(id: string): Promise<void> {
   return req<void>(`/api/projects/${id}`, { method: 'DELETE' })
 }
 
+/** Timeout do autosave: conexão travada cai em erro em vez de ficar presa "Salvando…". */
+const SAVE_TIMEOUT_MS = 15000
+
 /** Cria (sem id) ou atualiza (com id) um projeto no servidor. */
-export function saveServerProject(project: ProjectFile, id?: string): Promise<StoredProject> {
+export function saveServerProject(
+  project: ProjectFile,
+  id?: string,
+  authHeaders?: Record<string, string>,
+): Promise<StoredProject> {
   const body = JSON.stringify(project)
   return id
-    ? req<StoredProject>(`/api/projects/${id}`, { method: 'PUT', body })
-    : req<StoredProject>('/api/projects', { method: 'POST', body })
+    ? req<StoredProject>(`/api/projects/${id}`, { method: 'PUT', body, headers: authHeaders, timeoutMs: SAVE_TIMEOUT_MS })
+    : req<StoredProject>('/api/projects', { method: 'POST', body, headers: authHeaders, timeoutMs: SAVE_TIMEOUT_MS })
 }
 
 // ── Log de alterações (changeLog server-side) ────────────────────────────────
@@ -268,6 +290,8 @@ export interface LogicScopeMeta {
   label: string | null
   fase: string | null
   opTypes: string[] | null
+  rigTypes: string[] | null
+  wellClass: string | null
   sectionCount: number
   author: string | null
   updatedAt: string
@@ -299,10 +323,10 @@ export function createLogicScope(meta: { scopeId: string; label: string; section
 
 export function saveLogicScopeMeta(
   scopeId: string,
-  meta: { fase?: string | null; opTypes?: string[] | null; label?: string | null },
+  meta: { fase?: string | null; opTypes?: string[] | null; rigTypes?: string[] | null; wellClass?: string | null; label?: string | null },
   authHeaders: Record<string, string>,
 ) {
-  return req<{ scopeId: string; fase: string | null; opTypes: string[] | null; label: string | null }>(
+  return req<{ scopeId: string; fase: string | null; opTypes: string[] | null; rigTypes: string[] | null; wellClass: string | null; label: string | null }>(
     `/api/logic/scopes/${encodeURIComponent(scopeId)}/meta`,
     { method: 'PATCH', headers: authHeaders, body: JSON.stringify(meta) },
   )

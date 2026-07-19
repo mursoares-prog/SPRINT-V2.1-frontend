@@ -3,6 +3,8 @@ import type { WizardInputs, ScheduleItem, ScopeId, ProjectData, FineTuningItem }
 export interface ProjectFile {
   version: '1' | '2'
   wellName: string
+  /** Nome do projeto (do sistema externo) — pode haver vários projetos por poço. */
+  projectName?: string
   scopeId: ScopeId
   savedAt: string
   inputs: WizardInputs
@@ -26,10 +28,12 @@ export function buildProjectFile(
   schedule: ScheduleItem[],
   projectData?: ProjectData,
   fineTuningItems?: FineTuningItem[],
+  projectName?: string,
 ): ProjectFile {
   return {
     version: '2',
     wellName,
+    ...(projectName && { projectName }),
     scopeId: inputs.scopeId,
     savedAt: new Date().toISOString(),
     inputs,

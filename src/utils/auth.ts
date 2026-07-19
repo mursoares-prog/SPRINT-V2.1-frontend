@@ -65,6 +65,15 @@ export function getRole(): Role | null {
   return getSession()?.role ?? null
 }
 
+// TEMPORÁRIO (harness de teste — remover quando o sistema externo for conectado):
+// define o papel do usuário simulando a entrada do outro sistema, onde ele já está
+// logado. Em produção, a integração fornecerá o papel diretamente. Mantém token/
+// username existentes para não quebrar `authHeader()`.
+export function setSessionRole(role: Role): void {
+  const s = getSession()
+  persist({ token: s?.token ?? '', role, username: s?.username ?? 'local' })
+}
+
 export function isAdmin(): boolean {
   return getRole() === 'admin'
 }

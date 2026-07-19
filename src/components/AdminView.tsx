@@ -1,4 +1,4 @@
-import { X, Search, ShieldCheck, History, Table2, Pencil, Trash2, Plus, Workflow, Undo2, AlertTriangle, Loader2 } from 'lucide-react'
+import { X, Search, ShieldCheck, Table2, Pencil, Trash2, Plus, Workflow, Undo2, AlertTriangle, Loader2 } from 'lucide-react'
 import { useState, useMemo, useEffect, useCallback } from 'react'
 import {
   isApiConfigured, listChangelog, getMergedPackageLines, getBaseFields,
@@ -126,15 +126,9 @@ export function AdminView({ onClose, initialTab = 'vars' }: { onClose: () => voi
           <TabButton active={tab === 'engine'} onClick={() => setTab('engine')} Icon={Workflow}>
             Árvores de Decisão
           </TabButton>
-          <TabButton active={tab === 'log'} onClick={() => setTab('log')} Icon={History} className="ml-auto">
-            Log de alterações
-            <span className="ml-1.5 px-1.5 py-px rounded-full bg-slate-200 dark:bg-slate-700 text-[10px] font-semibold text-slate-600 dark:text-slate-300">
-              {log.length}
-            </span>
-          </TabButton>
           <button
             onClick={onClose}
-            className="shrink-0 w-7 h-7 flex items-center justify-center rounded-lg text-slate-600 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
+            className="ml-auto shrink-0 w-7 h-7 flex items-center justify-center rounded-lg text-slate-600 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
             <X size={14} />
           </button>
         </div>
@@ -173,6 +167,7 @@ export function AdminView({ onClose, initialTab = 'vars' }: { onClose: () => voi
               legacyOverrides={serverOverrides} customMetas={customMetas}
               customGroups={customGroups}
               fields={fields} canEdit={canEdit} reload={reload}
+              onOpenLog={() => setTab('log')} logCount={log.length}
             />
           </>
         )}
