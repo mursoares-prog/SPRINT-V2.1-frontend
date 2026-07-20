@@ -22,6 +22,10 @@ const fullPkgName = (item: { packageId: string; packageName: string }) =>
     ? item.packageName
     : `[${item.packageId}] - ${item.packageName}`
 
+// Duração é sempre armazenada internamente em dias (o toggle d/h da Etapa 3 só
+// afeta a exibição) — o JSON exportado, porém, deve sempre viajar em horas.
+const toHours = (days: number) => Math.round(days * 24 * 100) / 100
+
 /**
  * Builds the full list of facts ([entity, attribute, value]) describing the
  * current project. This is the single source of truth shared by the JSON export
@@ -51,7 +55,7 @@ export function buildProjectFacts(state: Pick<AppState, 'wellName' | 'fineTuning
   facts.push([projectEid, 'sequence/package_stacker_used', true])
   facts.push([projectEid, 'probabilistic/apply_total_time', true])
   facts.push([projectEid, 'probabilistic/apply_package_probabilistic_time', false])
-  facts.push([projectEid, 'probabilistic/total_time', Math.round(totalTime * 100) / 100])
+  facts.push([projectEid, 'probabilistic/total_time', toHours(totalTime)])
 
   // sequence/items — one fact per LINE entity (pattern confirmed: same package/name
   // repeats across multiple entities, each with its own activity/label and step)
@@ -79,7 +83,7 @@ export function buildProjectFacts(state: Pick<AppState, 'wellName' | 'fineTuning
       // activity/* facts (line-specific)
       facts.push([eid, 'activity/name', name])
       facts.push([eid, 'activity/label', line.text])
-      facts.push([eid, 'activity/duration', line.duration ?? 0])
+      facts.push([eid, 'activity/duration', toHours(line.duration ?? 0)])
       facts.push([eid, 'activity/ptime', 0.0])
       facts.push([eid, 'activity/is_contingency', line.isContingency ?? item.isContingency])
       facts.push([eid, 'activity/compensating', line.compensando ?? null])
