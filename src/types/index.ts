@@ -342,16 +342,9 @@ export interface ProjectData {
   outrosPcabN2Psi: string
   outrosPcabN2PsiHp?: boolean    // É Hold Point? — Pcab N₂ teste de influxo
   outrosDrainB2Psi: string
-  outrosN2FlowScfm: string
   // Pressões operacionais
-  pressaoCavFibop: string        // ABAN 011,012,211,212 — cavidade FIBOP/FDR
-  pressaoHcr: string             // ABAN 011,211,212 — estanqueidade HCR (AGMAR)
   pressaoBoreTest: string        // ABAN 013,206 — bore 2"/4" e CWO
-  pressaoRiserBores: string      // ABAN 012 — teste dos bores 4"/2" (descida contra VGs + estanqueidade contra base de teste)
-  pressaoRiserCavConexao: string // ABAN 012 — cavidade de cada conexão do Riser DB durante a descida
   pressaoRiserDpr: string        // ABAN 014,015,016,017 — linhas de superfície e manifold (+ linhas de N2)
-  pressaoColunaDpr: string       // ABAN 014 — estanqueidade da coluna de DPR (contra VG5 da FDR/TRT)
-  pressaoColunaRiserDb: string   // ABAN 015 — estanqueidade da coluna de riser DB (contra VB5/VB2 da FDR/TRT)
   pressaoN2Trt: string           // ABAN 024,025 — N2 interface TRT×ANM
   pressaoTmfProd: string         // ABAN 026 — TMF bore produção N2
   pressaoTmfAnulAnm: string      // ABAN 027,028,029 — blocos ANM
@@ -491,4 +484,16 @@ export interface AppState {
   pendingReview: string[]
   /** Estado pré-aplicação (projectData + linhas) para cancelar a revisão ("Sair"). */
   reviewSnapshot: { projectData: ProjectData; fineTuningItems: FineTuningItem[] } | null
+  /**
+   * Modo de ajuste de tempo (Etapa 3) em uso para cada tipo (firme/cont): o usuário
+   * escolhe entre ajustar o TOTAL de uma vez ou pacotes INDIVIDUAIS, nunca os dois ao
+   * mesmo tempo. Volta a 'none' ao restaurar os tempos originais daquele tipo.
+   */
+  ftAdjustMode: { firme: 'total' | 'individual' | 'none'; cont: 'total' | 'individual' | 'none' }
+  /**
+   * Etapa 2 — quando ativo, o usuário pode reordenar/inserir/excluir pacotes
+   * manualmente no cronograma. Ao desativar, o cronograma é reconstruído a
+   * partir da árvore de decisão e as edições manuais são perdidas.
+   */
+  scheduleOverrideActive: boolean
 }

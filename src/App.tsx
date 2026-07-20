@@ -14,86 +14,123 @@ import type { ScopeId, WizardInputs, RigType } from './types'
 import { ArrowRight, AlertTriangle, FilePlus } from 'lucide-react'
 import { LuNetwork } from 'react-icons/lu'
 import { getDefaultInputs } from './utils/defaultInputs'
-import { isApiConfigured, getMergedPackageLines, getBaseOverrides, getBasePackageOverrides, getCustomPackages, getLogicScopes, getLogicScope } from './utils/api'
+import { isApiConfigured, getMergedPackageLines, getBaseOverrides, getBasePackageOverrides, getCustomPackages, getLogicScopes, getLogicScope, getLogicScopeGroups } from './utils/api'
 import { ensureDefaultSession } from './utils/auth'
 import { LoginModal } from './components/LoginModal'
 import { setPackageLines } from './data/packageLinesStore'
 import { applyDetailOverrides, applyPackageOverrides } from './data/lineDetailsStore'
 import { setExtraPackages, metaToPackage } from './data/packages'
-import { setLogicOverrides, setCustomScopesMeta, getCustomScopesMeta, getKnownWellClasses, getKnownRigTags, isBlockScope, setScopeLabels, DEFAULT_WELL_CLASS } from './data/logicOverrideStore'
+import { setLogicOverrides, setCustomScopesMeta, getCustomScopesMeta, isBlockScope, setScopeLabels, setScopeGroupsData, getTopScopeGroups, getScopeIdsInGroup, getUngroupedScopeIds } from './data/logicOverrideStore'
+import type { ScopeGroupNode } from './data/logicOverrideStore'
+
+// Aplica a config de pastas (grupos de escopos) vinda do servidor/localStorage ao store.
+// Formato = GroupStorage do LogicEditorPanel: { groups, memberships, ... }.
+function applyScopeGroups(gs: unknown): void {
+  const obj = (gs ?? {}) as { groups?: ScopeGroupNode[]; memberships?: Record<string, string | null> }
+  const groups = Array.isArray(obj.groups) ? obj.groups : []
+  setScopeGroupsData(groups, obj.memberships ?? {})
+}
+
+// Fallback: a config de pastas que o editor persiste localmente (usado quando o servidor
+// não responde/não tem config salva ainda).
+function readLocalScopeGroups(): unknown {
+  try {
+    const raw = localStorage.getItem('lep-scope-groups')
+    return raw ? JSON.parse(raw) : {}
+  } catch { return {} }
+}
+
+// Rótulos das fases canônicas exibidas na Etapa 1 (chave = valor gravado em cada escopo).
+const PHASE_LABELS: Record<string, string> = {
+  fase_1: 'Fase 1',
+  fase_2: 'Fase 2',
+  fase_unica: 'Fase Única (FSU)',
+}
 
 // ── Step 1 wizard panel ───────────────────────────────────────────────────────
 function WizardPanel() {
   const { state, dispatch } = useApp()
   const [wizardMode,  setWizardMode]  = useState<'auto' | null>(null)
-  // Tipo de poço: "Completação Molhada" é o único caminho com engine hardcoded (bundle
-  // ANC/DP/Fase/Escopo previsto — WET_CLASS abaixo); qualquer outro valor (Molhada
-  // Nordeste, Seca, ou uma classe nova criada pelo admin) passa pelo motor de escopo
-  // customizado genérico — ver `isGenericCustom`. Os valores canônicos são o próprio
-  // texto exibido nos botões, para casar 1:1 com o `wellClass` gravado no editor.
-  const WET_CLASS = 'Completação Molhada'
-  const HARDCODED_WELL_CLASSES = [WET_CLASS, 'Completação Molhada Nordeste', DEFAULT_WELL_CLASS]
-  const [tipoPoco,    setTipoPoco]    = useState<string>('')
-  const [rigType,     setRigType]     = useState<RigType | ''>('')
-  const [opType,      setOpType]      = useState<'Generalista' | 'LWO'>('Generalista')
-  const [phaseFilter, setPhaseFilter] = useState<'fase_unica' | 'fase_1' | 'fase_2' | ''>('')
+  // Etapa 1 dirigida pelas PASTAS do editor de Árvores de Decisão: cada pasta de topo é um
+  // "Tipo de intervenção". Selecionar uma pasta restringe o conjunto de escopos aos que
+  // estão arquivados nela (membership). Os passos seguintes (sonda → fase → escopo) filtram
+  // dentro desse conjunto pelos metadados de cada escopo (rigTypes/fase). Não há mais a
+  // etapa de "Tipo de poço" (wellClass): a organização por pasta a substitui.
+  const UNGROUPED = '__ungrouped__'   // bucket "Outros" (escopos fora de qualquer pasta)
+  const [folderId,    setFolderId]    = useState<string>('')
+  const [rigTag,      setRigTag]      = useState<string>('')
+  const [phaseFilter, setPhaseFilter] = useState<string>('')
   const [scopeId,     setScopeId]     = useState<ScopeId | ''>('')
 
-  const isMolhada = tipoPoco === WET_CLASS
-  const isGenericCustom = !!tipoPoco && tipoPoco !== WET_CLASS
-
-  const handleTipoPocoChange = (v: string) => {
-    setTipoPoco(v); setRigType(''); setOpType('Generalista'); setPhaseFilter(''); setScopeId('')
+  const handleFolderChange = (v: string) => {
+    setFolderId(v); setRigTag(''); setPhaseFilter(''); setScopeId('')
   }
-  const handleRigChange = (rig: RigType, op: 'Generalista' | 'LWO' = 'Generalista') => {
-    setRigType(rig); setOpType(op); setPhaseFilter(''); setScopeId('')
+  const handleRigChange = (tag: string) => {
+    setRigTag(tag); setPhaseFilter(''); setScopeId('')
   }
-  const handlePhaseChange = (v: 'fase_unica' | 'fase_1' | 'fase_2') => {
+  const handlePhaseChange = (v: string) => {
     setPhaseFilter(v); setScopeId('')
   }
 
-  // Classes de "Tipo de poço" extras (além das 3 hardcoded) já usadas por algum escopo
-  // customizado — viram botões adicionais no wizard automaticamente. Lista pequena
-  // (poucos escopos custom): computada direto no render, sem memoização, para sempre
-  // refletir o estado atual do store (que é populado assincronamente pelo App).
-  const dynamicWellClasses = getKnownWellClasses().filter(w => !HARDCODED_WELL_CLASSES.includes(w))
-  // Tag única correspondente à sonda ANC/DP selecionada na etapa hardcoded de Completação
-  // Molhada — usada para casar com o "Tipo de sonda" (rigTypes) unificado gravado no editor.
-  const molhadaRigTag = rigType === 'ANC' ? 'Ancorada'
-    : rigType === 'DP' && opType === 'Generalista' ? 'DP Generalista'
-    : rigType === 'DP' && opType === 'LWO' ? 'DP LWIV'
-    : null
-  // Tags de "Tipo de sonda" cadastradas para a classe de poço selecionada (bucket
-  // DEFAULT_WELL_CLASS quando tipoPoco==='Completação Seca'; qualquer outra classe usa
-  // seu próprio nome como chave).
-  const rigTagsForClass = isGenericCustom ? getKnownRigTags(tipoPoco) : []
+  // Pastas de topo que possuem ao menos um escopo selecionável (direto ou em sub-pastas),
+  // + o bucket "Outros" quando há escopos fora de qualquer pasta. Computado no render (store
+  // populado assincronamente pelo App; re-render disparado pela interação do usuário).
+  const topFolders = getTopScopeGroups()
+    .map(g => ({ id: g.id, name: g.name, ids: getScopeIdsInGroup(g.id) }))
+    .filter(g => getCustomScopesMeta().some(cs => g.ids.has(cs.scopeId)))
+  const ungroupedIds = getUngroupedScopeIds()
+  const hasUngrouped = getCustomScopesMeta().some(cs => ungroupedIds.has(cs.scopeId))
 
-  // Lista única de escopos selecionáveis, DB-driven (não há mais catálogo hardcoded).
-  // Completação Molhada: filtra por classe + sonda (tag) + fase escolhida — os 11 escopos
-  // antes "bundle" agora vêm do DB com esses metadados, junto de quaisquer escopos novos
-  // classificados como Molhada. Demais classes: por classe + sonda.
+  // Mapeia uma tag de "Tipo de sonda" para (rigType, opType) do motor. Tags de completação
+  // molhada resolvem para ANC/DP + opType (caminho com perguntas de wizard); qualquer outra
+  // tag é passada como rigType livre (escopos decisions-free — ver getDefaultInputs).
+  const resolveRig = (tag: string): { rigType: RigType | ''; opType: 'Generalista' | 'LWO' } =>
+    tag === 'Ancorada'       ? { rigType: 'ANC', opType: 'Generalista' }
+    : tag === 'DP Generalista' ? { rigType: 'DP',  opType: 'Generalista' }
+    : tag === 'DP LWIV'        ? { rigType: 'DP',  opType: 'LWO' }
+    : { rigType: tag as RigType, opType: 'Generalista' }
+
+  // Escopos da pasta selecionada (ou "Outros"), antes dos filtros de sonda/fase.
+  const folderScopes = useMemo(() => {
+    if (!folderId) return []
+    const ids = folderId === UNGROUPED ? getUngroupedScopeIds() : getScopeIdsInGroup(folderId)
+    return getCustomScopesMeta().filter(cs => ids.has(cs.scopeId))
+  }, [folderId])
+
+  // Tags de sonda disponíveis na pasta. Vazio → pasta sem escopos com sonda; pula a etapa.
+  const rigTagsForFolder = useMemo(
+    () => [...new Set(folderScopes.flatMap(cs => cs.rigTypes ?? []))].sort(),
+    [folderScopes],
+  )
+  const needsRig = rigTagsForFolder.length > 0
+
+  // Escopos após o filtro de sonda (quando a pasta tem sondas).
+  const rigScopes = useMemo(
+    () => needsRig ? folderScopes.filter(cs => rigTag && cs.rigTypes?.includes(rigTag)) : folderScopes,
+    [folderScopes, needsRig, rigTag],
+  )
+
+  // Fases disponíveis entre os escopos filtrados por sonda (escopos sem fase passam por todas).
+  const phasesForFolder = useMemo(
+    () => [...new Set(rigScopes.map(cs => cs.fase).filter((f): f is string => !!f))],
+    [rigScopes],
+  )
+  const needsPhase = phasesForFolder.length > 0
+
+  // Lista final de escopos selecionáveis (aplica o filtro de fase quando aplicável).
   const customScopes = useMemo(() => {
-    if (isMolhada && molhadaRigTag) {
-      if (!phaseFilter) return []
-      return getCustomScopesMeta().filter(cs => {
-        if ((cs.wellClass ?? DEFAULT_WELL_CLASS) !== WET_CLASS) return false
-        if (!cs.rigTypes?.includes(molhadaRigTag)) return false
-        if (cs.fase && cs.fase !== phaseFilter) return false
-        return true
-      })
-    }
-    if (isGenericCustom && rigType) {
-      return getCustomScopesMeta().filter(cs => (cs.wellClass ?? DEFAULT_WELL_CLASS) === tipoPoco && cs.rigTypes?.includes(rigType))
-    }
-    return []
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isMolhada, isGenericCustom, tipoPoco, rigType, molhadaRigTag, phaseFilter])
+    if (needsRig && !rigTag) return []
+    if (!needsPhase) return rigScopes
+    if (!phaseFilter) return []
+    return rigScopes.filter(cs => !cs.fase || cs.fase === phaseFilter)
+  }, [rigScopes, needsRig, rigTag, needsPhase, phaseFilter])
 
-  const canGenerate = ((isMolhada && (rigType === 'ANC' || rigType === 'DP')) || (isGenericCustom && !!rigType)) && !!scopeId
+  const canGenerate = !!folderId && (!needsRig || !!rigTag) && !!scopeId
 
   const handleGenerate = () => {
-    if (!rigType || !scopeId || !(rigType === 'ANC' || rigType === 'DP' || isGenericCustom)) return
-    const defaults = getDefaultInputs(rigType, opType, scopeId)
+    if (!scopeId) return
+    const { rigType, opType } = resolveRig(rigTag)
+    const defaults = getDefaultInputs(rigType as RigType, opType, scopeId)
     // RESET limpa wellName/projectName/projectId para o estado inicial — preserva o que
     // já estava definido (hoje, pelo pop-up de teste; futuramente, pelo sistema externo)
     // em vez de sobrescrever com o placeholder fixo 'Poço' e perder o vínculo com o
@@ -145,53 +182,50 @@ function WizardPanel() {
       {wizardMode === 'auto' && (
         <div className="flex-1 overflow-y-auto p-4 space-y-5 scrollbar-custom">
 
-          {/* ── Divisão: Poço e Sonda ── */}
+          {/* ── Divisão: Intervenção (pasta) e Sonda ── */}
           <div className="pl-2 border-l-2 border-slate-300 dark:border-slate-600 space-y-4">
 
+            {/* Tipo de intervenção = pastas de topo do editor de Árvores de Decisão
+                (Abandono Completação Molhada, Completação Seca, Workover, …). */}
             <WizStep label="Tipo de intervenção">
-              <WizOption active onClick={() => {}}>Abandono</WizOption>
+              {topFolders.length > 0 || hasUngrouped ? (
+                <>
+                  {topFolders.map(f => (
+                    <WizOption key={f.id} active={folderId === f.id} onClick={() => handleFolderChange(f.id)}>{f.name}</WizOption>
+                  ))}
+                  {hasUngrouped && (
+                    <WizOption active={folderId === UNGROUPED} onClick={() => handleFolderChange(UNGROUPED)}>Outros</WizOption>
+                  )}
+                </>
+              ) : (
+                <p className="text-[10px] text-slate-400 dark:text-slate-500 px-1 py-1">
+                  Nenhuma pasta de escopos cadastrada ainda — organize os escopos no editor de Árvores de Decisão.
+                </p>
+              )}
             </WizStep>
 
-            <WizStep label="Tipo de poço">
-              <WizOption active={tipoPoco === 'Completação Molhada'}          onClick={() => handleTipoPocoChange('Completação Molhada')}>Completação Molhada</WizOption>
-              <WizOption active={tipoPoco === 'Completação Molhada Nordeste'} onClick={() => handleTipoPocoChange('Completação Molhada Nordeste')}>Completação Molhada Nordeste</WizOption>
-              <WizOption active={tipoPoco === DEFAULT_WELL_CLASS}             onClick={() => handleTipoPocoChange(DEFAULT_WELL_CLASS)}>Completação Seca</WizOption>
-              {/* Classes extras definidas livremente pelo admin no editor de Árvores de
-                  Decisão (Tipo de poço de um escopo customizado) — aparecem aqui assim
-                  que algum escopo for classificado com esse valor. */}
-              {dynamicWellClasses.map(w => (
-                <WizOption key={w} active={tipoPoco === w} onClick={() => handleTipoPocoChange(w)}>{w}</WizOption>
-              ))}
-            </WizStep>
-
-            {isMolhada && (
+            {folderId && needsRig && (
               <WizStep label="Tipo de sonda">
-                <WizOption active={rigType === 'ANC'}                            onClick={() => handleRigChange('ANC')}>Ancorada</WizOption>
-                <WizOption active={rigType === 'DP' && opType === 'Generalista'} onClick={() => handleRigChange('DP', 'Generalista')}>DP Generalista</WizOption>
-                <WizOption active={rigType === 'DP' && opType === 'LWO'}         onClick={() => handleRigChange('DP', 'LWO')}>DP LWIV</WizOption>
-              </WizStep>
-            )}
-
-            {isGenericCustom && (
-              <WizStep label="Tipo de sonda">
-                {rigTagsForClass.length > 0 ? rigTagsForClass.map(rig => (
-                  <WizOption key={rig} active={rigType === rig} onClick={() => handleRigChange(rig)}>{rig}</WizOption>
-                )) : (
-                  <p className="text-[10px] text-slate-400 dark:text-slate-500 px-1 py-1">
-                    Nenhuma sonda cadastrada para "{tipoPoco}" ainda — classifique um escopo no editor de Árvores de Decisão.
-                  </p>
-                )}
+                {rigTagsForFolder.map(tag => (
+                  <WizOption key={tag} active={rigTag === tag} onClick={() => handleRigChange(tag)}>{tag}</WizOption>
+                ))}
               </WizStep>
             )}
 
           </div>
 
           {/* ── Escopo ── */}
-          {isMolhada && (rigType === 'ANC' || rigType === 'DP') && (
+          {folderId && (!needsRig || !!rigTag) && needsPhase && (
             <WizStep label="Fase da intervenção">
-              <WizOption active={phaseFilter === 'fase_1'}     onClick={() => handlePhaseChange('fase_1')}>Fase 1</WizOption>
-              <WizOption active={phaseFilter === 'fase_2'}     onClick={() => handlePhaseChange('fase_2')}>Fase 2</WizOption>
-              <WizOption active={phaseFilter === 'fase_unica'} onClick={() => handlePhaseChange('fase_unica')}>Fase Única (FSU)</WizOption>
+              {(['fase_1', 'fase_2', 'fase_unica'] as const)
+                .filter(f => phasesForFolder.includes(f))
+                .map(f => (
+                  <WizOption key={f} active={phaseFilter === f} onClick={() => handlePhaseChange(f)}>{PHASE_LABELS[f]}</WizOption>
+                ))}
+              {/* Fases fora do trio canônico (definidas livremente no editor) também aparecem. */}
+              {phasesForFolder.filter(f => !(['fase_1', 'fase_2', 'fase_unica'] as string[]).includes(f)).map(f => (
+                <WizOption key={f} active={phaseFilter === f} onClick={() => handlePhaseChange(f)}>{f}</WizOption>
+              ))}
             </WizStep>
           )}
 
@@ -387,6 +421,11 @@ export default function App() {
     getCustomPackages().then(ms => setExtraPackages(
       Object.fromEntries(ms.map(m => [m.pkgId, metaToPackage(m)])),
     )).catch(() => {})
+    // Pastas de escopos (organização do editor de Árvores de Decisão) → botões de "Tipo
+    // de intervenção" na Etapa 1. Servidor é a fonte; localStorage do editor é o fallback.
+    getLogicScopeGroups()
+      .then(gs => applyScopeGroups(gs))
+      .catch(() => applyScopeGroups(readLocalScopeGroups()))
     getLogicScopes().then(scopes => {
       setCustomScopesMeta(scopes.filter(s => !isBlockScope(s.scopeId)).map(s => ({ scopeId: s.scopeId, label: s.label ?? s.scopeId, fase: s.fase, opTypes: s.opTypes, rigTypes: s.rigTypes, wellClass: s.wellClass })))
       setScopeLabels(Object.fromEntries(scopes.filter(s => s.label).map(s => [s.scopeId, s.label as string])))

@@ -1,10 +1,9 @@
 import React, { useState, useEffect, useRef, createContext, useContext } from 'react'
-import { Plus, X, Crosshair, PanelLeftClose, Search } from 'lucide-react'
+import { X, Crosshair, PanelLeftClose, Search } from 'lucide-react'
 import { useApp, lineIdsForLocate, SLWLFT_HIGH_PKG_IDS, type LocateTarget } from '../context/AppContext'
 import type { ProjectData, BhaPlanFields } from '../types'
 import { PACKAGES } from '../data/packages'
 import { bhaDerivedDepth, camisaoDhsvFields, gabaritoFields } from '../engines/nippleDepth'
-import { ProjectNameField } from './ProjectNameField'
 import { ComboInput } from './ComboInput'
 
 // ── Filtro de seções ──────────────────────────────────────────────────────────
@@ -294,19 +293,19 @@ function Section({ title, searchText, children, defaultOpen = false, isDirty = f
   return (
     <div className={`shrink-0 rounded-xl overflow-hidden shadow-sm ring-1 transition-colors ${
       dirty
-        ? 'ring-amber-300 dark:ring-amber-700/70'
+        ? 'ring-blue-300 dark:ring-blue-700/70'
         : 'ring-slate-300 dark:ring-slate-700/60'
     }`}>
       <div className={`flex items-center gap-1.5 px-2.5 py-2 ${titleHighlighted ? 'bg-sky-50 dark:bg-sky-900/30' : 'bg-[#ebebeb] dark:bg-slate-800/50'} ${!effectiveCollapsed ? 'border-b border-slate-300 dark:border-slate-700/50' : ''}`}>
         <button onClick={() => setCollapsed(c => !c)}
           className="flex items-center gap-1.5 flex-1 min-w-0 text-left group">
-          <span className={`w-4 font-bold text-sm leading-none select-none transition-colors ${dirty ? 'text-amber-500' : 'text-slate-400 dark:text-slate-500 group-hover:text-slate-600 dark:group-hover:text-slate-300'}`}>
+          <span className={`w-4 font-bold text-sm leading-none select-none transition-colors ${dirty ? 'text-blue-500' : 'text-slate-400 dark:text-slate-500 group-hover:text-slate-600 dark:group-hover:text-slate-300'}`}>
             {effectiveCollapsed ? '+' : '−'}
           </span>
-          <span className={`text-xs font-bold tracking-wide transition-colors ${dirty ? 'text-amber-600 dark:text-amber-400' : titleHighlighted ? 'text-sky-800 dark:text-sky-300' : 'text-slate-700 dark:text-slate-300 group-hover:text-slate-900 dark:group-hover:text-slate-100'}`}>
+          <span className={`text-xs font-bold tracking-wide transition-colors ${dirty ? 'text-blue-600 dark:text-blue-400' : titleHighlighted ? 'text-sky-800 dark:text-sky-300' : 'text-slate-700 dark:text-slate-300 group-hover:text-slate-900 dark:group-hover:text-slate-100'}`}>
             {title}
           </span>
-          {dirty && <span className="text-amber-400 text-[8px] leading-none ml-0.5">●</span>}
+          {dirty && <span className="text-blue-400 text-[8px] leading-none ml-0.5">●</span>}
         </button>
         {dirty && !effectiveCollapsed && (
           <>
@@ -322,7 +321,7 @@ function Section({ title, searchText, children, defaultOpen = false, isDirty = f
               title={canApply ? undefined : 'Nenhuma linha afetada por essas alterações'}
               className={`shrink-0 flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded transition-colors ${
                 canApply
-                  ? 'bg-amber-500 hover:bg-amber-600 text-white'
+                  ? 'bg-blue-500 hover:bg-blue-600 text-white'
                   : 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-500 cursor-not-allowed'
               }`}>
               Aplicar
@@ -373,13 +372,11 @@ const SECTION_FIELDS: Record<string, (keyof ProjectData)[]> = {
                'cimentAlinhamento','cimentPlugVol','cimentPlugDens','cimentFcbaDens',
                'crDiam','cimentAnularAcimaTampao','tampaoAbandonoDens','tampaoAbandonoTopo','tampaoAbandonoCompr','ecsbFluidoDens',
                'cimentTopoRevcim','bhaPlans'],
-  equipamentos_submarinos: ['outrosTrtWeightTcap','outrosTrtWeightAnm','outrosN2FlowScfm',
+  equipamentos_submarinos: ['outrosTrtWeightTcap','outrosTrtWeightAnm',
                // Movidos da seção Pressões (testes de interface / ANM)
-               'pressaoCavFibop','pressaoHcr','pressaoBoreTest','pressaoRiserBores','pressaoRiserCavConexao','pressaoTmfAnulAnm','outrosDrainB2Psi','pressaoN2Trt',
+               'pressaoBoreTest','pressaoTmfAnulAnm','outrosDrainB2Psi','pressaoN2Trt',
                // Movido da seção Pressões (LC DHSV)
-               'pressaoBullheadDhsv',
-               // Movidos da seção Equipamentos de superfície
-               'pressaoColunaDpr','pressaoColunaRiserDb'],
+               'pressaoBullheadDhsv'],
   outros:     ['outrosMegConc','outrosCoolingFlow',
                // Movido da seção Pressões (plug do TMF)
                'pressaoTmfProd'],
@@ -428,7 +425,6 @@ const FIELD_IMPACT: Partial<Record<keyof ProjectData, FieldImpact>> = {
   outrosCoolingFlow:   { packageIds: ['ABAN 223', 'ABAN 224'] },
   outrosPcabN2Psi:     { packageIds: ['ABAN 220', 'ABAN 221'] },
   outrosDrainB2Psi:    { packageIds: ['ABAN 218'] },
-  outrosN2FlowScfm:    { packageIds: ['ABAN 016'] },
 
   // Hold points are documentation only — no schedule impact
 
@@ -438,11 +434,8 @@ const FIELD_IMPACT: Partial<Record<keyof ProjectData, FieldImpact>> = {
   amortFcbaDensidade:  { packageIds: ['ABAN 061','ABAN 062','ABAN 063'] },
 
   // Pressões operacionais
-  pressaoCavFibop:    { packageIds: ['ABAN 011','ABAN 012','ABAN 211','ABAN 212'] },
   pressaoBoreTest:    { packageIds: ['ABAN 012','ABAN 013','ABAN 206'] },
   pressaoRiserDpr:    { packageIds: ['ABAN 014','ABAN 015','ABAN 016','ABAN 017','ABAN 206','ABAN 244'] },
-  pressaoColunaDpr:   { packageIds: ['ABAN 014'] },
-  pressaoColunaRiserDb:{ packageIds: ['ABAN 015'] },
   pressaoN2Trt:       { packageIds: ['ABAN 024','ABAN 025'] },
   pressaoTmfProd:     { packageIds: ['ABAN 026'] },
   pressaoTmfAnulAnm:  { packageIds: ['ABAN 027','ABAN 028','ABAN 029'] },
@@ -771,18 +764,17 @@ export function ProjectDataPanel({ onLocate, onClearLocate, locatedTarget, oneBy
   return (
     <LocateCtx.Provider value={{ onLocate, onClear: onClearLocate, active: locatedTarget ?? null }}>
     <div className="flex flex-col h-full bg-[#f5f5f5] dark:bg-slate-900 overflow-hidden">
-      <ProjectNameField after={onMinimize && (
-        <button
-          onClick={onMinimize}
-          title="Minimizar assistente"
-          className="shrink-0 p-1 rounded text-slate-500 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">
-          <PanelLeftClose size={15} />
-        </button>
-      )} />
-
       {/* Subtítulo */}
-      <div className="shrink-0 px-4 py-1.5 border-b border-slate-200 dark:border-slate-800">
+      <div className="shrink-0 px-4 py-1.5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between gap-2">
         <span className="text-[10px] text-slate-400 dark:text-slate-500 tracking-widest uppercase">Assistente de Preenchimento</span>
+        {onMinimize && (
+          <button
+            onClick={onMinimize}
+            title="Minimizar assistente"
+            className="shrink-0 p-1 -my-1 rounded text-slate-500 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">
+            <PanelLeftClose size={14} />
+          </button>
+        )}
       </div>
 
       {/* Localizar */}
@@ -806,7 +798,7 @@ export function ProjectDataPanel({ onLocate, onClearLocate, locatedTarget, oneBy
 
       {/* Confirmar alterações — linhas em revisão após "Aplicar" */}
       {reviewTotal > 0 && (
-        <div className="shrink-0 flex items-center gap-2 px-3 py-1.5 bg-amber-50 dark:bg-amber-950/30 border-b border-amber-200 dark:border-amber-800">
+        <div className="shrink-0 flex items-center gap-2 px-3 py-1.5 bg-blue-50 dark:bg-blue-950/30 border-b border-blue-200 dark:border-blue-800">
           <span className="text-slate-700 text-[10px]">●</span>
           {oneByOneMode ? (
             <>
@@ -820,13 +812,13 @@ export function ProjectDataPanel({ onLocate, onClearLocate, locatedTarget, oneBy
               </button>
               <button
                 onClick={() => { dispatch({ type: 'PROJECT_CLEAR_REVIEW' }); setOneByOneMode?.(false) }}
-                className="shrink-0 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-slate-100 border border-slate-300 dark:border-slate-700 rounded px-2 py-0.5 hover:bg-amber-100 dark:hover:bg-amber-900/30 transition-colors">
+                className="shrink-0 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-slate-100 border border-slate-300 dark:border-slate-700 rounded px-2 py-0.5 hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors">
                 Confirmar todas
               </button>
               <button
                 onClick={() => { dispatch({ type: 'PROJECT_REVERT_REVIEW' }); setOneByOneMode?.(false) }}
                 title="Cancela as alterações aplicadas e em revisão"
-                className="shrink-0 text-xs font-semibold text-slate-600 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 border border-slate-300 dark:border-slate-700 rounded px-2 py-0.5 hover:bg-amber-100 dark:hover:bg-amber-900/30 transition-colors">
+                className="shrink-0 text-xs font-semibold text-slate-600 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 border border-slate-300 dark:border-slate-700 rounded px-2 py-0.5 hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors">
                 Sair
               </button>
             </>
@@ -837,12 +829,12 @@ export function ProjectDataPanel({ onLocate, onClearLocate, locatedTarget, oneBy
               </span>
               <button
                 onClick={() => setOneByOneMode?.(true)}
-                className="shrink-0 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-slate-100 border border-slate-300 dark:border-slate-700 rounded px-2 py-0.5 hover:bg-amber-100 dark:hover:bg-amber-900/30 transition-colors">
+                className="shrink-0 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-slate-100 border border-slate-300 dark:border-slate-700 rounded px-2 py-0.5 hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors">
                 Revisar 1 por 1
               </button>
               <button
                 onClick={() => dispatch({ type: 'PROJECT_CLEAR_REVIEW' })}
-                className="shrink-0 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-slate-100 border border-slate-300 dark:border-slate-700 rounded px-2 py-0.5 hover:bg-amber-100 dark:hover:bg-amber-900/30 transition-colors">
+                className="shrink-0 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-slate-100 border border-slate-300 dark:border-slate-700 rounded px-2 py-0.5 hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors">
                 Confirmar todas
               </button>
             </>
@@ -896,20 +888,13 @@ export function ProjectDataPanel({ onLocate, onClearLocate, locatedTarget, oneBy
         {(() => {
           const hasTcap    = hasPkgFn('ABAN 018')
           const hasAnm     = hasPkgFn('ABAN 023')
-          const hasN2Flow  = hasPkgFn('ABAN 016')
-          // Movidos da seção Pressões (testes de interface / ANM)
-          const showFibop  = hasPkgFn('ABAN 011','ABAN 012','ABAN 211','ABAN 212')
-          const showHcr    = hasPkgFn('ABAN 011','ABAN 211','ABAN 212')
           const showBore   = hasPkgFn('ABAN 013','ABAN 206')
-          const showRiserDB = hasPkgFn('ABAN 012')
-          const showColDpr = hasPkgFn('ABAN 014')
-          const showColRiserDb = hasPkgFn('ABAN 015')
           const showN2Trt  = hasPkgFn('ABAN 024','ABAN 025')
           const showTmfA   = hasPkgFn('ABAN 027','ABAN 028','ABAN 029')
           const showDrain  = hasPkgFn('ABAN 218')
           // Movido da seção Pressões (LC DHSV)
           const showBhDhsv = hasPkgFn('ABAN 030')
-          if (!hasTcap && !hasAnm && !hasN2Flow && !showFibop && !showHcr && !showBore && !showRiserDB && !showColDpr && !showColRiserDb && !showN2Trt && !showTmfA && !showDrain && !showBhDhsv) return null
+          if (!hasTcap && !hasAnm && !showBore && !showN2Trt && !showTmfA && !showDrain && !showBhDhsv) return null
           const setEquip = setter('equipamentos_submarinos')
           // Campos ordenados conforme a cronologia do cronograma (1ª ocorrência do pacote)
           const entries: { ord: number; node: React.ReactNode }[] = []
@@ -918,21 +903,14 @@ export function ProjectDataPanel({ onLocate, onClearLocate, locatedTarget, oneBy
           }
           push(hasTcap,   ['ABAN 018'], <Field key="trtTcap" label="Peso liberado com TRT sobre Tree Cap (ABAN 018)" value={d.outrosTrtWeightTcap} onChange={v => setEquip({ outrosTrtWeightTcap: v })} unit="klbf" locate={{ kind: 'data', field: 'outrosTrtWeightTcap' }} />)
           push(hasAnm,    ['ABAN 023'], <Field key="trtAnm" label="Peso liberado com TRT na ANM (ABAN 023)" value={d.outrosTrtWeightAnm} onChange={v => setEquip({ outrosTrtWeightAnm: v })} unit="klbf" locate={{ kind: 'data', field: 'outrosTrtWeightAnm' }} />)
-          push(hasN2Flow, ['ABAN 016'], <Field key="n2Flow" label="Vazão N₂ desalagar DPR/HCR" value={d.outrosN2FlowScfm} onChange={v => setEquip({ outrosN2FlowScfm: v })} unit="scf/min" locate={{ kind: 'data', field: 'outrosN2FlowScfm' }} />)
-          push(showFibop, ['ABAN 011','ABAN 012','ABAN 211','ABAN 212'], <Field key="cavFibop" label="Cavidade FIBOP/FDR" value={d.pressaoCavFibop} onChange={v => setEquip({ pressaoCavFibop: v })} unit="psi" locate={{ kind: 'data', field: 'pressaoCavFibop' }} />)
-          push(showHcr,   ['ABAN 011','ABAN 211','ABAN 212'], <Field key="hcr" label="HCR — estanqueidade (AGMAR)" value={d.pressaoHcr} onChange={v => setEquip({ pressaoHcr: v })} unit="psi" locate={{ kind: 'data', field: 'pressaoHcr' }} />)
           push(showBore,  ['ABAN 013','ABAN 206'], <Field key="boreTest" label='Teste bore 2"/4" e CWO' value={d.pressaoBoreTest} onChange={v => setEquip({ pressaoBoreTest: v })} unit="psi" locate={{ kind: 'data', field: 'pressaoBoreTest' }} />)
-          push(showRiserDB, ['ABAN 012'], <Field key="riserBores" label='Riser DB — teste dos bores 4"/2"' value={d.pressaoRiserBores} onChange={v => setEquip({ pressaoRiserBores: v })} unit="psi" locate={{ kind: 'data', field: 'pressaoRiserBores' }} />)
-          push(showRiserDB, ['ABAN 012'], <Field key="riserCavConexao" label='Riser DB — cavidade de conexão (descida)' value={d.pressaoRiserCavConexao} onChange={v => setEquip({ pressaoRiserCavConexao: v })} unit="psi" locate={{ kind: 'data', field: 'pressaoRiserCavConexao' }} />)
-          push(showColDpr, ['ABAN 014'], <Field key="colDpr" label="Teste de estanqueidade da coluna de DPR" value={d.pressaoColunaDpr} onChange={v => setEquip({ pressaoColunaDpr: v })} unit="psi" locate={{ kind: 'data', field: 'pressaoColunaDpr' }} />)
-          push(showColRiserDb, ['ABAN 015'], <Field key="colRiserDb" label="Teste de estanqueidade da coluna de riser DB" value={d.pressaoColunaRiserDb} onChange={v => setEquip({ pressaoColunaRiserDb: v })} unit="psi" locate={{ kind: 'data', field: 'pressaoColunaRiserDb' }} />)
           push(showTmfA,  ['ABAN 027','ABAN 028','ABAN 029'], <Field key="tmfAnulAnm" label="Blocos ANM" value={d.pressaoTmfAnulAnm} onChange={v => setEquip({ pressaoTmfAnulAnm: v })} unit="psi" locate={{ kind: 'data', field: 'pressaoTmfAnulAnm' }} />)
           push(showDrain, ['ABAN 218'], <Field key="drainB2" label='Pressão drenagem B2" equalização via ANM' value={d.outrosDrainB2Psi} onChange={v => setEquip({ outrosDrainB2Psi: v })} unit="psi" locate={{ kind: 'data', field: 'outrosDrainB2Psi' }} />)
           push(showN2Trt, ['ABAN 024','ABAN 025'], <Field key="n2Trt" label="N₂ interface TRT × ANM" value={d.pressaoN2Trt} onChange={v => setEquip({ pressaoN2Trt: v })} unit="psi" locate={{ kind: 'data', field: 'pressaoN2Trt' }} />)
           push(showBhDhsv, ['ABAN 030'], <Field key="lcDhsv" label="Pressão LC DHSV" value={d.pressaoBullheadDhsv} onChange={v => setEquip({ pressaoBullheadDhsv: v })} unit="psi" locate={{ kind: 'data', field: 'pressaoBullheadDhsv' }} />)
           entries.sort((a, b) => a.ord - b.ord)
           return (
-            <Section title="Equipamentos Submarinos" searchText="pressão trt anm tcap n2 nitrogênio fibop hcr bore riser dpr bullheading dhsv drain cavidade estanqueidade anular bloco tmf"              isDirty={dirty['equipamentos_submarinos']} onApply={applySection('equipamentos_submarinos')} onDiscard={discardSection('equipamentos_submarinos')} canApply={sectionAffectsLines('equipamentos_submarinos')}>
+            <Section title="Equipamentos Submarinos" searchText="pressão trt anm tcap n2 nitrogênio bore bullheading dhsv drain bloco tmf"              isDirty={dirty['equipamentos_submarinos']} onApply={applySection('equipamentos_submarinos')} onDiscard={discardSection('equipamentos_submarinos')} canApply={sectionAffectsLines('equipamentos_submarinos')}>
               {entries.map(e => e.node)}
             </Section>
           )
@@ -1678,9 +1656,6 @@ export function ProjectDataPanel({ onLocate, onClearLocate, locatedTarget, oneBy
           // REVCIM: ativo quando toggle ligado + pacote presente
           const showRevcimEval = d.revcimHp && hasPkgFn('ABAN 081','ABAN 082','ABAN 083','ABAN 084','ABAN 105','ABAN 106','ABAN 107','ABAN 149')
           const showRevcimTop  = d.revcimHp && hasPkgFn('ABAN 081','ABAN 082','ABAN 083','ABAN 084','ABAN 231','ABAN 232','ABAN 234')
-          // Estanqueidade pós-instalação — pressão de prova genérica ({{pressaoProva}}, usada em ~50 pacotes de BHA;
-          // também é o fallback dos pressaoEst*). Editável aqui, exibida quando há BHA arame/elétrico/FT no cronograma.
-          const showProva = state.fineTuningItems.some(i => ['wireline','electric','ct'].includes(i.technology))
           // Apenas itens marcados como Hold Point (configurado na seção de tecnologia)
           const hpEstItems = [
             { show: showEstStvR   && d.pressaoEstStvRHp,    label: 'Estanqueidade — STV nipple R 2,75"',   value: d.pressaoEstStvR,    field: 'pressaoEstStvR'   as const },
@@ -1716,12 +1691,6 @@ export function ProjectDataPanel({ onLocate, onClearLocate, locatedTarget, oneBy
                   ))}
                 </div>
               )}
-              {showProva && (
-                <div className="pb-2 mb-2 border-b border-slate-200 dark:border-slate-800">
-                  <div className="text-[10px] font-semibold text-slate-600 dark:text-slate-500 uppercase tracking-widest mb-1">Estanqueidade pós-instalação</div>
-                  <Field label="Pressão de prova (genérica)" value={d.pressaoProva} onChange={v => setHoldpoints({ pressaoProva: v })} unit="psi" locate={{ kind: 'data', field: 'pressaoProva' }} />
-                </div>
-              )}
               <div className="space-y-1">
                 {d.holdPoints.map((pt, i) => (
                   <div key={i} className="py-1 border-b border-slate-200 dark:border-slate-800 last:border-0 flex items-center gap-1 group/hp">
@@ -1741,11 +1710,6 @@ export function ProjectDataPanel({ onLocate, onClearLocate, locatedTarget, oneBy
                     </button>
                   </div>
                 ))}
-                <button
-                  onClick={() => setHoldpoints({ holdPoints: [...d.holdPoints, ''] })}
-                  className="flex items-center gap-1 text-xs text-blue-500 hover:text-blue-700 dark:hover:text-blue-400 transition-colors mt-0.5">
-                  <Plus size={10} /> Adicionar
-                </button>
               </div>
             </Section>
           )

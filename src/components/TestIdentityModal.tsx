@@ -1,6 +1,8 @@
-import { FlaskConical } from 'lucide-react'
+import { useState } from 'react'
+import { FlaskConical, Loader2 } from 'lucide-react'
 import { useApp } from '../context/AppContext'
 import { setSessionRole } from '../utils/auth'
+import { lookupServerProject, isApiConfigured } from '../utils/api'
 
 // ⚠️ ─────────────────────────────────────────────────────────────────────────────
 // TEMPORÁRIO — HARNESS DE TESTE. REMOVER quando os sistemas forem conectados.
@@ -16,15 +18,53 @@ import { setSessionRole } from '../utils/auth'
 // `setSessionRole` (que atualiza a sessão lida por `isAdmin()`) — exatamente o que a
 // integração fará.
 //
+// Ao confirmar (Continuar), busca no servidor um projeto já salvo para o par
+// poço+projeto informado (identidade do sistema externo — pode haver vários projetos
+// por poço). Se existir, resgata a última versão salva (o servidor não versiona
+// projetos: cada save sobrescreve o mesmo registro) e reabre exatamente onde a edição
+// parou — LOAD_PROJECT decide a tela (fine_tuning se há detalhamento salvo, senão
+// schedule) porque o autosave só grava a partir do cronograma gerado (nunca durante o
+// wizard). Se não existir, segue o fluxo normal (novo projeto, começa no wizard).
+//
 // AO CONECTAR A INTEGRAÇÃO EXTERNA:
 //   1. Remover este componente e sua montagem em [src/App.tsx] (Main).
 //   2. A integração passa a despachar SET_WELL_NAME / SET_PROJECT_NAME / SET_ROLE +
-//      setSessionRole a partir do usuário já logado no outro sistema, ao carregar.
-// Nada além disso precisa mudar: o autosave já lê `state.wellName`/`state.projectName`
+//      setSessionRole a partir do usuário já logado no outro sistema, ao carregar —
+//      e deve reproduzir a busca+LOAD_PROJECT abaixo (`checkExistingProject`) para que
+//      reabrir um poço+projeto já iniciado não comece um projeto novo do zero.
+// Fora isso, nada mais precisa mudar: o autosave já lê `state.wellName`/`state.projectName`
 // (ver [src/hooks/useProjectAutosave.ts]) e o gate de admin já lê `isAdmin()` da sessão.
 // ──────────────────────────────────────────────────────────────────────────────
 export function TestIdentityModal({ onClose }: { onClose: () => void }) {
   const { state, dispatch } = useApp()
+  const [checking, setChecking] = useState(false)
+
+  // Se já existe projeto salvo para este poço+projeto, resgata a última versão e
+  // reabre na tela onde parou; senão segue o fluxo normal (novo projeto).
+  const checkExistingProject = async () => {
+    const wellName = state.wellName.trim()
+    const projectName = (state.projectName ?? '').trim()
+    if (!wellName || !projectName || !isApiConfigured()) return
+    setChecking(true)
+    try {
+      const existing = await lookupServerProject(wellName, projectName)
+      if (existing) {
+        dispatch({
+          type: 'LOAD_PROJECT',
+          wellName: existing.wellName,
+          inputs: existing.inputs,
+          schedule: existing.schedule,
+          projectData: existing.projectData,
+          fineTuningItems: existing.fineTuningItems,
+          projectId: existing.id,
+          projectName: existing.projectName,
+        })
+      }
+    } catch { /* offline/erro → segue como projeto novo, não bloqueia a entrada */ }
+    finally { setChecking(false) }
+  }
+
+  const handleContinue = () => { void checkExistingProject().then(onClose) }
 
   return (
     <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
@@ -94,9 +134,10 @@ export function TestIdentityModal({ onClose }: { onClose: () => void }) {
           </div>
 
           <div className="pt-1">
-            <button type="button" onClick={onClose}
-              className="w-full py-2 bg-[#0c2340] dark:bg-sky-800 text-white rounded-xl text-sm font-semibold hover:bg-[#0e3a60] dark:hover:bg-sky-700 transition-colors">
-              Continuar
+            <button type="button" onClick={handleContinue} disabled={checking}
+              className="w-full py-2 flex items-center justify-center gap-2 bg-[#0c2340] dark:bg-sky-800 text-white rounded-xl text-sm font-semibold hover:bg-[#0e3a60] dark:hover:bg-sky-700 transition-colors disabled:opacity-60">
+              {checking && <Loader2 size={14} className="animate-spin" />}
+              {checking ? 'Verificando projeto existente…' : 'Continuar'}
             </button>
           </div>
         </div>

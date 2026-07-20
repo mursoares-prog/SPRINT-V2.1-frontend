@@ -166,6 +166,13 @@ export function Sidebar({ isDark, onToggleDark, onOpenConfig, onOpenPackages, on
   const pkgBtnRef = useRef<HTMLButtonElement>(null)
 
   const handleExportJson = () => {
+    const timesAdjusted = state.ftAdjustMode.firme !== 'none' || state.ftAdjustMode.cont !== 'none'
+    if (!timesAdjusted) {
+      const confirmed = window.confirm(
+        'Você ainda não usou o Ajuste de Tempos (Etapa 3). Deseja finalizar a edição mesmo assim?'
+      )
+      if (!confirmed) return
+    }
     const data = buildProjectFacts(state)
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
     const url = URL.createObjectURL(blob)

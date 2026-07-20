@@ -97,6 +97,67 @@ export function getKnownRigTags(wellClass?: string | null): string[] {
   )].sort()
 }
 
+// ── Pastas (grupos) de escopos — organização definida no editor de Árvores de
+// Decisão (LogicEditorPanel) e persistida no servidor/localStorage. Na Etapa 1 do
+// wizard (App.tsx), as pastas de topo viram os botões de "Tipo de intervenção".
+// Espelha o `GroupStorage` do editor; aqui só precisamos de groups + memberships.
+export type ScopeGroupNode = { id: string; name: string; parentId: string | null }
+
+// Seed default — mesmos nomes/ids do SEED_GROUPS do LogicEditorPanel, usado só como
+// fallback de cold-start (App carregando antes de o editor semear o localStorage e sem
+// config no servidor). Mantido em sincronia manual com o editor.
+const SEED_SCOPE_GROUPS: ScopeGroupNode[] = [
+  { id: 'cat_molhada',  name: 'Abandono Completação Molhada', parentId: null },
+  { id: 'cat_seca',     name: 'Abandono Completação Seca',    parentId: null },
+  { id: 'cat_workover', name: 'Workover',                     parentId: null },
+]
+const SEED_MOLHADA_SCOPES = [
+  'FSU_TT_FT', 'FSU_TT_BDC', 'FSU_Conv_BOP', 'FSU_Conv_RCMA', 'FSU_Sup_COP', 'FSU_Sup_PWC',
+  'FS1_Mec', 'FS2_Conv_BOP', 'FS2_Conv_RCMA', 'FS2_Sup_COP', 'FS2_Sup_PWC',
+]
+
+let _scopeGroups: ScopeGroupNode[] = SEED_SCOPE_GROUPS
+let _scopeMemberships: Record<string, string | null> =
+  Object.fromEntries(SEED_MOLHADA_SCOPES.map(id => [id, 'cat_molhada']))
+
+// Substitui a organização de pastas (chamado pelo App após buscar do servidor/localStorage).
+// Grupos vazios preservam o seed — assim os botões não somem em ambientes sem config salva.
+export function setScopeGroupsData(groups: ScopeGroupNode[], memberships: Record<string, string | null>): void {
+  if (groups.length) {
+    _scopeGroups = groups
+    _scopeMemberships = memberships ?? {}
+  }
+}
+
+// Pastas de topo (parentId === null), na ordem cadastrada.
+export function getTopScopeGroups(): ScopeGroupNode[] {
+  return _scopeGroups.filter(g => g.parentId === null)
+}
+
+// scopeIds cujo membership cai na subárvore de `groupId` (o próprio grupo ou descendentes).
+export function getScopeIdsInGroup(groupId: string): Set<string> {
+  const subtree = new Set<string>([groupId])
+  for (let changed = true; changed;) {
+    changed = false
+    for (const g of _scopeGroups) {
+      if (g.parentId && subtree.has(g.parentId) && !subtree.has(g.id)) { subtree.add(g.id); changed = true }
+    }
+  }
+  return new Set(
+    Object.entries(_scopeMemberships)
+      .filter(([, gid]) => gid != null && subtree.has(gid))
+      .map(([sid]) => sid),
+  )
+}
+
+// scopeIds sem pasta (bucket "Outros" no wizard).
+export function getUngroupedScopeIds(): Set<string> {
+  const grouped = new Set(
+    Object.entries(_scopeMemberships).filter(([, gid]) => gid != null).map(([sid]) => sid),
+  )
+  return new Set(_customScopes.map(s => s.scopeId).filter(sid => !grouped.has(sid)))
+}
+
 // ── Reuso vivo de fluxogramas (seções `ref`) ────────────────────────────────
 // Seções de um escopo, sem expandir refs. Fonte única: o DB (via _overrides, populado
 // no boot pelo App; bundle JSON como fallback offline). Sem árvore hardcoded no código.

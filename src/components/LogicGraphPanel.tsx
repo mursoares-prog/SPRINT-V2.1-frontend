@@ -232,6 +232,8 @@ export type EditAction =
   // expandidas (cópia local, edição só neste escopo); editar bloco navega ao escopo BLK_.
   | { type: 'detach_ref_section'; secIdx: number }
   | { type: 'edit_ref_block';     scopeId: string }
+  // Abre o seletor de blocos existentes para inserir uma nova seção `ref` logo abaixo.
+  | { type: 'insert_ref_section_pick'; afterSecIdx: number }
   // Mover/copiar em 2 cliques: 1º escolhe o DESTINO no menu do chip (transfer_target),
   // 2º clica na pergunta de ORIGEM (pick_source). `ref`+`ansIdx` = a resposta destino.
   | { type: 'transfer_target';  mode: 'move' | 'copy'; ref: DecRef; ansIdx: number }

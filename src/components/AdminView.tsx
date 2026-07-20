@@ -2,8 +2,10 @@ import { X, Search, ShieldCheck, Table2, Pencil, Trash2, Plus, Workflow, Undo2, 
 import { useState, useMemo, useEffect, useCallback } from 'react'
 import {
   isApiConfigured, listChangelog, getMergedPackageLines, getBaseFields,
-  getBaseOverrides, getBasePackageOverrides, getCustomPackages, listPackageGroups, undoChangelog,
+  getBaseOverrides, getBasePackageOverrides, getCustomPackages, listPackageGroups,
+  listCustomPlaceholders, undoChangelog,
   type PackageLines, type LineOverride, type BaseLine, type CustomPackageMeta, type PackageGroupInfo,
+  type CustomPlaceholder,
 } from '../utils/api'
 import { isAdmin, authHeader } from '../utils/auth'
 import { setExtraPackages, metaToPackage } from '../data/packages'
@@ -41,7 +43,7 @@ const fmtData = (iso: string) => {
 }
 
 const TIPO_STYLE: Record<string, { label: string; cls: string; Icon: typeof Pencil }> = {
-  'edição':         { label: 'Edição',         cls: 'bg-green-100 text-green-700 dark:bg-amber-900/40 dark:text-amber-300',      Icon: Pencil },
+  'edição':         { label: 'Edição',         cls: 'bg-green-100 text-green-700 dark:bg-emerald-900/40 dark:text-emerald-300',      Icon: Pencil },
   'remoção':        { label: 'Remoção',        cls: 'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300',         Icon: Trash2 },
   'inclusão':       { label: 'Inclusão',       cls: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300', Icon: Plus },
   'criação':        { label: 'Criação',        cls: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300',         Icon: Plus },
@@ -62,6 +64,7 @@ export function AdminView({ onClose, initialTab = 'vars' }: { onClose: () => voi
   const [pkgOverrides, setPkgOverrides] = useState<Record<string, BaseLine[]>>({})
   const [customMetas, setCustomMetas] = useState<CustomPackageMeta[]>([])
   const [customGroups, setCustomGroups] = useState<PackageGroupInfo[]>([])
+  const [customPlaceholders, setCustomPlaceholders] = useState<CustomPlaceholder[]>([])
   const [serverLog, setServerLog] = useState<LogEntry[] | null>(null)
   const [fields, setFields] = useState<string[]>([])
   const canEdit = isAdmin() && isApiConfigured()
@@ -69,15 +72,16 @@ export function AdminView({ onClose, initialTab = 'vars' }: { onClose: () => voi
   const reload = useCallback(async () => {
     if (!isApiConfigured()) return
     try {
-      const [base, ovs, pkgOvs, metas, logs, groups] = await Promise.all([
+      const [base, ovs, pkgOvs, metas, logs, groups, placeholders] = await Promise.all([
         getMergedPackageLines(), getBaseOverrides(), getBasePackageOverrides(),
-        getCustomPackages(), listChangelog(), listPackageGroups(),
+        getCustomPackages(), listChangelog(), listPackageGroups(), listCustomPlaceholders(),
       ])
       setServerBase(base)
       setServerOverrides(new Map(ovs.map(o => [ovKey(o.pkgId, o.lineIndex), o])))
       setPkgOverrides(Object.fromEntries(pkgOvs.map(o => [o.pkgId, o.lines])))
       setCustomMetas(metas)
       setCustomGroups(groups)
+      setCustomPlaceholders(placeholders)
       setServerLog(logs as LogEntry[])
       // Sincroniza os stores globais usados pela geração de cronograma, para que
       // edições do Admin reflitam em cronogramas NOVOS na mesma sessão (sem F5).
@@ -117,7 +121,7 @@ export function AdminView({ onClose, initialTab = 'vars' }: { onClose: () => voi
         {/* Header + Tabs combinados em uma linha */}
         <div className="flex items-center gap-1 px-3 border-b border-slate-200 dark:border-slate-700 shrink-0">
           <div className="flex items-center gap-1.5 shrink-0 pr-3 mr-1 border-r border-slate-200 dark:border-slate-700 py-2">
-            <ShieldCheck size={13} className="text-[#005889] dark:text-[#d97706]" />
+            <ShieldCheck size={13} className="text-[#005889] dark:text-[#008542]" />
             <span className="text-xs font-semibold text-slate-800 dark:text-slate-100">Admin</span>
           </div>
           <TabButton active={tab === 'vars'} onClick={() => setTab('vars')} Icon={Table2}>
@@ -165,7 +169,7 @@ export function AdminView({ onClose, initialTab = 'vars' }: { onClose: () => voi
             <AdminVarsEditor
               query={query} serverBase={serverBase} pkgOverrides={pkgOverrides}
               legacyOverrides={serverOverrides} customMetas={customMetas}
-              customGroups={customGroups}
+              customGroups={customGroups} customPlaceholders={customPlaceholders}
               fields={fields} canEdit={canEdit} reload={reload}
               onOpenLog={() => setTab('log')} logCount={log.length}
             />
@@ -198,7 +202,7 @@ function TabButton({ active, onClick, Icon, children, className = '' }: {
       onClick={onClick}
       className={`flex items-center gap-1.5 px-3 py-2 -mb-px text-xs font-medium rounded-t-lg border-b-2 transition-colors shrink-0 ${
         active
-          ? 'border-[#005889] text-[#005889] dark:border-[#d97706] dark:text-[#d97706]'
+          ? 'border-[#005889] text-[#005889] dark:border-[#008542] dark:text-[#008542]'
           : 'border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
       } ${className}`}>
       <Icon size={14} />

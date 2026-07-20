@@ -2,8 +2,10 @@ import { useState, useEffect, useRef, useMemo } from 'react'
 import React from 'react'
 import { useApp } from '../context/AppContext'
 import type { ScheduleItem } from '../types'
-import { PACKAGES } from '../data/packages'
-import { Undo2, Redo2, BarChart2, Search, ChevronUp, ChevronDown, X } from 'lucide-react'
+import { PACKAGES, getAllPackages } from '../data/packages'
+import { generateSchedule } from '../engines/scheduleRouter'
+import type { WizardInputs } from '../types'
+import { Undo2, Redo2, BarChart2, Search, ChevronUp, ChevronDown, X, GripVertical, AlertTriangle, PencilRuler } from 'lucide-react'
 
 const normalizeFind = (s: string) =>
   (s ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
@@ -21,6 +23,18 @@ const GANTT_BAR = 'bg-sky-600'
 export function ScheduleToolbar({ showStats, onToggleStats }: { showStats: boolean; onToggleStats: () => void }) {
   const { dispatch, canUndoInputs, canRedoInputs, state } = useApp()
   const showHours = state.showHours
+  const overrideActive = state.scheduleOverrideActive
+  const [showDeactivateWarn, setShowDeactivateWarn] = useState(false)
+
+  const rebuildFromLogic = () => {
+    try {
+      const schedule = generateSchedule(state.inputs as WizardInputs)
+      dispatch({ type: 'UPDATE_SCHEDULE', schedule })
+    } catch { /* invalid/incomplete state */ }
+    dispatch({ type: 'SET_SCHEDULE_OVERRIDE_ACTIVE', active: false })
+    setShowDeactivateWarn(false)
+  }
+
   return (
     <div className="flex items-center shrink-0 bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700" style={{ height: '38px' }}>
 
@@ -39,6 +53,20 @@ export function ScheduleToolbar({ showStats, onToggleStats }: { showStats: boole
           title="Refazer (Ctrl+Y)"
           className="flex items-center gap-1 h-7 px-2 rounded text-xs font-normal transition-colors border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:border-slate-300 dark:hover:border-slate-500 bg-[#fafafa] dark:bg-slate-700 disabled:opacity-30 disabled:cursor-not-allowed">
           <Redo2 size={12} /><span className="hidden md:inline">Refazer</span>
+        </button>
+      </div>
+
+      <div className="flex items-center pl-2 shrink-0">
+        <button
+          onClick={() => {
+            if (overrideActive) setShowDeactivateWarn(true)
+            else dispatch({ type: 'SET_SCHEDULE_OVERRIDE_ACTIVE', active: true })
+          }}
+          title={overrideActive ? 'Desativar edição manual do cronograma' : 'Ativar edição manual do cronograma (reordenar, inserir e excluir pacotes)'}
+          className={`flex items-center gap-1 h-7 px-2.5 text-xs rounded border transition-colors ${overrideActive
+            ? 'border-slate-500 dark:border-slate-400 bg-slate-100 dark:bg-slate-600 text-slate-800 dark:text-slate-100'
+            : 'border-slate-200 dark:border-slate-600 bg-[#fafafa] dark:bg-slate-700 text-slate-500 dark:text-slate-400 hover:bg-slate-100 hover:border-slate-300 dark:hover:bg-slate-600 dark:hover:border-slate-500'}`}>
+          <PencilRuler size={12} /><span className="hidden md:inline">Override</span>
         </button>
       </div>
 
@@ -63,6 +91,35 @@ export function ScheduleToolbar({ showStats, onToggleStats }: { showStats: boole
         <BarChart2 size={13} />
       </button>
       </div>
+
+      {showDeactivateWarn && (
+        <div className="fixed inset-x-0 bottom-0 top-12 z-50 flex items-center justify-center bg-black/40">
+          <div className="bg-[#f5f5f5] dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-700 p-6 max-w-sm w-full mx-4 flex flex-col gap-4">
+            <div className="flex items-start gap-3">
+              <AlertTriangle size={20} className="text-amber-500 shrink-0 mt-0.5" />
+              <div>
+                <p className="text-sm font-bold text-slate-800 dark:text-slate-100 mb-1">Desativar edição manual?</p>
+                <p className="text-xs text-slate-700 dark:text-slate-400 leading-relaxed">
+                  As edições manuais feitas nos pacotes (reordenação, inserções e exclusões) serão perdidas. O cronograma
+                  será remontado somente a partir da árvore de decisão.
+                </p>
+              </div>
+            </div>
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => setShowDeactivateWarn(false)}
+                className="px-4 py-1.5 rounded-lg text-sm font-semibold border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
+                Cancelar
+              </button>
+              <button
+                onClick={rebuildFromLogic}
+                className="flex items-center h-8 px-4 rounded-lg text-sm font-semibold transition-colors bg-[#008542] text-white hover:opacity-90 dark:bg-[#1a3a5c] dark:border dark:border-sky-700 dark:text-sky-300 dark:hover:bg-[#1e4570] dark:hover:border-sky-500">
+                Desativar e remontar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -75,7 +132,7 @@ export function ScheduleView({ showStats }: { showStats: boolean }) {
   return (
     <div className="flex flex-col h-full">
       <div className="flex flex-1 min-h-0 gap-3 overflow-hidden p-4 md:p-6">
-        <PackageList items={schedule} showHours={showHours}
+        <PackageList items={schedule} showHours={showHours} overrideActive={state.scheduleOverrideActive}
           onDurationChange={(uid, dur) => dispatch({ type: 'UPDATE_ITEM_DURATION', uid, duration: dur })} />
         {showStats && <ScheduleStatsPanel items={schedule} showHours={showHours} />}
       </div>
@@ -286,11 +343,13 @@ function ScheduleStatsPanel({ items, showHours }: { items: ScheduleItem[]; showH
   )
 }
 
-function PackageList({ items, showHours, onDurationChange }: {
+function PackageList({ items, showHours, overrideActive, onDurationChange }: {
   items: ScheduleItem[]
   showHours: boolean
+  overrideActive: boolean
   onDurationChange: (uid: string, dur: number) => void
 }) {
+  const { dispatch } = useApp()
   const fmt = (d: number) => (showHours ? (d * 24).toFixed(1) : d.toFixed(2)).replace('.', ',')
   const [collapsedPhases, setCollapsedPhases] = useState<Set<string>>(new Set())
   const [highlightedUids, setHighlightedUids] = useState<Set<string>>(new Set())
@@ -299,6 +358,42 @@ function PackageList({ items, showHours, onDurationChange }: {
   const [findQuery, setFindQuery] = useState('')
   const [matchIdx, setMatchIdx] = useState(0)
   const [activeMatchUid, setActiveMatchUid] = useState<string | null>(null)
+  const dragUidRef = useRef<string | null>(null)
+  const [contextMenu, setContextMenu] = useState<{ uid: string; x: number; y: number } | null>(null)
+  const [pickerAfterUid, setPickerAfterUid] = useState<string | null | 'NONE'>('NONE')
+
+  const handleRowDrop = (targetUid: string) => {
+    const dragUid = dragUidRef.current
+    dragUidRef.current = null
+    if (!dragUid || dragUid === targetUid) return
+    const cur = [...items]
+    const fromIdx = cur.findIndex(i => i.uid === dragUid)
+    if (fromIdx === -1) return
+    const [moved] = cur.splice(fromIdx, 1)
+    const toIdx = cur.findIndex(i => i.uid === targetUid)
+    if (toIdx === -1) return
+    cur.splice(toIdx, 0, moved)
+    dispatch({ type: 'REORDER_SCHEDULE', items: cur })
+  }
+
+  const prevUid = (uid: string): string | null => {
+    const idx = items.findIndex(i => i.uid === uid)
+    return idx > 0 ? items[idx - 1].uid : null
+  }
+
+  useEffect(() => {
+    if (!contextMenu) return
+    const close = () => setContextMenu(null)
+    window.addEventListener('click', close)
+    window.addEventListener('scroll', close, true)
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') close() }
+    window.addEventListener('keydown', onKey)
+    return () => {
+      window.removeEventListener('click', close)
+      window.removeEventListener('scroll', close, true)
+      window.removeEventListener('keydown', onKey)
+    }
+  }, [contextMenu])
 
   const matches = useMemo(() => {
     const q = normalizeFind(findQuery.trim())
@@ -544,8 +639,19 @@ function PackageList({ items, showHours, onDurationChange }: {
                     const rowBg = highlightedUids.has(item.uid) ? 'bg-blue-100 dark:bg-blue-900/50' : isMatch ? 'bg-sky-50 dark:bg-sky-900/20' : ''
                     return (
                       <React.Fragment key={item.uid}>
-                        <tr data-uid={item.uid} className={`transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/60 ${rowBg} ${isActive ? 'outline outline-2 -outline-offset-2 outline-sky-500 dark:outline-sky-400' : ''}`}>
-                          <td className={`py-2 px-3 text-xs ${rowBorder} ${item.isContingency ? 'text-[#7d1935]/50 dark:text-rose-400/40' : 'text-slate-500 dark:text-slate-600'}`}>{rn}</td>
+                        <tr
+                          data-uid={item.uid}
+                          draggable={overrideActive}
+                          onDragStart={overrideActive ? e => { dragUidRef.current = item.uid; e.dataTransfer.effectAllowed = 'move' } : undefined}
+                          onDragOver={overrideActive ? e => e.preventDefault() : undefined}
+                          onDrop={overrideActive ? e => { e.preventDefault(); handleRowDrop(item.uid) } : undefined}
+                          onContextMenu={overrideActive ? e => { e.preventDefault(); e.stopPropagation(); setContextMenu({ uid: item.uid, x: e.clientX, y: e.clientY }) } : undefined}
+                          className={`transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/60 ${rowBg} ${isActive ? 'outline outline-2 -outline-offset-2 outline-sky-500 dark:outline-sky-400' : ''} ${overrideActive ? 'cursor-grab active:cursor-grabbing' : ''}`}>
+                          <td className={`py-2 px-3 text-xs ${rowBorder} ${item.isContingency ? 'text-[#7d1935]/50 dark:text-rose-400/40' : 'text-slate-500 dark:text-slate-600'}`}>
+                            {overrideActive
+                              ? <GripVertical size={12} className="text-slate-400 dark:text-slate-600" />
+                              : rn}
+                          </td>
                           <td className={`py-2 px-3 whitespace-nowrap ${rowBorder}`}>
                             <span className={`text-xs font-medium ${item.isContingency ? 'text-[#7d1935] dark:text-rose-400' : 'text-[#0c2340] dark:text-blue-400'}`}>{item.packageId}</span>
                           </td>
@@ -611,6 +717,133 @@ function PackageList({ items, showHours, onDurationChange }: {
           })()}
         </tfoot>
       </table>
+      </div>
+
+      {contextMenu && (
+        <div
+          onClick={e => e.stopPropagation()}
+          style={{ left: contextMenu.x, top: contextMenu.y }}
+          className="fixed z-50 min-w-[180px] rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-2xl py-1 flex flex-col">
+          <button
+            onClick={() => { setPickerAfterUid(prevUid(contextMenu.uid)); setContextMenu(null) }}
+            className="text-left px-3 py-1.5 text-xs text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">
+            ↑ Inserir pacote acima
+          </button>
+          <button
+            onClick={() => { setPickerAfterUid(contextMenu.uid); setContextMenu(null) }}
+            className="text-left px-3 py-1.5 text-xs text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">
+            ↓ Inserir pacote abaixo
+          </button>
+          <div className="my-1 border-t border-slate-200 dark:border-slate-700" />
+          <button
+            onClick={() => { dispatch({ type: 'REMOVE_SCHEDULE_ITEM', uid: contextMenu.uid }); setContextMenu(null) }}
+            className="text-left px-3 py-1.5 text-xs text-[#7d1935] dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors">
+            ✕ Excluir pacote
+          </button>
+        </div>
+      )}
+
+      {pickerAfterUid !== 'NONE' && (
+        <SchedulePackagePickerModal afterUid={pickerAfterUid} onClose={() => setPickerAfterUid('NONE')} />
+      )}
+    </div>
+  )
+}
+
+function SchedulePackagePickerModal({ afterUid, onClose }: { afterUid: string | null; onClose: () => void }) {
+  const { dispatch } = useApp()
+  const [query, setQuery] = useState('')
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => { inputRef.current?.focus() }, [])
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onClose])
+
+  const allPackages = useMemo(() => Object.values(getAllPackages()), [])
+
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase()
+    if (!q) return allPackages
+    return allPackages.filter(p =>
+      p.id.toLowerCase().includes(q) ||
+      p.name.toLowerCase().includes(q) ||
+      p.category.toLowerCase().includes(q)
+    )
+  }, [allPackages, query])
+
+  const grouped = useMemo(() => {
+    const order: string[] = []
+    const map = new Map<string, typeof filtered>()
+    for (const p of filtered) {
+      if (!map.has(p.category)) { order.push(p.category); map.set(p.category, []) }
+      map.get(p.category)!.push(p)
+    }
+    return order.map(cat => ({ category: cat, items: map.get(cat)! }))
+  }, [filtered])
+
+  const pickPackage = (packageId: string) => {
+    dispatch({ type: 'INSERT_SCHEDULE_PKG', afterUid, packageId })
+    onClose()
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" onClick={onClose}>
+      <div
+        className="bg-[#f5f5f5] dark:bg-slate-900 rounded-xl shadow-2xl w-[min(720px,92vw)] max-h-[80vh] flex flex-col border border-slate-200 dark:border-slate-700"
+        onClick={e => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 dark:border-slate-800">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-bold text-slate-700 dark:text-slate-200 uppercase tracking-wide" style={{ fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif", letterSpacing: '0.1em' }}>
+              Inserir pacote
+            </span>
+            <span className="text-xs text-slate-600 dark:text-slate-500">{filtered.length} resultado{filtered.length === 1 ? '' : 's'}</span>
+          </div>
+          <button onClick={onClose} className="text-slate-600 hover:text-slate-700 dark:hover:text-slate-200 transition-colors">
+            <X size={16} />
+          </button>
+        </div>
+        <div className="px-4 py-2 border-b border-slate-200 dark:border-slate-800">
+          <div className="flex items-center gap-2 bg-[#fafafa] dark:bg-slate-800 rounded-lg px-3 py-2 border border-slate-200 dark:border-slate-700 focus-within:border-blue-400 dark:focus-within:border-blue-500 transition-colors">
+            <Search size={14} className="text-slate-600 dark:text-slate-500 shrink-0" />
+            <input
+              ref={inputRef}
+              type="text"
+              value={query}
+              onChange={e => setQuery(e.target.value)}
+              placeholder="Buscar por ID, nome ou categoria..."
+              className="flex-1 bg-transparent text-sm text-slate-700 dark:text-slate-200 outline-none placeholder:text-slate-600 dark:placeholder:text-slate-700"
+            />
+            {query && (
+              <button onClick={() => setQuery('')} className="text-slate-600 hover:text-slate-600 dark:hover:text-slate-500 shrink-0">
+                <X size={12} />
+              </button>
+            )}
+          </div>
+        </div>
+        <div className="flex-1 overflow-y-auto scrollbar-custom px-2 py-2">
+          {grouped.length === 0 ? (
+            <div className="text-center text-xs text-slate-600 dark:text-slate-500 py-8">Nenhum pacote encontrado.</div>
+          ) : grouped.map(({ category, items }) => (
+            <div key={category} className="mb-3">
+              <div className="px-2 py-1 text-[10px] font-bold text-slate-600 dark:text-slate-500 uppercase tracking-widest sticky top-0 bg-[#f5f5f5] dark:bg-slate-900 z-10">
+                {category}
+              </div>
+              {items.map(pkg => (
+                <button
+                  key={pkg.id}
+                  onClick={() => pickPackage(pkg.id)}
+                  className="w-full flex items-center gap-2 px-2 py-1.5 rounded text-left hover:bg-blue-50 dark:hover:bg-blue-950/40 transition-colors group">
+                  <span className="text-xs font-medium text-[#2f5aa8] dark:text-blue-400 w-20 shrink-0">{pkg.id}</span>
+                  <span className="text-xs text-slate-700 dark:text-slate-200 flex-1 leading-snug">{pkg.name}</span>
+                </button>
+              ))}
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   )

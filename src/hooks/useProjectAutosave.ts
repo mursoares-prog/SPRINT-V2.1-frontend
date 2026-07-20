@@ -97,6 +97,12 @@ export function useProjectAutosave() {
     // O backend exige wellName; wellName é preenchido pela aplicação externa (e, até
     // ela existir, pelos placeholders dos dois caminhos de entrada).
     if (!state.wellName) return
+    // Nada a persistir ainda em 'home'/'wizard' (poço/projeto sendo digitados, escopo
+    // sendo escolhido — sem cronograma nem dados de projeto). Sem essa trava, digitar no
+    // popup de identidade (SET_WELL_NAME/SET_PROJECT_NAME a cada tecla) já dispara o
+    // autosave e cria um registro "fantasma" vazio no servidor, que passa a competir com
+    // o projeto real na busca por poço+projeto mais recente (ver lookupServerProject).
+    if (state.view === 'home' || state.view === 'wizard') return
 
     latestRef.current = { file, key }
     if (timerRef.current) clearTimeout(timerRef.current)
@@ -108,6 +114,7 @@ export function useProjectAutosave() {
     state.schedule,
     state.projectData,
     state.fineTuningItems,
+    state.view,
   ])
 
   useEffect(() => () => { if (timerRef.current) clearTimeout(timerRef.current) }, [])

@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback, createContext, useContext } from 'react'
 import { createPortal } from 'react-dom'
-import { X, Search, ChevronUp, ChevronDown } from 'lucide-react'
+import { X, Search, ChevronUp, ChevronDown, Lock } from 'lucide-react'
 import { useApp } from '../context/AppContext'
 import { generateSchedule } from '../engines/scheduleRouter'
 import { resolveScopeSections, expandScopeRefs, getCustomScopesMeta } from '../data/logicOverrideStore'
@@ -43,6 +43,7 @@ const ALL_SCOPE_OPTS: { value: ScopeId; label: string }[] = [
 export function InputSummaryPanel({ onClose }: { onClose?: () => void }) {
   const { state, dispatch } = useApp()
   const { inputs } = state
+  const overrideActive = state.scheduleOverrideActive
   const [editing, setEditing] = useState<string | null>(null)
 
   const [panelWidth, setPanelWidth] = useState(() => {
@@ -74,6 +75,7 @@ export function InputSummaryPanel({ onClose }: { onClose?: () => void }) {
   }, [])
 
   const apply = (data: Partial<WizardInputs>, autoClose = true) => {
+    if (overrideActive) return
     const merged = { ...inputs, ...data } as WizardInputs
     dispatch({ type: 'UPDATE_INPUTS', inputs: data })
     try {
@@ -83,7 +85,7 @@ export function InputSummaryPanel({ onClose }: { onClose?: () => void }) {
     if (autoClose) setEditing(null)
   }
 
-  const edit = (key: string) => setEditing(prev => prev === key ? null : key)
+  const edit = (key: string) => { if (!overrideActive) setEditing(prev => prev === key ? null : key) }
   const isEd = (key: string) => editing === key
 
   // Derived flags (mirrors Wizard logic)
@@ -211,8 +213,19 @@ export function InputSummaryPanel({ onClose }: { onClose?: () => void }) {
         </div>
       </div>
 
+      {overrideActive && (
+        <div className="mx-4 mb-3 shrink-0 flex items-start gap-2 rounded-lg border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950/40 px-2.5 py-2">
+          <Lock size={13} className="text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+          <p className="text-[11px] leading-relaxed text-amber-800 dark:text-amber-300">
+            Campos bloqueados (override ativado).
+          </p>
+        </div>
+      )}
+
       <SearchCtx.Provider value={search}>
       <div ref={scrollAreaRef} className="flex-1 overflow-y-auto p-4 space-y-5 scrollbar-custom">
+
+        <div className={overrideActive ? 'opacity-60 pointer-events-none select-none space-y-5' : 'space-y-5'}>
 
         {/* ── Sonda e Escopo ── */}
         <Section label="Sonda e Escopo" defaultExpanded>
@@ -336,6 +349,7 @@ export function InputSummaryPanel({ onClose }: { onClose?: () => void }) {
           )
         })()}
 
+        </div>
       </div>
       </SearchCtx.Provider>
     </aside>

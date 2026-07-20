@@ -13,6 +13,8 @@ export { SLWLFT_HIGH_PKG_IDS } from '../engines/placeholders'
 import { getPackageLines } from '../data/packageLinesStore'
 import { getLineDetails, type LineDetail } from '../data/lineDetailsStore'
 import { reviewItems, FASE_TO_OW } from '../utils/ontologyReview'
+import { buildTimeCarriers, pkgFirme as pkgFirmeVal, pkgCont as pkgContVal } from '../utils/fineTuningTime'
+import { applyTimeline } from '../engines/sequenceEngine'
 
 type RawLine = {
   text: string | null
@@ -311,6 +313,22 @@ function manualFtItem(phase: Phase, uid?: string, lineId?: string): FineTuningIt
   }
 }
 
+function scheduleItemFromPackage(packageId: string, phase: Phase, percentile: number): ScheduleItem {
+  const pkg = getPackage(packageId)
+  return {
+    uid: `sch_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+    packageId,
+    packageName: pkg ? pkg.name : packageId,
+    category: pkg?.category ?? '',
+    technology: (pkg?.technology ?? 'none') as Technology,
+    phase,
+    duration: getDuration(packageId, percentile),
+    isContingency: false,
+    startDay: 0,
+    endDay: 0,
+  }
+}
+
 function pkgFtItem(packageId: string, phase: Phase, percentile: number, data: ProjectData): FineTuningItem {
   const pkg = getPackage(packageId)
   const uid = `pkg_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`
@@ -398,8 +416,8 @@ const DEFAULT_PROJECT_DATA: ProjectData = {
   hpNavFundo: false, hpSsub: false, hpCsbPrimario: false, hpCsbSecundario: false,
   holdPoints: [],
   outrosTrtWeightTcap: '', outrosTrtWeightAnm: '', outrosMegConc: '', outrosCoolingFlow: '',
-  outrosPcabN2Psi: '', outrosDrainB2Psi: '', outrosN2FlowScfm: '',
-  pressaoCavFibop: '', pressaoHcr: '', pressaoBoreTest: '', pressaoRiserBores: '', pressaoRiserCavConexao: '', pressaoRiserDpr: '', pressaoColunaDpr: '', pressaoColunaRiserDb: '', pressaoN2Trt: '',
+  outrosPcabN2Psi: '', outrosDrainB2Psi: '',
+  pressaoBoreTest: '', pressaoRiserDpr: '', pressaoN2Trt: '',
 
   pressaoTmfProd: '', pressaoTmfAnulAnm: '', pressaoBullheadDhsv: '',
   pressaoBopArameHigh: '', pressaoBopPerfuracao: '', pressaoVgx: '', pressaoKillChoke: '', pressaoEquipSupBop: '', pressaoProva: '',
@@ -425,7 +443,7 @@ const UNDOABLE_ACTIONS = new Set([
   'FT_INSERT_ITEM', 'FT_INSERT_PKG', 'FT_REMOVE_ITEM', 'FT_INSERT_LINE_AFTER',
   'FT_REMOVE_LINE', 'FT_TOGGLE_PARALLEL', 'FT_TOGGLE_LINE_CONTINGENCY',
   'FT_TOGGLE_LINE_PARALLEL', 'FT_REORDER', 'FT_REORDER_LINES',
-  'FT_RESCALE_TIMES', 'FT_RESTORE_TIMES', 'FT_REVIEW_ONTOLOGY',
+  'FT_RESCALE_TIMES', 'FT_RESTORE_TIMES', 'FT_ADJUST_PKG_TIME', 'FT_REVIEW_ONTOLOGY',
 ])
 
 // ── Action type ───────────────────────────────────────────────────────────────
@@ -436,6 +454,10 @@ type Action =
   | { type: 'SET_SCHEDULE'; schedule: ScheduleItem[] }
   | { type: 'UPDATE_SCHEDULE'; schedule: ScheduleItem[] }
   | { type: 'UPDATE_ITEM_DURATION'; uid: string; duration: number }
+  | { type: 'SET_SCHEDULE_OVERRIDE_ACTIVE'; active: boolean }
+  | { type: 'REORDER_SCHEDULE'; items: ScheduleItem[] }
+  | { type: 'INSERT_SCHEDULE_PKG'; afterUid: string | null; packageId: string }
+  | { type: 'REMOVE_SCHEDULE_ITEM'; uid: string }
   | { type: 'SET_WELL_NAME'; wellName: string }
   | { type: 'SET_PROJECT_NAME'; projectName: string | undefined }
   | { type: 'SET_ROLE'; role: 'admin' | 'projetista' }
@@ -447,7 +469,7 @@ type Action =
   | { type: 'ENTER_FINE_TUNING' }
   | { type: 'ENTER_FINE_TUNING_BLANK' }
   | { type: 'FT_REORDER'; items: FineTuningItem[] }
-  | { type: 'FT_UPDATE_ITEM'; uid: string; patch: Partial<Pick<FineTuningItem, 'packageName' | 'duration' | 'technology' | 'isContingency' | 'isParallel' | 'procedures' | 'details' | 'normas' | 'observacoes'>> }
+  | { type: 'FT_UPDATE_ITEM'; uid: string; patch: Partial<Pick<FineTuningItem, 'packageName' | 'duration' | 'technology' | 'isContingency' | 'isParallel' | 'procedures' | 'details' | 'normas' | 'observacoes' | 'phase'>> }
   | { type: 'FT_TOGGLE_PARALLEL'; uid: string }
   | { type: 'FT_TOGGLE_EXPAND'; uid: string }
   | { type: 'FT_INSERT_ITEM'; afterUid: string | null; uid?: string; lineId?: string }
@@ -465,6 +487,7 @@ type Action =
   | { type: 'FT_UPDATE_LINE_FIELDS'; uid: string; lineId: string; patch: Partial<Pick<FineTuningLine, 'duration' | 'procedures' | 'details' | 'normas' | 'observacoes' | 'csbPrimario' | 'csbSecundario' | 'bha' | 'edsNumber' | 'edsComment' | 'compensando' | 'owFase' | 'owAtividade' | 'owOperacao' | 'owEtapa' | 'genOperacao' | 'genOperacaoDual' | 'highlight'>> }
   | { type: 'FT_RESCALE_TIMES'; kind: 'firme' | 'cont'; targetDays: number }
   | { type: 'FT_RESTORE_TIMES'; kind: 'firme' | 'cont' }
+  | { type: 'FT_ADJUST_PKG_TIME'; uid: string; kind: 'firme' | 'cont'; targetDays: number }
   | { type: 'FT_REVIEW_ONTOLOGY' }
   // Project data panel
   | { type: 'PROJECT_UPDATE_DATA'; patch: Partial<ProjectData> }
@@ -501,6 +524,8 @@ const initial: AppState = {
   showHours: true,
   pendingReview: [],
   reviewSnapshot: null,
+  ftAdjustMode: { firme: 'none', cont: 'none' },
+  scheduleOverrideActive: false,
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -533,7 +558,7 @@ function reducer(state: AppState, action: Action): AppState {
     case 'SET_VIEW': return { ...state, view: action.view }
     case 'SET_STEP': return { ...state, wizardStep: action.step }
     case 'UPDATE_INPUTS': return { ...state, inputs: { ...state.inputs, ...action.inputs } }
-    case 'SET_SCHEDULE': return { ...state, schedule: action.schedule, view: 'schedule' }
+    case 'SET_SCHEDULE': return { ...state, schedule: action.schedule, view: 'schedule', scheduleOverrideActive: false }
     case 'UPDATE_SCHEDULE': return { ...state, schedule: action.schedule }
     case 'RESTORE_INPUTS': return { ...state, inputs: action.inputs, schedule: action.schedule }
     case 'UPDATE_ITEM_DURATION': return {
@@ -541,6 +566,28 @@ function reducer(state: AppState, action: Action): AppState {
       schedule: state.schedule.map(item =>
         item.uid === action.uid ? { ...item, duration: action.duration } : item
       ),
+    }
+    case 'SET_SCHEDULE_OVERRIDE_ACTIVE': return { ...state, scheduleOverrideActive: action.active }
+    case 'REORDER_SCHEDULE': return { ...state, schedule: applyTimeline(action.items) }
+    case 'INSERT_SCHEDULE_PKG': {
+      const percentile = state.inputs.percentile ?? 75
+      let phase: Phase = 'Mobilização'
+      if (action.afterUid === null) {
+        phase = state.schedule[0]?.phase ?? 'Mobilização'
+      } else {
+        const idx = state.schedule.findIndex(i => i.uid === action.afterUid)
+        const after = state.schedule[idx]
+        phase = after?.phase ?? state.schedule[0]?.phase ?? 'Mobilização'
+      }
+      const newItem = scheduleItemFromPackage(action.packageId, phase, percentile)
+      const idx = action.afterUid === null ? -1 : state.schedule.findIndex(i => i.uid === action.afterUid)
+      const items = idx === -1
+        ? [newItem, ...state.schedule]
+        : [...state.schedule.slice(0, idx + 1), newItem, ...state.schedule.slice(idx + 1)]
+      return { ...state, schedule: applyTimeline(items) }
+    }
+    case 'REMOVE_SCHEDULE_ITEM': return {
+      ...state, schedule: applyTimeline(state.schedule.filter(i => i.uid !== action.uid)),
     }
     case 'SET_WELL_NAME': return { ...state, wellName: action.wellName }
     case 'SET_PROJECT_NAME': return { ...state, projectName: action.projectName }
@@ -560,6 +607,8 @@ function reducer(state: AppState, action: Action): AppState {
         view: hasFt ? 'fine_tuning' : 'schedule',
         wizardStep: 1,
         pendingReview: [], reviewSnapshot: null,
+        ftAdjustMode: { firme: 'none', cont: 'none' },
+        scheduleOverrideActive: false,
       }
     }
     case 'TOGGLE_HOURS': return { ...state, showHours: !state.showHours }
@@ -575,7 +624,9 @@ function reducer(state: AppState, action: Action): AppState {
     case 'ENTER_FINE_TUNING_BLANK':
       // wellName é preenchido pela aplicação externa (igual ao caminho auto); usa
       // 'Poço' como placeholder até a integração existir, para o autosave ser válido.
-      return { ...state, wellName: state.wellName || 'Poço', fineTuningItems: [], view: 'fine_tuning' }
+      // Semeia um pacote manual com uma linha em branco para que o usuário tenha
+      // algo para começar a editar no cronograma da etapa 3.
+      return { ...state, wellName: state.wellName || 'Poço', fineTuningItems: [manualFtItem('Mobilização')], view: 'fine_tuning', ftAdjustMode: { firme: 'none', cont: 'none' } }
     case 'ENTER_FINE_TUNING': {
       // Regenera fineTuningItems quando o schedule mudou (uids diferentes do que estava salvo).
       // Garante que alterações na etapa 2 sejam refletidas ao retornar à etapa 3.
@@ -864,39 +915,10 @@ function reducer(state: AppState, action: Action): AppState {
 
     case 'FT_RESCALE_TIMES': {
       const { kind, targetDays } = action
-      type Carrier = { uid: string; lineId?: string; dur: number }
-      const carriers: Carrier[] = []
-
-      for (const item of state.fineTuningItems) {
-        if (item.isBlank || item.isParallel || NAV_PACKAGE_IDS.has(item.packageId)) continue
-        const linesWithTime = item.lines.filter(l => (l.duration ?? 0) > 0)
-
-        if (kind === 'firme') {
-          if (item.isContingency) continue
-          if (linesWithTime.length === 0) {
-            if (item.duration > 0) carriers.push({ uid: item.uid, dur: item.duration })
-          } else {
-            for (const l of item.lines)
-              if (!l.isContingency && !l.isParallel && (l.duration ?? 0) > 0)
-                carriers.push({ uid: item.uid, lineId: l.id, dur: l.duration! })
-          }
-        } else {
-          if (item.isContingency) {
-            if (linesWithTime.length === 0) {
-              if (item.duration > 0) carriers.push({ uid: item.uid, dur: item.duration })
-            } else {
-              for (const l of item.lines)
-                if (!l.isParallel && (l.duration ?? 0) > 0)
-                  carriers.push({ uid: item.uid, lineId: l.id, dur: l.duration! })
-            }
-          } else {
-            for (const l of item.lines)
-              if (l.isContingency && !l.isParallel && (l.duration ?? 0) > 0)
-                carriers.push({ uid: item.uid, lineId: l.id, dur: l.duration! })
-          }
-        }
-      }
-
+      // Base do rateio = exatamente o mesmo cálculo usado para exibir o total na UI
+      // (buildTimeCarriers), garantindo que o valor digitado pelo usuário seja o
+      // valor efetivamente aplicado (e não um total calculado de outra forma).
+      const carriers = buildTimeCarriers(state.fineTuningItems, kind)
       const totalDays = carriers.reduce((s, c) => s + c.dur, 0)
       if (totalDays === 0 || targetDays <= 0) return state
       const ratio = targetDays / totalDays
@@ -917,36 +939,110 @@ function reducer(state: AppState, action: Action): AppState {
             : item.lines,
         }
       })
-      return { ...state, fineTuningItems: newItems }
+      return {
+        ...state,
+        fineTuningItems: newItems,
+        ftAdjustMode: { ...state.ftAdjustMode, [kind]: 'total' },
+      }
+    }
+
+    case 'FT_ADJUST_PKG_TIME': {
+      // Ajuste individual de um pacote: só permitido quando o ajuste TOTAL daquele
+      // tipo (firme/cont) não está em uso — o usuário escolhe um ou outro, nunca os dois.
+      if (state.ftAdjustMode[action.kind] === 'total') return state
+      const { uid, kind, targetDays } = action
+      const item = state.fineTuningItems.find(i => i.uid === uid)
+      if (!item || targetDays <= 0) return state
+      const current = kind === 'firme' ? pkgFirmeVal(item) : pkgContVal(item)
+      if (current <= 0) return state
+      const scale = targetDays / current
+
+      let newItems: FineTuningItem[]
+      if (kind === 'firme') {
+        const hasLineTimes = item.lines.some(l => !l.isContingency && !l.isParallel && (l.duration ?? 0) > 0)
+        newItems = state.fineTuningItems.map(i => {
+          if (i.uid !== uid) return i
+          return hasLineTimes
+            ? { ...i, lines: i.lines.map(l => (!l.isContingency && !l.isParallel && (l.duration ?? 0) > 0) ? { ...l, duration: l.duration! * scale } : l) }
+            : { ...i, duration: targetDays }
+        })
+      } else if (item.isContingency) {
+        const hasLineTimes = item.lines.some(l => !l.isParallel && (l.duration ?? 0) > 0)
+        newItems = state.fineTuningItems.map(i => {
+          if (i.uid !== uid) return i
+          return hasLineTimes
+            ? { ...i, lines: i.lines.map(l => (!l.isParallel && (l.duration ?? 0) > 0) ? { ...l, duration: l.duration! * scale } : l) }
+            : { ...i, duration: targetDays }
+        })
+      } else {
+        newItems = state.fineTuningItems.map(i => {
+          if (i.uid !== uid) return i
+          return { ...i, lines: i.lines.map(l => (l.isContingency && !l.isParallel && (l.duration ?? 0) > 0) ? { ...l, duration: l.duration! * scale } : l) }
+        })
+      }
+      return {
+        ...state,
+        fineTuningItems: newItems,
+        ftAdjustMode: { ...state.ftAdjustMode, [kind]: 'individual' },
+      }
     }
 
     case 'FT_RESTORE_TIMES': {
       const { kind } = action
+      // "Original" = exatamente o valor com que a linha/pacote foi gerado ao entrar
+      // na Etapa 3 (mesmo cálculo de makeFineTuningItems/pkgFtItem): duração de linha
+      // vinda de packageLines.json (com override de navegação), e duração de pacote
+      // vinda de state.schedule (ou recalculada via getDuration para pacotes inseridos
+      // manualmente depois, que não têm entrada em schedule).
+      const speed = parseFloat(state.projectData.velocidadeMedia ?? '')
+      const dist  = parseFloat(state.projectData.distanciaEntrePocos ?? '')
+      const navDays = (!isNaN(dist) && !isNaN(speed) && dist > 0 && speed > 0) ? dist / speed / 24 : undefined
+      const percentile = state.inputs.percentile ?? 75
+
+      const origLineDuration = (r: RawLine): number | undefined => {
+        const rawDays = r.duration != null ? r.duration / 24 : undefined
+        return NAV_ETAPAS.has(r.owEtapa ?? '') && navDays !== undefined ? navDays : rawDays
+      }
+      // Linhas mantêm o índice original no id (`${uid}_l${i}`) mesmo após reordenar
+      // (FT_REORDER_LINES) — usa isso em vez da posição atual no array para casar
+      // corretamente com packageLines.json.
+      const origLineIndex = (item: FineTuningItem, l: FineTuningLine): number | null => {
+        const prefix = `${item.uid}_l`
+        if (!l.id.startsWith(prefix)) return null
+        const idx = Number(l.id.slice(prefix.length))
+        return Number.isInteger(idx) ? idx : null
+      }
+
       const newItems = state.fineTuningItems.map(item => {
-        if (item.isBlank || NAV_PACKAGE_IDS.has(item.packageId)) return item
-        const origDuration = state.schedule.find(s => s.uid === item.uid)?.duration ?? item.duration
+        if (item.isBlank) return item
+        const raw = pkgLines(item.packageId)
+        const restoreLine = (l: FineTuningLine): FineTuningLine => {
+          const idx = origLineIndex(item, l)
+          if (idx === null || idx >= raw.length) return l
+          return { ...l, duration: origLineDuration(raw[idx]) }
+        }
+        const schedDuration = state.schedule.find(s => s.uid === item.uid)?.duration
+        const origDuration = schedDuration ?? (item.packageId !== 'MANUAL' ? getDuration(item.packageId, percentile) : item.duration)
+
         if (kind === 'firme') {
           if (item.isContingency) return item
           return {
             ...item,
             duration: origDuration,
-            lines: item.lines.map(l => l.isContingency ? l : { ...l, duration: undefined }),
+            lines: item.lines.map(l => l.isContingency ? l : restoreLine(l)),
           }
         } else {
           if (item.isContingency) {
-            return {
-              ...item,
-              duration: origDuration,
-              lines: item.lines.map(l => ({ ...l, duration: undefined })),
-            }
+            return { ...item, duration: origDuration, lines: item.lines.map(l => restoreLine(l)) }
           }
-          return {
-            ...item,
-            lines: item.lines.map(l => l.isContingency ? { ...l, duration: undefined } : l),
-          }
+          return { ...item, lines: item.lines.map(l => l.isContingency ? restoreLine(l) : l) }
         }
       })
-      return { ...state, fineTuningItems: newItems }
+      return {
+        ...state,
+        fineTuningItems: newItems,
+        ftAdjustMode: { ...state.ftAdjustMode, [kind]: 'none' },
+      }
     }
 
     case 'FT_REVIEW_ONTOLOGY':
@@ -1031,7 +1127,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setCanUndo(true)
       setCanRedo(false)
     }
-    if (action.type === 'UPDATE_INPUTS' || action.type === 'UPDATE_ITEM_DURATION') {
+    if (action.type === 'UPDATE_INPUTS' || action.type === 'UPDATE_ITEM_DURATION'
+      || action.type === 'REORDER_SCHEDULE' || action.type === 'INSERT_SCHEDULE_PKG' || action.type === 'REMOVE_SCHEDULE_ITEM') {
       inputsHistoryRef.current = [...inputsHistoryRef.current.slice(-49), { inputs: state.inputs as WizardInputs, schedule: state.schedule }]
       inputsRedoRef.current = []
       setCanUndoInputs(true)

@@ -9,8 +9,9 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Trash2, Plus, Check, Loader2, AlertTriangle, X, ChevronDown, ChevronRight, Copy, ClipboardPaste, GripVertical, CopyPlus, FilePlus2, Braces, FolderPlus, History } from 'lucide-react'
 import {
   savePackageLines, createPackage, updatePackageMeta, deletePackage,
-  createPackageGroup, deletePackageGroup,
+  createPackageGroup, deletePackageGroup, createCustomPlaceholder, deleteCustomPlaceholder,
   type BaseLine, type CustomPackageMeta, type LineOverride, type PackageLines, type PackageGroupInfo,
+  type CustomPlaceholder,
 } from '../utils/api'
 import { authHeader } from '../utils/auth'
 import { PACKAGES } from '../data/packages'
@@ -93,13 +94,14 @@ function ColResizer({ onResize, onCommit }: { onResize: (dx: number) => void; on
   )
 }
 
-export function AdminVarsEditor({ query, serverBase, pkgOverrides, legacyOverrides, customMetas, customGroups, fields, canEdit, reload, onOpenLog, logCount }: {
+export function AdminVarsEditor({ query, serverBase, pkgOverrides, legacyOverrides, customMetas, customGroups, customPlaceholders, fields, canEdit, reload, onOpenLog, logCount }: {
   query: string
   serverBase: PackageLines | null
   pkgOverrides: Record<string, BaseLine[]>
   legacyOverrides: Map<string, LineOverride>
   customMetas: CustomPackageMeta[]
   customGroups: PackageGroupInfo[]
+  customPlaceholders: CustomPlaceholder[]
   fields: string[]
   canEdit: boolean
   reload: () => Promise<void>
@@ -115,6 +117,10 @@ export function AdminVarsEditor({ query, serverBase, pkgOverrides, legacyOverrid
   const [busy, setBusy] = useState<string | null>(null)
   const [error, setError] = useState('')
   const [ph, setPh] = useState<{ pkgId: string; lineId: string } | null>(null)
+  // Formulário "Novo placeholder" dentro do popover (null = fechado).
+  const [newPh, setNewPh] = useState<{ token: string; label: string; category: string } | null>(null)
+  const [phBusy, setPhBusy] = useState(false)
+  const [phError, setPhError] = useState('')
   const taRefs = useRef<Record<string, HTMLTextAreaElement | null>>({})
   const pkgRefs = useRef<Record<string, HTMLDivElement | null>>({})
   const [scrollTarget, setScrollTarget] = useState<string | null>(null)
@@ -244,6 +250,42 @@ export function AdminVarsEditor({ query, serverBase, pkgOverrides, legacyOverrid
       return [...ls.slice(0, i + 1), ...clones, ...ls.slice(i + 1)]
     })
   }
+
+  // Placeholders customizados agrupados por id de categoria (grupo do catálogo).
+  const customByCat = useMemo(() => {
+    const m = new Map<string, CustomPlaceholder[]>()
+    for (const p of customPlaceholders) {
+      const arr = m.get(p.category) ?? []
+      arr.push(p)
+      m.set(p.category, arr)
+    }
+    return m
+  }, [customPlaceholders])
+
+  const submitNewPlaceholder = async () => {
+    if (!newPh) return
+    const token = newPh.token.trim()
+    const label = newPh.label.trim()
+    if (!token || !label || !newPh.category) return
+    if (!/^\w+$/.test(token)) { setPhError('Token inválido (use apenas letras, números e _)'); return }
+    if (fields.includes(token) || customPlaceholders.some(p => p.token === token)) {
+      setPhError(`O token "${token}" já existe`); return
+    }
+    setPhBusy(true); setPhError('')
+    try {
+      await createCustomPlaceholder({ token, label, category: newPh.category }, authHeader())
+      await reload()
+      setNewPh(null)
+    } catch (e) { setPhError((e as Error).message) } finally { setPhBusy(false) }
+  }
+
+  const removePlaceholder = async (token: string) => {
+    setPhBusy(true); setPhError('')
+    try { await deleteCustomPlaceholder(token, authHeader()); await reload() }
+    catch (e) { setPhError((e as Error).message) } finally { setPhBusy(false) }
+  }
+
+  const closePh = () => { setPh(null); setNewPh(null); setPhError('') }
 
   const insertToken = (token: string) => {
     if (!ph) return
@@ -424,7 +466,7 @@ export function AdminVarsEditor({ query, serverBase, pkgOverrides, legacyOverrid
               {canEdit && (
                 <div className="flex items-center gap-1 shrink-0">
                   <button onClick={() => duplicate(pkgId)} disabled={!!busy} title="Duplicar como novo pacote"
-                    className="p-1 rounded text-slate-400 hover:text-[#d97706] hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"><CopyPlus size={14} /></button>
+                    className="p-1 rounded text-slate-400 hover:text-[#008542] hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"><CopyPlus size={14} /></button>
                   {isCustom && (
                     <button onClick={() => removePkg(pkgId)} disabled={!!busy} title="Apagar pacote customizado"
                       className="p-1 rounded text-slate-400 hover:text-rose-600 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"><Trash2 size={14} /></button>
@@ -512,7 +554,7 @@ export function AdminVarsEditor({ query, serverBase, pkgOverrides, legacyOverrid
                             <td className="px-0.5 py-0.5">
                               <div className="flex items-start gap-0.5">
                                 <textarea ref={el => { taRefs.current[key] = el }} value={l.text} onChange={e => patchLine(pkgId, l._id, { text: e.target.value })} rows={2} className={cellCls} />
-                                <button onClick={() => setPh({ pkgId, lineId: l._id })} title="Inserir placeholder" className="shrink-0 mt-0.5 p-0.5 rounded text-slate-400 hover:text-[#d97706]"><Braces size={13} /></button>
+                                <button onClick={() => setPh({ pkgId, lineId: l._id })} title="Inserir placeholder" className="shrink-0 mt-0.5 p-0.5 rounded text-slate-400 hover:text-[#008542]"><Braces size={13} /></button>
                               </div>
                             </td>
                             <td className="px-0.5 py-0.5"><input type="number" min={0} step="0.01" value={l.duration ?? ''} title="Duração (h)" onChange={e => patchLine(pkgId, l._id, { duration: e.target.value === '' ? null : parseFloat(e.target.value) })} className={`${cellCls} text-right`} /></td>
@@ -632,27 +674,88 @@ export function AdminVarsEditor({ query, serverBase, pkgOverrides, legacyOverrid
 
       {/* Popover de placeholders */}
       {ph && (
-        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/40 p-4" onClick={() => setPh(null)}>
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/40 p-4" onClick={closePh}>
           <div onClick={e => e.stopPropagation()} className="bg-[#f5f5f5] dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-700 w-full max-w-md max-h-[70vh] flex flex-col">
             <div className="flex items-center gap-2 px-4 py-3 border-b border-slate-200 dark:border-slate-700">
-              <Braces size={14} className="text-[#d97706]" />
+              <Braces size={14} className="text-[#008542]" />
               <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-200 flex-1">Inserir placeholder</h3>
-              <button onClick={() => setPh(null)} className="p-1 rounded text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"><X size={15} /></button>
+              {canEdit && !newPh && (
+                <button onClick={() => { setPhError(''); setNewPh({ token: '', label: '', category: PLACEHOLDER_CATALOG[0].id }) }}
+                  className="flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-semibold border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:border-[#008542] hover:text-[#008542] transition-colors">
+                  <Plus size={12} /> Novo
+                </button>
+              )}
+              <button onClick={closePh} className="p-1 rounded text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"><X size={15} /></button>
             </div>
+
+            {/* Formulário de criação de placeholder */}
+            {newPh && (
+              <div className="px-4 py-3 border-b border-slate-200 dark:border-slate-700 bg-emerald-50/60 dark:bg-emerald-950/20 space-y-2">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-[#008542]">Novo placeholder</p>
+                <div className="grid grid-cols-2 gap-2">
+                  <label className="flex flex-col gap-0.5">
+                    <span className="text-[9px] font-bold uppercase tracking-wider text-slate-500">Rótulo</span>
+                    <input autoFocus value={newPh.label} onChange={e => setNewPh({ ...newPh, label: e.target.value })}
+                      placeholder="Ex.: Pressão de teste"
+                      className="rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-2 py-1 text-xs text-slate-800 dark:text-slate-100 focus:outline-none focus:border-[#008542]" />
+                  </label>
+                  <label className="flex flex-col gap-0.5">
+                    <span className="text-[9px] font-bold uppercase tracking-wider text-slate-500">Token</span>
+                    <input value={newPh.token} onChange={e => setNewPh({ ...newPh, token: e.target.value })}
+                      placeholder="ex.: pressaoTeste"
+                      className="rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-2 py-1 text-xs font-mono text-slate-800 dark:text-slate-100 focus:outline-none focus:border-[#008542]" />
+                  </label>
+                </div>
+                <label className="flex flex-col gap-0.5">
+                  <span className="text-[9px] font-bold uppercase tracking-wider text-slate-500">Categoria</span>
+                  <select value={newPh.category} onChange={e => setNewPh({ ...newPh, category: e.target.value })}
+                    className="rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-2 py-1 text-xs text-slate-800 dark:text-slate-100 focus:outline-none focus:border-[#008542]">
+                    {PLACEHOLDER_CATALOG.map(g => <option key={g.id} value={g.id}>{g.title}</option>)}
+                  </select>
+                </label>
+                {phError && <p className="text-[11px] text-red-600">{phError}</p>}
+                <div className="flex items-center justify-end gap-2 pt-0.5">
+                  <button onClick={() => { setNewPh(null); setPhError('') }} disabled={phBusy}
+                    className="px-3 py-1 rounded-lg text-xs font-semibold border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:border-slate-300 disabled:opacity-40">Cancelar</button>
+                  <button onClick={() => void submitNewPlaceholder()} disabled={phBusy || !newPh.token.trim() || !newPh.label.trim()}
+                    className="flex items-center gap-1 px-3 py-1 rounded-lg text-xs font-semibold text-white bg-[#008542] hover:bg-[#006a35] transition-colors disabled:opacity-40">
+                    {phBusy ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />} Criar
+                  </button>
+                </div>
+              </div>
+            )}
+
             <div className="p-3 overflow-y-auto scrollbar-custom space-y-2">
               {PLACEHOLDER_CATALOG.map(g => {
                 const fs = fields.length > 0 ? g.fields.filter(f => fields.includes(f.token)) : g.fields
-                if (!fs.length) return null
+                const custom = customByCat.get(g.id) ?? []
+                if (!fs.length && !custom.length) return null
                 return (
                   <div key={g.title}>
                     <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">{g.title}</p>
                     <div className="grid grid-cols-2 gap-1">
                       {fs.map(f => (
                         <button key={f.token} onClick={() => insertToken(f.token)} title={`{{${f.token}=XXX}}`}
-                          className="flex flex-col items-start text-left px-2 py-1 rounded border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-[#d97706] hover:text-[#d97706] min-w-0">
+                          className="flex flex-col items-start text-left px-2 py-1 rounded border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-[#008542] hover:text-[#008542] min-w-0">
                           <span className="text-[11px] leading-tight truncate w-full">{f.label}</span>
                           <span className="text-[9px] font-mono text-slate-400 truncate w-full">{f.token}</span>
                         </button>
+                      ))}
+                      {custom.map(f => (
+                        <div key={f.token} className="group relative flex flex-col items-start text-left px-2 py-1 rounded border border-[#008542]/40 dark:border-[#008542]/40 bg-emerald-50/40 dark:bg-emerald-950/20 min-w-0">
+                          <button onClick={() => insertToken(f.token)} title={`{{${f.token}=XXX}}`}
+                            className="flex flex-col items-start text-left min-w-0 w-full text-slate-600 dark:text-slate-300 hover:text-[#008542]">
+                            <span className="text-[11px] leading-tight truncate w-full pr-4">{f.label}</span>
+                            <span className="text-[9px] font-mono text-slate-400 truncate w-full">{f.token}</span>
+                          </button>
+                          {canEdit && (
+                            <button onClick={() => void removePlaceholder(f.token)} disabled={phBusy}
+                              title="Remover placeholder customizado"
+                              className="absolute top-0.5 right-0.5 p-0.5 rounded text-slate-400 opacity-0 group-hover:opacity-100 hover:text-rose-600 transition-opacity disabled:opacity-40">
+                              <Trash2 size={11} />
+                            </button>
+                          )}
+                        </div>
                       ))}
                     </div>
                   </div>

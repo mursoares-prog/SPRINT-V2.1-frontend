@@ -1202,6 +1202,7 @@ export const LogicFlowEditor = forwardRef<LogicFlowEditorHandle, {
           { label: 'Desanexar (vira cópia local editável)', glyph: '⧉', color: '#f59e0b', onClick: () => fire({ type: 'detach_ref_section', secIdx }) },
           { label: 'Mover seção acima', glyph: '⬆', color: '#94a3b8', onClick: () => fire({ type: 'move_section', secIdx, dir: 'up' }) },
           { label: 'Mover seção abaixo', glyph: '⬇', color: '#94a3b8', onClick: () => fire({ type: 'move_section', secIdx, dir: 'down' }) },
+          { label: 'Inserir bloco de lógica abaixo', glyph: '◈', color: '#0ea5e9', onClick: () => fire({ type: 'insert_ref_section_pick', afterSecIdx: secIdx }) },
           { label: 'Adicionar seção abaixo', glyph: '➕', color: '#0ea5e9', onClick: () => fire({ type: 'add_section', afterSecIdx: secIdx }) },
           { label: 'Remover seção', glyph: '×', color: '#ef4444', danger: true, onClick: () => fire({ type: 'remove_section', secIdx }) },
         ],

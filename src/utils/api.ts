@@ -65,6 +65,13 @@ export function getServerProject(id: string): Promise<StoredProject> {
   return req<StoredProject>(`/api/projects/${id}`)
 }
 
+/** Busca um projeto existente por poço+projeto exatos (identidade do sistema externo).
+ * `null` quando não há projeto salvo para esse par — não é erro. */
+export function lookupServerProject(wellName: string, projectName: string): Promise<StoredProject | null> {
+  const qs = new URLSearchParams({ wellName, projectName })
+  return req<StoredProject | null>(`/api/projects/lookup?${qs}`)
+}
+
 export function deleteServerProject(id: string): Promise<void> {
   return req<void>(`/api/projects/${id}`, { method: 'DELETE' })
 }
@@ -278,6 +285,27 @@ export function createPackageGroup(label: string, authHeaders: Record<string, st
 
 export function deletePackageGroup(id: string, authHeaders: Record<string, string>): Promise<void> {
   return req<void>(`/api/base/package-groups/${encodeURIComponent(id)}`, {
+    method: 'DELETE', headers: authHeaders,
+  })
+}
+
+// ─── Placeholders customizados ────────────────────────────────────────────────
+
+/** Placeholder criado pelo admin: token, rótulo e id da categoria (grupo do catálogo). */
+export interface CustomPlaceholder { token: string; label: string; category: string }
+
+export function listCustomPlaceholders(): Promise<CustomPlaceholder[]> {
+  return req<CustomPlaceholder[]>('/api/base/placeholders')
+}
+
+export function createCustomPlaceholder(ph: CustomPlaceholder, authHeaders: Record<string, string>): Promise<CustomPlaceholder> {
+  return req<CustomPlaceholder>('/api/base/placeholders', {
+    method: 'POST', headers: authHeaders, body: JSON.stringify(ph),
+  })
+}
+
+export function deleteCustomPlaceholder(token: string, authHeaders: Record<string, string>): Promise<void> {
+  return req<void>(`/api/base/placeholders/${encodeURIComponent(token)}`, {
     method: 'DELETE', headers: authHeaders,
   })
 }

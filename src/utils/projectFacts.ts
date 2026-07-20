@@ -1,5 +1,6 @@
 import type { AppState } from '../types'
 import { EDS_TYPES } from '../data/edsTypes'
+import { pkgFirme } from './fineTuningTime'
 
 // A single datom: [entity, attribute, value] — the unit exported to JSON at the
 // end of Etapa 3. Kept as a shared builder so the export and the Admin view
@@ -35,9 +36,10 @@ export function buildProjectFacts(state: Pick<AppState, 'wellName' | 'fineTuning
 
   const activeItems = state.fineTuningItems.filter(it => !it.isBlank)
 
-  const totalTime = activeItems
-    .filter(it => !it.isContingency)
-    .reduce((sum, it) => sum + it.duration, 0)
+  // Mesmo cálculo do total "Firme" exibido na Etapa 3 (soma por linha quando o
+  // pacote tem tempos individuais, não apenas item.duration) — evita que o tempo
+  // exportado divirja do que o usuário viu/ajustou na tela.
+  const totalTime = activeItems.reduce((sum, it) => sum + pkgFirme(it), 0)
 
   // Project-level facts
   facts.push([projectEid, 'project/name', state.wellName])
