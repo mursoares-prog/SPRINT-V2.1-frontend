@@ -43,9 +43,9 @@ const fmtData = (iso: string) => {
 }
 
 const TIPO_STYLE: Record<string, { label: string; cls: string; Icon: typeof Pencil }> = {
-  'edição':         { label: 'Edição',         cls: 'bg-green-100 text-green-700 dark:bg-emerald-900/40 dark:text-emerald-300',      Icon: Pencil },
+  'edição':         { label: 'Edição',         cls: 'bg-green-100 text-green-700 dark:bg-amber-900/40 dark:text-amber-300',      Icon: Pencil },
   'remoção':        { label: 'Remoção',        cls: 'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300',         Icon: Trash2 },
-  'inclusão':       { label: 'Inclusão',       cls: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300', Icon: Plus },
+  'inclusão':       { label: 'Inclusão',       cls: 'bg-emerald-100 text-emerald-700 dark:bg-amber-900/40 dark:text-amber-300', Icon: Plus },
   'criação':        { label: 'Criação',        cls: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300',         Icon: Plus },
   'reestruturação': { label: 'Reestruturação', cls: 'bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300', Icon: Pencil },
   'metadado':       { label: 'Metadado',       cls: 'bg-[#f5f5f5] text-slate-600 dark:bg-slate-800 dark:text-slate-400',        Icon: Pencil },
@@ -121,7 +121,7 @@ export function AdminView({ onClose, initialTab = 'vars' }: { onClose: () => voi
         {/* Header + Tabs combinados em uma linha */}
         <div className="flex items-center gap-1 px-3 border-b border-slate-200 dark:border-slate-700 shrink-0">
           <div className="flex items-center gap-1.5 shrink-0 pr-3 mr-1 border-r border-slate-200 dark:border-slate-700 py-2">
-            <ShieldCheck size={13} className="text-[#005889] dark:text-[#008542]" />
+            <ShieldCheck size={13} className="text-[#005889] dark:text-amber-500" />
             <span className="text-xs font-semibold text-slate-800 dark:text-slate-100">Admin</span>
           </div>
           <TabButton active={tab === 'vars'} onClick={() => setTab('vars')} Icon={Table2}>
@@ -202,7 +202,7 @@ function TabButton({ active, onClick, Icon, children, className = '' }: {
       onClick={onClick}
       className={`flex items-center gap-1.5 px-3 py-2 -mb-px text-xs font-medium rounded-t-lg border-b-2 transition-colors shrink-0 ${
         active
-          ? 'border-[#005889] text-[#005889] dark:border-[#008542] dark:text-[#008542]'
+          ? 'border-[#005889] text-[#005889] dark:border-amber-500 dark:text-amber-500'
           : 'border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
       } ${className}`}>
       <Icon size={14} />
@@ -277,8 +277,8 @@ function LogPanel({ entries, canUndo, onUndo }: {
                     </div>
                   )}
                   {e.depois && (
-                    <div className="rounded-md border border-emerald-200 dark:border-emerald-900/50 bg-emerald-50/60 dark:bg-emerald-900/15 px-2.5 py-2">
-                      <span className="block text-[9px] font-bold uppercase tracking-wider text-emerald-500 dark:text-emerald-400 mb-1">Depois</span>
+                    <div className="rounded-md border border-emerald-200 dark:border-amber-900/50 bg-emerald-50/60 dark:bg-amber-900/15 px-2.5 py-2">
+                      <span className="block text-[9px] font-bold uppercase tracking-wider text-emerald-500 dark:text-amber-400 mb-1">Depois</span>
                       <p className="text-[11px] text-slate-600 dark:text-slate-300 leading-snug whitespace-pre-line">{e.depois}</p>
                     </div>
                   )}

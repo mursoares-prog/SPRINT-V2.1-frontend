@@ -497,7 +497,7 @@ function UnifiedImportModal({ overrides, currentScopeId, loadScopeSections, allo
                   {allowBase && sourceId && (
                     <button onClick={() => onBase(sourceId)}
                       title="Substitui todo o conteúdo atual pelo deste escopo"
-                      className="flex items-center gap-1 text-xs text-slate-500 hover:text-emerald-600 border border-slate-200 hover:border-emerald-400/60 dark:text-slate-400 dark:hover:text-emerald-300 dark:border-slate-700 dark:hover:border-emerald-600/40 rounded-lg px-3 py-1.5 transition-colors">
+                      className="flex items-center gap-1 text-xs text-slate-500 hover:text-emerald-600 border border-slate-200 hover:border-emerald-400/60 dark:text-slate-400 dark:hover:text-amber-300 dark:border-slate-700 dark:hover:border-amber-600/40 rounded-lg px-3 py-1.5 transition-colors">
                       <Copy size={11} /> Usar como base
                     </button>
                   )}
@@ -552,7 +552,7 @@ function NewScopeModal({ kind, onSave, onClose }: {
     <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/60">
       <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-2xl w-full max-w-sm p-5 space-y-4">
         <div className="flex items-center gap-2">
-          {isBlock ? <Puzzle size={14} className="text-[#008542] dark:text-[#008542]" /> : <Plus size={14} className="text-[#008542] dark:text-[#008542]" />}
+          {isBlock ? <Puzzle size={14} className="text-[#008542] dark:text-amber-500" /> : <Plus size={14} className="text-[#008542] dark:text-amber-500" />}
           <span className="text-sm font-semibold text-slate-900 dark:text-slate-100">{isBlock ? 'Novo bloco de lógica' : 'Novo escopo'}</span>
         </div>
         <p className="text-[11px] text-slate-500 dark:text-slate-500">
@@ -565,13 +565,13 @@ function NewScopeModal({ kind, onSave, onClose }: {
           <input autoFocus value={name} onChange={e => { setName(e.target.value); setLocalError(null) }}
             placeholder={isBlock ? 'ex: Meu bloco reutilizável' : 'ex: Escopo customizado'}
             onKeyDown={e => e.key === 'Enter' && handleCreate()}
-            className="w-full mt-1 text-sm bg-slate-100 dark:bg-slate-800 rounded-lg px-3 py-2 text-slate-900 dark:text-slate-100 outline-none border border-slate-200 dark:border-slate-700 focus:border-[#008542]/60 dark:focus:border-[#008542]/60" />
+            className="w-full mt-1 text-sm bg-slate-100 dark:bg-slate-800 rounded-lg px-3 py-2 text-slate-900 dark:text-slate-100 outline-none border border-slate-200 dark:border-slate-700 focus:border-[#008542]/60 dark:focus:border-amber-500/60" />
         </div>
         {localError && <p className="text-[11px] text-rose-500 dark:text-rose-400">{localError}</p>}
         <div className="flex justify-end gap-2 pt-1">
           <button onClick={onClose} disabled={creating} className="px-3 py-1.5 text-sm text-slate-600 dark:text-slate-400 rounded-lg border border-slate-200 dark:border-slate-700 disabled:opacity-40">Cancelar</button>
           <button disabled={!valid} onClick={handleCreate}
-            className="px-4 py-1.5 text-sm bg-[#008542] hover:bg-[#006a35] dark:bg-[#008542] dark:hover:bg-[#006a35] text-white rounded-lg disabled:opacity-40 font-semibold">
+            className="px-4 py-1.5 text-sm bg-[#008542] hover:bg-[#006a35] dark:bg-amber-500 dark:hover:bg-amber-600 text-white rounded-lg disabled:opacity-40 font-semibold">
             {creating ? 'Criando…' : 'Criar'}
           </button>
         </div>
@@ -1018,11 +1018,11 @@ export function LogicEditorPanel({ canEdit }: { canEdit: boolean }) {
             onMouseDown={e => e.preventDefault()}
             onClick={() => onSelect(group.id)}
             className={`w-full text-left flex items-center gap-1 py-0.5 rounded transition-colors
-              ${isCurrent ? 'text-[#006a35] dark:text-emerald-300 bg-emerald-500/10' : 'text-slate-700 dark:text-slate-300 hover:bg-slate-200/80 dark:hover:bg-slate-700/60'}`}
+              ${isCurrent ? 'text-[#006a35] dark:text-amber-300 bg-emerald-500/10 dark:bg-amber-500/10' : 'text-slate-700 dark:text-slate-300 hover:bg-slate-200/80 dark:hover:bg-slate-700/60'}`}
             style={{ paddingLeft: `${6 + d * 10}px` }}>
             {isCurrent
-              ? <PiFolderOpenFill size={9} className="text-[#008542] dark:text-emerald-400 shrink-0" />
-              : <PiFolderFill size={9} className="text-emerald-500/40 shrink-0" />}
+              ? <PiFolderOpenFill size={9} className="text-[#008542] dark:text-amber-400 shrink-0" />
+              : <PiFolderFill size={9} className="text-emerald-500/40 dark:text-amber-500/40 shrink-0" />}
             <span className="text-[10px] truncate">{group.name}</span>
           </button>
           {children.map(g => renderNode(g, d + 1))}
@@ -1031,14 +1031,14 @@ export function LogicEditorPanel({ canEdit }: { canEdit: boolean }) {
     }
     return (
       <div data-group-picker
-        className="mt-0.5 bg-slate-100 dark:bg-slate-800 border border-[#008542]/30 dark:border-[#008542]/30 rounded-lg shadow-xl overflow-hidden">
+        className="mt-0.5 bg-slate-100 dark:bg-slate-800 border border-[#008542]/30 dark:border-amber-500/30 rounded-lg shadow-xl overflow-hidden">
         <div className="max-h-44 overflow-y-auto py-1 scrollbar-custom">
           <button
             onMouseDown={e => e.preventDefault()}
             onClick={() => onSelect(null)}
             className={`w-full text-left flex items-center gap-1 px-2 py-0.5 text-[10px] rounded transition-colors
-              ${currentGroupId === null ? 'text-[#006a35] dark:text-emerald-300 bg-emerald-500/10' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-200/80 dark:hover:bg-slate-700/60'}`}>
-            <PiFolderOpenFill size={9} className={currentGroupId === null ? 'text-[#008542] dark:text-emerald-400' : 'opacity-30'} />
+              ${currentGroupId === null ? 'text-[#006a35] dark:text-amber-300 bg-emerald-500/10 dark:bg-amber-500/10' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-200/80 dark:hover:bg-slate-700/60'}`}>
+            <PiFolderOpenFill size={9} className={currentGroupId === null ? 'text-[#008542] dark:text-amber-400' : 'opacity-30'} />
             Sem grupo
           </button>
           {scopeGroups.groups.filter(g => g.parentId === null && !excludeIds.has(g.id)).map(g => renderNode(g, 0))}
@@ -1055,7 +1055,7 @@ export function LogicEditorPanel({ canEdit }: { canEdit: boolean }) {
     const pos = siblings.findIndex(x => x.scopeId === s.scopeId)
     const canReorder = currentGroup !== null && siblings.length > 1
     const Icon = s.isBlock ? Puzzle : Layers
-    const iconCls = 'text-[#008542] dark:text-[#008542]/70'
+    const iconCls = 'text-[#008542] dark:text-amber-500/70'
     // Só mostra excluir se não houver outros escopos que dependem deste bloco.
     const usedBy = s.deletable && s.isBlock ? scopeList.filter(o => refUsers(o.scopeId).includes(s.scopeId)) : []
     const canDelete = s.deletable && usedBy.length === 0
@@ -1074,12 +1074,12 @@ export function LogicEditorPanel({ canEdit }: { canEdit: boolean }) {
               <>
                 <button onClick={e => { e.stopPropagation(); if (pos > 0) moveScopeInGroup(s.scopeId, -1) }}
                   disabled={pos <= 0} title="Mover para cima"
-                  className={`flex items-center transition-colors ${pos <= 0 ? 'text-slate-700 cursor-default' : 'text-slate-400 dark:text-slate-600 hover:text-[#008542] dark:hover:text-emerald-400'}`}>
+                  className={`flex items-center transition-colors ${pos <= 0 ? 'text-slate-700 cursor-default' : 'text-slate-400 dark:text-slate-600 hover:text-[#008542] dark:hover:text-amber-400'}`}>
                   <ChevronUp size={11} />
                 </button>
                 <button onClick={e => { e.stopPropagation(); if (pos < siblings.length - 1) moveScopeInGroup(s.scopeId, 1) }}
                   disabled={pos >= siblings.length - 1} title="Mover para baixo"
-                  className={`flex items-center transition-colors ${pos >= siblings.length - 1 ? 'text-slate-700 cursor-default' : 'text-slate-400 dark:text-slate-600 hover:text-[#008542] dark:hover:text-emerald-400'}`}>
+                  className={`flex items-center transition-colors ${pos >= siblings.length - 1 ? 'text-slate-700 cursor-default' : 'text-slate-400 dark:text-slate-600 hover:text-[#008542] dark:hover:text-amber-400'}`}>
                   <ChevronDown size={11} />
                 </button>
               </>
@@ -1088,7 +1088,7 @@ export function LogicEditorPanel({ canEdit }: { canEdit: boolean }) {
               <>
                 <button onClick={() => setMovingScopeId(movingScopeId === s.scopeId ? null : s.scopeId)}
                   title="Mover para grupo"
-                  className="flex items-center text-slate-400 dark:text-slate-600 hover:text-[#008542] dark:hover:text-emerald-400 transition-colors">
+                  className="flex items-center text-slate-400 dark:text-slate-600 hover:text-[#008542] dark:hover:text-amber-400 transition-colors">
                   <PiFolderOpenFill size={11} />
                 </button>
                 {canDelete && (
@@ -1129,15 +1129,15 @@ export function LogicEditorPanel({ canEdit }: { canEdit: boolean }) {
         <div className="flex items-center gap-0.5 mx-1 rounded-lg group/grp hover:bg-slate-100/80 dark:hover:bg-slate-800/30 transition-colors">
           <button onClick={() => toggleGroupCollapse(group.id)} className="text-left flex items-center gap-1 flex-1 min-w-0 px-2 py-1.5">
             {collapsed
-              ? <><ChevronRight size={9} className="text-slate-400 dark:text-slate-600 shrink-0" /><PiFolderFill size={12} className="text-emerald-500/70 shrink-0" /></>
-              : <><ChevronDown size={9} className="text-slate-400 dark:text-slate-600 shrink-0" /><PiFolderOpenFill size={12} className="text-emerald-500/70 shrink-0" /></>}
+              ? <><ChevronRight size={9} className="text-slate-400 dark:text-slate-600 shrink-0" /><PiFolderFill size={12} className="text-emerald-500/70 dark:text-amber-500/70 shrink-0" /></>
+              : <><ChevronDown size={9} className="text-slate-400 dark:text-slate-600 shrink-0" /><PiFolderOpenFill size={12} className="text-emerald-500/70 dark:text-amber-500/70 shrink-0" /></>}
             {isEditing ? (
               <input autoFocus value={editingGroupId!.draft}
                 onChange={e => setEditingGroupId({ ...editingGroupId!, draft: e.target.value })}
                 onKeyDown={e => { if (e.key === 'Enter') { renameCancelledRef.current = true; groupRename(group.id, editingGroupId!.draft); setEditingGroupId(null) } if (e.key === 'Escape') { renameCancelledRef.current = true; setEditingGroupId(null) } }}
                 onBlur={() => { if (renameCancelledRef.current) { renameCancelledRef.current = false; setEditingGroupId(null); return } if (editingGroupId?.draft.trim()) groupRename(group.id, editingGroupId!.draft); setEditingGroupId(null) }}
                 onClick={e => e.stopPropagation()}
-                className="flex-1 text-[11px] bg-slate-100 dark:bg-slate-800 border border-[#008542]/40 dark:border-[#008542]/40 rounded px-1 text-slate-800 dark:text-slate-200 outline-none min-w-0" />
+                className="flex-1 text-[11px] bg-slate-100 dark:bg-slate-800 border border-[#008542]/40 dark:border-amber-500/40 rounded px-1 text-slate-800 dark:text-slate-200 outline-none min-w-0" />
             ) : (
               <span className="flex-1 truncate text-[11px] text-slate-600 dark:text-slate-400">{group.name}</span>
             )}
@@ -1145,11 +1145,11 @@ export function LogicEditorPanel({ canEdit }: { canEdit: boolean }) {
           {isAdmin() && (
             <div className="flex items-center gap-0.5 pr-1.5 opacity-0 group-hover/grp:opacity-100 transition-opacity">
               <button onClick={() => setCreatingGroup({ parentId: group.id, draft: '' })} title="Criar sub-grupo"
-                className="flex items-center text-slate-400 dark:text-slate-600 hover:text-[#008542] dark:hover:text-emerald-400 transition-colors"><PiFolderPlusFill size={10} /></button>
+                className="flex items-center text-slate-400 dark:text-slate-600 hover:text-[#008542] dark:hover:text-amber-400 transition-colors"><PiFolderPlusFill size={10} /></button>
               <button onClick={() => setMovingGroupId(movingGroupId === group.id ? null : group.id)} title="Mover grupo"
-                className={`flex items-center transition-colors ${movingGroupId === group.id ? 'text-[#008542] dark:text-emerald-400' : 'text-slate-400 dark:text-slate-600 hover:text-[#008542] dark:hover:text-emerald-400'}`}><PiFolderOpenFill size={10} /></button>
+                className={`flex items-center transition-colors ${movingGroupId === group.id ? 'text-[#008542] dark:text-amber-400' : 'text-slate-400 dark:text-slate-600 hover:text-[#008542] dark:hover:text-amber-400'}`}><PiFolderOpenFill size={10} /></button>
               <button onClick={() => setEditingGroupId({ id: group.id, draft: group.name })} title="Renomear"
-                className="flex items-center text-slate-400 dark:text-slate-600 hover:text-[#008542] dark:hover:text-emerald-400 transition-colors"><Pencil size={10} /></button>
+                className="flex items-center text-slate-400 dark:text-slate-600 hover:text-[#008542] dark:hover:text-amber-400 transition-colors"><Pencil size={10} /></button>
               <button onClick={() => groupDelete(group.id)} title="Excluir grupo"
                 className="flex items-center text-slate-400 dark:text-slate-600 hover:text-rose-400 transition-colors"><Trash2 size={10} /></button>
             </div>
@@ -1177,7 +1177,7 @@ export function LogicEditorPanel({ canEdit }: { canEdit: boolean }) {
                   onKeyDown={e => { if (e.key === 'Enter' && creatingGroup.draft.trim()) { renameCancelledRef.current = true; groupCreate(creatingGroup.draft, group.id); setCreatingGroup(null) } if (e.key === 'Escape') { renameCancelledRef.current = true; setCreatingGroup(null) } }}
                   onBlur={() => { if (renameCancelledRef.current) { renameCancelledRef.current = false; setCreatingGroup(null); return } if (creatingGroup?.draft.trim()) groupCreate(creatingGroup.draft, group.id); setCreatingGroup(null) }}
                   placeholder="Nome do sub-grupo…"
-                  className="w-full text-[11px] bg-slate-100 dark:bg-slate-800 border border-[#008542]/40 dark:border-[#008542]/40 rounded px-2 py-0.5 text-slate-800 dark:text-slate-200 outline-none" />
+                  className="w-full text-[11px] bg-slate-100 dark:bg-slate-800 border border-[#008542]/40 dark:border-amber-500/40 rounded px-2 py-0.5 text-slate-800 dark:text-slate-200 outline-none" />
               </div>
             )}
           </div>
@@ -2641,11 +2641,11 @@ export function LogicEditorPanel({ canEdit }: { canEdit: boolean }) {
           {isAdmin() && (
             <>
               <button onClick={() => setCreatingGroup({ parentId: null, draft: '' })} title="Criar grupo"
-                className="w-6 h-6 flex items-center justify-center rounded-lg text-slate-500 hover:text-[#008542] dark:hover:text-[#008542] hover:bg-slate-200/80 dark:hover:bg-slate-700/50 transition-colors">
+                className="w-6 h-6 flex items-center justify-center rounded-lg text-slate-500 hover:text-[#008542] dark:hover:text-amber-500 hover:bg-slate-200/80 dark:hover:bg-slate-700/50 transition-colors">
                 <PiFolderPlusFill size={12} />
               </button>
               <button onClick={() => setNewScopeKind('scope')} title="Novo escopo customizado"
-                className="w-6 h-6 flex items-center justify-center rounded-lg text-slate-600 dark:text-slate-400 hover:text-[#008542] dark:hover:text-[#008542] hover:bg-slate-200/80 dark:hover:bg-slate-700/50 transition-colors">
+                className="w-6 h-6 flex items-center justify-center rounded-lg text-slate-600 dark:text-slate-400 hover:text-[#008542] dark:hover:text-amber-500 hover:bg-slate-200/80 dark:hover:bg-slate-700/50 transition-colors">
                 <Plus size={13} />
               </button>
             </>
@@ -2666,7 +2666,7 @@ export function LogicEditorPanel({ canEdit }: { canEdit: boolean }) {
                 onKeyDown={e => { if (e.key === 'Enter' && creatingGroup.draft.trim()) { renameCancelledRef.current = true; groupCreate(creatingGroup.draft, null); setCreatingGroup(null) } if (e.key === 'Escape') { renameCancelledRef.current = true; setCreatingGroup(null) } }}
                 onBlur={() => { if (renameCancelledRef.current) { renameCancelledRef.current = false; setCreatingGroup(null); return } if (creatingGroup?.draft.trim()) groupCreate(creatingGroup.draft, null); setCreatingGroup(null) }}
                 placeholder="Nome do grupo…"
-                className="w-full text-[11px] bg-slate-100 dark:bg-slate-800 border border-[#008542]/40 dark:border-[#008542]/40 rounded px-2 py-0.5 text-slate-800 dark:text-slate-200 outline-none" />
+                className="w-full text-[11px] bg-slate-100 dark:bg-slate-800 border border-[#008542]/40 dark:border-amber-500/40 rounded px-2 py-0.5 text-slate-800 dark:text-slate-200 outline-none" />
             </div>
           )}
 
@@ -2686,7 +2686,7 @@ export function LogicEditorPanel({ canEdit }: { canEdit: boolean }) {
               <span className="flex-1 text-[10px] text-slate-500 uppercase tracking-wider font-semibold">Blocos de lógica</span>
               {isAdmin() && (
                 <button onClick={() => setNewScopeKind('block')} title="Novo bloco de lógica"
-                  className="w-6 h-6 flex items-center justify-center rounded-lg text-slate-600 dark:text-slate-400 hover:text-[#008542] dark:hover:text-[#008542] hover:bg-slate-200/80 dark:hover:bg-slate-700/50 transition-colors">
+                  className="w-6 h-6 flex items-center justify-center rounded-lg text-slate-600 dark:text-slate-400 hover:text-[#008542] dark:hover:text-amber-500 hover:bg-slate-200/80 dark:hover:bg-slate-700/50 transition-colors">
                   <Puzzle size={12} />
                 </button>
               )}
@@ -2698,7 +2698,7 @@ export function LogicEditorPanel({ canEdit }: { canEdit: boolean }) {
         {/* Handle de redimensionamento — arraste a borda direita da sidebar */}
         <div onMouseDown={startSidebarResize}
           title="Arraste para redimensionar"
-          className="absolute top-0 right-0 h-full w-1.5 cursor-col-resize hover:bg-[#006a35] dark:hover:bg-[#008542]/50 active:bg-[#008542]/70 dark:active:bg-[#008542]/70 transition-colors" />
+          className="absolute top-0 right-0 h-full w-1.5 cursor-col-resize hover:bg-[#006a35] dark:hover:bg-amber-500/50 active:bg-[#008542]/70 dark:active:bg-amber-500/70 transition-colors" />
       </div>
       ) : (
         /* Sidebar colapsada — tira só 8px, botão para expandir */
@@ -2739,7 +2739,7 @@ export function LogicEditorPanel({ canEdit }: { canEdit: boolean }) {
                       if (e.key === 'Enter') { e.preventDefault(); const snap = editingLabel; setEditingLabel(null); void commitRename(snap) }
                       if (e.key === 'Escape') { renameCancelledRef.current = true; setEditingLabel(null) }
                     }}
-                    className="w-full text-sm font-semibold bg-slate-100 dark:bg-slate-800 border border-[#008542]/60 dark:border-[#008542]/60 rounded-md px-2 py-0.5 text-slate-900 dark:text-slate-100 outline-none"
+                    className="w-full text-sm font-semibold bg-slate-100 dark:bg-slate-800 border border-[#008542]/60 dark:border-amber-500/60 rounded-md px-2 py-0.5 text-slate-900 dark:text-slate-100 outline-none"
                   />
                 ) : (
                   <div className="flex items-center gap-1.5 group/rename">
@@ -2748,7 +2748,7 @@ export function LogicEditorPanel({ canEdit }: { canEdit: boolean }) {
                       <button
                         onClick={() => setEditingLabel(selectedMeta?.label ?? selectedScope ?? '')}
                         title="Renomear"
-                        className="opacity-0 group-hover/rename:opacity-100 text-slate-500 hover:text-[#008542] dark:hover:text-[#008542] transition-opacity shrink-0">
+                        className="opacity-0 group-hover/rename:opacity-100 text-slate-500 hover:text-[#008542] dark:hover:text-amber-500 transition-opacity shrink-0">
                         <Pencil size={11} />
                       </button>
                     )}
@@ -2778,7 +2778,7 @@ export function LogicEditorPanel({ canEdit }: { canEdit: boolean }) {
               )}
 
               {dirty && (
-                <span className="shrink-0 text-[9px] font-semibold uppercase tracking-wider text-[#008542] dark:text-emerald-400 bg-[#008542]/10 dark:bg-emerald-900/25 border border-[#008542]/40 dark:border-emerald-700/40 rounded-full px-2 py-0.5">
+                <span className="shrink-0 text-[9px] font-semibold uppercase tracking-wider text-[#008542] dark:text-amber-400 bg-[#008542]/10 dark:bg-amber-900/25 border border-[#008542]/40 dark:border-amber-700/40 rounded-full px-2 py-0.5">
                   não salvo
                 </span>
               )}
@@ -2951,11 +2951,11 @@ export function LogicEditorPanel({ canEdit }: { canEdit: boolean }) {
                           sec.decisions = [emptyDec()]
                           commitSections([sec])
                         }}
-                        className="flex items-center gap-2 px-4 py-2 rounded-xl bg-[#008542] dark:bg-[#008542] hover:bg-[#006a35] dark:hover:bg-[#006a35] text-white text-sm font-semibold transition-colors shadow">
+                        className="flex items-center gap-2 px-4 py-2 rounded-xl bg-[#008542] dark:bg-amber-500 hover:bg-[#006a35] dark:hover:bg-amber-600 text-white text-sm font-semibold transition-colors shadow">
                         <Plus size={15} /> Inserir primeiro elemento
                       </button>
                       <button onClick={() => setShowImport(true)}
-                        className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-[#008542] dark:hover:text-[#008542] transition-colors">
+                        className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-[#008542] dark:hover:text-amber-500 transition-colors">
                         <Copy size={12} /> Importar de escopo base ou bloco
                       </button>
                     </div>
@@ -2981,7 +2981,7 @@ export function LogicEditorPanel({ canEdit }: { canEdit: boolean }) {
                       <span className="text-[11px] text-amber-100 font-medium">Visualizando versão anterior (somente leitura)</span>
                       {canEdit && (
                         <button onClick={() => restoreVersion(previewVersionId)}
-                          className="text-[10px] font-semibold text-white bg-[#008542] dark:bg-[#008542] hover:bg-[#006a35] dark:hover:bg-[#006a35] rounded px-2 py-0.5 transition-colors">
+                          className="text-[10px] font-semibold text-white bg-[#008542] dark:bg-amber-500 hover:bg-[#006a35] dark:hover:bg-amber-600 rounded px-2 py-0.5 transition-colors">
                           Restaurar esta
                         </button>
                       )}
@@ -3015,7 +3015,7 @@ export function LogicEditorPanel({ canEdit }: { canEdit: boolean }) {
           <div className="relative w-80 h-full bg-white dark:bg-slate-900 border-l border-slate-200 dark:border-slate-700 shadow-2xl flex flex-col"
                onClick={e => e.stopPropagation()}>
             <div className="flex items-center gap-2 px-4 py-3 border-b border-slate-200 dark:border-slate-700/50">
-              <History size={15} className="text-[#008542] dark:text-[#008542]" />
+              <History size={15} className="text-[#008542] dark:text-amber-500" />
               <div className="flex-1 min-w-0">
                 <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Histórico de versões</h3>
                 <p className="text-[10px] text-slate-500 truncate">{selectedMeta?.label ?? selectedScope}</p>
@@ -3039,7 +3039,7 @@ export function LogicEditorPanel({ canEdit }: { canEdit: boolean }) {
                 return (
                   <div key={v.id}
                     className={`rounded-lg border px-3 py-2 transition-colors ${
-                      isActive ? 'border-[#008542]/60 dark:border-[#008542]/60 bg-[#008542]/10 dark:bg-[#008542]/10' : 'border-slate-200 dark:border-slate-700/60 bg-slate-100/80 dark:bg-slate-800/40 hover:border-slate-600'
+                      isActive ? 'border-[#008542]/60 dark:border-amber-500/60 bg-[#008542]/10 dark:bg-amber-500/10' : 'border-slate-200 dark:border-slate-700/60 bg-slate-100/80 dark:bg-slate-800/40 hover:border-slate-600'
                     }`}>
                     <div className="flex items-center gap-2">
                       <span className="text-[10px] font-mono text-slate-500 shrink-0">
@@ -3052,12 +3052,12 @@ export function LogicEditorPanel({ canEdit }: { canEdit: boolean }) {
                     </p>
                     <div className="flex items-center gap-1.5 mt-1.5">
                       <button onClick={() => previewVersion(v.id)}
-                        className="text-[10px] text-slate-700 dark:text-slate-300 hover:text-[#008542] dark:hover:text-[#008542] border border-slate-200 dark:border-slate-700 hover:border-[#008542]/40 dark:border-[#008542]/40 rounded px-2 py-0.5 transition-colors">
+                        className="text-[10px] text-slate-700 dark:text-slate-300 hover:text-[#008542] dark:hover:text-amber-500 border border-slate-200 dark:border-slate-700 hover:border-[#008542]/40 dark:border-amber-500/40 rounded px-2 py-0.5 transition-colors">
                         {isActive ? 'Visualizando' : 'Visualizar'}
                       </button>
                       {canEdit && (
                         <button onClick={() => restoreVersion(v.id)}
-                          className="text-[10px] text-white bg-[#008542]/80 dark:bg-[#008542]/80 hover:bg-[#006a35] dark:hover:bg-[#008542] rounded px-2 py-0.5 transition-colors">
+                          className="text-[10px] text-white bg-[#008542]/80 dark:bg-amber-500/80 hover:bg-[#006a35] dark:hover:bg-amber-500 rounded px-2 py-0.5 transition-colors">
                           Restaurar
                         </button>
                       )}

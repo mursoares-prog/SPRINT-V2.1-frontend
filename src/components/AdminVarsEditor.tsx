@@ -415,7 +415,7 @@ export function AdminVarsEditor({ query, serverBase, pkgOverrides, legacyOverrid
                 className="rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-1.5 text-xs text-slate-800 dark:text-slate-100 focus:outline-none focus:border-[#0c2340] dark:focus:border-sky-500 w-56"
               />
               <button onClick={() => void submitNewGroup()} disabled={!newGroupLabel.trim() || !!busy}
-                className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold text-white bg-[#008542] hover:bg-[#006b35] transition-colors disabled:opacity-40">
+                className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold text-white bg-[#008542] hover:bg-[#006b35] dark:bg-amber-600 dark:hover:bg-amber-700 transition-colors disabled:opacity-40">
                 <Check size={12} /> Criar
               </button>
               <button onClick={() => setShowNewGroupForm(false)}
@@ -466,7 +466,7 @@ export function AdminVarsEditor({ query, serverBase, pkgOverrides, legacyOverrid
               {canEdit && (
                 <div className="flex items-center gap-1 shrink-0">
                   <button onClick={() => duplicate(pkgId)} disabled={!!busy} title="Duplicar como novo pacote"
-                    className="p-1 rounded text-slate-400 hover:text-[#008542] hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"><CopyPlus size={14} /></button>
+                    className="p-1 rounded text-slate-400 hover:text-[#008542] dark:hover:text-amber-400 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"><CopyPlus size={14} /></button>
                   {isCustom && (
                     <button onClick={() => removePkg(pkgId)} disabled={!!busy} title="Apagar pacote customizado"
                       className="p-1 rounded text-slate-400 hover:text-rose-600 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"><Trash2 size={14} /></button>
@@ -554,7 +554,7 @@ export function AdminVarsEditor({ query, serverBase, pkgOverrides, legacyOverrid
                             <td className="px-0.5 py-0.5">
                               <div className="flex items-start gap-0.5">
                                 <textarea ref={el => { taRefs.current[key] = el }} value={l.text} onChange={e => patchLine(pkgId, l._id, { text: e.target.value })} rows={2} className={cellCls} />
-                                <button onClick={() => setPh({ pkgId, lineId: l._id })} title="Inserir placeholder" className="shrink-0 mt-0.5 p-0.5 rounded text-slate-400 hover:text-[#008542]"><Braces size={13} /></button>
+                                <button onClick={() => setPh({ pkgId, lineId: l._id })} title="Inserir placeholder" className="shrink-0 mt-0.5 p-0.5 rounded text-slate-400 hover:text-[#008542] dark:hover:text-amber-400"><Braces size={13} /></button>
                               </div>
                             </td>
                             <td className="px-0.5 py-0.5"><input type="number" min={0} step="0.01" value={l.duration ?? ''} title="Duração (h)" onChange={e => patchLine(pkgId, l._id, { duration: e.target.value === '' ? null : parseFloat(e.target.value) })} className={`${cellCls} text-right`} /></td>
@@ -590,7 +590,7 @@ export function AdminVarsEditor({ query, serverBase, pkgOverrides, legacyOverrid
                             <td className="px-0.5 py-0.5"><textarea value={l.edsComment ?? ''} title="Comentário EDS" onChange={e => patchLine(pkgId, l._id, { edsComment: e.target.value })} rows={2} className={cellCls} /></td>
                             <td className="px-1 py-1">
                               <div className="flex flex-wrap gap-0.5 w-12">
-                                <button onClick={() => insertAfter(pkgId, l._id)} title="Inserir linha abaixo" className="p-0.5 rounded text-slate-400 hover:text-emerald-600"><Plus size={12} /></button>
+                                <button onClick={() => insertAfter(pkgId, l._id)} title="Inserir linha abaixo" className="p-0.5 rounded text-slate-400 hover:text-emerald-600 dark:hover:text-amber-400"><Plus size={12} /></button>
                                 {clipboard && <button onClick={() => pasteInto(pkgId, l._id)} title="Colar abaixo" className="p-0.5 rounded text-slate-400 hover:text-sky-600"><ClipboardPaste size={12} /></button>}
                                 <button onClick={() => removeLine(pkgId, l._id)} title="Excluir linha" className="p-0.5 rounded text-slate-400 hover:text-rose-600"><Trash2 size={12} /></button>
                               </div>
@@ -677,11 +677,11 @@ export function AdminVarsEditor({ query, serverBase, pkgOverrides, legacyOverrid
         <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/40 p-4" onClick={closePh}>
           <div onClick={e => e.stopPropagation()} className="bg-[#f5f5f5] dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-700 w-full max-w-md max-h-[70vh] flex flex-col">
             <div className="flex items-center gap-2 px-4 py-3 border-b border-slate-200 dark:border-slate-700">
-              <Braces size={14} className="text-[#008542]" />
+              <Braces size={14} className="text-[#008542] dark:text-amber-500" />
               <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-200 flex-1">Inserir placeholder</h3>
               {canEdit && !newPh && (
                 <button onClick={() => { setPhError(''); setNewPh({ token: '', label: '', category: PLACEHOLDER_CATALOG[0].id }) }}
-                  className="flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-semibold border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:border-[#008542] hover:text-[#008542] transition-colors">
+                  className="flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-semibold border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:border-[#008542] dark:hover:border-amber-500 hover:text-[#008542] dark:hover:text-amber-400 transition-colors">
                   <Plus size={12} /> Novo
                 </button>
               )}
@@ -690,26 +690,26 @@ export function AdminVarsEditor({ query, serverBase, pkgOverrides, legacyOverrid
 
             {/* Formulário de criação de placeholder */}
             {newPh && (
-              <div className="px-4 py-3 border-b border-slate-200 dark:border-slate-700 bg-emerald-50/60 dark:bg-emerald-950/20 space-y-2">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-[#008542]">Novo placeholder</p>
+              <div className="px-4 py-3 border-b border-slate-200 dark:border-slate-700 bg-emerald-50/60 dark:bg-amber-950/20 space-y-2">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-[#008542] dark:text-amber-400">Novo placeholder</p>
                 <div className="grid grid-cols-2 gap-2">
                   <label className="flex flex-col gap-0.5">
                     <span className="text-[9px] font-bold uppercase tracking-wider text-slate-500">Rótulo</span>
                     <input autoFocus value={newPh.label} onChange={e => setNewPh({ ...newPh, label: e.target.value })}
                       placeholder="Ex.: Pressão de teste"
-                      className="rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-2 py-1 text-xs text-slate-800 dark:text-slate-100 focus:outline-none focus:border-[#008542]" />
+                      className="rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-2 py-1 text-xs text-slate-800 dark:text-slate-100 focus:outline-none focus:border-[#008542] dark:focus:border-amber-500" />
                   </label>
                   <label className="flex flex-col gap-0.5">
                     <span className="text-[9px] font-bold uppercase tracking-wider text-slate-500">Token</span>
                     <input value={newPh.token} onChange={e => setNewPh({ ...newPh, token: e.target.value })}
                       placeholder="ex.: pressaoTeste"
-                      className="rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-2 py-1 text-xs font-mono text-slate-800 dark:text-slate-100 focus:outline-none focus:border-[#008542]" />
+                      className="rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-2 py-1 text-xs font-mono text-slate-800 dark:text-slate-100 focus:outline-none focus:border-[#008542] dark:focus:border-amber-500" />
                   </label>
                 </div>
                 <label className="flex flex-col gap-0.5">
                   <span className="text-[9px] font-bold uppercase tracking-wider text-slate-500">Categoria</span>
                   <select value={newPh.category} onChange={e => setNewPh({ ...newPh, category: e.target.value })}
-                    className="rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-2 py-1 text-xs text-slate-800 dark:text-slate-100 focus:outline-none focus:border-[#008542]">
+                    className="rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-2 py-1 text-xs text-slate-800 dark:text-slate-100 focus:outline-none focus:border-[#008542] dark:focus:border-amber-500">
                     {PLACEHOLDER_CATALOG.map(g => <option key={g.id} value={g.id}>{g.title}</option>)}
                   </select>
                 </label>
@@ -718,7 +718,7 @@ export function AdminVarsEditor({ query, serverBase, pkgOverrides, legacyOverrid
                   <button onClick={() => { setNewPh(null); setPhError('') }} disabled={phBusy}
                     className="px-3 py-1 rounded-lg text-xs font-semibold border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:border-slate-300 disabled:opacity-40">Cancelar</button>
                   <button onClick={() => void submitNewPlaceholder()} disabled={phBusy || !newPh.token.trim() || !newPh.label.trim()}
-                    className="flex items-center gap-1 px-3 py-1 rounded-lg text-xs font-semibold text-white bg-[#008542] hover:bg-[#006a35] transition-colors disabled:opacity-40">
+                    className="flex items-center gap-1 px-3 py-1 rounded-lg text-xs font-semibold text-white bg-[#008542] hover:bg-[#006a35] dark:bg-amber-600 dark:hover:bg-amber-700 transition-colors disabled:opacity-40">
                     {phBusy ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />} Criar
                   </button>
                 </div>
@@ -736,15 +736,15 @@ export function AdminVarsEditor({ query, serverBase, pkgOverrides, legacyOverrid
                     <div className="grid grid-cols-2 gap-1">
                       {fs.map(f => (
                         <button key={f.token} onClick={() => insertToken(f.token)} title={`{{${f.token}=XXX}}`}
-                          className="flex flex-col items-start text-left px-2 py-1 rounded border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-[#008542] hover:text-[#008542] min-w-0">
+                          className="flex flex-col items-start text-left px-2 py-1 rounded border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-[#008542] dark:hover:border-amber-500 hover:text-[#008542] dark:hover:text-amber-400 min-w-0">
                           <span className="text-[11px] leading-tight truncate w-full">{f.label}</span>
                           <span className="text-[9px] font-mono text-slate-400 truncate w-full">{f.token}</span>
                         </button>
                       ))}
                       {custom.map(f => (
-                        <div key={f.token} className="group relative flex flex-col items-start text-left px-2 py-1 rounded border border-[#008542]/40 dark:border-[#008542]/40 bg-emerald-50/40 dark:bg-emerald-950/20 min-w-0">
+                        <div key={f.token} className="group relative flex flex-col items-start text-left px-2 py-1 rounded border border-[#008542]/40 dark:border-amber-500/40 bg-emerald-50/40 dark:bg-amber-950/20 min-w-0">
                           <button onClick={() => insertToken(f.token)} title={`{{${f.token}=XXX}}`}
-                            className="flex flex-col items-start text-left min-w-0 w-full text-slate-600 dark:text-slate-300 hover:text-[#008542]">
+                            className="flex flex-col items-start text-left min-w-0 w-full text-slate-600 dark:text-slate-300 hover:text-[#008542] dark:hover:text-amber-400">
                             <span className="text-[11px] leading-tight truncate w-full pr-4">{f.label}</span>
                             <span className="text-[9px] font-mono text-slate-400 truncate w-full">{f.token}</span>
                           </button>

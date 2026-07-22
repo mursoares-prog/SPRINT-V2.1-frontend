@@ -1129,24 +1129,29 @@ function lineDetailLabels(line: FineTuningLine): string[] {
 
 function DetailIndicator({ line }: { line: FineTuningLine }) {
   const labels = lineDetailLabels(line)
-  if (labels.length === 0) return null
+  const filled = labels.length > 0
   return (
     <span
-      className="absolute left-1 top-1/2 -translate-y-1/2 leading-none text-[#005889] dark:text-sky-400 pointer-events-none select-none"
-      title={`Detalhamento preenchido: ${labels.join(', ')}`}
-      aria-label="Detalhamento preenchido">
+      className={`absolute left-1 top-1/2 -translate-y-1/2 leading-none pointer-events-none select-none ${
+        filled ? 'text-[#005889] dark:text-sky-400' : 'text-slate-300 dark:text-slate-700'
+      }`}
+      title={filled ? `Detalhamento preenchido: ${labels.join(', ')}` : 'Sem detalhamento'}
+      aria-label={filled ? 'Detalhamento preenchido' : 'Sem detalhamento'}>
       <FileText size={12} />
     </span>
   )
 }
 
-function ClassicLineRow({ line, itemUid, itemPhase, subNum, onSelectLine, isChecked, onToggleCheck, pkgIsParallel, pkgIsCont, kbEditTick, isLastLine, onEnterFromLastLine, showOntology, showEds, showCsb, bopActiveLineIds, showPkgCol, checkedLines, multiEditLeadId, currentReviewUid, matchRowId, highlightIds, onContextMenu, isDragging, onDragHandleStart, onDragHandleEnd, onRowDragOver, onRowDrop }: {
+function ClassicLineRow({ line, itemUid, itemPhase, subNum, onSelectLine, isChecked, onToggleCheck, pkgIsParallel, pkgIsCont, kbEditTick, isLastLine, onEnterFromLastLine, showOntology, showEds, showCsb, bopActiveLineIds, showPkgCol, checkedLines, multiEditLeadId, currentReviewUid, matchRowId, highlightIds, onContextMenu, isDragging, onDragHandleStart, onDragHandleEnd, onRowDragOver, onRowDrop, treeLeaf }: {
   line: FineTuningLine; itemUid: string; itemPhase: Phase
   subNum: string
   onSelectLine: () => void
   isChecked: boolean; onToggleCheck: () => void
   pkgIsParallel?: boolean
   pkgIsCont?: boolean
+  // Linha renderizada como folha da árvore por ontologia — desloca checkbox/ícones
+  // (não a descrição) para alinhar com o hífen de recolher do nível OW Etapa.
+  treeLeaf?: boolean
   kbEditTick?: number
   isLastLine?: boolean
   onEnterFromLastLine?: () => void
@@ -1185,6 +1190,27 @@ function ClassicLineRow({ line, itemUid, itemPhase, subNum, onSelectLine, isChec
         ? 'bg-amber-50 dark:bg-amber-900/30 hover:bg-amber-50 dark:hover:bg-amber-900/40'
         : 'hover:bg-slate-50/60 dark:hover:bg-slate-800/30'
 
+  const typeIcons = (
+    <div className="inline-flex items-center gap-0.5">
+      <button onClick={e => { e.stopPropagation(); dispatch({ type: 'FT_TOGGLE_LINE_CONTINGENCY', uid: itemUid, lineId: line.id }) }}
+        title={isCont ? 'Contingencial — clique para Firme' : 'Firme — clique para Contingencial'}
+        className={`w-4 h-4 flex items-center justify-center rounded transition-all ${
+          isCont ? 'bg-[#7d1935]/10 dark:bg-rose-900/50 text-[#7d1935] dark:text-rose-400'
+                 : 'text-slate-700 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700'
+        }`}>
+        <span className="text-[10px] font-bold leading-none">C</span>
+      </button>
+      <button onClick={e => { e.stopPropagation(); dispatch({ type: 'FT_TOGGLE_LINE_PARALLEL', uid: itemUid, lineId: line.id }) }}
+        title={line.isParallel ? 'Paralelo — clique para desativar' : 'Principal — clique para paralelo'}
+        className={`w-4 h-4 flex items-center justify-center rounded transition-all ${
+          line.isParallel ? 'bg-slate-200 dark:bg-slate-600 text-slate-600 dark:text-slate-300'
+                          : 'text-slate-700 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700'
+        }`}>
+        <ParallelLinesIcon />
+      </button>
+    </div>
+  )
+
   return (
     <tr data-row-id={line.id}
       onClick={() => onSelectLine()}
@@ -1194,53 +1220,73 @@ function ClassicLineRow({ line, itemUid, itemPhase, subNum, onSelectLine, isChec
       className={`group border-b border-slate-200 dark:border-slate-800 cursor-pointer transition-colors ${isDragging ? 'opacity-40' : ''} ${rowBg} ${matchRowId === line.id || highlightIds?.has(line.id) ? 'outline outline-2 -outline-offset-2 outline-sky-500 dark:outline-sky-400' : ''}`}
       style={!isChecked && !isLinePending && !isEmptyLine ? highlightRowStyle(line.highlight) : undefined}>
       {/* # — spacer (=chevron width) + checkbox + sub-number (grip substitui o nº no hover) */}
-      <td className="py-1 px-1">
+      <td className={`py-1 px-1 ${treeLeaf ? 'relative overflow-visible z-10' : ''}`}>
         <div className="flex items-center gap-1">
-          <div className="shrink-0 w-3.5" />
+          <div className={treeLeaf ? 'shrink-0 w-[53.5px]' : 'shrink-0 w-3.5'} />
+          {/* Na árvore por ontologia, o índice vem antes do checkbox — assim o checkbox
+              da linha fica alinhado verticalmente com o checkbox do nível OW Etapa
+              (que também vem logo após o hífen/índice do cabeçalho). Na visão clássica
+              a ordem permanece checkbox → índice. */}
+          {treeLeaf && (
+            <div className="relative w-5 flex items-center justify-center">
+              <span className={`text-[9px] transition-opacity group-hover:opacity-0 ${isCont ? 'text-[#7d1935]/40 dark:text-rose-400/30' : 'text-slate-200 dark:text-slate-700'}`}>{subNum}</span>
+              <button draggable
+                onDragStart={e => { e.stopPropagation(); onDragHandleStart?.(e) }}
+                onDragEnd={e => { e.stopPropagation(); onDragHandleEnd?.() }}
+                onClick={e => e.stopPropagation()}
+                className="absolute inset-0 flex items-center justify-center cursor-grab active:cursor-grabbing text-slate-400 hover:text-slate-600 dark:text-slate-600 dark:hover:text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity"
+                title="Arrastar para mover">
+                <GripVertical size={9} />
+              </button>
+            </div>
+          )}
           <button onClick={e => { e.stopPropagation(); onToggleCheck() }}
             className={`shrink-0 w-3 h-3 flex items-center justify-center rounded border transition-all focus:outline-none ${
               isChecked ? 'bg-blue-500 border-blue-500 text-white' : 'border-slate-300 dark:border-slate-600 hover:border-blue-400'
             }`}>
             {isChecked && <Check size={6} strokeWidth={3} />}
           </button>
-          <div className="relative w-5 flex items-center justify-center">
-            <span className={`text-[9px] transition-opacity group-hover:opacity-0 ${isCont ? 'text-[#7d1935]/40 dark:text-rose-400/30' : 'text-slate-200 dark:text-slate-700'}`}>{subNum}</span>
-            <button draggable
-              onDragStart={e => { e.stopPropagation(); onDragHandleStart?.(e) }}
-              onDragEnd={e => { e.stopPropagation(); onDragHandleEnd?.() }}
-              onClick={e => e.stopPropagation()}
-              className="absolute inset-0 flex items-center justify-center cursor-grab active:cursor-grabbing text-slate-400 hover:text-slate-600 dark:text-slate-600 dark:hover:text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity"
-              title="Arrastar para mover">
-              <GripVertical size={9} />
-            </button>
-          </div>
+          {!treeLeaf && (
+            <div className="relative w-5 flex items-center justify-center">
+              <span className={`text-[9px] transition-opacity group-hover:opacity-0 ${isCont ? 'text-[#7d1935]/40 dark:text-rose-400/30' : 'text-slate-200 dark:text-slate-700'}`}>{subNum}</span>
+              <button draggable
+                onDragStart={e => { e.stopPropagation(); onDragHandleStart?.(e) }}
+                onDragEnd={e => { e.stopPropagation(); onDragHandleEnd?.() }}
+                onClick={e => e.stopPropagation()}
+                className="absolute inset-0 flex items-center justify-center cursor-grab active:cursor-grabbing text-slate-400 hover:text-slate-600 dark:text-slate-600 dark:hover:text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity"
+                title="Arrastar para mover">
+                <GripVertical size={9} />
+              </button>
+            </div>
+          )}
+          {/* Na árvore por ontologia, os ícones de Tipo (C/paralelo) e o indicador de
+              Detalhamento acompanham o checkbox deslocado — evita que fiquem
+              sobrepostos ao início da Descrição (ver treeLeaf). */}
+          {treeLeaf && typeIcons}
+          {treeLeaf && (() => {
+            const detailLabels = lineDetailLabels(line)
+            const filled = detailLabels.length > 0
+            return (
+              <span className={`shrink-0 w-3 flex items-center justify-center leading-none ${
+                filled ? 'text-[#005889] dark:text-sky-400' : 'text-slate-300 dark:text-slate-700'
+              }`}>
+                <FileText size={12} title={filled ? `Detalhamento preenchido: ${detailLabels.join(', ')}` : 'Sem detalhamento'} />
+              </span>
+            )
+          })()}
         </div>
       </td>
       {showPkgCol && <td className="py-1.5 px-2" />}
       {/* Tipo — contingencial + paralelo (icon toggles) */}
       <td className="py-1.5 px-1 text-center">
-        <div className="inline-flex items-center gap-0.5">
-          <button onClick={e => { e.stopPropagation(); dispatch({ type: 'FT_TOGGLE_LINE_CONTINGENCY', uid: itemUid, lineId: line.id }) }}
-            title={isCont ? 'Contingencial — clique para Firme' : 'Firme — clique para Contingencial'}
-            className={`w-4 h-4 flex items-center justify-center rounded transition-all ${
-              isCont ? 'bg-[#7d1935]/10 dark:bg-rose-900/50 text-[#7d1935] dark:text-rose-400'
-                     : 'text-slate-700 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700'
-            }`}>
-            <span className="text-[10px] font-bold leading-none">C</span>
-          </button>
-          <button onClick={e => { e.stopPropagation(); dispatch({ type: 'FT_TOGGLE_LINE_PARALLEL', uid: itemUid, lineId: line.id }) }}
-            title={line.isParallel ? 'Paralelo — clique para desativar' : 'Principal — clique para paralelo'}
-            className={`w-4 h-4 flex items-center justify-center rounded transition-all ${
-              line.isParallel ? 'bg-slate-200 dark:bg-slate-600 text-slate-600 dark:text-slate-300'
-                              : 'text-slate-700 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700'
-            }`}>
-            <ParallelLinesIcon />
-          </button>
-        </div>
+        {!treeLeaf && typeIcons}
       </td>
-      {/* Descrição — indented relative to package name */}
-      <td className="py-1.5 pl-7 pr-3 relative">
-        <DetailIndicator line={line} />
+      {/* Descrição — indented relative to package name. Na árvore por ontologia,
+          empurrada para a direita para acompanhar o checkbox/ícones deslocados, com o
+          mesmo espaçamento (4px = gap-1) usado entre os ícones — não sobra vão morto
+          mesmo na linha com o indicador de Detalhamento (o caso mais largo). */}
+      <td className={`py-1.5 pr-3 relative ${treeLeaf ? 'pl-[54px]' : 'pl-7'}`}>
+        {!treeLeaf && <DetailIndicator line={line} />}
         <InlineEdit value={line.text} placeholder="Descrição..."
           onCommit={text => dispatch({ type: 'FT_UPDATE_LINE', uid: itemUid, lineId: line.id, text })}
           className={`text-xs leading-snug ${
@@ -1389,9 +1435,7 @@ function ClassicPkgRow({ item, rowNum, isChecked, onToggleCheck, onSelectLine, c
       ? 'bg-blue-100 dark:bg-blue-900/40 hover:bg-blue-100 dark:hover:bg-blue-900/50'
       : isPendingReview
         ? 'bg-amber-50 dark:bg-amber-900/30 hover:bg-amber-50 dark:hover:bg-amber-900/40'
-        : item.isParallel
-          ? 'bg-slate-50/70 dark:bg-slate-800/20 hover:bg-slate-50 dark:hover:bg-slate-800/40'
-          : 'hover:bg-slate-50/60 dark:hover:bg-slate-800/30'
+        : 'bg-[#f0f0f0] dark:bg-slate-800/40 hover:bg-[#e8e8e8] dark:hover:bg-slate-800/60'
 
   return (
     <>
@@ -1799,6 +1843,22 @@ function ClassicSchedulePanel({
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setContextMenu(null) }
     window.addEventListener('keydown', onKey)
     return () => { window.removeEventListener('click', dismiss); window.removeEventListener('keydown', onKey) }
+  }, [contextMenu])
+
+  // Reposiciona o menu de contexto se ele estourar a viewport (abre pra cima/esquerda
+  // em vez de ficar cortado embaixo/à direita da janela).
+  const contextMenuRef = useRef<HTMLDivElement>(null)
+  useLayoutEffect(() => {
+    if (!contextMenu || !contextMenuRef.current) return
+    const el = contextMenuRef.current
+    const rect = el.getBoundingClientRect()
+    const margin = 8
+    let top = contextMenu.y
+    let left = contextMenu.x
+    if (rect.bottom > window.innerHeight - margin) top = Math.max(margin, contextMenu.y - rect.height)
+    if (rect.right > window.innerWidth - margin) left = Math.max(margin, contextMenu.x - rect.width)
+    el.style.top = `${top}px`
+    el.style.left = `${left}px`
   }, [contextMenu])
 
   const prevPkgUid = (uid: string): string | null => {
@@ -2240,10 +2300,39 @@ function ClassicSchedulePanel({
           </colgroup>
           <tbody>
             {groupByOntology ? (() => {
-              let rowNum = 0
+              // Numeração "pacote.linha" igual à visão por pacotes (em vez de um contador
+              // sequencial "solto"), para o índice de cada linha ter o mesmo formato/tamanho.
+              const pkgNumByUid = new Map<string, number>()
+              let pkgCounter = 0
+              for (const it of items) if (!it.isBlank) pkgNumByUid.set(it.uid, ++pkgCounter)
+              // Cor do rótulo da etapa de ontologia segue o padrão das linhas que ela contém:
+              // só some com a cor firme quando NÃO for uniformemente contingência nem
+              // uniformemente paralelo (mistura de tipos, ou só firmes, usam a cor firme).
+              const ontNodeColor = (node: OntNode): string => {
+                if (node.leaves.length === 0) return 'text-[#0c2340] dark:text-blue-400'
+                if (node.leaves.every(({ item, line }) => line.isContingency || item.isContingency)) return CONTING_TEXT
+                if (node.leaves.every(({ item, line }) => line.isParallel || item.isParallel)) return 'text-slate-400 dark:text-slate-500'
+                return 'text-[#0c2340] dark:text-blue-400'
+              }
+              // Seleção rápida: marca/desmarca todas as linhas de um nó da árvore (qualquer
+              // nível — Fase/Atividade/Operação/Etapa) de uma vez.
+              const toggleOntNodeLines = (node: OntNode) => {
+                const ids = node.leaves.map(({ line }) => line.id)
+                const allChecked = ids.length > 0 && ids.every(id => checkedLines.has(id))
+                setCheckedPkgs(new Set())
+                setCheckedLines(prev => {
+                  const s = new Set(prev)
+                  for (const id of ids) allChecked ? s.delete(id) : s.add(id)
+                  return s
+                })
+              }
               const renderOntNode = (node: OntNode, depth: number): React.ReactNode => {
                 const isCollapsed = collapsedSections.has(`ont:${node.key}`)
                 const isLeafLevel = node.children.length === 0
+                const labelColor = ontNodeColor(node)
+                const leafIds = node.leaves.map(({ line }) => line.id)
+                const allNodeChecked = leafIds.length > 0 && leafIds.every(id => checkedLines.has(id))
+                const someNodeChecked = !allNodeChecked && leafIds.some(id => checkedLines.has(id))
                 return (
                   <React.Fragment key={node.key}>
                     <tr onClick={() => toggleOntNode(node.key)} className="cursor-pointer select-none">
@@ -2251,14 +2340,19 @@ function ClassicSchedulePanel({
                         style={{ paddingLeft: `${0.75 + depth * 1.1}rem` }}
                         className={depth === 0
                           ? 'py-2 pr-3 bg-[#ebebeb] dark:bg-slate-800 border-y border-slate-300 dark:border-slate-700'
-                          : 'py-1.5 pr-3 bg-[#f5f5f5] dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-800'}>
+                          : 'py-1.5 pr-3 bg-[#eeeeee] dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-800'}>
                         <span className="flex items-center gap-1.5">
                           <span className={`text-xs leading-none ${depth === 0 ? 'text-slate-600 dark:text-slate-400' : 'text-slate-500 dark:text-slate-500'}`}>
                             {isCollapsed ? '+' : '−'}
                           </span>
-                          <span className={depth === 0
-                            ? 'text-xs uppercase tracking-widest text-slate-700 dark:text-slate-300'
-                            : 'text-xs text-slate-600 dark:text-slate-400'}>
+                          <button onClick={e => { e.stopPropagation(); toggleOntNodeLines(node) }}
+                            title={allNodeChecked ? 'Cancelar seleção deste nível' : 'Selecionar todas as linhas deste nível'}
+                            className={`shrink-0 w-3 h-3 flex items-center justify-center rounded border transition-all ${
+                              allNodeChecked ? 'bg-blue-500 border-blue-500 text-white' : 'border-slate-300 dark:border-slate-600 hover:border-blue-400'
+                            }`}>
+                            {allNodeChecked ? <Check size={6} strokeWidth={3} /> : someNodeChecked ? <Minus size={6} strokeWidth={3} /> : null}
+                          </button>
+                          <span className={`text-xs ${depth === 0 ? 'uppercase tracking-widest' : ''} ${labelColor}`}>
                             {node.label}
                           </span>
                         </span>
@@ -2266,33 +2360,48 @@ function ClassicSchedulePanel({
                     </tr>
                     {!isCollapsed && (isLeafLevel
                       ? node.leaves.map(({ item, line }) => {
-                          rowNum++
                           // Na árvore por ontologia, a fase OW da própria linha prevalece sobre a
                           // fase em que o pacote caiu no motor de cronograma (item.phase).
                           const leafPhase = phaseForOwFase(line.owFase ?? '') ?? item.phase
+                          const pkgNum = pkgNumByUid.get(item.uid) ?? 0
+                          const lineIdx = item.lines.findIndex(l => l.id === line.id) + 1
+                          const isLineDragging = dndDrag?.kind === 'line' && (
+                            dndDrag.lineId === line.id || (checkedLines.has(dndDrag.lineId) && checkedLines.has(line.id))
+                          )
+                          const dropAbove = dndDrop?.kind === 'line' && dndDrop.lineId === line.id && dndDrop.pos === 'above'
+                          const dropBelow = dndDrop?.kind === 'line' && dndDrop.lineId === line.id && dndDrop.pos === 'below'
                           return (
-                            <ClassicLineRow
-                              key={line.id}
-                              line={line} itemUid={item.uid} itemPhase={leafPhase}
-                              subNum={String(rowNum)}
-                              onSelectLine={() => handleSelectLine(item.uid, line.id)}
-                              isChecked={checkedLines.has(line.id)}
-                              onToggleCheck={() => toggleLine(line.id)}
-                              checkedLines={checkedLines}
-                              multiEditLeadId={multiEditLeadId}
-                              pkgIsParallel={item.isParallel}
-                              pkgIsCont={item.isContingency}
-                              onDeleteRequest={() => setDeleteTarget({ kind: 'line', uid: item.uid, lineId: line.id, text: line.text })}
-                              showOntology={showOntology}
-                              showEds={showEds}
-                              showCsb={showCsb}
-                              bopActiveLineIds={bopActiveLineIds}
-                              showPkgCol={showPkgCol}
-                              currentReviewUid={currentReviewLineId}
-                              matchRowId={activeMatchId}
-                              highlightIds={locateLineIds}
-                              onContextMenu={e => setContextMenu({ kind: 'line', uid: item.uid, lineId: line.id, x: e.clientX, y: e.clientY })}
-                            />
+                            <React.Fragment key={line.id}>
+                              {dropAbove && <DropIndicatorRow colSpan={showPkgCol ? 7 : 6} />}
+                              <ClassicLineRow
+                                line={line} itemUid={item.uid} itemPhase={leafPhase}
+                                subNum={`${pkgNum}.${lineIdx}`}
+                                treeLeaf
+                                onSelectLine={() => handleSelectLine(item.uid, line.id)}
+                                isChecked={checkedLines.has(line.id)}
+                                onToggleCheck={() => toggleLine(line.id)}
+                                checkedLines={checkedLines}
+                                multiEditLeadId={multiEditLeadId}
+                                pkgIsParallel={item.isParallel}
+                                pkgIsCont={item.isContingency}
+                                onDeleteRequest={() => setDeleteTarget({ kind: 'line', uid: item.uid, lineId: line.id, text: line.text })}
+                                showOntology={showOntology}
+                                showEds={showEds}
+                                showCsb={showCsb}
+                                bopActiveLineIds={bopActiveLineIds}
+                                showPkgCol={showPkgCol}
+                                currentReviewUid={currentReviewLineId}
+                                matchRowId={activeMatchId}
+                                highlightIds={locateLineIds}
+                                onContextMenu={e => setContextMenu({ kind: 'line', uid: item.uid, lineId: line.id, x: e.clientX, y: e.clientY })}
+                                isDragging={isLineDragging}
+                                onDragHandleStart={e => handleLineDragStart(e, item.uid, line.id)}
+                                onDragHandleEnd={endDnd}
+                                onRowDragOver={e => handleLineDragOver(e, item.uid, line.id)}
+                                onRowDrop={e => handleLineDrop(e, item.uid, line.id)}
+                              />
+                              {dropBelow && <DropIndicatorRow colSpan={showPkgCol ? 7 : 6} />}
+                            </React.Fragment>
                           )
                         })
                       : node.children.map(child => renderOntNode(child, depth + 1))
@@ -2550,7 +2659,8 @@ function ClassicSchedulePanel({
 
         return (
           <div
-            className="fixed z-50 bg-[#f5f5f5] dark:bg-slate-900 rounded-lg shadow-xl border border-slate-200 dark:border-slate-700 py-1 min-w-[200px]"
+            ref={contextMenuRef}
+            className="fixed z-50 bg-[#f5f5f5] dark:bg-slate-900 rounded-lg shadow-xl border border-slate-200 dark:border-slate-700 py-1 min-w-[200px] max-h-[calc(100vh-16px)] overflow-y-auto"
             style={{ left: contextMenu.x, top: contextMenu.y }}
             onClick={e => e.stopPropagation()}>
             {(contextMenu.kind === 'pkg' || contextMenu.lineId) && (

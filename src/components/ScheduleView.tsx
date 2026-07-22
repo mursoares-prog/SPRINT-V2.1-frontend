@@ -56,24 +56,21 @@ export function ScheduleToolbar({ showStats, onToggleStats }: { showStats: boole
         </button>
       </div>
 
-      <div className="flex items-center pl-2 shrink-0">
-        <button
-          onClick={() => {
-            if (overrideActive) setShowDeactivateWarn(true)
-            else dispatch({ type: 'SET_SCHEDULE_OVERRIDE_ACTIVE', active: true })
-          }}
-          title={overrideActive ? 'Desativar edição manual do cronograma' : 'Ativar edição manual do cronograma (reordenar, inserir e excluir pacotes)'}
-          className={`flex items-center gap-1 h-7 px-2.5 text-xs rounded border transition-colors ${overrideActive
-            ? 'border-slate-500 dark:border-slate-400 bg-slate-100 dark:bg-slate-600 text-slate-800 dark:text-slate-100'
-            : 'border-slate-200 dark:border-slate-600 bg-[#fafafa] dark:bg-slate-700 text-slate-500 dark:text-slate-400 hover:bg-slate-100 hover:border-slate-300 dark:hover:bg-slate-600 dark:hover:border-slate-500'}`}>
-          <PencilRuler size={12} /><span className="hidden md:inline">Override</span>
-        </button>
-      </div>
-
       <div className="flex-1" />
 
       {/* Right: remaining controls */}
       <div className="flex items-center gap-1.5 px-3">
+      <button
+        onClick={() => {
+          if (overrideActive) setShowDeactivateWarn(true)
+          else dispatch({ type: 'SET_SCHEDULE_OVERRIDE_ACTIVE', active: true })
+        }}
+        title={overrideActive ? 'Desativar edição manual do cronograma' : 'Ativar edição manual do cronograma (reordenar, inserir e excluir pacotes)'}
+        className={`flex items-center gap-1 h-7 px-2.5 text-xs rounded border transition-colors ${overrideActive
+          ? 'border-slate-500 dark:border-slate-400 bg-slate-100 dark:bg-slate-600 text-slate-800 dark:text-slate-100'
+          : 'border-slate-200 dark:border-slate-600 bg-[#fafafa] dark:bg-slate-700 text-slate-500 dark:text-slate-400 hover:bg-slate-100 hover:border-slate-300 dark:hover:bg-slate-600 dark:hover:border-slate-500'}`}>
+        <PencilRuler size={12} /><span className="hidden md:inline">Override</span>
+      </button>
       <div className="flex gap-1 shrink-0">
         <button onClick={() => showHours && dispatch({ type: 'TOGGLE_HOURS' })}
           className={`flex items-center h-7 px-2 text-xs rounded border transition-colors ${!showHours
@@ -131,7 +128,7 @@ export function ScheduleView({ showStats }: { showStats: boolean }) {
 
   return (
     <div className="flex flex-col h-full">
-      <div className="flex flex-1 min-h-0 gap-3 overflow-hidden p-4 md:p-6">
+      <div className="flex flex-1 min-h-0 gap-3 overflow-x-auto overflow-y-hidden p-4 md:p-6 scrollbar-custom">
         <PackageList items={schedule} showHours={showHours} overrideActive={state.scheduleOverrideActive}
           onDurationChange={(uid, dur) => dispatch({ type: 'UPDATE_ITEM_DURATION', uid, duration: dur })} />
         {showStats && <ScheduleStatsPanel items={schedule} showHours={showHours} />}
@@ -549,10 +546,13 @@ function PackageList({ items, showHours, overrideActive, onDurationChange }: {
     }
   }
   return (
-    <div className="flex-1 min-w-0 rounded-xl border border-slate-300 dark:border-slate-700 overflow-hidden flex flex-col">
-      {/* Único container scrollável com thead sticky — garante alinhamento perfeito */}
-      <div ref={containerRef} className="overflow-y-scroll flex-1 bg-[#f5f5f5] dark:bg-slate-900 scrollbar-custom">
-      <table className="table-fixed w-full text-xs border-separate border-spacing-0">
+    <div className="flex-1 min-w-[640px] rounded-xl border border-slate-300 dark:border-slate-700 overflow-hidden flex flex-col">
+      {/* Único container scrollável com thead sticky — garante alinhamento perfeito.
+          Só rola verticalmente: a rolagem horizontal é da linha externa (Package + Stats,
+          ver overflow-x-auto em ScheduleView), não deste container — evita duas barras
+          de rolagem horizontal sobrepostas. */}
+      <div ref={containerRef} className="overflow-y-auto overflow-x-hidden flex-1 bg-[#f5f5f5] dark:bg-slate-900 scrollbar-custom">
+      <table className="table-fixed w-full min-w-[640px] text-xs border-separate border-spacing-0">
           <colgroup>
             <col style={{ width: '2rem' }} />
             <col style={{ width: '5rem' }} />

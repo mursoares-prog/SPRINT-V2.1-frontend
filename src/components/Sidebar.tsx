@@ -110,7 +110,7 @@ function StepCircle({ num, status, clickable, title, isDark, onClick }: {
       style={isDark ? {
         background:
           status === 'done'   ? '#1a3a5c' :
-          status === 'active' ? '#d97706' : 'transparent',
+          status === 'active' ? '#475569' : 'transparent',
         border: status === 'next' ? '1.5px solid #374151' : 'none',
         cursor: clickable ? 'pointer' : 'default',
       } : {
@@ -126,7 +126,7 @@ function StepCircle({ num, status, clickable, title, isDark, onClick }: {
         ? <Check size={10} strokeWidth={3} style={{ color: isDark ? '#38bdf8' : '#008542' }} />
         : <span className="text-[10px] font-bold select-none"
             style={{ color: isDark
-              ? (status === 'active' ? '#ffffff' : '#374151')
+              ? (status === 'active' ? '#f1f5f9' : '#374151')
               : (status === 'active' ? '#008542' : '#9ca3af') }}>
             {num}
           </span>
@@ -236,20 +236,26 @@ export function Sidebar({ isDark, onToggleDark, onOpenConfig, onOpenPackages, on
               {/* Finalizar Edição — exporta o JSON do projeto */}
               <button
                 onClick={handleExportJson}
-                className="flex items-center gap-1.5 h-7 px-3 rounded text-xs font-semibold whitespace-nowrap transition-colors bg-[#008542] text-white hover:opacity-90 dark:bg-[#1a3a5c] dark:border dark:border-sky-700 dark:text-sky-300 dark:hover:bg-[#1e4570] dark:hover:border-sky-500">
+                className="flex items-center gap-1.5 h-7 px-3 dark:px-2.5 rounded dark:border text-xs dark:font-normal font-semibold whitespace-nowrap transition-colors bg-[#008542] text-white hover:opacity-90 dark:border-slate-600 dark:bg-slate-700 dark:text-white dark:hover:bg-slate-600 dark:hover:border-slate-500">
                 <Download size={12} /> Finalizar Edição
               </button>
             </>
           ) : activeStep === 2 ? (
-            /* Etapa 3 — leva direto ao Detalhamento do cronograma */
+            <>
+            {/* Horizontal connector */}
+            <div className="h-px w-5 mx-1"
+              style={{ background: isDark ? '#1f2937' : '#b0b0b0' }} />
+
+            {/* Etapa 3 — leva direto ao Detalhamento do cronograma */}
             <button
               onClick={() => handleStepClick(3)}
               disabled={!canClick(3)}
               title={`Etapa 3: ${STEP_LABELS[2]}`}
-              className="flex items-center gap-1.5 h-7 px-3 rounded text-xs font-semibold transition-colors bg-[#008542] text-white hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:opacity-40 dark:bg-[#1a3a5c] dark:border dark:border-sky-700 dark:text-sky-300 dark:hover:bg-[#1e4570] dark:hover:border-sky-500">
+              className="flex items-center gap-1.5 h-7 px-3 dark:px-2.5 rounded dark:border text-xs dark:font-normal font-semibold whitespace-nowrap shrink-0 transition-colors bg-[#008542] text-white hover:opacity-90 dark:border-slate-600 dark:bg-slate-700 dark:text-white dark:hover:bg-slate-600 dark:hover:border-slate-500 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:opacity-40 dark:disabled:hover:bg-slate-700 dark:disabled:hover:border-slate-600">
               <Sliders size={12} />
               <span>Etapa 3</span>
             </button>
+            </>
           ) : (
             <StepCircle num={3} status="next" clickable={false}
               title={`Etapa 3: ${STEP_LABELS[2]}`}

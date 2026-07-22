@@ -183,7 +183,7 @@ function WizardPanel() {
         <div className="flex-1 overflow-y-auto p-4 space-y-5 scrollbar-custom">
 
           {/* ── Divisão: Intervenção (pasta) e Sonda ── */}
-          <div className="pl-2 border-l-2 border-slate-300 dark:border-slate-600 space-y-4">
+          <div className="space-y-4">
 
             {/* Tipo de intervenção = pastas de topo do editor de Árvores de Decisão
                 (Abandono Completação Molhada, Completação Seca, Workover, …). */}
@@ -191,10 +191,10 @@ function WizardPanel() {
               {topFolders.length > 0 || hasUngrouped ? (
                 <>
                   {topFolders.map(f => (
-                    <WizOption key={f.id} active={folderId === f.id} onClick={() => handleFolderChange(f.id)}>{f.name}</WizOption>
+                    <WizOption key={f.id} active={folderId === f.id} groupSelected={!!folderId} onClick={() => handleFolderChange(f.id)}>{f.name}</WizOption>
                   ))}
                   {hasUngrouped && (
-                    <WizOption active={folderId === UNGROUPED} onClick={() => handleFolderChange(UNGROUPED)}>Outros</WizOption>
+                    <WizOption active={folderId === UNGROUPED} groupSelected={!!folderId} onClick={() => handleFolderChange(UNGROUPED)}>Outros</WizOption>
                   )}
                 </>
               ) : (
@@ -207,7 +207,7 @@ function WizardPanel() {
             {folderId && needsRig && (
               <WizStep label="Tipo de sonda">
                 {rigTagsForFolder.map(tag => (
-                  <WizOption key={tag} active={rigTag === tag} onClick={() => handleRigChange(tag)}>{tag}</WizOption>
+                  <WizOption key={tag} active={rigTag === tag} groupSelected={!!rigTag} onClick={() => handleRigChange(tag)}>{tag}</WizOption>
                 ))}
               </WizStep>
             )}
@@ -220,11 +220,11 @@ function WizardPanel() {
               {(['fase_1', 'fase_2', 'fase_unica'] as const)
                 .filter(f => phasesForFolder.includes(f))
                 .map(f => (
-                  <WizOption key={f} active={phaseFilter === f} onClick={() => handlePhaseChange(f)}>{PHASE_LABELS[f]}</WizOption>
+                  <WizOption key={f} active={phaseFilter === f} groupSelected={!!phaseFilter} onClick={() => handlePhaseChange(f)}>{PHASE_LABELS[f]}</WizOption>
                 ))}
               {/* Fases fora do trio canônico (definidas livremente no editor) também aparecem. */}
               {phasesForFolder.filter(f => !(['fase_1', 'fase_2', 'fase_unica'] as string[]).includes(f)).map(f => (
-                <WizOption key={f} active={phaseFilter === f} onClick={() => handlePhaseChange(f)}>{f}</WizOption>
+                <WizOption key={f} active={phaseFilter === f} groupSelected={!!phaseFilter} onClick={() => handlePhaseChange(f)}>{f}</WizOption>
               ))}
             </WizStep>
           )}
@@ -232,15 +232,12 @@ function WizardPanel() {
           {customScopes.length > 0 && (
             <WizStep label="Escopo previsto">
               {customScopes.map(cs => (
-                <WizOption key={cs.scopeId} active={scopeId === cs.scopeId} onClick={() => setScopeId(cs.scopeId)}>
+                <WizOption key={cs.scopeId} active={scopeId === cs.scopeId} groupSelected={!!scopeId} onClick={() => setScopeId(cs.scopeId)}>
                   <span className="flex flex-col min-w-0">
                     <span>{cs.label}</span>
-                    {(cs.fase || cs.opTypes?.length) && (
+                    {!!cs.opTypes?.length && (
                       <span className="text-[10px] opacity-60 font-normal mt-0.5">
-                        {[
-                          cs.fase === 'fase_1' ? 'Fase 1' : cs.fase === 'fase_2' ? 'Fase 2' : cs.fase === 'fase_unica' ? 'Fase Única' : null,
-                          cs.opTypes?.join(' / '),
-                        ].filter(Boolean).join(' · ')}
+                        {cs.opTypes.join(' / ')}
                       </span>
                     )}
                   </span>
@@ -257,7 +254,7 @@ function WizardPanel() {
           <button
             onClick={handleGenerate}
             disabled={!canGenerate}
-            className="w-full flex items-center justify-center gap-2 h-9 rounded-lg text-sm transition-colors bg-[#008542] text-white hover:opacity-90 dark:bg-[#1a3a5c] dark:border dark:border-sky-700 dark:text-sky-300 dark:hover:bg-[#1e4570] dark:hover:border-sky-500 disabled:opacity-30 disabled:cursor-not-allowed">
+            className="w-full flex items-center justify-center gap-2 dark:gap-1 h-9 dark:h-7 dark:px-2.5 rounded-lg dark:rounded dark:border text-sm dark:text-xs transition-colors bg-[#008542] text-white hover:opacity-90 dark:border-slate-600 dark:bg-slate-700 dark:text-white dark:hover:bg-slate-600 dark:hover:border-slate-500 disabled:opacity-30 disabled:cursor-not-allowed">
             Gerar Cronograma <ArrowRight size={14} />
           </button>
         </div>
@@ -275,13 +272,13 @@ function WizStep({ label, children }: { label: string; children: React.ReactNode
   )
 }
 
-function WizOption({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
+function WizOption({ active, groupSelected, onClick, children }: { active: boolean; groupSelected?: boolean; onClick: () => void; children: React.ReactNode }) {
   return (
     <button onClick={onClick}
       className={`w-full flex items-center gap-2.5 py-1.5 px-2 rounded-lg text-left text-xs border transition-colors
         ${active
-          ? 'border-slate-500 dark:border-slate-400 bg-slate-100 dark:bg-slate-600 text-slate-800 dark:text-slate-100'
-          : 'border-slate-200 dark:border-slate-600 bg-[#fafafa] dark:bg-slate-700 text-slate-500 dark:text-slate-400 hover:bg-slate-100 hover:border-slate-300 dark:hover:bg-slate-600 dark:hover:border-slate-500'}`}>
+          ? `border-slate-500 dark:border-slate-400 bg-slate-100 dark:bg-slate-600 text-slate-800 dark:text-white`
+          : `border-slate-200 dark:border-slate-600 bg-[#fafafa] dark:bg-slate-700 text-slate-500 ${groupSelected ? 'dark:text-slate-400' : 'dark:text-white'} hover:bg-slate-100 hover:border-slate-300 dark:hover:bg-slate-600 dark:hover:border-slate-500`}`}>
       <span className={`shrink-0 w-3 h-3 rounded-full border-2 flex items-center justify-center
         ${active ? 'border-slate-800 dark:border-slate-100' : 'border-slate-400 dark:border-slate-600'}`}>
         {active && <span className="w-1.5 h-1.5 rounded-full bg-slate-800 dark:bg-slate-100" />}
@@ -387,7 +384,7 @@ function Main() {
               </button>
               <button
                 onClick={() => { const t = navWarnTarget; setNavWarnTarget(null); setNavWarnFrom(null); dispatch({ type: 'SET_VIEW', view: t }) }}
-                className="flex items-center h-8 px-4 rounded-lg text-sm font-semibold transition-colors bg-[#008542] text-white hover:opacity-90 dark:bg-[#1a3a5c] dark:border dark:border-sky-700 dark:text-sky-300 dark:hover:bg-[#1e4570] dark:hover:border-sky-500">
+                className="flex items-center h-8 px-4 dark:px-2.5 rounded-lg dark:rounded dark:border text-sm dark:text-xs dark:font-normal font-semibold transition-colors bg-[#008542] text-white hover:opacity-90 dark:border-slate-600 dark:bg-slate-700 dark:text-white dark:hover:bg-slate-600 dark:hover:border-slate-500">
                 Retornar mesmo assim
               </button>
             </div>
