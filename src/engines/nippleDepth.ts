@@ -1,4 +1,5 @@
 import type { ProjectData } from '../types'
+import { DIAM_ESTAMPADOR_FIELD, DIAM_LOCALIZADOR_FIELD } from './placeholders'
 
 // ── Auto-preenchimento de profundidade dos BHAs a partir dos nipples ──────────
 // O nome do pacote referencia o nipple-alvo, por tamanho ("...em nipple R 2,75\"",
@@ -82,15 +83,17 @@ export function camisaoDhsvFields(
 // conhecidos; combos fora da tabela ⇒ campos manuais. profFinal = profundidade do nipple
 // de MENOR diâmetro entre os dois. null ⇒ não é gabaritagem / nada a derivar.
 export function gabaritoFields(
-  item: { packageName: string },
+  item: { packageId: string; packageName: string },
   d: ProjectData,
 ): { diamLocalizador?: string; diamEstampador?: string; profFinal?: string } | null {
   if (!/gabarit/i.test(item.packageName)) return null
+  const estKey = DIAM_ESTAMPADOR_FIELD[item.packageId]
+  const locKey = DIAM_LOCALIZADOR_FIELD[item.packageId]
   const sizeOf = (t?: string) => { const m = (t ?? '').match(/(\d+,\d+)/); return m ? m[1] : null }
   const out: { diamLocalizador?: string; diamEstampador?: string; profFinal?: string } = {}
   // Localizador + estampador: lookup pela combinação {TSR, Cauda prod.}.
   const s1 = sizeOf(d.nipple275), s2 = sizeOf(d.nipplesOutros)
-  if (s1 && s2) {
+  if (s1 && s2 && estKey && locKey) {
     const set = new Set([s1, s2])
     const COMBOS: Array<{ nips: [string, string]; loc: string; est: string }> = [
       { nips: ['2,75', '2,81'], loc: '2,81', est: '2,50' },

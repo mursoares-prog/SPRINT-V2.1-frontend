@@ -1,3 +1,5 @@
+import type { PlaceholderFieldDef } from '../utils/api'
+
 // eslint-disable-next-line @typescript-eslint/no-redundant-type-constituents
 export type RigType = 'ANC' | 'DP' | 'PA' | 'SPH' | 'SM' | 'SPM' | 'Rigless' | (string & {})
 export type OperationType = 'Generalista' | 'LWO'
@@ -237,13 +239,41 @@ export interface BhaPlanFields {
   tfaMin?: string         // TFA mínimo (pol²) — tubing puncher
   // Arame
   modelo?: string         // modelo do aplicador/pescador (instalação/retirada)
-  // Flexitubo - gabaritagem com motor/broca
-  motorFundo?: string     // diâmetro do motor de fundo
-  broca?: string          // diâmetro da broca
-  modeloBroca?: string    // modelo da broca
-  // Gabaritagem
-  diamEstampador?: string   // não-FT e FT sem motor/broca
-  diamLocalizador?: string  // não-FT
+  // Flexitubo - gabaritagem com motor/broca — campo dedicado por pacote (ver
+  // MOTOR_FUNDO_FIELD/BROCA_FIELD/MODELO_BROCA_FIELD em engines/placeholders.ts)
+  motorFundo081?: string
+  motorFundo082?: string
+  motorFundo083?: string
+  motorFundo084?: string
+  motorFundo124?: string
+  motorFundo232?: string
+  broca081?: string
+  broca082?: string
+  broca083?: string
+  broca084?: string
+  broca124?: string
+  broca232?: string
+  modeloBroca081?: string
+  modeloBroca082?: string
+  modeloBroca083?: string
+  modeloBroca084?: string
+  modeloBroca124?: string
+  // Gabaritagem — um campo dedicado por pacote (operações distintas, ver
+  // DIAM_ESTAMPADOR_FIELD/DIAM_LOCALIZADOR_FIELD em engines/placeholders.ts)
+  diamEstampador036?: string  // ABAN 036 — Arame - Gabaritagem
+  diamEstampador037?: string  // ABAN 037 — Arame - Instalação de camisão
+  diamEstampador058?: string  // ABAN 058 — Arame - Abertura de sliding sleeve
+  diamEstampador059?: string  // ABAN 059 — Arame - Fechamento de sliding sleeve
+  diamEstampador060?: string  // ABAN 060 — Arame - Estampagem
+  diamEstampador079?: string  // ABAN 079 — Bombeio direto - eCSB
+  diamEstampador098?: string  // ABAN 098 — Perfilagem/Cabo elétrico - Gabaritagem
+  diamEstampador146?: string  // ABAN 146 — Flexitubo - Estampagem
+  diamEstampador194?: string  // ABAN 194 — Coluna de trabalho - Estampagem
+  diamLocalizador036?: string  // ABAN 036
+  diamLocalizador037?: string  // ABAN 037
+  diamLocalizador058?: string  // ABAN 058
+  diamLocalizador059?: string  // ABAN 059
+  diamLocalizador079?: string  // ABAN 079
   tipoLocalizador?: string  // não-FT
   driftRing?: string        // FT
   profFinal?: string        // gabaritagem com arame
@@ -266,14 +296,29 @@ export interface BhaPlanFields {
   cortadorModelo?: string
   // Stroker (electric)
   strokerAncoragem?: string
-  // Avaliação de cimentação
-  intervaloInteresseTopo?: string
-  intervaloInteresseBase?: string
+  // Avaliação de cimentação — campo dedicado por pacote (ver INTERVALO_INTERESSE_TOPO_FIELD/
+  // INTERVALO_INTERESSE_BASE_FIELD em engines/placeholders.ts)
+  intervaloInteresseTopo081?: string
+  intervaloInteresseTopo082?: string
+  intervaloInteresseTopo083?: string
+  intervaloInteresseTopo084?: string
+  intervaloInteresseTopo105?: string
+  intervaloInteresseTopo231?: string
+  intervaloInteresseBase081?: string
+  intervaloInteresseBase082?: string
+  intervaloInteresseBase083?: string
+  intervaloInteresseBase084?: string
+  intervaloInteresseBase105?: string
+  intervaloInteresseBase231?: string
   // Instalação BPR/BPP com FT
   bpProf?: string
   bpDiam?: string
-  // Cimentação interior COP com FT (em duas etapas)
-  ogivaDiam?: string
+  // Cimentação interior COP com FT (em duas etapas) — campo dedicado por pacote
+  ogivaDiam081?: string
+  ogivaDiam082?: string
+  ogivaDiam083?: string
+  ogivaDiam084?: string
+  ogivaDiam157?: string
   // Cimentação com CR
   crProf?: string
   // VGL
@@ -324,7 +369,8 @@ export interface ProjectData {
   // Cimentação
   cimentTopoAnularA: string
   cimentTopoInteriorColuna: string
-  cimentTopoRevcim: string          // TOC verificado no REVCIM (m) — ABAN 247,248
+  cimentTopoRevcim247: string        // TOC verificado no REVCIM (m)
+  cimentTopoRevcim248: string
   cimentProfPerfuracao: string      // TT: profundidade da perfuração da coluna
   cimentProfBaseCimentacao: string  // TT: profundidade da base da cimentação
   cimentCrProfundidade: string      // TT com CR: profundidade de assentamento
@@ -335,8 +381,6 @@ export interface ProjectData {
   hpCsbPrimario: boolean; hpCsbSecundario: boolean
   holdPoints: string[]
   // Outros
-  outrosTrtWeightTcap: string
-  outrosTrtWeightAnm: string
   outrosMegConc: string
   outrosCoolingFlow: string
   outrosPcabN2Psi: string
@@ -356,7 +400,9 @@ export interface ProjectData {
   pressaoEquipSupBop: string     // ABAN 184 — equipamentos de superfície (choke/standpipe manifold, TIWs, IBOPs)
   pressaoProva: string           // fallback genérico — "com XXX psi" (estanqueidade pós-instalação)
   pressaoEstStvR: string         // Estanqueidade pós-instalação — STV nipple R 2,75"
-  pressaoEstStvRHp?: boolean     // É Hold Point? — STV nipple R
+  pressaoEstStvRHp?: boolean     // É Hold Point? — STV nipple R 2,75"
+  pressaoEstStvF: string         // Estanqueidade pós-instalação — STV nipple F 2,81"
+  pressaoEstStvFHp?: boolean     // É Hold Point? — STV nipple F 2,81"
   pressaoEstPlugR: string        // Estanqueidade pós-instalação — Plug nipple R 2,75"
   pressaoEstPlugRHp?: boolean    // É Hold Point? — Plug nipple R
   pressaoEstPlugF: string        // Estanqueidade pós-instalação — Plug nipple F 2,81"
@@ -368,21 +414,31 @@ export interface ProjectData {
   pressaoEstTmfProd: string      // Estanqueidade pós-instalação — Plug TMF (bore de produção)
   pressaoEstTmfAnul: string      // Estanqueidade pós-instalação — Plug TMF (bore de anular)
   revcimHp?: boolean             // É Hold Point REVCIM? — avaliação de cimentação e checagem de topo
+  revcimHp105?: boolean          // É Hold Point REVCIM? — avaliação de cimentação Through Tubing (ABAN 105), separado do flag acima
 
   // Fluidos operacionais
   bullheadVolume: string         // ABAN 030,062 — volume diesel/MEG bullheading
   bullheadDepth: string          // ABAN 030 — profundidade relativa à DHSV
   amortFcbaDensidade: string     // ABAN 061-063 — densidade FCBA/MEG amortecimento
-  // Cimentação operacional
-  cimentAlinhamento: string      // ABAN 078-084 — via xxx > xxx > xxx
-  cimentPlugVol: string          // ABAN 078,079 — volume tampão (bbl)
-  cimentPlugDens: string         // ABAN 078,079 — densidade tampão (lb/gal)
-  cimentFcbaDens: string         // ABAN 078,079 — densidade deslocamento FCBA (lb/gal)
+  // Cimentação operacional — campo dedicado por pacote (operações distintas, ver
+  // CIMENT_ALINHAMENTO_FIELD/CIMENT_PLUG_VOL_FIELD/... em engines/placeholders.ts)
+  cimentAlinhamento078: string    // via xxx > xxx > xxx
+  cimentAlinhamento083: string
+  cimentAlinhamento084: string
+  cimentPlugVol078: string        // volume tampão (bbl)
+  cimentPlugVol079: string
+  cimentPlugDens078: string       // densidade tampão (lb/gal)
+  cimentPlugDens079: string
+  cimentFcbaDens078: string       // densidade deslocamento FCBA (lb/gal)
+  cimentFcbaDens079: string
   // Em implementação — campos novos (sem seção semântica final ainda)
   colunaTrabalhoDpDiam: string   // Ø da coluna de trabalho DP (COT DP) — ABAN 182-202 (Fase 2/retirada)
   volBombeioDescidaFt: string    // volume de bombeio na descida com FT (bbl a cada 500 m) — ABAN 124-135
-  crDiam: string                 // Ø do CR / Cement Retainer (FT) — ABAN 155,156,158
-  packerFtDiam: string           // Ø do Packer FT (inflável/multiset) — ABAN 159,164
+  crDiam155: string               // Ø do CR / Cement Retainer (FT)
+  crDiam156: string
+  crDiam158: string
+  packerFtDiam159: string        // Ø do Packer inflável — ABAN 159
+  packerFtDiam164: string        // Ø do Packer Multi-set — ABAN 164
   marteleteModelo: string        // modelo da ponteira do martelete FT — ABAN 143
   marteletePonteiraDiam: string  // Ø da ponteira do martelete FT (") — ABAN 143
   bismutoEur: string             // Tampão de bismuto — EUR (extensão útil real, m) — ABAN 238
@@ -393,7 +449,8 @@ export interface ProjectData {
   pressaoCabecaLimite: string    // limite de pressão de cabeça no bullheading (psi) — ABAN 061,062
   gabaritoNippleDiam: string     // Ø do nipple na gabaritagem (") — ABAN 079
   tampaoTipo: string             // tipo de tampão (plug/TAE/bismuto) — ABAN 079
-  cimentAnularAcimaTampao: string // topo do cimento em anular acima do tampão (m) — ABAN 082,084
+  cimentAnularAcimaTampao082: string // topo do cimento em anular acima do tampão (m)
+  cimentAnularAcimaTampao084: string
   canhaoModelo: string           // modelo do canhão — ABAN 102
   plugFtDiam: string             // Ø do plug FT no TH (") — ABAN 129
   plugFtAplicador: string        // aplicador do plug FT — ABAN 129
@@ -401,9 +458,12 @@ export interface ProjectData {
   overpullKlbf: string           // overpull de retirada COP/COI (klbf) — ABAN 186
   copCoiTubo: string             // Ø/identificação do tubo COP/COI na retirada — ABAN 188,189,190
   revestimentoDiam: string       // Ø do revestimento na manobra (") — ABAN 196
-  tampaoAbandonoDens: string     // tampão de abandono — densidade da pasta (ppg) — ABAN 199,200
-  tampaoAbandonoTopo: string     // tampão de abandono — topo previsto (m) — ABAN 199,200
-  tampaoAbandonoCompr: string    // tampão de abandono — comprimento (m) — ABAN 199,200
+  tampaoAbandonoDens199: string   // tampão de abandono — densidade da pasta (ppg)
+  tampaoAbandonoDens200: string
+  tampaoAbandonoTopo199: string   // tampão de abandono — topo previsto (m)
+  tampaoAbandonoTopo200: string
+  tampaoAbandonoCompr199: string  // tampão de abandono — comprimento (m)
+  tampaoAbandonoCompr200: string
   ecsbFluidoDens: string         // fluido eCSB a mar aberto — densidade (ppg) — ABAN 200
   condicIntervaloTopo: string    // condicionamento — topo do intervalo (m) — ABAN 233
   condicIntervaloBase: string    // condicionamento — base do intervalo (m) — ABAN 233
@@ -480,6 +540,10 @@ export interface AppState {
   role: 'admin' | 'projetista'
   /** id do projeto no servidor (presente quando carregado/salvo via API). */
   projectId?: string
+  /** Snapshot da config de placeholders (aba Place Holders) congelado na criação do
+   *  projeto — fonte da estrutura do assistente da Etapa 3 para este projeto. Ausente
+   *  em projetos antigos → o assistente cai no fallback da config live do servidor. */
+  placeholderDefs?: PlaceholderFieldDef[]
   showHours: boolean
   pendingReview: string[]
   /** Estado pré-aplicação (projectData + linhas) para cancelar a revisão ("Sair"). */

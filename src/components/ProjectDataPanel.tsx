@@ -1,10 +1,21 @@
-import React, { useState, useEffect, useRef, createContext, useContext } from 'react'
-import { X, Crosshair, PanelLeftClose, Search } from 'lucide-react'
+import React, { useState, useEffect, useRef, useMemo, createContext, useContext } from 'react'
+import { X, Crosshair, PanelLeftClose, Search, PocketKnife } from 'lucide-react'
 import { useApp, lineIdsForLocate, SLWLFT_HIGH_PKG_IDS, type LocateTarget } from '../context/AppContext'
 import type { ProjectData, BhaPlanFields } from '../types'
 import { PACKAGES } from '../data/packages'
 import { bhaDerivedDepth, camisaoDhsvFields, gabaritoFields } from '../engines/nippleDepth'
+import {
+  DIAM_ESTAMPADOR_FIELD, DIAM_LOCALIZADOR_FIELD, MOTOR_FUNDO_FIELD, BROCA_FIELD, MODELO_BROCA_FIELD,
+  OGIVA_DIAM_FIELD, INTERVALO_INTERESSE_TOPO_FIELD, INTERVALO_INTERESSE_BASE_FIELD,
+  CIMENT_ALINHAMENTO_FIELD, CIMENT_PLUG_VOL_FIELD, CIMENT_PLUG_DENS_FIELD, CIMENT_FCBA_DENS_FIELD,
+  CR_DIAM_FIELD, CIMENT_ANULAR_ACIMA_TAMPAO_FIELD, CIMENT_TOPO_REVCIM_FIELD,
+  TAMPAO_ABANDONO_DENS_FIELD, TAMPAO_ABANDONO_TOPO_FIELD, TAMPAO_ABANDONO_COMPR_FIELD,
+} from '../engines/placeholders'
+import { tokenBinding, tokenUsedByPackages } from '../engines/assistantFields'
+import { resolvePlaceholderDefs } from '../data/placeholderDefsStore'
+import type { PlaceholderFieldDef } from '../utils/api'
 import { ComboInput } from './ComboInput'
+import { WirelineToolsPanel } from './WirelineToolsPanel'
 
 // ── Filtro de seções ──────────────────────────────────────────────────────────
 const SectionFilterCtx = createContext('')
@@ -29,7 +40,20 @@ const LocateCtx = createContext<{
   onLocate?: (t: LocateTarget) => void
   onClear?: () => void
   active: LocateTarget | null
+  // Só mostra a mira quando o alvo realmente localiza ≥1 linha do projeto (evita miras
+  // "mortas"). Usa a mesma fonte da verdade do clique (lineIdsForLocate) — ver
+  // ProjectDataPanel (canLocate). Ausente ⇒ comporta-se como sempre-localizável.
+  canLocate?: (t: LocateTarget) => boolean
 } | null>(null)
+
+/** Mostra a mira? Precisa de onLocate + alvo + (quando há canLocate) que o alvo localize algo. */
+function showLocateFor(
+  ctx: { onLocate?: (t: LocateTarget) => void; canLocate?: (t: LocateTarget) => boolean } | null,
+  target: LocateTarget | undefined,
+): boolean {
+  if (!ctx?.onLocate || !target) return false
+  return ctx.canLocate ? ctx.canLocate(target) : true
+}
 
 const locateEq = (a: LocateTarget | null, b: LocateTarget | null): boolean => {
   if (!a || !b || a.kind !== b.kind) return false
@@ -53,7 +77,7 @@ function Field({ label, value, onChange, placeholder, unit, readOnly, locate }: 
 }) {
   const ctx = useContext(LocateCtx)
   const filter = useContext(SectionFilterCtx)
-  const showLocate = !!(ctx?.onLocate && locate)
+  const showLocate = showLocateFor(ctx, locate)
   const active = showLocate && locateEq(ctx!.active, locate!)
   const highlighted = !!(filter && normalizeFilter(label).includes(normalizeFilter(filter)))
   return (
@@ -87,12 +111,93 @@ function Field({ label, value, onChange, placeholder, unit, readOnly, locate }: 
 }
 
 
+// Campo do assistente renderizado 100% a partir de um PlaceholderFieldDef do servidor
+// (aba Place Holders). O widget vem de `fieldType`; rótulo/unidade/opções vêm do def.
+// Usado pelo renderer orientado a dados das seções de campos GLOBAIS (ProjectData).
+function AssistantField({ def, value, onChange }: {
+  def: PlaceholderFieldDef; value: string; onChange: (v: string) => void
+}) {
+  const locate: LocateTarget = { kind: 'data', field: def.token as keyof ProjectData }
+  if (def.fieldType === 'boolean') {
+    return <BooleanField label={def.label} value={value} onChange={onChange} locate={locate} />
+  }
+  if (def.fieldType === 'picklist') {
+    return <PicklistField label={def.label} value={value} options={def.options} onChange={onChange} locate={locate} />
+  }
+  // text | number | unit → mesmo input de texto; a unidade (se houver) é exibida ao lado.
+  return <Field label={def.label} value={value} onChange={onChange} unit={def.unit ?? undefined} locate={locate} />
+}
+
+// Picklist do assistente (combobox: sugere as opções mas aceita texto livre), estilo
+// alinhado ao <Field>. Usado por AssistantField quando fieldType === 'picklist'.
+function PicklistField({ label, value, options, onChange, locate }: {
+  label: string; value: string; options: string[]; onChange: (v: string) => void; locate?: LocateTarget
+}) {
+  const ctx = useContext(LocateCtx)
+  const filter = useContext(SectionFilterCtx)
+  const showLocate = showLocateFor(ctx, locate)
+  const active = showLocate && locateEq(ctx!.active, locate!)
+  const highlighted = !!(filter && normalizeFilter(label).includes(normalizeFilter(filter)))
+  const listId = `ph-opts-${label.replace(/\W+/g, '-')}`
+  return (
+    <div className={`flex items-start justify-between gap-2 py-1 border-b border-slate-200 dark:border-slate-800 last:border-0 rounded ${highlighted ? 'bg-sky-50 dark:bg-sky-900/30' : ''}`}>
+      <span className={`text-xs leading-snug flex items-center gap-1 min-w-0 flex-1 ${highlighted ? 'text-sky-800 dark:text-sky-300 font-semibold' : 'text-slate-600 dark:text-slate-500'}`}>
+        {showLocate && (
+          <button type="button" onClick={() => ctx!.onLocate!(locate!)}
+            title="Localizar linhas relacionadas no cronograma (Esc limpa)"
+            className={`shrink-0 self-stretch flex items-center transition-colors ${active ? 'text-sky-500 dark:text-sky-400' : 'text-slate-400 dark:text-slate-600 hover:text-sky-500 dark:hover:text-sky-400'}`}>
+            <Crosshair size={11} />
+          </button>
+        )}
+        <span className="min-w-0 break-words">{label}</span>
+      </span>
+      <div className="flex items-center shrink-0 w-[92px] justify-end">
+        <input type="text" value={value} placeholder="—" list={listId}
+          onChange={e => onChange(e.target.value)} onFocus={() => ctx?.onClear?.()}
+          className="w-full min-w-0 text-xs font-semibold text-slate-700 dark:text-slate-200 bg-transparent outline-none placeholder:text-slate-500 dark:placeholder:text-slate-600 leading-snug text-right" />
+        <datalist id={listId}>{options.map(o => <option key={o} value={o} />)}</datalist>
+      </div>
+    </div>
+  )
+}
+
+// Booleano do assistente (radio Sim/Não), estilo alinhado aos toggles de Hold Point.
+// Guarda 'sim'/'nao' como string (compatível com o binding genérico de ProjectData).
+function BooleanField({ label, value, onChange, locate }: {
+  label: string; value: string; onChange: (v: string) => void; locate?: LocateTarget
+}) {
+  const ctx = useContext(LocateCtx)
+  const showLocate = showLocateFor(ctx, locate)
+  const active = showLocate && locateEq(ctx!.active, locate!)
+  return (
+    <div className="flex items-center gap-2 py-0.5">
+      <span className="text-xs text-slate-700 dark:text-slate-400 shrink-0 flex-1 flex items-center gap-1">
+        {showLocate && (
+          <button type="button" onClick={() => ctx!.onLocate!(locate!)}
+            title="Localizar linhas relacionadas no cronograma (Esc limpa)"
+            className={`shrink-0 transition-colors ${active ? 'text-sky-500 dark:text-sky-400' : 'text-slate-400 dark:text-slate-600 hover:text-sky-500 dark:hover:text-sky-400'}`}>
+            <Crosshair size={11} />
+          </button>
+        )}
+        {label}
+      </span>
+      {(['sim', 'nao'] as const).map(opt => (
+        <label key={opt} className="flex items-center gap-1 cursor-pointer select-none">
+          <input type="radio" checked={value === opt}
+            onChange={() => onChange(value === opt ? '' : opt)} className="accent-[#0c2340]" />
+          <span className="text-xs text-slate-600 dark:text-slate-400">{opt === 'sim' ? 'Sim' : 'Não'}</span>
+        </label>
+      ))}
+    </div>
+  )
+}
+
 // Linha informacional com botão de localização — para itens da seção Hold Points
 // que não têm um campo numérico próprio (ex.: REVCIM, ECS/BOP).
 function LocateRow({ children, target }: { children: React.ReactNode; target?: LocateTarget }) {
   const ctx = useContext(LocateCtx)
   const filter = useContext(SectionFilterCtx)
-  const showLocate = !!(ctx?.onLocate && target)
+  const showLocate = showLocateFor(ctx, target)
   const active = showLocate && locateEq(ctx!.active, target!)
   const text = typeof children === 'string' ? children : ''
   const highlighted = !!(filter && text && normalizeFilter(text).includes(normalizeFilter(filter)))
@@ -206,7 +311,7 @@ function NippleRow({ label, name, depth, onName, onDepth, namePlaceholder, optio
   const inputCls = 'min-w-0 text-xs text-slate-700 dark:text-slate-200 bg-[#fafafa] dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded px-1.5 py-0.5 outline-none focus:border-sky-400 dark:focus:border-sky-600 placeholder:text-slate-400 dark:placeholder:text-slate-600 transition-colors'
   const na = name.trim().toLowerCase() === 'não aplicável'
   const ctx = useContext(LocateCtx)
-  const showLocate = !!(ctx?.onLocate && locate)
+  const showLocate = showLocateFor(ctx, locate)
   const active = showLocate && locateEq(ctx!.active, locate!)
   return (
     <div className="flex items-center gap-1.5 py-1 border-b border-slate-200 dark:border-slate-800 last:border-0">
@@ -349,19 +454,22 @@ const SECTION_FIELDS: Record<string, (keyof ProjectData)[]> = {
                'pressaoProva'],
   bha_wireline:   ['bhaPlans',
                // Estanqueidade pós-instalação — STV/Plug (wireline): valor + flag de Hold Point
-               'pressaoEstStvR','pressaoEstStvRHp','pressaoEstPlugR','pressaoEstPlugRHp',
+               'pressaoEstStvR','pressaoEstStvRHp','pressaoEstStvF','pressaoEstStvFHp','pressaoEstPlugR','pressaoEstPlugRHp',
                'pressaoEstPlugF','pressaoEstPlugFHp','pressaoEstPlugTH','pressaoEstPlugTHHp',
                // Pcab N₂ teste de influxo (wireline): valor + flag de Hold Point
                'outrosPcabN2Psi','outrosPcabN2PsiHp',
-               'gabaritoNippleDiam','tampaoTipo','profRegistroPressao','numEstacoesRp',
-               'bismutoEur','bismutoOverpull'],
+               'gabaritoNippleDiam','tampaoTipo','profRegistroPressao','numEstacoesRp'],
   bha_electric:   ['bhaPlans','taeTuboDiam',
                // Estanqueidade pós-instalação — TAE (elétrico): valor + flag de Hold Point
                'pressaoEstTae','pressaoEstTaeHp','canhaoModelo',
                // Hold Point REVCIM: governa prefixo {{_hpRevcim=}} nas linhas de avaliação de cimentação
-               'revcimHp'],
+               'revcimHp',
+               // Hold Point REVCIM próprio do ABAN 105 (Through Tubing) — separado do flag acima
+               'revcimHp105',
+               // Tampão de bismuto (ABAN 238 — Perfilagem/Cabo elétrico)
+               'bismutoEur','bismutoOverpull'],
   bha_ct:         ['bhaPlans','volBombeioDescidaFt',
-               'packerFtDiam','plugFtDiam','plugFtAplicador','ferramentaBoDuplaDiam','ferramentaBhaFt',
+               'packerFtDiam159','packerFtDiam164','plugFtDiam','plugFtAplicador','ferramentaBoDuplaDiam','ferramentaBhaFt',
                'marteleteModelo','marteletePonteiraDiam'],
   bha_workstring: ['bhaPlans',
                'colunaTrabalhoDpDiam','adaptadorMc','overpullKlbf','revestimentoDiam',
@@ -369,10 +477,15 @@ const SECTION_FIELDS: Record<string, (keyof ProjectData)[]> = {
   retirada_coluna: ['copCoiTubo'],
   cimentacao: ['cimentTopoAnularA','cimentTopoInteriorColuna','cimentProfPerfuracao',
                'cimentProfBaseCimentacao','cimentCrProfundidade','cimentPlugs','cimentPwc',
-               'cimentAlinhamento','cimentPlugVol','cimentPlugDens','cimentFcbaDens',
-               'crDiam','cimentAnularAcimaTampao','tampaoAbandonoDens','tampaoAbandonoTopo','tampaoAbandonoCompr','ecsbFluidoDens',
-               'cimentTopoRevcim','bhaPlans'],
-  equipamentos_submarinos: ['outrosTrtWeightTcap','outrosTrtWeightAnm',
+               'cimentAlinhamento078','cimentAlinhamento083','cimentAlinhamento084',
+               'cimentPlugVol078','cimentPlugVol079','cimentPlugDens078','cimentPlugDens079',
+               'cimentFcbaDens078','cimentFcbaDens079',
+               'crDiam155','crDiam156','crDiam158',
+               'cimentAnularAcimaTampao082','cimentAnularAcimaTampao084',
+               'tampaoAbandonoDens199','tampaoAbandonoDens200','tampaoAbandonoTopo199','tampaoAbandonoTopo200',
+               'tampaoAbandonoCompr199','tampaoAbandonoCompr200','ecsbFluidoDens',
+               'cimentTopoRevcim247','cimentTopoRevcim248','bhaPlans'],
+  equipamentos_submarinos: [
                // Movidos da seção Pressões (testes de interface / ANM)
                'pressaoBoreTest','pressaoTmfAnulAnm','outrosDrainB2Psi','pressaoN2Trt',
                // Movido da seção Pressões (LC DHSV)
@@ -419,8 +532,6 @@ const FIELD_IMPACT: Partial<Record<keyof ProjectData, FieldImpact>> = {
   testeInfluxo: { cats: ['Testes ANM','BOP'] },
 
   // Outros — direct line-text substitution per package
-  outrosTrtWeightTcap: { packageIds: ['ABAN 018'] },
-  outrosTrtWeightAnm:  { packageIds: ['ABAN 023'] },
   outrosMegConc:       { packageIds: ['ABAN 216', 'ABAN 217'] },
   outrosCoolingFlow:   { packageIds: ['ABAN 223', 'ABAN 224'] },
   outrosPcabN2Psi:     { packageIds: ['ABAN 220', 'ABAN 221'] },
@@ -448,6 +559,8 @@ const FIELD_IMPACT: Partial<Record<keyof ProjectData, FieldImpact>> = {
   pressaoProva:       { techs: ['wireline','electric','ct'] },
   pressaoEstStvR:     { packageIds: ['ABAN 038'] },
   pressaoEstStvRHp:   { packageIds: ['ABAN 038'] },
+  pressaoEstStvF:     { packageIds: ['ABAN 039'] },
+  pressaoEstStvFHp:   { packageIds: ['ABAN 039'] },
   pressaoEstPlugR:    { packageIds: ['ABAN 040'] },
   pressaoEstPlugRHp:  { packageIds: ['ABAN 040'] },
   pressaoEstPlugF:    { packageIds: ['ABAN 041'] },
@@ -457,19 +570,28 @@ const FIELD_IMPACT: Partial<Record<keyof ProjectData, FieldImpact>> = {
   pressaoEstPlugTH:   { packageIds: ['ABAN 042'] },
   pressaoEstPlugTHHp: { packageIds: ['ABAN 042'] },
   outrosPcabN2PsiHp:  { packageIds: ['ABAN 220','ABAN 221'] },
-  revcimHp:           { packageIds: ['ABAN 081','ABAN 082','ABAN 083','ABAN 084','ABAN 105','ABAN 106','ABAN 107','ABAN 149','ABAN 231','ABAN 232','ABAN 234'] },
+  revcimHp:           { packageIds: ['ABAN 081','ABAN 082','ABAN 083','ABAN 084','ABAN 106','ABAN 107','ABAN 149','ABAN 231','ABAN 232','ABAN 234'] },
+  revcimHp105:        { packageIds: ['ABAN 105'] },
 
   // Cimentação operacional
-  cimentAlinhamento:  { cats: ['Cimentação'] },
-  cimentPlugVol:      { packageIds: ['ABAN 078','ABAN 079'] },
-  cimentPlugDens:     { packageIds: ['ABAN 078','ABAN 079'] },
-  cimentFcbaDens:     { packageIds: ['ABAN 078','ABAN 079'] },
+  cimentAlinhamento078: { packageIds: ['ABAN 078'] },
+  cimentAlinhamento083: { packageIds: ['ABAN 083'] },
+  cimentAlinhamento084: { packageIds: ['ABAN 084'] },
+  cimentPlugVol078:  { packageIds: ['ABAN 078'] },
+  cimentPlugVol079:  { packageIds: ['ABAN 079'] },
+  cimentPlugDens078: { packageIds: ['ABAN 078'] },
+  cimentPlugDens079: { packageIds: ['ABAN 079'] },
+  cimentFcbaDens078: { packageIds: ['ABAN 078'] },
+  cimentFcbaDens079: { packageIds: ['ABAN 079'] },
 
   // Em implementação — campos novos
   colunaTrabalhoDpDiam: { packageIds: ['ABAN 013','ABAN 182','ABAN 185','ABAN 189','ABAN 190','ABAN 191','ABAN 192','ABAN 193','ABAN 194','ABAN 195','ABAN 196','ABAN 197','ABAN 198','ABAN 199','ABAN 200','ABAN 202'] },
   volBombeioDescidaFt:  { packageIds: ['ABAN 124','ABAN 125','ABAN 127','ABAN 128','ABAN 129','ABAN 130','ABAN 131','ABAN 132','ABAN 133','ABAN 135'] },
-  crDiam:               { packageIds: ['ABAN 155','ABAN 156','ABAN 158'] },
-  packerFtDiam:         { packageIds: ['ABAN 159','ABAN 164'] },
+  crDiam155:            { packageIds: ['ABAN 155'] },
+  crDiam156:            { packageIds: ['ABAN 156'] },
+  crDiam158:            { packageIds: ['ABAN 158'] },
+  packerFtDiam159:      { packageIds: ['ABAN 159'] },
+  packerFtDiam164:      { packageIds: ['ABAN 164'] },
   marteleteModelo:      { packageIds: ['ABAN 143'] },
   marteletePonteiraDiam:{ packageIds: ['ABAN 143'] },
   bismutoEur:           { packageIds: ['ABAN 238'] },
@@ -479,8 +601,10 @@ const FIELD_IMPACT: Partial<Record<keyof ProjectData, FieldImpact>> = {
   pressaoCabecaLimite:     { packageIds: ['ABAN 061','ABAN 062'] },
   gabaritoNippleDiam:      { packageIds: ['ABAN 079'] },
   tampaoTipo:              { packageIds: ['ABAN 079'] },
-  cimentAnularAcimaTampao: { packageIds: ['ABAN 082','ABAN 084'] },
-  cimentTopoRevcim:        { packageIds: ['ABAN 247','ABAN 248'] },
+  cimentAnularAcimaTampao082: { packageIds: ['ABAN 082'] },
+  cimentAnularAcimaTampao084: { packageIds: ['ABAN 084'] },
+  cimentTopoRevcim247:        { packageIds: ['ABAN 247'] },
+  cimentTopoRevcim248:        { packageIds: ['ABAN 248'] },
   canhaoModelo:            { packageIds: ['ABAN 102'] },
   plugFtDiam:              { packageIds: ['ABAN 129'] },
   plugFtAplicador:         { packageIds: ['ABAN 129'] },
@@ -488,9 +612,12 @@ const FIELD_IMPACT: Partial<Record<keyof ProjectData, FieldImpact>> = {
   overpullKlbf:            { packageIds: ['ABAN 186'] },
   copCoiTubo:              { packageIds: ['ABAN 188','ABAN 189','ABAN 190'] },
   revestimentoDiam:        { packageIds: ['ABAN 196'] },
-  tampaoAbandonoDens:      { packageIds: ['ABAN 199','ABAN 200'] },
-  tampaoAbandonoTopo:      { packageIds: ['ABAN 199','ABAN 200'] },
-  tampaoAbandonoCompr:     { packageIds: ['ABAN 199','ABAN 200'] },
+  tampaoAbandonoDens199:   { packageIds: ['ABAN 199'] },
+  tampaoAbandonoDens200:   { packageIds: ['ABAN 200'] },
+  tampaoAbandonoTopo199:   { packageIds: ['ABAN 199'] },
+  tampaoAbandonoTopo200:   { packageIds: ['ABAN 200'] },
+  tampaoAbandonoCompr199:  { packageIds: ['ABAN 199'] },
+  tampaoAbandonoCompr200:  { packageIds: ['ABAN 200'] },
   ecsbFluidoDens:          { packageIds: ['ABAN 200'] },
   condicIntervaloTopo:     { packageIds: ['ABAN 233'] },
   condicIntervaloBase:     { packageIds: ['ABAN 233'] },
@@ -606,8 +733,10 @@ export function ProjectDataPanel({ onLocate, onClearLocate, locatedTarget, oneBy
         }
         const gab = gabaritoFields(item, draft)
         if (gab) {
-          if (gab.diamLocalizador != null && (cur.diamLocalizador ?? '') !== gab.diamLocalizador) upd.diamLocalizador = gab.diamLocalizador
-          if (gab.diamEstampador != null && (cur.diamEstampador ?? '') !== gab.diamEstampador) upd.diamEstampador = gab.diamEstampador
+          const locKey = DIAM_LOCALIZADOR_FIELD[item.packageId]
+          const estKey = DIAM_ESTAMPADOR_FIELD[item.packageId]
+          if (locKey && gab.diamLocalizador != null && (cur[locKey] ?? '') !== gab.diamLocalizador) (upd as Record<string, string>)[locKey] = gab.diamLocalizador
+          if (estKey && gab.diamEstampador != null && (cur[estKey] ?? '') !== gab.diamEstampador) (upd as Record<string, string>)[estKey] = gab.diamEstampador
           if (gab.profFinal != null && (cur.profFinal ?? '') !== gab.profFinal) upd.profFinal = gab.profFinal
         }
         if (Object.keys(upd).length) updates.push([item.uid, upd])
@@ -687,9 +816,12 @@ export function ProjectDataPanel({ onLocate, onClearLocate, locatedTarget, oneBy
         if (cam && ((c.aplicadorCamisao ?? '') !== cam.aplicadorCamisao || (c.camDiamNom ?? '') !== cam.camDiamNom)) return true
         // gabaritagem: localizador/estampador/prof. final são tokens.
         const gab = gabaritoFields(item, draft)
-        return !!gab && ((gab.diamLocalizador != null && (c.diamLocalizador ?? '') !== gab.diamLocalizador)
-          || (gab.diamEstampador != null && (c.diamEstampador ?? '') !== gab.diamEstampador)
-          || (gab.profFinal != null && (c.profFinal ?? '') !== gab.profFinal))
+        if (!gab) return false
+        const locKey = DIAM_LOCALIZADOR_FIELD[item.packageId]
+        const estKey = DIAM_ESTAMPADOR_FIELD[item.packageId]
+        return (!!locKey && gab.diamLocalizador != null && (c[locKey] ?? '') !== gab.diamLocalizador)
+          || (!!estKey && gab.diamEstampador != null && (c[estKey] ?? '') !== gab.diamEstampador)
+          || (gab.profFinal != null && (c.profFinal ?? '') !== gab.profFinal)
       })
     }
     // BHA por tecnologia: mudanças em bhaPlans afetam linhas dos itens daquela tecnologia.
@@ -706,8 +838,9 @@ export function ProjectDataPanel({ onLocate, onClearLocate, locatedTarget, oneBy
     }
     // Cimentação: topos/pwc/profs afetam todas as linhas de cimentação; cimentPlugs por uid
     if (sectionId === 'cimentacao') {
-      const topPwcProfChanged = ['cimentTopoAnularA','cimentTopoInteriorColuna','cimentTopoRevcim','cimentPwc','cimentProfPerfuracao','cimentProfBaseCimentacao','cimentCrProfundidade',
-        'cimentAlinhamento','cimentPlugVol','cimentPlugDens','cimentFcbaDens']
+      const topPwcProfChanged = ['cimentTopoAnularA','cimentTopoInteriorColuna','cimentTopoRevcim247','cimentTopoRevcim248','cimentPwc','cimentProfPerfuracao','cimentProfBaseCimentacao','cimentCrProfundidade',
+        'cimentAlinhamento078','cimentAlinhamento083','cimentAlinhamento084',
+        'cimentPlugVol078','cimentPlugVol079','cimentPlugDens078','cimentPlugDens079','cimentFcbaDens078','cimentFcbaDens079']
         .some(k => changedFields.includes(k as keyof ProjectData))
       if (topPwcProfChanged) {
         if (state.fineTuningItems.some(i => /cimenta|pwc/i.test(i.packageName) && i.lines.length > 0)) return true
@@ -730,7 +863,6 @@ export function ProjectDataPanel({ onLocate, onClearLocate, locatedTarget, oneBy
   const setNipples    = setter('nipples')
   const setCimentacao = setter('cimentacao')
   const setHoldpoints  = setter('holdpoints')
-  const setOutros      = setter('outros')
   const setRetirada    = setter('retirada_coluna')
   const hasPkgFn = (...ids: string[]) => state.fineTuningItems.some(i => ids.includes(i.packageId))
   // Ordem cronológica: índice da 1ª ocorrência (no cronograma) de qualquer um dos pacotes.
@@ -740,6 +872,76 @@ export function ProjectDataPanel({ onLocate, onClearLocate, locatedTarget, oneBy
       if (ids.includes(state.fineTuningItems[i].packageId)) return i
     }
     return Number.POSITIVE_INFINITY
+  }
+
+  // ── Assistente orientado a dados (aba Place Holders) ──────────────────────────
+  // Config ativa: o snapshot congelado no projeto (criação) ou, na falta, a live do
+  // servidor. Pacotes do projeto → visibilidade dos campos derivada dos templates.
+  const activeDefs = resolvePlaceholderDefs(state.placeholderDefs)
+  const projectPkgIds = new Set(state.fineTuningItems.filter(i => !i.isBlank).map(i => i.packageId))
+
+  // Rótulo do campo: a fonte é a aba Place Holders (admin). Widgets compostos (toggles,
+  // radios) que ainda são hardcoded puxam o rótulo do def do token; o texto hardcoded vira
+  // só fallback (quando o token não tem def cadastrado).
+  const defLabelByToken = new Map(activeDefs.map(dd => [dd.token, dd.label]))
+  const defLabel = (token: string, fallback: string): string => defLabelByToken.get(token) ?? fallback
+
+  // Toggle booleano Sim/Não (ex.: flags de Hold Point) — rótulo vindo do admin via defLabel.
+  const boolToggle = (token: string, fallbackLabel: string, checked: boolean | undefined, onSet: (v: boolean) => void) => (
+    <div className="flex items-center gap-2 py-0.5">
+      <span className="text-xs text-slate-700 dark:text-slate-400 shrink-0 flex-1">{defLabel(token, fallbackLabel)}</span>
+      {(['sim', 'nao'] as const).map(opt => (
+        <label key={opt} className="flex items-center gap-1 cursor-pointer select-none">
+          <input type="radio" checked={opt === 'sim' ? checked === true : checked === false}
+            onChange={() => onSet(opt === 'sim')} className="accent-[#0c2340]" />
+          <span className="text-xs text-slate-600 dark:text-slate-400">{opt === 'sim' ? 'Sim' : 'Não'}</span>
+        </label>
+      ))}
+    </div>
+  )
+
+  // ── Mira "localizar" só onde realmente localiza ───────────────────────────────
+  // A mira só aparece quando o alvo destaca ≥1 linha — a MESMA fonte da verdade do
+  // clique (lineIdsForLocate), então cobre efeitos indiretos (ex.: pressaoProva como
+  // fallback dos tokens pressaoEst*, prof derivado do nipple) sem heurística de token.
+  // Memoizado nos dados COMMITTED (state), não no draft: não recomputa a cada tecla no
+  // assistente (o draft muda, o committed não até Aplicar); recomputa em load/Aplicar/
+  // mudança de cronograma. O cache por alvo evita reprobar o mesmo campo no mesmo render.
+  const canLocate = useMemo(() => {
+    const cache = new Map<string, boolean>()
+    return (t: LocateTarget): boolean => {
+      const key = JSON.stringify(t)
+      let hit = cache.get(key)
+      if (hit === undefined) {
+        hit = lineIdsForLocate(t, state.fineTuningItems, state.projectData).size > 0
+        cache.set(key, hit)
+      }
+      return hit
+    }
+  }, [state.fineTuningItems, state.projectData])
+
+  // Renderiza uma seção de campos GLOBAIS (ProjectData) 100% a partir dos defs do grupo:
+  // visibilidade derivada dos templates, rótulo/unidade/tipo/ordem vindos do servidor.
+  // Reutiliza a máquina de seção existente (dirty/apply/discard/sectionAffectsLines) via
+  // sectionId. Retorna null quando nenhum campo do grupo se aplica ao projeto.
+  const renderGlobalSection = (sectionId: string, groupTitle: string, searchText: string): React.ReactNode => {
+    const set = setter(sectionId)
+    const defs = activeDefs
+      .filter(def => (def.group?.trim() || '') === groupTitle && tokenBinding(def.token) === 'global')
+      .filter(def => tokenUsedByPackages(def.token, projectPkgIds))
+      .sort((a, b) => a.orderIndex - b.orderIndex)
+    if (defs.length === 0) return null
+    return (
+      <Section title={groupTitle} searchText={searchText}
+        isDirty={dirty[sectionId]} onApply={applySection(sectionId)} onDiscard={discardSection(sectionId)}
+        canApply={sectionAffectsLines(sectionId)}>
+        {defs.map(def => (
+          <AssistantField key={def.token} def={def}
+            value={String((d as unknown as Record<string, unknown>)[def.token] ?? '')}
+            onChange={v => set({ [def.token]: v } as Partial<ProjectData>)} />
+        ))}
+      </Section>
+    )
   }
 
   // Sincronizar nome do poço destino com nome do cronograma
@@ -761,21 +963,34 @@ export function ProjectDataPanel({ onLocate, onClearLocate, locatedTarget, oneBy
   const currentReviewLineId = oneByOneMode && reviewTotal > 0 ? reviewLineIds[0] : null
 
   const [sectionFilter, setSectionFilter] = useState('')
+  const [showTools, setShowTools] = useState(false)
   return (
-    <LocateCtx.Provider value={{ onLocate, onClear: onClearLocate, active: locatedTarget ?? null }}>
+    <LocateCtx.Provider value={{ onLocate, onClear: onClearLocate, active: locatedTarget ?? null, canLocate }}>
     <div className="flex flex-col h-full bg-[#f5f5f5] dark:bg-slate-900 overflow-hidden">
       {/* Subtítulo */}
       <div className="shrink-0 px-4 py-1.5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between gap-2">
         <span className="text-[10px] text-slate-400 dark:text-slate-500 tracking-widest uppercase">Assistente de Preenchimento</span>
-        {onMinimize && (
+        <div className="flex items-center gap-0.5">
           <button
-            onClick={onMinimize}
-            title="Minimizar assistente"
+            onClick={() => setShowTools(true)}
+            title="Ferramentas de arame (aplicação/pescaria por equipamento)"
             className="shrink-0 p-1 -my-1 rounded text-slate-500 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">
-            <PanelLeftClose size={14} />
+            <PocketKnife size={14} />
           </button>
-        )}
+          {onMinimize && (
+            <button
+              onClick={onMinimize}
+              title="Minimizar assistente"
+              className="shrink-0 p-1 -my-1 rounded text-slate-500 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">
+              <PanelLeftClose size={14} />
+            </button>
+          )}
+        </div>
       </div>
+
+      {showTools && (
+        <WirelineToolsPanel canEdit={false} onClose={() => setShowTools(false)} />
+      )}
 
       {/* Localizar */}
       <div className="shrink-0 px-3 pt-2 pb-1">
@@ -796,49 +1011,54 @@ export function ProjectDataPanel({ onLocate, onClearLocate, locatedTarget, oneBy
         </div>
       </div>
 
-      {/* Confirmar alterações — linhas em revisão após "Aplicar" */}
+      {/* Confirmar alterações — linhas em revisão após "Aplicar".
+          Layout em 2 linhas (mensagem em cima, botões embaixo com flex-wrap) para não
+          quebrar/espremer o texto no painel estreito do assistente. */}
       {reviewTotal > 0 && (
-        <div className="shrink-0 flex items-center gap-2 px-3 py-1.5 bg-blue-50 dark:bg-blue-950/30 border-b border-blue-200 dark:border-blue-800">
-          <span className="text-slate-700 text-[10px]">●</span>
-          {oneByOneMode ? (
-            <>
-              <span className="text-xs text-slate-700 dark:text-slate-300 font-semibold flex-1 min-w-0">
-                Revisando {reviewTotal} {reviewTotal === 1 ? 'item restante' : 'itens restantes'}
-              </span>
-              <button
-                onClick={() => currentReviewLineId && dispatch({ type: 'PROJECT_REVIEW_CONFIRM_ONE', uid: currentReviewLineId })}
-                className="shrink-0 text-xs font-semibold text-white bg-slate-700 dark:bg-slate-600 hover:bg-slate-800 dark:hover:bg-slate-500 rounded px-2 py-0.5 transition-colors">
-                Confirmar este
-              </button>
-              <button
-                onClick={() => { dispatch({ type: 'PROJECT_CLEAR_REVIEW' }); setOneByOneMode?.(false) }}
-                className="shrink-0 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-slate-100 border border-slate-300 dark:border-slate-700 rounded px-2 py-0.5 hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors">
-                Confirmar todas
-              </button>
-              <button
-                onClick={() => { dispatch({ type: 'PROJECT_REVERT_REVIEW' }); setOneByOneMode?.(false) }}
-                title="Cancela as alterações aplicadas e em revisão"
-                className="shrink-0 text-xs font-semibold text-slate-600 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 border border-slate-300 dark:border-slate-700 rounded px-2 py-0.5 hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors">
-                Sair
-              </button>
-            </>
-          ) : (
-            <>
-              <span className="text-xs text-slate-700 dark:text-slate-300 font-semibold flex-1 min-w-0">
-                {reviewTotal} {reviewTotal === 1 ? 'item aguardando revisão' : 'itens aguardando revisão'}
-              </span>
-              <button
-                onClick={() => setOneByOneMode?.(true)}
-                className="shrink-0 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-slate-100 border border-slate-300 dark:border-slate-700 rounded px-2 py-0.5 hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors">
-                Revisar 1 por 1
-              </button>
-              <button
-                onClick={() => dispatch({ type: 'PROJECT_CLEAR_REVIEW' })}
-                className="shrink-0 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-slate-100 border border-slate-300 dark:border-slate-700 rounded px-2 py-0.5 hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors">
-                Confirmar todas
-              </button>
-            </>
-          )}
+        <div className="shrink-0 flex flex-col gap-1.5 px-3 py-1.5 bg-blue-50 dark:bg-blue-950/30 border-b border-blue-200 dark:border-blue-800">
+          <div className="flex items-center gap-2">
+            <span className="shrink-0 text-slate-600 dark:text-slate-400 text-[10px]">●</span>
+            <span className="text-xs text-slate-700 dark:text-slate-300 font-semibold">
+              {oneByOneMode
+                ? <>Revisando {reviewTotal} {reviewTotal === 1 ? 'item restante' : 'itens restantes'}</>
+                : <>{reviewTotal} {reviewTotal === 1 ? 'item aguardando revisão' : 'itens aguardando revisão'}</>}
+            </span>
+          </div>
+          <div className="flex items-center gap-2 flex-wrap">
+            {oneByOneMode ? (
+              <>
+                <button
+                  onClick={() => currentReviewLineId && dispatch({ type: 'PROJECT_REVIEW_CONFIRM_ONE', uid: currentReviewLineId })}
+                  className="text-xs font-semibold text-white bg-slate-700 dark:bg-slate-600 hover:bg-slate-800 dark:hover:bg-slate-500 rounded px-2 py-0.5 transition-colors">
+                  Confirmar este
+                </button>
+                <button
+                  onClick={() => { dispatch({ type: 'PROJECT_CLEAR_REVIEW' }); setOneByOneMode?.(false) }}
+                  className="text-xs font-semibold text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-slate-100 border border-slate-300 dark:border-slate-700 rounded px-2 py-0.5 hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors">
+                  Confirmar todas
+                </button>
+                <button
+                  onClick={() => { dispatch({ type: 'PROJECT_REVERT_REVIEW' }); setOneByOneMode?.(false) }}
+                  title="Cancela as alterações aplicadas e em revisão"
+                  className="text-xs font-semibold text-slate-600 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 border border-slate-300 dark:border-slate-700 rounded px-2 py-0.5 hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors">
+                  Sair
+                </button>
+              </>
+            ) : (
+              <>
+                <button
+                  onClick={() => setOneByOneMode?.(true)}
+                  className="text-xs font-semibold text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-slate-100 border border-slate-300 dark:border-slate-700 rounded px-2 py-0.5 hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors">
+                  Revisar 1 por 1
+                </button>
+                <button
+                  onClick={() => dispatch({ type: 'PROJECT_CLEAR_REVIEW' })}
+                  className="text-xs font-semibold text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-slate-100 border border-slate-300 dark:border-slate-700 rounded px-2 py-0.5 hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors">
+                  Confirmar todas
+                </button>
+              </>
+            )}
+          </div>
         </div>
       )}
 
@@ -884,37 +1104,8 @@ export function ProjectDataPanel({ onLocate, onClearLocate, locatedTarget, oneBy
           <Field label="Velocidade média"       value={d.velocidadeMedia}      onChange={v => setSonda({ velocidadeMedia: v })} unit="nós" locate={{ kind: 'data', field: 'velocidadeMedia' }} />
         </Section>
 
-        {/* ── Equipamentos Submarinos ── */}
-        {(() => {
-          const hasTcap    = hasPkgFn('ABAN 018')
-          const hasAnm     = hasPkgFn('ABAN 023')
-          const showBore   = hasPkgFn('ABAN 013','ABAN 206')
-          const showN2Trt  = hasPkgFn('ABAN 024','ABAN 025')
-          const showTmfA   = hasPkgFn('ABAN 027','ABAN 028','ABAN 029')
-          const showDrain  = hasPkgFn('ABAN 218')
-          // Movido da seção Pressões (LC DHSV)
-          const showBhDhsv = hasPkgFn('ABAN 030')
-          if (!hasTcap && !hasAnm && !showBore && !showN2Trt && !showTmfA && !showDrain && !showBhDhsv) return null
-          const setEquip = setter('equipamentos_submarinos')
-          // Campos ordenados conforme a cronologia do cronograma (1ª ocorrência do pacote)
-          const entries: { ord: number; node: React.ReactNode }[] = []
-          const push = (show: boolean, pkgs: string[], node: React.ReactNode) => {
-            if (show) entries.push({ ord: pkgOrderOf(...pkgs), node })
-          }
-          push(hasTcap,   ['ABAN 018'], <Field key="trtTcap" label="Peso liberado com TRT sobre Tree Cap (ABAN 018)" value={d.outrosTrtWeightTcap} onChange={v => setEquip({ outrosTrtWeightTcap: v })} unit="klbf" locate={{ kind: 'data', field: 'outrosTrtWeightTcap' }} />)
-          push(hasAnm,    ['ABAN 023'], <Field key="trtAnm" label="Peso liberado com TRT na ANM (ABAN 023)" value={d.outrosTrtWeightAnm} onChange={v => setEquip({ outrosTrtWeightAnm: v })} unit="klbf" locate={{ kind: 'data', field: 'outrosTrtWeightAnm' }} />)
-          push(showBore,  ['ABAN 013','ABAN 206'], <Field key="boreTest" label='Teste bore 2"/4" e CWO' value={d.pressaoBoreTest} onChange={v => setEquip({ pressaoBoreTest: v })} unit="psi" locate={{ kind: 'data', field: 'pressaoBoreTest' }} />)
-          push(showTmfA,  ['ABAN 027','ABAN 028','ABAN 029'], <Field key="tmfAnulAnm" label="Blocos ANM" value={d.pressaoTmfAnulAnm} onChange={v => setEquip({ pressaoTmfAnulAnm: v })} unit="psi" locate={{ kind: 'data', field: 'pressaoTmfAnulAnm' }} />)
-          push(showDrain, ['ABAN 218'], <Field key="drainB2" label='Pressão drenagem B2" equalização via ANM' value={d.outrosDrainB2Psi} onChange={v => setEquip({ outrosDrainB2Psi: v })} unit="psi" locate={{ kind: 'data', field: 'outrosDrainB2Psi' }} />)
-          push(showN2Trt, ['ABAN 024','ABAN 025'], <Field key="n2Trt" label="N₂ interface TRT × ANM" value={d.pressaoN2Trt} onChange={v => setEquip({ pressaoN2Trt: v })} unit="psi" locate={{ kind: 'data', field: 'pressaoN2Trt' }} />)
-          push(showBhDhsv, ['ABAN 030'], <Field key="lcDhsv" label="Pressão LC DHSV" value={d.pressaoBullheadDhsv} onChange={v => setEquip({ pressaoBullheadDhsv: v })} unit="psi" locate={{ kind: 'data', field: 'pressaoBullheadDhsv' }} />)
-          entries.sort((a, b) => a.ord - b.ord)
-          return (
-            <Section title="Equipamentos Submarinos" searchText="pressão trt anm tcap n2 nitrogênio bore bullheading dhsv drain bloco tmf"              isDirty={dirty['equipamentos_submarinos']} onApply={applySection('equipamentos_submarinos')} onDiscard={discardSection('equipamentos_submarinos')} canApply={sectionAffectsLines('equipamentos_submarinos')}>
-              {entries.map(e => e.node)}
-            </Section>
-          )
-        })()}
+        {/* ── Equipamentos Submarinos ── (orientado a dados: aba Place Holders) */}
+        {renderGlobalSection('equipamentos_submarinos', 'Equipamentos Submarinos', 'pressão trt anm tcap n2 nitrogênio bore bullheading dhsv drain bloco tmf')}
 
         {/* ── Equipamentos de superfície ── */}
         {(() => {
@@ -1045,6 +1236,15 @@ export function ProjectDataPanel({ onLocate, onClearLocate, locatedTarget, oneBy
                             const camFields = camisaoDhsvFields(item, d)
                             // Gabaritagem: localizador/estampador (combinação de nipples) e prof. final (menor Ø).
                             const gab = gabaritoFields(item, d)
+                            // Campos dedicados por pacote (operações distintas, mesma medição não se repete).
+                            const estKey = DIAM_ESTAMPADOR_FIELD[item.packageId]
+                            const locKey = DIAM_LOCALIZADOR_FIELD[item.packageId]
+                            const motorFundoKey = MOTOR_FUNDO_FIELD[item.packageId]
+                            const brocaKey = BROCA_FIELD[item.packageId]
+                            const modeloBrocaKey = MODELO_BROCA_FIELD[item.packageId]
+                            const ogivaDiamKey = OGIVA_DIAM_FIELD[item.packageId]
+                            const intervaloTopoKey = INTERVALO_INTERESSE_TOPO_FIELD[item.packageId]
+                            const intervaloBaseKey = INTERVALO_INTERESSE_BASE_FIELD[item.packageId]
                             const itemCollapsed = collapsedBhaItems.has(item.uid)
                             const hasSubItems = isPerf || isCorte || isGabarit || isTae || isJateam || isCamis || isTocPolias || isFtGabaritMotorBroca || isArameInstRet || isStroker || isAvalCimentacao || isRetPlugThCt || isFtPlugProf || isBpInstFt || isBpInst || isCimentIntCopFt || isCimentCr || isVgl || isPwc || isCondicionamento || isCacambeio || isSlidingSleeve
                             const copyFromPrevious = () => {
@@ -1094,7 +1294,7 @@ export function ProjectDataPanel({ onLocate, onClearLocate, locatedTarget, oneBy
                                       </>
                                     )}
                                     {isCorte && (
-                                      <Field label="Modelo do cortador" value={plan.cortadorModelo ?? ''} onChange={v => updatePlan(item.uid, 'cortadorModelo', v)} />
+                                      <Field label="Modelo do cortador" value={plan.cortadorModelo ?? ''} onChange={v => updatePlan(item.uid, 'cortadorModelo', v)} locate={{ kind: 'plan', uid: item.uid, key: 'cortadorModelo' }} />
                                     )}
                                     {isArameInstRet && !isCamis && (
                                       <>
@@ -1107,11 +1307,11 @@ export function ProjectDataPanel({ onLocate, onClearLocate, locatedTarget, oneBy
                                         )}
                                       </>
                                     )}
-                                    {showEstampador && (
-                                      <Field label="Ø estampador" value={gab?.diamEstampador ?? plan.diamEstampador ?? ''} readOnly={gab?.diamEstampador != null} onChange={v => updatePlan(item.uid, 'diamEstampador', v)} locate={{ kind: 'plan', uid: item.uid, key: 'diamEstampador' }} unit="pol" />
+                                    {showEstampador && estKey && (
+                                      <Field label="Ø estampador" value={gab?.diamEstampador ?? plan[estKey] ?? ''} readOnly={gab?.diamEstampador != null} onChange={v => updatePlan(item.uid, estKey, v)} locate={{ kind: 'plan', uid: item.uid, key: estKey }} unit="pol" />
                                     )}
-                                    {isGabarit && !isFt && (
-                                      <Field label="Ø localizador de nipple" value={gab?.diamLocalizador ?? plan.diamLocalizador ?? ''} readOnly={gab?.diamLocalizador != null} onChange={v => updatePlan(item.uid, 'diamLocalizador', v)} locate={{ kind: 'plan', uid: item.uid, key: 'diamLocalizador' }} unit="pol" />
+                                    {isGabarit && !isFt && locKey && (
+                                      <Field label="Ø localizador de nipple" value={gab?.diamLocalizador ?? plan[locKey] ?? ''} readOnly={gab?.diamLocalizador != null} onChange={v => updatePlan(item.uid, locKey, v)} locate={{ kind: 'plan', uid: item.uid, key: locKey }} unit="pol" />
                                     )}
                                     {isGabarit && item.technology === 'wireline' && (
                                       <Field label="Profundidade final" value={gab?.profFinal ?? plan.profFinal ?? ''} readOnly={gab?.profFinal != null} onChange={v => updatePlan(item.uid, 'profFinal', v)} locate={{ kind: 'plan', uid: item.uid, key: 'profFinal' }} unit="m" />
@@ -1121,9 +1321,9 @@ export function ProjectDataPanel({ onLocate, onClearLocate, locatedTarget, oneBy
                                     )}
                                     {(isFtGabaritMotorBroca || item.packageId === 'ABAN 124') && (
                                       <>
-                                        <Field label="Diâmetro do motor de fundo" value={plan.motorFundo ?? ''} onChange={v => updatePlan(item.uid, 'motorFundo', v)} locate={{ kind: 'plan', uid: item.uid, key: 'motorFundo' }} unit="pol" />
-                                        <Field label="Diâmetro da broca"          value={plan.broca ?? ''}      onChange={v => updatePlan(item.uid, 'broca', v)}       locate={{ kind: 'plan', uid: item.uid, key: 'broca' }}       unit="pol" />
-                                        <Field label="Modelo da broca"            value={plan.modeloBroca ?? ''} onChange={v => updatePlan(item.uid, 'modeloBroca', v)} locate={{ kind: 'plan', uid: item.uid, key: 'modeloBroca' }} />
+                                        {motorFundoKey && <Field label="Diâmetro do motor de fundo" value={plan[motorFundoKey] ?? ''} onChange={v => updatePlan(item.uid, motorFundoKey, v)} locate={{ kind: 'plan', uid: item.uid, key: motorFundoKey }} unit="pol" />}
+                                        {brocaKey && <Field label="Diâmetro da broca"          value={plan[brocaKey] ?? ''}      onChange={v => updatePlan(item.uid, brocaKey, v)}       locate={{ kind: 'plan', uid: item.uid, key: brocaKey }}       unit="pol" />}
+                                        {modeloBrocaKey && <Field label="Modelo da broca"            value={plan[modeloBrocaKey] ?? ''} onChange={v => updatePlan(item.uid, modeloBrocaKey, v)} locate={{ kind: 'plan', uid: item.uid, key: modeloBrocaKey }} />}
                                       </>
                                     )}
                                     {isTae && (
@@ -1132,22 +1332,11 @@ export function ProjectDataPanel({ onLocate, onClearLocate, locatedTarget, oneBy
                                         <Field label="TAE — Diâmetro nominal"      value={plan.taeDiamNom ?? ''} onChange={v => updatePlan(item.uid, 'taeDiamNom', v)} locate={{ kind: 'plan', uid: item.uid, key: 'taeDiamNom' }} unit="pol" />
                                         <Field label="Ø nominal do tubo (instalação TAE)" value={d.taeTuboDiam} onChange={v => setBhasTech({ taeTuboDiam: v })} unit='"' locate={{ kind: 'data', field: 'taeTuboDiam' }} />
                                         <Field label="Estanqueidade — TAE" value={d.pressaoEstTae} onChange={v => setBhasTech({ pressaoEstTae: v })} unit="psi" locate={{ kind: 'data', field: 'pressaoEstTae' }} />
-                                        <div className="flex items-center gap-2 py-0.5">
-                                          <span className="text-xs text-slate-700 dark:text-slate-400 shrink-0 flex-1">Será um Hold Point?</span>
-                                          {(['sim','nao'] as const).map(opt => (
-                                            <label key={opt} className="flex items-center gap-1 cursor-pointer select-none">
-                                              <input type="radio"
-                                                checked={opt === 'sim' ? d.pressaoEstTaeHp === true : d.pressaoEstTaeHp === false}
-                                                onChange={() => setBhasTech({ pressaoEstTaeHp: opt === 'sim' })}
-                                                className="accent-[#0c2340]" />
-                                              <span className="text-xs text-slate-600 dark:text-slate-400">{opt === 'sim' ? 'Sim' : 'Não'}</span>
-                                            </label>
-                                          ))}
-                                        </div>
+                                        {boolToggle('pressaoEstTaeHp', 'Será um Hold Point?', d.pressaoEstTaeHp, v => setBhasTech({ pressaoEstTaeHp: v }))}
                                       </>
                                     )}
                                     {isJateam && !isFt && (
-                                      <Field label="Diâmetro do jateador" value={plan.jateadorDiam ?? ''} onChange={v => updatePlan(item.uid, 'jateadorDiam', v)} unit="pol" />
+                                      <Field label="Diâmetro do jateador" value={plan.jateadorDiam ?? ''} onChange={v => updatePlan(item.uid, 'jateadorDiam', v)} locate={{ kind: 'plan', uid: item.uid, key: 'jateadorDiam' }} unit="pol" />
                                     )}
                                     {isJateam && isFt && (
                                       <>
@@ -1158,8 +1347,8 @@ export function ProjectDataPanel({ onLocate, onClearLocate, locatedTarget, oneBy
                                     )}
                                     {isCamis && item.technology === 'wireline' && (
                                       <>
-                                        <Field label="Gabaritagem — Ø localizador (collet)" value={plan.diamLocalizador ?? ''} onChange={v => updatePlan(item.uid, 'diamLocalizador', v)} locate={{ kind: 'plan', uid: item.uid, key: 'diamLocalizador' }} unit="pol" />
-                                        <Field label="Gabaritagem — Ø estampador"  value={plan.diamEstampador ?? ''} onChange={v => updatePlan(item.uid, 'diamEstampador', v)} locate={{ kind: 'plan', uid: item.uid, key: 'diamEstampador' }} unit="pol" />
+                                        {locKey && <Field label="Gabaritagem — Ø localizador (collet)" value={plan[locKey] ?? ''} onChange={v => updatePlan(item.uid, locKey, v)} locate={{ kind: 'plan', uid: item.uid, key: locKey }} unit="pol" />}
+                                        {estKey && <Field label="Gabaritagem — Ø estampador"  value={plan[estKey] ?? ''} onChange={v => updatePlan(item.uid, estKey, v)} locate={{ kind: 'plan', uid: item.uid, key: estKey }} unit="pol" />}
                                       </>
                                     )}
                                     {isCamis && (
@@ -1191,19 +1380,19 @@ export function ProjectDataPanel({ onLocate, onClearLocate, locatedTarget, oneBy
                                       </>
                                     )}
                                     {isTocPolias && (
-                                      <Field label="Ø estampador" value={plan.tocEstampador ?? ''} onChange={v => updatePlan(item.uid, 'tocEstampador', v)} unit="pol" />
+                                      <Field label="Ø estampador" value={plan.tocEstampador ?? ''} onChange={v => updatePlan(item.uid, 'tocEstampador', v)} locate={{ kind: 'plan', uid: item.uid, key: 'tocEstampador' }} unit="pol" />
                                     )}
                                     {isStroker && (
                                       <>
                                         <Field label="Modelo do aplicador/pescador" value={plan.modelo ?? ''} onChange={v => updatePlan(item.uid, 'modelo', v)} locate={{ kind: 'plan', uid: item.uid, key: 'modelo' }} />
                                         <Field label="Profundidade" value={derivedProf ?? plan.prof ?? ''} readOnly={derivedProf != null} onChange={v => updatePlan(item.uid, 'prof', v)} locate={{ kind: 'plan', uid: item.uid, key: 'prof' }} unit="m" />
-                                        <Field label="Ponto de ancoragem" value={plan.strokerAncoragem ?? ''} onChange={v => updatePlan(item.uid, 'strokerAncoragem', v)} unit="m" />
+                                        <Field label="Ponto de ancoragem" value={plan.strokerAncoragem ?? ''} onChange={v => updatePlan(item.uid, 'strokerAncoragem', v)} locate={{ kind: 'plan', uid: item.uid, key: 'strokerAncoragem' }} unit="m" />
                                       </>
                                     )}
                                     {isAvalCimentacao && (
                                       <>
-                                        <Field label="Intervalo de interesse — Topo" value={plan.intervaloInteresseTopo ?? ''} onChange={v => updatePlan(item.uid, 'intervaloInteresseTopo', v)} locate={{ kind: 'plan', uid: item.uid, key: 'intervaloInteresseTopo' }} unit="m" />
-                                        <Field label="Intervalo de interesse — Base" value={plan.intervaloInteresseBase ?? ''} onChange={v => updatePlan(item.uid, 'intervaloInteresseBase', v)} locate={{ kind: 'plan', uid: item.uid, key: 'intervaloInteresseBase' }} unit="m" />
+                                        {intervaloTopoKey && <Field label="Intervalo de interesse — Topo" value={plan[intervaloTopoKey] ?? ''} onChange={v => updatePlan(item.uid, intervaloTopoKey, v)} locate={{ kind: 'plan', uid: item.uid, key: intervaloTopoKey }} unit="m" />}
+                                        {intervaloBaseKey && <Field label="Intervalo de interesse — Base" value={plan[intervaloBaseKey] ?? ''} onChange={v => updatePlan(item.uid, intervaloBaseKey, v)} locate={{ kind: 'plan', uid: item.uid, key: intervaloBaseKey }} unit="m" />}
                                       </>
                                     )}
                                     {isRetPlugThCt && (
@@ -1218,21 +1407,21 @@ export function ProjectDataPanel({ onLocate, onClearLocate, locatedTarget, oneBy
                                     {(isBpInstFt || isBpInst) && (
                                       <>
                                         <Field label="Profundidade" value={plan.bpProf ?? ''} onChange={v => updatePlan(item.uid, 'bpProf', v)} locate={{ kind: 'plan', uid: item.uid, key: 'bpProf' }} unit="m" />
-                                        <Field label="Diâmetro do tubo" value={plan.bpDiam ?? ''} onChange={v => updatePlan(item.uid, 'bpDiam', v)} unit="pol" />
+                                        <Field label="Diâmetro do tubo" value={plan.bpDiam ?? ''} onChange={v => updatePlan(item.uid, 'bpDiam', v)} locate={{ kind: 'plan', uid: item.uid, key: 'bpDiam' }} unit="pol" />
                                         {item.technology === 'electric' && (
                                           <Field label="Força de ancoragem BPP" value={plan.bppAncoragemKlbf ?? ''} onChange={v => updatePlan(item.uid, 'bppAncoragemKlbf', v)} locate={{ kind: 'plan', uid: item.uid, key: 'bppAncoragemKlbf' }} unit="klbf" />
                                         )}
                                       </>
                                     )}
-                                    {isCimentIntCopFt && (
-                                      <Field label="Diâmetro da ogiva" value={plan.ogivaDiam ?? ''} onChange={v => updatePlan(item.uid, 'ogivaDiam', v)} unit="pol" />
+                                    {isCimentIntCopFt && ogivaDiamKey && (
+                                      <Field label="Diâmetro da ogiva" value={plan[ogivaDiamKey] ?? ''} onChange={v => updatePlan(item.uid, ogivaDiamKey, v)} locate={{ kind: 'plan', uid: item.uid, key: ogivaDiamKey }} unit="pol" />
                                     )}
                                     {isCimentCr && (
-                                      <Field label="Profundidade de assentamento do CR" value={plan.crProf ?? ''} onChange={v => updatePlan(item.uid, 'crProf', v)} unit="m" />
+                                      <Field label="Profundidade de assentamento do CR" value={plan.crProf ?? ''} onChange={v => updatePlan(item.uid, 'crProf', v)} locate={{ kind: 'plan', uid: item.uid, key: 'crProf' }} unit="m" />
                                     )}
                                     {isVgl && /instala/i.test(name) && (
                                       <div className="flex items-center gap-2 py-0.5">
-                                        <span className="text-xs text-slate-700 dark:text-slate-400 shrink-0 flex-1">Tipo de VGL</span>
+                                        <span className="text-xs text-slate-700 dark:text-slate-400 shrink-0 flex-1">{defLabel('vglTipo', 'Tipo de VGL')}</span>
                                         {(['cega','operadora'] as const).map(opt => (
                                           <label key={opt} className="flex items-center gap-1 cursor-pointer select-none">
                                             <input type="radio" checked={plan.vglTipo === opt}
@@ -1250,7 +1439,7 @@ export function ProjectDataPanel({ onLocate, onClearLocate, locatedTarget, oneBy
                                       const effective = plan.vglCamisaoAcoplado ?? (hasCamisaoInst ? 'sim' : '')
                                       return (
                                         <div className="flex items-center gap-2 py-0.5">
-                                          <span className="text-xs text-slate-700 dark:text-slate-400 shrink-0 flex-1">Camisão acoplado</span>
+                                          <span className="text-xs text-slate-700 dark:text-slate-400 shrink-0 flex-1">{defLabel('vglCamisaoAcoplado', 'Camisão acoplado')}</span>
                                           {(['sim','nao'] as const).map(opt => (
                                             <label key={opt} className="flex items-center gap-1 cursor-pointer select-none">
                                               <input type="radio" checked={effective === opt}
@@ -1266,9 +1455,9 @@ export function ProjectDataPanel({ onLocate, onClearLocate, locatedTarget, oneBy
                                       <>
                                         <Field label="Canhoneio — Topo"    value={plan.pwcCanhoneioTopo ?? ''} onChange={v => updatePlan(item.uid, 'pwcCanhoneioTopo', v)} unit="m" locate={{ kind: 'plan', uid: item.uid, key: 'pwcCanhoneioTopo' }} />
                                         <Field label="Canhoneio — Base"    value={plan.pwcCanhoneioBase ?? ''} onChange={v => updatePlan(item.uid, 'pwcCanhoneioBase', v)} unit="m" locate={{ kind: 'plan', uid: item.uid, key: 'pwcCanhoneioBase' }} />
-                                        <Field label="Assentamento do ICF" value={plan.pwcIcf ?? ''}            onChange={v => updatePlan(item.uid, 'pwcIcf', v)} unit="m" />
+                                        <Field label="Assentamento do ICF" value={plan.pwcIcf ?? ''}            onChange={v => updatePlan(item.uid, 'pwcIcf', v)} locate={{ kind: 'plan', uid: item.uid, key: 'pwcIcf' }} unit="m" />
                                         <div className="flex items-center gap-2 py-0.5">
-                                          <span className="text-xs text-slate-700 dark:text-slate-400 shrink-0 flex-1">Canhão será recuperado?</span>
+                                          <span className="text-xs text-slate-700 dark:text-slate-400 shrink-0 flex-1">{defLabel('pwcCanhaoRecuperado', 'Canhão será recuperado?')}</span>
                                           {(['sim','nao'] as const).map(opt => (
                                             <label key={opt} className="flex items-center gap-1 cursor-pointer select-none">
                                               <input type="radio" checked={plan.pwcCanhaoRecuperado === opt}
@@ -1284,8 +1473,8 @@ export function ProjectDataPanel({ onLocate, onClearLocate, locatedTarget, oneBy
                                       <>
                                         <Field label="Topo do intervalo"    value={d.condicIntervaloTopo}     onChange={v => setBhasTech({ condicIntervaloTopo: v })} unit="m"   locate={{ kind: 'data', field: 'condicIntervaloTopo' }} />
                                         <Field label="Base do intervalo"    value={d.condicIntervaloBase}     onChange={v => setBhasTech({ condicIntervaloBase: v })} unit="m"   locate={{ kind: 'data', field: 'condicIntervaloBase' }} />
-                                        <Field label="Diâmetro da broca"    value={plan.condicBroca ?? ''}    onChange={v => updatePlan(item.uid, 'condicBroca', v)} unit="pol" />
-                                        <Field label="Diâmetro do raspador" value={plan.condicRaspador ?? ''} onChange={v => updatePlan(item.uid, 'condicRaspador', v)} unit="pol" />
+                                        <Field label="Diâmetro da broca"    value={plan.condicBroca ?? ''}    onChange={v => updatePlan(item.uid, 'condicBroca', v)} locate={{ kind: 'plan', uid: item.uid, key: 'condicBroca' }} unit="pol" />
+                                        <Field label="Diâmetro do raspador" value={plan.condicRaspador ?? ''} onChange={v => updatePlan(item.uid, 'condicRaspador', v)} locate={{ kind: 'plan', uid: item.uid, key: 'condicRaspador' }} unit="pol" />
                                       </>
                                     )}
                                     {isVgl && item.technology === 'wireline' && (
@@ -1300,8 +1489,8 @@ export function ProjectDataPanel({ onLocate, onClearLocate, locatedTarget, oneBy
                                     {isSlidingSleeve && (
                                       <>
                                         <Field label="Sliding Sleeve — Modelo" value={plan.modeloSlidingSleeve ?? ''} onChange={v => updatePlan(item.uid, 'modeloSlidingSleeve', v)} locate={{ kind: 'plan', uid: item.uid, key: 'modeloSlidingSleeve' }} />
-                                        <Field label="Ø localizador (collet)"   value={plan.diamLocalizador ?? ''}    onChange={v => updatePlan(item.uid, 'diamLocalizador', v)} locate={{ kind: 'plan', uid: item.uid, key: 'diamLocalizador' }} unit="pol" />
-                                        <Field label="Ø estampador"             value={plan.diamEstampador ?? ''}     onChange={v => updatePlan(item.uid, 'diamEstampador', v)} locate={{ kind: 'plan', uid: item.uid, key: 'diamEstampador' }} unit="pol" />
+                                        {locKey && <Field label="Ø localizador (collet)"   value={plan[locKey] ?? ''}    onChange={v => updatePlan(item.uid, locKey, v)} locate={{ kind: 'plan', uid: item.uid, key: locKey }} unit="pol" />}
+                                        {estKey && <Field label="Ø estampador"             value={plan[estKey] ?? ''}     onChange={v => updatePlan(item.uid, estKey, v)} locate={{ kind: 'plan', uid: item.uid, key: estKey }} unit="pol" />}
                                         <Field label="Profundidade"             value={plan.prof ?? ''}               onChange={v => updatePlan(item.uid, 'prof', v)} locate={{ kind: 'plan', uid: item.uid, key: 'prof' }} unit="m" />
                                       </>
                                     )}
@@ -1309,72 +1498,38 @@ export function ProjectDataPanel({ onLocate, onClearLocate, locatedTarget, oneBy
                                     {item.packageId === 'ABAN 038' && (
                                       <>
                                         <Field label='Estanqueidade — STV nipple R 2,75"' value={d.pressaoEstStvR} onChange={v => setBhasTech({ pressaoEstStvR: v })} unit="psi" locate={{ kind: 'data', field: 'pressaoEstStvR' }} />
-                                        <div className="flex items-center gap-2 py-0.5">
-                                          <span className="text-xs text-slate-700 dark:text-slate-400 shrink-0 flex-1">Será um Hold Point?</span>
-                                          {(['sim','nao'] as const).map(opt => (
-                                            <label key={opt} className="flex items-center gap-1 cursor-pointer select-none">
-                                              <input type="radio" checked={opt === 'sim' ? d.pressaoEstStvRHp === true : d.pressaoEstStvRHp === false} onChange={() => setBhasTech({ pressaoEstStvRHp: opt === 'sim' })} className="accent-[#0c2340]" />
-                                              <span className="text-xs text-slate-600 dark:text-slate-400">{opt === 'sim' ? 'Sim' : 'Não'}</span>
-                                            </label>
-                                          ))}
-                                        </div>
+                                        {boolToggle('pressaoEstStvRHp', 'Será um Hold Point?', d.pressaoEstStvRHp, v => setBhasTech({ pressaoEstStvRHp: v }))}
+                                      </>
+                                    )}
+                                    {item.packageId === 'ABAN 039' && (
+                                      <>
+                                        <Field label='Estanqueidade — STV nipple F 2,81"' value={d.pressaoEstStvF} onChange={v => setBhasTech({ pressaoEstStvF: v })} unit="psi" locate={{ kind: 'data', field: 'pressaoEstStvF' }} />
+                                        {boolToggle('pressaoEstStvFHp', 'Será um Hold Point?', d.pressaoEstStvFHp, v => setBhasTech({ pressaoEstStvFHp: v }))}
                                       </>
                                     )}
                                     {item.packageId === 'ABAN 040' && (
                                       <>
                                         <Field label='Estanqueidade — Plug nipple R 2,75"' value={d.pressaoEstPlugR} onChange={v => setBhasTech({ pressaoEstPlugR: v })} unit="psi" locate={{ kind: 'data', field: 'pressaoEstPlugR' }} />
-                                        <div className="flex items-center gap-2 py-0.5">
-                                          <span className="text-xs text-slate-700 dark:text-slate-400 shrink-0 flex-1">Será um Hold Point?</span>
-                                          {(['sim','nao'] as const).map(opt => (
-                                            <label key={opt} className="flex items-center gap-1 cursor-pointer select-none">
-                                              <input type="radio" checked={opt === 'sim' ? d.pressaoEstPlugRHp === true : d.pressaoEstPlugRHp === false} onChange={() => setBhasTech({ pressaoEstPlugRHp: opt === 'sim' })} className="accent-[#0c2340]" />
-                                              <span className="text-xs text-slate-600 dark:text-slate-400">{opt === 'sim' ? 'Sim' : 'Não'}</span>
-                                            </label>
-                                          ))}
-                                        </div>
+                                        {boolToggle('pressaoEstPlugRHp', 'Será um Hold Point?', d.pressaoEstPlugRHp, v => setBhasTech({ pressaoEstPlugRHp: v }))}
                                       </>
                                     )}
                                     {item.packageId === 'ABAN 041' && (
                                       <>
                                         <Field label='Estanqueidade — Plug nipple F 2,81"' value={d.pressaoEstPlugF} onChange={v => setBhasTech({ pressaoEstPlugF: v })} unit="psi" locate={{ kind: 'data', field: 'pressaoEstPlugF' }} />
-                                        <div className="flex items-center gap-2 py-0.5">
-                                          <span className="text-xs text-slate-700 dark:text-slate-400 shrink-0 flex-1">Será um Hold Point?</span>
-                                          {(['sim','nao'] as const).map(opt => (
-                                            <label key={opt} className="flex items-center gap-1 cursor-pointer select-none">
-                                              <input type="radio" checked={opt === 'sim' ? d.pressaoEstPlugFHp === true : d.pressaoEstPlugFHp === false} onChange={() => setBhasTech({ pressaoEstPlugFHp: opt === 'sim' })} className="accent-[#0c2340]" />
-                                              <span className="text-xs text-slate-600 dark:text-slate-400">{opt === 'sim' ? 'Sim' : 'Não'}</span>
-                                            </label>
-                                          ))}
-                                        </div>
+                                        {boolToggle('pressaoEstPlugFHp', 'Será um Hold Point?', d.pressaoEstPlugFHp, v => setBhasTech({ pressaoEstPlugFHp: v }))}
                                       </>
                                     )}
                                     {item.packageId === 'ABAN 042' && (
                                       <>
                                         <Field label='Estanqueidade — Plug 3,75" no TH' value={d.pressaoEstPlugTH} onChange={v => setBhasTech({ pressaoEstPlugTH: v })} unit="psi" locate={{ kind: 'data', field: 'pressaoEstPlugTH' }} />
-                                        <div className="flex items-center gap-2 py-0.5">
-                                          <span className="text-xs text-slate-700 dark:text-slate-400 shrink-0 flex-1">Será um Hold Point?</span>
-                                          {(['sim','nao'] as const).map(opt => (
-                                            <label key={opt} className="flex items-center gap-1 cursor-pointer select-none">
-                                              <input type="radio" checked={opt === 'sim' ? d.pressaoEstPlugTHHp === true : d.pressaoEstPlugTHHp === false} onChange={() => setBhasTech({ pressaoEstPlugTHHp: opt === 'sim' })} className="accent-[#0c2340]" />
-                                              <span className="text-xs text-slate-600 dark:text-slate-400">{opt === 'sim' ? 'Sim' : 'Não'}</span>
-                                            </label>
-                                          ))}
-                                        </div>
+                                        {boolToggle('pressaoEstPlugTHHp', 'Será um Hold Point?', d.pressaoEstPlugTHHp, v => setBhasTech({ pressaoEstPlugTHHp: v }))}
                                       </>
                                     )}
                                     {/* Pcab N₂ — teste de influxo (ABAN 220 / 221) */}
                                     {(item.packageId === 'ABAN 220' || item.packageId === 'ABAN 221') && (
                                       <>
                                         <Field label="Pcab N₂ — teste de influxo (underbalance)" value={d.outrosPcabN2Psi} onChange={v => setBhasTech({ outrosPcabN2Psi: v })} unit="psi" locate={{ kind: 'data', field: 'outrosPcabN2Psi' }} />
-                                        <div className="flex items-center gap-2 py-0.5">
-                                          <span className="text-xs text-slate-700 dark:text-slate-400 shrink-0 flex-1">Será um Hold Point?</span>
-                                          {(['sim','nao'] as const).map(opt => (
-                                            <label key={opt} className="flex items-center gap-1 cursor-pointer select-none">
-                                              <input type="radio" checked={opt === 'sim' ? d.outrosPcabN2PsiHp === true : d.outrosPcabN2PsiHp === false} onChange={() => setBhasTech({ outrosPcabN2PsiHp: opt === 'sim' })} className="accent-[#0c2340]" />
-                                              <span className="text-xs text-slate-600 dark:text-slate-400">{opt === 'sim' ? 'Sim' : 'Não'}</span>
-                                            </label>
-                                          ))}
-                                        </div>
+                                        {boolToggle('outrosPcabN2PsiHp', 'Será um Hold Point?', d.outrosPcabN2PsiHp, v => setBhasTech({ outrosPcabN2PsiHp: v }))}
                                       </>
                                     )}
                                   </div>
@@ -1387,22 +1542,16 @@ export function ProjectDataPanel({ onLocate, onClearLocate, locatedTarget, oneBy
               {tech === 'wireline' && hasPkgFn('ABAN 079') && <Field label="Tipo de tampão (plug/TAE/bismuto)" value={d.tampaoTipo} onChange={v => setBhasTech({ tampaoTipo: v })} locate={{ kind: 'data', field: 'tampaoTipo' }} />}
               {tech === 'wireline' && hasPkgFn('ABAN 047') && <Field label="Profundidade do registro de pressão" value={d.profRegistroPressao} onChange={v => setBhasTech({ profRegistroPressao: v })} unit="m" locate={{ kind: 'data', field: 'profRegistroPressao' }} />}
               {tech === 'wireline' && hasPkgFn('ABAN 047') && <Field label="Quantidade de estações (RP)" value={d.numEstacoesRp} onChange={v => setBhasTech({ numEstacoesRp: v })} locate={{ kind: 'data', field: 'numEstacoesRp' }} />}
-              {tech === 'wireline' && hasPkgFn('ABAN 238') && <Field label="Tampão bismuto — EUR" value={d.bismutoEur} onChange={v => setBhasTech({ bismutoEur: v })} unit="m" locate={{ kind: 'data', field: 'bismutoEur' }} />}
-              {tech === 'wireline' && hasPkgFn('ABAN 238') && <Field label="Tampão bismuto — overpull de liberação" value={d.bismutoOverpull} onChange={v => setBhasTech({ bismutoOverpull: v })} unit="lbf" locate={{ kind: 'data', field: 'bismutoOverpull' }} />}
+              {tech === 'electric' && hasPkgFn('ABAN 238') && <Field label="Tampão bismuto — EUR" value={d.bismutoEur} onChange={v => setBhasTech({ bismutoEur: v })} unit="m" locate={{ kind: 'data', field: 'bismutoEur' }} />}
+              {tech === 'electric' && hasPkgFn('ABAN 238') && <Field label="Tampão bismuto — overpull de liberação" value={d.bismutoOverpull} onChange={v => setBhasTech({ bismutoOverpull: v })} unit="lbf" locate={{ kind: 'data', field: 'bismutoOverpull' }} />}
               {tech === 'electric' && hasPkgFn('ABAN 102') && <Field label="Modelo do canhão" value={d.canhaoModelo} onChange={v => setBhasTech({ canhaoModelo: v })} locate={{ kind: 'data', field: 'canhaoModelo' }} />}
-              {tech === 'electric' && hasPkgFn('ABAN 081','ABAN 082','ABAN 083','ABAN 084','ABAN 105','ABAN 106','ABAN 107','ABAN 149','ABAN 231','ABAN 232','ABAN 234') && (
-                <div className="flex items-center gap-2 py-0.5">
-                  <span className="text-xs text-slate-700 dark:text-slate-400 shrink-0 flex-1">Avaliação de cimentação / topo será Hold Point (REVCIM)?</span>
-                  {(['sim','nao'] as const).map(opt => (
-                    <label key={opt} className="flex items-center gap-1 cursor-pointer select-none">
-                      <input type="radio" checked={opt === 'sim' ? d.revcimHp === true : d.revcimHp === false} onChange={() => setBhasTech({ revcimHp: opt === 'sim' })} className="accent-[#0c2340]" />
-                      <span className="text-xs text-slate-600 dark:text-slate-400">{opt === 'sim' ? 'Sim' : 'Não'}</span>
-                    </label>
-                  ))}
-                </div>
-              )}
+              {tech === 'electric' && hasPkgFn('ABAN 081','ABAN 082','ABAN 083','ABAN 084','ABAN 106','ABAN 107','ABAN 149','ABAN 231','ABAN 232','ABAN 234') &&
+                boolToggle('revcimHp', 'Avaliação de cimentação / topo será Hold Point (REVCIM)?', d.revcimHp, v => setBhasTech({ revcimHp: v }))}
+              {tech === 'electric' && hasPkgFn('ABAN 105') &&
+                boolToggle('revcimHp105', 'Avaliação de cimentação Through Tubing será Hold Point (REVCIM)?', d.revcimHp105, v => setBhasTech({ revcimHp105: v }))}
               {tech === 'ct' && hasPkgFn('ABAN 124','ABAN 125','ABAN 127','ABAN 128','ABAN 129','ABAN 130','ABAN 131','ABAN 132','ABAN 133','ABAN 135') && <Field label="Volume bombeio na descida com FT" value={d.volBombeioDescidaFt} onChange={v => setBhasTech({ volBombeioDescidaFt: v })} unit="bbl/500m" locate={{ kind: 'data', field: 'volBombeioDescidaFt' }} />}
-              {tech === 'ct' && hasPkgFn('ABAN 159','ABAN 164') && <Field label="Ø Packer FT (inflável/multiset)" value={d.packerFtDiam} onChange={v => setBhasTech({ packerFtDiam: v })} unit='"' locate={{ kind: 'data', field: 'packerFtDiam' }} />}
+              {tech === 'ct' && hasPkgFn('ABAN 159') && <Field label="Ø Packer inflável" value={d.packerFtDiam159} onChange={v => setBhasTech({ packerFtDiam159: v })} unit='"' locate={{ kind: 'data', field: 'packerFtDiam159' }} />}
+              {tech === 'ct' && hasPkgFn('ABAN 164') && <Field label="Ø Packer Multi-set" value={d.packerFtDiam164} onChange={v => setBhasTech({ packerFtDiam164: v })} unit='"' locate={{ kind: 'data', field: 'packerFtDiam164' }} />}
               {tech === 'ct' && hasPkgFn('ABAN 129') && <Field label="Ø plug FT (TH)" value={d.plugFtDiam} onChange={v => setBhasTech({ plugFtDiam: v })} unit='"' locate={{ kind: 'data', field: 'plugFtDiam' }} />}
               {tech === 'ct' && hasPkgFn('ABAN 129') && <Field label="Aplicador do plug FT" value={d.plugFtAplicador} onChange={v => setBhasTech({ plugFtAplicador: v })} locate={{ kind: 'data', field: 'plugFtAplicador' }} />}
               {tech === 'ct' && hasPkgFn('ABAN 143') && <Field label="Modelo da ponteira (martelete FT)" value={d.marteleteModelo} onChange={v => setBhasTech({ marteleteModelo: v })} locate={{ kind: 'data', field: 'marteleteModelo' }} />}
@@ -1496,21 +1645,21 @@ export function ProjectDataPanel({ onLocate, onClearLocate, locatedTarget, oneBy
           return (
             <Section title="Cimentação" searchText="cimento topo anular interior coluna profundidade base perfuração cr plug bpp diâmetro metro"              isDirty={dirty['cimentacao']} onApply={applySection('cimentacao')} onDiscard={discardSection('cimentacao')} canApply={sectionAffectsLines('cimentacao')}>
               {showTopoAnularA && (
-                <Field label="Topo no anular A" value={d.cimentTopoAnularA} onChange={v => setCimentacao({ cimentTopoAnularA: v })} unit="m" />
+                <Field label="Topo no anular A" value={d.cimentTopoAnularA} onChange={v => setCimentacao({ cimentTopoAnularA: v })} unit="m" locate={{ kind: 'data', field: 'cimentTopoAnularA' }} />
               )}
               {bppItems.map(item => {
                 const bpProf = d.bhaPlans?.[item.uid]?.bpProf ?? ''
                 const bpDiam = d.bhaPlans?.[item.uid]?.bpDiam ?? ''
                 return (
                   <div key={item.uid}>
-                    <Field label={`${item.packageName} — Profundidade`} value={bpProf} onChange={() => {}} placeholder="preencha em BHA" unit="m" readOnly />
-                    <Field label={`${item.packageName} — Diâmetro do tubo`} value={bpDiam} onChange={() => {}} placeholder="preencha em BHA" unit="pol" readOnly />
+                    <Field label={`${item.packageName} — Profundidade`} value={bpProf} onChange={() => {}} placeholder="preencha em BHA" unit="m" readOnly locate={{ kind: 'plan', uid: item.uid, key: 'bpProf' }} />
+                    <Field label={`${item.packageName} — Diâmetro do tubo`} value={bpDiam} onChange={() => {}} placeholder="preencha em BHA" unit="pol" readOnly locate={{ kind: 'plan', uid: item.uid, key: 'bpDiam' }} />
                   </div>
                 )
               })}
               {isThroughTubing ? (
                 <>
-                  <Field label="Topo no interior da coluna" value={d.cimentTopoInteriorColuna} onChange={v => setCimentacao({ cimentTopoInteriorColuna: v })} unit="m" />
+                  <Field label="Topo no interior da coluna" value={d.cimentTopoInteriorColuna} onChange={v => setCimentacao({ cimentTopoInteriorColuna: v })} unit="m" locate={{ kind: 'data', field: 'cimentTopoInteriorColuna' }} />
                   <Field
                     label="Profundidade da perfuração da coluna"
                     value={autoPerfProf}
@@ -1518,6 +1667,7 @@ export function ProjectDataPanel({ onLocate, onClearLocate, locatedTarget, oneBy
                     placeholder="preencha em BHA"
                     unit="m"
                     readOnly
+                    locate={{ kind: 'data', field: 'cimentProfPerfuracao' }}
                   />
                   <Field
                     label="Profundidade da base da cimentação"
@@ -1526,6 +1676,7 @@ export function ProjectDataPanel({ onLocate, onClearLocate, locatedTarget, oneBy
                     placeholder="preencha em BHA"
                     unit="m"
                     readOnly
+                    locate={{ kind: 'data', field: 'cimentProfBaseCimentacao' }}
                   />
                   {cimentItems.some(i => /cimenta.*\bcr\b/i.test(i.packageName)) && (
                     <Field
@@ -1535,6 +1686,7 @@ export function ProjectDataPanel({ onLocate, onClearLocate, locatedTarget, oneBy
                       placeholder="preencha em BHA"
                       unit="m"
                       readOnly
+                      locate={{ kind: 'data', field: 'cimentCrProfundidade' }}
                     />
                   )}
                 </>
@@ -1554,32 +1706,39 @@ export function ProjectDataPanel({ onLocate, onClearLocate, locatedTarget, oneBy
                   })}
                 </>
               )}
-              {/* Alinhamento + volumes/densidades de cimentação (ABAN 078-084) */}
+              {/* Alinhamento + volumes/densidades de cimentação — campo dedicado por pacote (ABAN 078,079,083,084) */}
               {(() => {
-                const showAlign = state.fineTuningItems.some(i =>
-                  !i.isBlank && /^ABAN 0(78|79|80|81|82|83|84)$/.test(i.packageId))
-                const showVol   = state.fineTuningItems.some(i =>
-                  !i.isBlank && /^ABAN 07[89]$/.test(i.packageId))
-                if (!showAlign && !showVol) return null
+                const alignIds = Object.keys(CIMENT_ALINHAMENTO_FIELD).filter(id => hasPkgFn(id))
+                const volIds   = Object.keys(CIMENT_PLUG_VOL_FIELD).filter(id => hasPkgFn(id))
+                if (!alignIds.length && !volIds.length) return null
                 return (
                   <div className="mt-2 pt-2 border-t border-slate-200 dark:border-slate-800">
                     <div className="text-[10px] font-semibold text-slate-600 dark:text-slate-500 uppercase tracking-widest mb-1">Bombeio</div>
-                    {showAlign && (
-                      <Field
-                        label='Alinhamento bombeio ("via xxx > xxx > xxx")'
-                        value={d.cimentAlinhamento}
-                        onChange={v => setCimentacao({ cimentAlinhamento: v })}
-                        placeholder="ex: B4 > COP > Formação"
-                        locate={{ kind: 'data', field: 'cimentAlinhamento' }}
-                      />
-                    )}
-                    {showVol && (
-                      <>
-                        <Field label="Volume tampão de cimento"     value={d.cimentPlugVol}  onChange={v => setCimentacao({ cimentPlugVol: v })}  unit="bbl" locate={{ kind: 'data', field: 'cimentPlugVol' }} />
-                        <Field label="Densidade tampão de cimento"  value={d.cimentPlugDens} onChange={v => setCimentacao({ cimentPlugDens: v })} unit="lb/gal" locate={{ kind: 'data', field: 'cimentPlugDens' }} />
-                        <Field label="Densidade deslocamento FCBA"  value={d.cimentFcbaDens} onChange={v => setCimentacao({ cimentFcbaDens: v })} unit="lb/gal" locate={{ kind: 'data', field: 'cimentFcbaDens' }} />
-                      </>
-                    )}
+                    {alignIds.map(pkgId => {
+                      const key = CIMENT_ALINHAMENTO_FIELD[pkgId]
+                      return (
+                        <Field
+                          key={key}
+                          label={`${pkgId} — Alinhamento bombeio ("via xxx > xxx > xxx")`}
+                          value={d[key] as string}
+                          onChange={v => setCimentacao({ [key]: v })}
+                          placeholder="ex: B4 > COP > Formação"
+                          locate={{ kind: 'data', field: key }}
+                        />
+                      )
+                    })}
+                    {volIds.map(pkgId => {
+                      const volKey = CIMENT_PLUG_VOL_FIELD[pkgId]
+                      const densKey = CIMENT_PLUG_DENS_FIELD[pkgId]
+                      const fcbaKey = CIMENT_FCBA_DENS_FIELD[pkgId]
+                      return (
+                        <div key={volKey}>
+                          <Field label={`${pkgId} — Volume tampão de cimento`}    value={d[volKey] as string}  onChange={v => setCimentacao({ [volKey]: v })}  unit="bbl" locate={{ kind: 'data', field: volKey }} />
+                          <Field label={`${pkgId} — Densidade tampão de cimento`} value={d[densKey] as string} onChange={v => setCimentacao({ [densKey]: v })} unit="lb/gal" locate={{ kind: 'data', field: densKey }} />
+                          <Field label={`${pkgId} — Densidade deslocamento FCBA`} value={d[fcbaKey] as string} onChange={v => setCimentacao({ [fcbaKey]: v })} unit="lb/gal" locate={{ kind: 'data', field: fcbaKey }} />
+                        </div>
+                      )
+                    })}
                   </div>
                 )
               })()}
@@ -1587,20 +1746,22 @@ export function ProjectDataPanel({ onLocate, onClearLocate, locatedTarget, oneBy
               {pwcItems.map(item => {
                 const plan = d.bhaPlans?.[item.uid] ?? {}
                 const isPwcAval = item.packageId === 'ABAN 231'
+                const intervaloTopoKey = INTERVALO_INTERESSE_TOPO_FIELD[item.packageId]
+                const intervaloBaseKey = INTERVALO_INTERESSE_BASE_FIELD[item.packageId]
                 return (
                   <div key={item.uid} className="mt-2 pt-2 border-t border-slate-200 dark:border-slate-800">
                     <div className="text-[10px] font-semibold text-slate-600 dark:text-slate-500 uppercase tracking-widest mb-1 leading-snug">{item.packageName}</div>
                     <Field label="Canhoneio — Topo" value={plan.pwcCanhoneioTopo ?? ''} onChange={v => updatePwcPlan(item.uid, 'pwcCanhoneioTopo', v)} unit="m" locate={{ kind: 'plan', uid: item.uid, key: 'pwcCanhoneioTopo' }} />
                     <Field label="Canhoneio — Base" value={plan.pwcCanhoneioBase ?? ''} onChange={v => updatePwcPlan(item.uid, 'pwcCanhoneioBase', v)} unit="m" locate={{ kind: 'plan', uid: item.uid, key: 'pwcCanhoneioBase' }} />
-                    <Field label="Assentamento do ICF" value={plan.pwcIcf ?? ''} onChange={v => updatePwcPlan(item.uid, 'pwcIcf', v)} unit="m" />
-                    {isPwcAval && (
+                    <Field label="Assentamento do ICF" value={plan.pwcIcf ?? ''} onChange={v => updatePwcPlan(item.uid, 'pwcIcf', v)} unit="m" locate={{ kind: 'plan', uid: item.uid, key: 'pwcIcf' }} />
+                    {isPwcAval && intervaloTopoKey && (
                       <>
-                        <Field label="Intervalo de interesse — Topo" value={plan.intervaloInteresseTopo ?? ''} onChange={v => updatePwcPlan(item.uid, 'intervaloInteresseTopo', v)} unit="m" locate={{ kind: 'plan', uid: item.uid, key: 'intervaloInteresseTopo' }} />
-                        <Field label="Intervalo de interesse — Base" value={plan.intervaloInteresseBase ?? ''} onChange={v => updatePwcPlan(item.uid, 'intervaloInteresseBase', v)} unit="m" locate={{ kind: 'plan', uid: item.uid, key: 'intervaloInteresseBase' }} />
+                        <Field label="Intervalo de interesse — Topo" value={plan[intervaloTopoKey] ?? ''} onChange={v => updatePwcPlan(item.uid, intervaloTopoKey, v)} unit="m" locate={{ kind: 'plan', uid: item.uid, key: intervaloTopoKey }} />
+                        {intervaloBaseKey && <Field label="Intervalo de interesse — Base" value={plan[intervaloBaseKey] ?? ''} onChange={v => updatePwcPlan(item.uid, intervaloBaseKey, v)} unit="m" locate={{ kind: 'plan', uid: item.uid, key: intervaloBaseKey }} />}
                       </>
                     )}
                     <div className="flex items-center gap-2 py-0.5">
-                      <span className="text-xs text-slate-700 dark:text-slate-400 shrink-0 flex-1">Canhão será recuperado?</span>
+                      <span className="text-xs text-slate-700 dark:text-slate-400 shrink-0 flex-1">{defLabel('pwcCanhaoRecuperado', 'Canhão será recuperado?')}</span>
                       {(['sim','nao'] as const).map(opt => (
                         <label key={opt} className="flex items-center gap-1 cursor-pointer select-none">
                           <input type="radio" checked={plan.pwcCanhaoRecuperado === opt}
@@ -1613,36 +1774,30 @@ export function ProjectDataPanel({ onLocate, onClearLocate, locatedTarget, oneBy
                   </div>
                 )
               })}
-              {hasPkgFn('ABAN 155','ABAN 156','ABAN 158') && <Field label="Ø CR (Cement Retainer)" value={d.crDiam} onChange={v => setCimentacao({ crDiam: v })} unit='"' locate={{ kind: 'data', field: 'crDiam' }} />}
-              {hasPkgFn('ABAN 082','ABAN 084') && <Field label="Topo cimento anular acima do tampão" value={d.cimentAnularAcimaTampao} onChange={v => setCimentacao({ cimentAnularAcimaTampao: v })} unit="m" locate={{ kind: 'data', field: 'cimentAnularAcimaTampao' }} />}
-              {hasPkgFn('ABAN 247','ABAN 248') && <Field label="Topo do cimento (REVCIM)" value={d.cimentTopoRevcim} onChange={v => setCimentacao({ cimentTopoRevcim: v })} unit="m" locate={{ kind: 'data', field: 'cimentTopoRevcim' }} />}
-              {hasPkgFn('ABAN 199','ABAN 200') && <Field label="Tampão abandono — densidade pasta" value={d.tampaoAbandonoDens} onChange={v => setCimentacao({ tampaoAbandonoDens: v })} unit="ppg" locate={{ kind: 'data', field: 'tampaoAbandonoDens' }} />}
-              {hasPkgFn('ABAN 199','ABAN 200') && <Field label="Tampão abandono — topo previsto" value={d.tampaoAbandonoTopo} onChange={v => setCimentacao({ tampaoAbandonoTopo: v })} unit="m" locate={{ kind: 'data', field: 'tampaoAbandonoTopo' }} />}
-              {hasPkgFn('ABAN 199','ABAN 200') && <Field label="Tampão abandono — comprimento" value={d.tampaoAbandonoCompr} onChange={v => setCimentacao({ tampaoAbandonoCompr: v })} unit="m" locate={{ kind: 'data', field: 'tampaoAbandonoCompr' }} />}
+              {Object.entries(CR_DIAM_FIELD).filter(([id]) => hasPkgFn(id)).map(([id, key]) =>
+                <Field key={key} label={`${id} — Ø CR (Cement Retainer)`} value={d[key] as string} onChange={v => setCimentacao({ [key]: v })} unit='"' locate={{ kind: 'data', field: key }} />)}
+              {Object.entries(CIMENT_ANULAR_ACIMA_TAMPAO_FIELD).filter(([id]) => hasPkgFn(id)).map(([id, key]) =>
+                <Field key={key} label={`${id} — Topo cimento anular acima do tampão`} value={d[key] as string} onChange={v => setCimentacao({ [key]: v })} unit="m" locate={{ kind: 'data', field: key }} />)}
+              {Object.entries(CIMENT_TOPO_REVCIM_FIELD).filter(([id]) => hasPkgFn(id)).map(([id, key]) =>
+                <Field key={key} label={`${id} — Topo do cimento (REVCIM)`} value={d[key] as string} onChange={v => setCimentacao({ [key]: v })} unit="m" locate={{ kind: 'data', field: key }} />)}
+              {Object.entries(TAMPAO_ABANDONO_DENS_FIELD).filter(([id]) => hasPkgFn(id)).map(([id, key]) =>
+                <Field key={key} label={`${id} — Tampão abandono — densidade pasta`} value={d[key] as string} onChange={v => setCimentacao({ [key]: v })} unit="ppg" locate={{ kind: 'data', field: key }} />)}
+              {Object.entries(TAMPAO_ABANDONO_TOPO_FIELD).filter(([id]) => hasPkgFn(id)).map(([id, key]) =>
+                <Field key={key} label={`${id} — Tampão abandono — topo previsto`} value={d[key] as string} onChange={v => setCimentacao({ [key]: v })} unit="m" locate={{ kind: 'data', field: key }} />)}
+              {Object.entries(TAMPAO_ABANDONO_COMPR_FIELD).filter(([id]) => hasPkgFn(id)).map(([id, key]) =>
+                <Field key={key} label={`${id} — Tampão abandono — comprimento`} value={d[key] as string} onChange={v => setCimentacao({ [key]: v })} unit="m" locate={{ kind: 'data', field: key }} />)}
               {hasPkgFn('ABAN 200') && <Field label="Fluido eCSB (mar aberto) — densidade" value={d.ecsbFluidoDens} onChange={v => setCimentacao({ ecsbFluidoDens: v })} unit="ppg" locate={{ kind: 'data', field: 'ecsbFluidoDens' }} />}
             </Section>
           )
         })()}
 
-        {/* ── Outros ── */}
-        {(() => {
-          const hasPkg = (...ids: string[]) => state.fineTuningItems.some(i => ids.includes(i.packageId))
-          const showMeg      = hasPkg('ABAN 216', 'ABAN 217')
-          const showCooling  = hasPkg('ABAN 223', 'ABAN 224')
-          const showTmfP     = hasPkg('ABAN 026')
-          if (!showMeg && !showCooling && !showTmfP) return null
-          return (
-            <Section title="Outros" searchText="meg concentração fluido inibido vazão resfriamento cimentação bpm pressão plug tmf produção n2 nitrogênio"              isDirty={dirty['outros']} onApply={applySection('outros')} onDiscard={discardSection('outros')} canApply={sectionAffectsLines('outros')}>
-              {showMeg    && <Field label="Concentração MEG fluido inibido"          value={d.outrosMegConc}       onChange={v => setOutros({ outrosMegConc: v })}        unit="%" locate={{ kind: 'data', field: 'outrosMegConc' }} />}
-              {showCooling && <Field label="Vazão circ. resfriamento p/ cimentação" value={d.outrosCoolingFlow}   onChange={v => setOutros({ outrosCoolingFlow: v })}    unit="bpm" locate={{ kind: 'data', field: 'outrosCoolingFlow' }} />}
-              {showTmfP   && <Field label="Plug TMF bore produção N₂"               value={d.pressaoTmfProd}      onChange={v => setOutros({ pressaoTmfProd: v })}       unit="psi" locate={{ kind: 'data', field: 'pressaoTmfProd' }} />}
-            </Section>
-          )
-        })()}
+        {/* ── Outros ── (orientado a dados: aba Place Holders) */}
+        {renderGlobalSection('outros', 'Outros', 'meg concentração fluido inibido vazão resfriamento cimentação bpm pressão plug tmf produção n2 nitrogênio')}
 
         {/* ── Hold Points ── */}
         {(() => {
           const showEstStvR   = hasPkgFn('ABAN 038')
+          const showEstStvF   = hasPkgFn('ABAN 039')
           const showEstPlugR  = hasPkgFn('ABAN 040')
           const showEstPlugF  = hasPkgFn('ABAN 041')
           const showEstTae    = hasPkgFn('ABAN 237')
@@ -1654,11 +1809,13 @@ export function ProjectDataPanel({ onLocate, onClearLocate, locatedTarget, oneBy
           const showEcsBop229  = hasPkgFn('ABAN 229')
           const showEcsBopAny  = showEcsBop184 || showEcsBop228 || showEcsBop229
           // REVCIM: ativo quando toggle ligado + pacote presente
-          const showRevcimEval = d.revcimHp && hasPkgFn('ABAN 081','ABAN 082','ABAN 083','ABAN 084','ABAN 105','ABAN 106','ABAN 107','ABAN 149')
+          const showRevcimEval = d.revcimHp && hasPkgFn('ABAN 081','ABAN 082','ABAN 083','ABAN 084','ABAN 106','ABAN 107','ABAN 149')
           const showRevcimTop  = d.revcimHp && hasPkgFn('ABAN 081','ABAN 082','ABAN 083','ABAN 084','ABAN 231','ABAN 232','ABAN 234')
+          const showRevcimEval105 = d.revcimHp105 && hasPkgFn('ABAN 105')
           // Apenas itens marcados como Hold Point (configurado na seção de tecnologia)
           const hpEstItems = [
             { show: showEstStvR   && d.pressaoEstStvRHp,    label: 'Estanqueidade — STV nipple R 2,75"',   value: d.pressaoEstStvR,    field: 'pressaoEstStvR'   as const },
+            { show: showEstStvF   && d.pressaoEstStvFHp,    label: 'Estanqueidade — STV nipple F 2,81"',   value: d.pressaoEstStvF,    field: 'pressaoEstStvF'   as const },
             { show: showEstPlugR  && d.pressaoEstPlugRHp,   label: 'Estanqueidade — Plug nipple R 2,75"',  value: d.pressaoEstPlugR,   field: 'pressaoEstPlugR'  as const },
             { show: showEstPlugF  && d.pressaoEstPlugFHp,   label: 'Estanqueidade — Plug nipple F 2,81"',  value: d.pressaoEstPlugF,   field: 'pressaoEstPlugF'  as const },
             { show: showEstTae    && d.pressaoEstTaeHp,     label: 'Estanqueidade — TAE',                   value: d.pressaoEstTae,     field: 'pressaoEstTae'    as const },
@@ -1676,11 +1833,12 @@ export function ProjectDataPanel({ onLocate, onClearLocate, locatedTarget, oneBy
                   {showEcsBop229 && <LocateRow target={{ kind: 'textMatch', pattern: '[HOLD POINT - ECS/BOP]' }}>Teste gaveta de tubos inferior e teste completo BOP (modo perfuração)</LocateRow>}
                 </div>
               )}
-              {(showRevcimEval || showRevcimTop) && (
+              {(showRevcimEval || showRevcimTop || showRevcimEval105) && (
                 <div className="pb-2 mb-2 border-b border-slate-200 dark:border-slate-800 space-y-0.5">
                   <div className="text-[10px] font-semibold text-slate-600 dark:text-slate-500 uppercase tracking-widest mb-1">REVCIM</div>
                   {showRevcimEval && <LocateRow target={{ kind: 'textMatch', pattern: '[HOLD POINT - REVCIM]' }}>Avaliação de cimentação (perfil/perfilagem REVCIM)</LocateRow>}
                   {showRevcimTop  && <LocateRow target={{ kind: 'textMatch', pattern: '[HOLD POINT - REVCIM]' }}>Checagem de topo do cimento</LocateRow>}
+                  {showRevcimEval105 && <LocateRow target={{ kind: 'textMatch', pattern: '[HOLD POINT - REVCIM]' }}>Avaliação de cimentação Through Tubing (REVCIM)</LocateRow>}
                 </div>
               )}
               {hpEstItems.length > 0 && (

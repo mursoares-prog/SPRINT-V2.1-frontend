@@ -310,6 +310,123 @@ export function deleteCustomPlaceholder(token: string, authHeaders: Record<strin
   })
 }
 
+// ─── Definições de campo do assistente de preenchimento (Etapa 3) ────────────
+
+export type PlaceholderFieldType = 'text' | 'number' | 'unit' | 'picklist' | 'boolean'
+
+/** Como o campo de um placeholder {{token=glifo}} deve aparecer no assistente. */
+export interface PlaceholderFieldDef {
+  token: string
+  label: string
+  fieldType: PlaceholderFieldType
+  unit: string | null
+  options: string[]
+  group: string | null
+  /** Segundo nível, opcional — ex.: seção "BHA - Arame" > subgrupo "Gabaritagem". */
+  subgroup: string | null
+  orderIndex: number
+  /** Token de outro campo do qual este depende (relação simples entre campos). */
+  dependsOnToken: string | null
+  /** Valor esperado do campo dependente para este campo aparecer/habilitar. */
+  dependsOnValue: string | null
+  author: string | null
+}
+
+export function listPlaceholderFieldDefs(): Promise<PlaceholderFieldDef[]> {
+  return req<PlaceholderFieldDef[]>('/api/placeholder-defs')
+}
+
+export function savePlaceholderFieldDef(
+  def: PlaceholderFieldDef,
+  authHeaders: Record<string, string>,
+): Promise<PlaceholderFieldDef> {
+  const { token, ...body } = def
+  return req<PlaceholderFieldDef>(`/api/placeholder-defs/${encodeURIComponent(token)}`, {
+    method: 'PUT', headers: authHeaders,
+    body: JSON.stringify({
+      token,
+      label: body.label,
+      field_type: body.fieldType,
+      unit: body.unit,
+      options: body.options,
+      group: body.group,
+      subgroup: body.subgroup,
+      order_index: body.orderIndex,
+      depends_on_token: body.dependsOnToken,
+      depends_on_value: body.dependsOnValue,
+    }),
+  })
+}
+
+export function deletePlaceholderFieldDef(token: string, authHeaders: Record<string, string>): Promise<void> {
+  return req<void>(`/api/placeholder-defs/${encodeURIComponent(token)}`, {
+    method: 'DELETE', headers: authHeaders,
+  })
+}
+
+export interface PlaceholderReorderItem { token: string; orderIndex: number; group: string | null; subgroup: string | null }
+
+/** Aplica uma reordenação (drag-and-drop) em lote — uma única transação/entrada
+ * de changelog no backend, em vez de N PUTs individuais concorrentes. */
+export function reorderPlaceholderFieldDefs(
+  items: PlaceholderReorderItem[],
+  authHeaders: Record<string, string>,
+): Promise<{ changed: number }> {
+  return req<{ changed: number }>('/api/placeholder-defs/reorder', {
+    method: 'PUT', headers: authHeaders,
+    body: JSON.stringify({ items: items.map(i => ({ token: i.token, order_index: i.orderIndex, group: i.group, subgroup: i.subgroup })) }),
+  })
+}
+
+// ─── Wireline Tools API (canivete suíço) ─────────────────────────────────────
+
+/** Linha da tabela de referência de ferramentas de arame: equipamento a
+ *  instalar/retirar → ferramenta de aplicação, de pescaria, correlacionadas,
+ *  nipple relacionado e local (Onde). */
+export interface WirelineTool {
+  id: number
+  categoria: string | null
+  equipamento: string
+  aplicacao: string | null
+  pescaria: string | null
+  correlacionadas: string | null
+  nipples: string | null
+  onde: string | null
+  orderIndex: number
+  author: string | null
+}
+
+export type WirelineToolInput = Omit<WirelineTool, 'id' | 'author'>
+
+export function listWirelineTools(): Promise<WirelineTool[]> {
+  return req<WirelineTool[]>('/api/wireline-tools')
+}
+
+function wirelineBody(t: WirelineToolInput) {
+  return JSON.stringify({
+    categoria: t.categoria,
+    equipamento: t.equipamento,
+    aplicacao: t.aplicacao,
+    pescaria: t.pescaria,
+    correlacionadas: t.correlacionadas,
+    nipples: t.nipples,
+    onde: t.onde,
+    order_index: t.orderIndex,
+  })
+}
+
+export function createWirelineTool(t: WirelineToolInput, authHeaders: Record<string, string>): Promise<WirelineTool> {
+  return req<WirelineTool>('/api/wireline-tools', { method: 'POST', headers: authHeaders, body: wirelineBody(t) })
+}
+
+export function updateWirelineTool(id: number, t: WirelineToolInput, authHeaders: Record<string, string>): Promise<WirelineTool> {
+  return req<WirelineTool>(`/api/wireline-tools/${id}`, { method: 'PUT', headers: authHeaders, body: wirelineBody(t) })
+}
+
+export function deleteWirelineTool(id: number, authHeaders: Record<string, string>): Promise<void> {
+  return req<void>(`/api/wireline-tools/${id}`, { method: 'DELETE', headers: authHeaders })
+}
+
 // ─── Logic Scope API ─────────────────────────────────────────────────────────
 
 export interface LogicScopeMeta {

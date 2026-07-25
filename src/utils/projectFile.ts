@@ -1,4 +1,5 @@
 import type { WizardInputs, ScheduleItem, ScopeId, ProjectData, FineTuningItem } from '../types'
+import type { PlaceholderFieldDef } from './api'
 
 export interface ProjectFile {
   version: '1' | '2'
@@ -13,6 +14,11 @@ export interface ProjectFile {
   projectData?: ProjectData
   /** Detalhamento por pacote/linha (etapa 3) — ausente em arquivos v1. */
   fineTuningItems?: FineTuningItem[]
+  /** Snapshot da config de placeholders (aba Place Holders) vigente na criação do
+   *  projeto — congela a estrutura do assistente da Etapa 3 para este projeto, de modo
+   *  que edições posteriores do admin só afetem projetos criados depois. Ausente em
+   *  projetos antigos (que caem no fallback da config live do servidor). */
+  placeholderDefs?: PlaceholderFieldDef[]
 }
 
 const RECENT_KEY = 'sprint_recent_projects'
@@ -29,6 +35,7 @@ export function buildProjectFile(
   projectData?: ProjectData,
   fineTuningItems?: FineTuningItem[],
   projectName?: string,
+  placeholderDefs?: PlaceholderFieldDef[],
 ): ProjectFile {
   return {
     version: '2',
@@ -40,6 +47,7 @@ export function buildProjectFile(
     schedule,
     ...(projectData && { projectData }),
     ...(fineTuningItems && fineTuningItems.length > 0 && { fineTuningItems }),
+    ...(placeholderDefs && placeholderDefs.length > 0 && { placeholderDefs }),
   }
 }
 

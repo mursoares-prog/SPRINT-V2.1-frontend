@@ -1183,12 +1183,15 @@ function ClassicLineRow({ line, itemUid, itemPhase, subNum, onSelectLine, isChec
   const isInReview = currentReviewUid === line.id
   const isEmptyLine = !line.text.trim()
   const rowBg = isInReview
-    ? 'bg-amber-200 dark:bg-amber-700/70 outline outline-2 -outline-offset-2 outline-amber-500 dark:outline-amber-400 font-medium'
+    ? 'bg-blue-200 dark:bg-blue-800/70 outline outline-2 -outline-offset-2 outline-blue-500 dark:outline-blue-400 font-medium'
     : isChecked
       ? 'bg-blue-100 dark:bg-blue-900/50'
-      : (isLinePending || isEmptyLine)
-        ? 'bg-amber-50 dark:bg-amber-900/30 hover:bg-amber-50 dark:hover:bg-amber-900/40'
-        : 'hover:bg-slate-50/60 dark:hover:bg-slate-800/30'
+      : isLinePending
+        ? 'bg-blue-50 dark:bg-blue-900/30 hover:bg-blue-50 dark:hover:bg-blue-900/40'
+        : isEmptyLine
+          // Linha vazia = alerta genuíno (não é revisão) → mantém âmbar
+          ? 'bg-amber-50 dark:bg-amber-900/30 hover:bg-amber-50 dark:hover:bg-amber-900/40'
+          : 'hover:bg-slate-50/60 dark:hover:bg-slate-800/30'
 
   const typeIcons = (
     <div className="inline-flex items-center gap-0.5">
@@ -1430,11 +1433,11 @@ function ClassicPkgRow({ item, rowNum, isChecked, onToggleCheck, onSelectLine, c
   const pkgHl = pkgHighlight(item)
   const showPkgHl = !isChecked && !isInReview && !isPendingReview
   const rowBg = isInReview
-    ? 'bg-amber-200 dark:bg-amber-700/70 outline outline-2 -outline-offset-2 outline-amber-500 dark:outline-amber-400 font-medium'
+    ? 'bg-blue-200 dark:bg-blue-800/70 outline outline-2 -outline-offset-2 outline-blue-500 dark:outline-blue-400 font-medium'
     : isChecked
       ? 'bg-blue-100 dark:bg-blue-900/40 hover:bg-blue-100 dark:hover:bg-blue-900/50'
       : isPendingReview
-        ? 'bg-amber-50 dark:bg-amber-900/30 hover:bg-amber-50 dark:hover:bg-amber-900/40'
+        ? 'bg-blue-50 dark:bg-blue-900/30 hover:bg-blue-50 dark:hover:bg-blue-900/40'
         : 'bg-[#f0f0f0] dark:bg-slate-800/40 hover:bg-[#e8e8e8] dark:hover:bg-slate-800/60'
 
   return (

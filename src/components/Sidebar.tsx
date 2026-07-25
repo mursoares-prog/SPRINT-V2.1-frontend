@@ -242,10 +242,6 @@ export function Sidebar({ isDark, onToggleDark, onOpenConfig, onOpenPackages, on
             </>
           ) : activeStep === 2 ? (
             <>
-            {/* Horizontal connector */}
-            <div className="h-px w-5 mx-1"
-              style={{ background: isDark ? '#1f2937' : '#b0b0b0' }} />
-
             {/* Etapa 3 — leva direto ao Detalhamento do cronograma */}
             <button
               onClick={() => handleStepClick(3)}

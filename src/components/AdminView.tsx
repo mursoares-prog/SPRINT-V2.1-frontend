@@ -1,4 +1,4 @@
-import { X, Search, ShieldCheck, Table2, Pencil, Trash2, Plus, Workflow, Undo2, AlertTriangle, Loader2 } from 'lucide-react'
+import { X, Search, ShieldCheck, Table2, Pencil, Trash2, Plus, Workflow, Undo2, AlertTriangle, Loader2, Tags } from 'lucide-react'
 import { useState, useMemo, useEffect, useCallback } from 'react'
 import {
   isApiConfigured, listChangelog, getMergedPackageLines, getBaseFields,
@@ -13,6 +13,7 @@ import { setPackageLines } from '../data/packageLinesStore'
 import { applyDetailOverrides, applyPackageOverrides } from '../data/lineDetailsStore'
 import { AdminVarsEditor } from './AdminVarsEditor'
 import { LogicEditorPanel } from './LogicEditorPanel'
+import { PlaceholderDefsEditor } from './PlaceholderDefsEditor'
 import CHANGE_LOG from '../data/changeLog.json'
 
 // Chave dos overrides legados por linha (rec/pad de fallback no editor).
@@ -52,7 +53,7 @@ const TIPO_STYLE: Record<string, { label: string; cls: string; Icon: typeof Penc
   'reversão':       { label: 'Reversão',       cls: 'bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-300',             Icon: Undo2 },
 }
 
-type Tab = 'vars' | 'log' | 'engine'
+type Tab = 'vars' | 'log' | 'engine' | 'placeholders'
 
 export function AdminView({ onClose, initialTab = 'vars' }: { onClose: () => void; initialTab?: 'vars' | 'engine' }) {
   const [tab, setTab] = useState<Tab>(initialTab)
@@ -130,6 +131,9 @@ export function AdminView({ onClose, initialTab = 'vars' }: { onClose: () => voi
           <TabButton active={tab === 'engine'} onClick={() => setTab('engine')} Icon={Workflow}>
             Árvores de Decisão
           </TabButton>
+          <TabButton active={tab === 'placeholders'} onClick={() => setTab('placeholders')} Icon={Tags}>
+            Place Holders
+          </TabButton>
           <button
             onClick={onClose}
             className="ml-auto shrink-0 w-7 h-7 flex items-center justify-center rounded-lg text-slate-600 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
@@ -138,7 +142,7 @@ export function AdminView({ onClose, initialTab = 'vars' }: { onClose: () => voi
         </div>
 
         {/* Search */}
-        {tab !== 'engine' && <div className="px-5 py-3 border-b border-slate-100 dark:border-slate-800 shrink-0">
+        {tab !== 'engine' && tab !== 'placeholders' && <div className="px-5 py-3 border-b border-slate-100 dark:border-slate-800 shrink-0">
           <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#f5f5f5] dark:bg-slate-800">
             <Search size={14} className="text-slate-600 shrink-0" />
             <input
@@ -164,6 +168,8 @@ export function AdminView({ onClose, initialTab = 'vars' }: { onClose: () => voi
           <LogPanel entries={filteredLog} canUndo={serverLog != null} onUndo={reload} />
         ) : tab === 'engine' ? (
           <LogicEditorPanel canEdit={canEdit} />
+        ) : tab === 'placeholders' ? (
+          <PlaceholderDefsEditor canEdit={canEdit} />
         ) : (
           <>
             <AdminVarsEditor
@@ -178,7 +184,7 @@ export function AdminView({ onClose, initialTab = 'vars' }: { onClose: () => voi
         </div>
 
         {/* Footer */}
-        {tab !== 'engine' && (
+        {tab !== 'engine' && tab !== 'placeholders' && (
           <div className="px-5 py-3 border-t border-slate-100 dark:border-slate-800 text-xs text-slate-600 shrink-0">
             {tab === 'log'
               ? `${filteredLog.length} de ${log.length} alteração(ões)`

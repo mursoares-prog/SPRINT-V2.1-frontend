@@ -78,6 +78,7 @@ export function useProjectAutosave() {
       state.projectData,
       state.fineTuningItems,
       state.projectName,
+      state.placeholderDefs,
     )
     // Caminho "em branco" não escolhe escopo; o backend exige scopeId não-vazio.
     if (!file.scopeId) file.scopeId = BLANK_SCOPE_ID
@@ -114,6 +115,7 @@ export function useProjectAutosave() {
     state.schedule,
     state.projectData,
     state.fineTuningItems,
+    state.placeholderDefs,
     state.view,
   ])
 

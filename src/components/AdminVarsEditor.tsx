@@ -10,6 +10,7 @@ import { Trash2, Plus, Check, Loader2, AlertTriangle, X, ChevronDown, ChevronRig
 import {
   savePackageLines, createPackage, updatePackageMeta, deletePackage,
   createPackageGroup, deletePackageGroup, createCustomPlaceholder, deleteCustomPlaceholder,
+  listPlaceholderFieldDefs,
   type BaseLine, type CustomPackageMeta, type LineOverride, type PackageLines, type PackageGroupInfo,
   type CustomPlaceholder,
 } from '../utils/api'
@@ -121,6 +122,17 @@ export function AdminVarsEditor({ query, serverBase, pkgOverrides, legacyOverrid
   const [newPh, setNewPh] = useState<{ token: string; label: string; category: string } | null>(null)
   const [phBusy, setPhBusy] = useState(false)
   const [phError, setPhError] = useState('')
+  // Rótulos vindos da aba Place Holders (placeholder_field_defs) — fonte da verdade do
+  // rótulo do placeholder. Sobrepõe o rótulo hardcoded do catálogo no picker de inserção.
+  // Buscado ao montar (a aba remonta ao alternar) e ao abrir o popover, para refletir
+  // edições feitas na aba Place Holders sem exigir refresh da página.
+  const [phDefLabels, setPhDefLabels] = useState<Record<string, string>>({})
+  const loadPhDefLabels = () => {
+    listPlaceholderFieldDefs()
+      .then(defs => setPhDefLabels(Object.fromEntries(defs.map(d => [d.token, d.label]))))
+      .catch(() => {})
+  }
+  useEffect(loadPhDefLabels, [])
   const taRefs = useRef<Record<string, HTMLTextAreaElement | null>>({})
   const pkgRefs = useRef<Record<string, HTMLDivElement | null>>({})
   const [scrollTarget, setScrollTarget] = useState<string | null>(null)
@@ -554,7 +566,7 @@ export function AdminVarsEditor({ query, serverBase, pkgOverrides, legacyOverrid
                             <td className="px-0.5 py-0.5">
                               <div className="flex items-start gap-0.5">
                                 <textarea ref={el => { taRefs.current[key] = el }} value={l.text} onChange={e => patchLine(pkgId, l._id, { text: e.target.value })} rows={2} className={cellCls} />
-                                <button onClick={() => setPh({ pkgId, lineId: l._id })} title="Inserir placeholder" className="shrink-0 mt-0.5 p-0.5 rounded text-slate-400 hover:text-[#008542] dark:hover:text-amber-400"><Braces size={13} /></button>
+                                <button onClick={() => { loadPhDefLabels(); setPh({ pkgId, lineId: l._id }) }} title="Inserir placeholder" className="shrink-0 mt-0.5 p-0.5 rounded text-slate-400 hover:text-[#008542] dark:hover:text-amber-400"><Braces size={13} /></button>
                               </div>
                             </td>
                             <td className="px-0.5 py-0.5"><input type="number" min={0} step="0.01" value={l.duration ?? ''} title="Duração (h)" onChange={e => patchLine(pkgId, l._id, { duration: e.target.value === '' ? null : parseFloat(e.target.value) })} className={`${cellCls} text-right`} /></td>
@@ -737,7 +749,7 @@ export function AdminVarsEditor({ query, serverBase, pkgOverrides, legacyOverrid
                       {fs.map(f => (
                         <button key={f.token} onClick={() => insertToken(f.token)} title={`{{${f.token}=XXX}}`}
                           className="flex flex-col items-start text-left px-2 py-1 rounded border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-[#008542] dark:hover:border-amber-500 hover:text-[#008542] dark:hover:text-amber-400 min-w-0">
-                          <span className="text-[11px] leading-tight truncate w-full">{f.label}</span>
+                          <span className="text-[11px] leading-tight truncate w-full">{phDefLabels[f.token] ?? f.label}</span>
                           <span className="text-[9px] font-mono text-slate-400 truncate w-full">{f.token}</span>
                         </button>
                       ))}
@@ -745,7 +757,7 @@ export function AdminVarsEditor({ query, serverBase, pkgOverrides, legacyOverrid
                         <div key={f.token} className="group relative flex flex-col items-start text-left px-2 py-1 rounded border border-[#008542]/40 dark:border-amber-500/40 bg-emerald-50/40 dark:bg-amber-950/20 min-w-0">
                           <button onClick={() => insertToken(f.token)} title={`{{${f.token}=XXX}}`}
                             className="flex flex-col items-start text-left min-w-0 w-full text-slate-600 dark:text-slate-300 hover:text-[#008542] dark:hover:text-amber-400">
-                            <span className="text-[11px] leading-tight truncate w-full pr-4">{f.label}</span>
+                            <span className="text-[11px] leading-tight truncate w-full pr-4">{phDefLabels[f.token] ?? f.label}</span>
                             <span className="text-[9px] font-mono text-slate-400 truncate w-full">{f.token}</span>
                           </button>
                           {canEdit && (

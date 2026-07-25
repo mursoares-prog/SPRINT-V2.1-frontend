@@ -11,6 +11,8 @@ import {
 import { bhaDerivedDepth } from '../engines/nippleDepth'
 export { SLWLFT_HIGH_PKG_IDS } from '../engines/placeholders'
 import { getPackageLines } from '../data/packageLinesStore'
+import { getPlaceholderDefs } from '../data/placeholderDefsStore'
+import type { PlaceholderFieldDef } from '../utils/api'
 import { getLineDetails, type LineDetail } from '../data/lineDetailsStore'
 import { reviewItems, FASE_TO_OW } from '../utils/ontologyReview'
 import { buildTimeCarriers, pkgFirme as pkgFirmeVal, pkgCont as pkgContVal } from '../utils/fineTuningTime'
@@ -94,6 +96,15 @@ function applyDataToLines(
     if (!l.dataTemplate) return l
     return { ...l, text: applyDataPlaceholders(l.dataTemplate, uid, pkgId, pkgName, data) }
   })
+}
+
+// Snapshot da config de placeholders vigente (aba Place Holders) para congelar no projeto
+// ao iniciar a Etapa 3. Retorna undefined quando a config live está vazia (servidor não
+// configurado/não carregado ainda) — nesse caso o assistente usa o fallback live e não
+// congela um snapshot vazio. Cópia rasa do array (os defs são tratados como imutáveis).
+function snapshotPlaceholderDefs(): PlaceholderFieldDef[] | undefined {
+  const defs = getPlaceholderDefs()
+  return defs.length > 0 ? [...defs] : undefined
 }
 
 // Migração: atualiza dataTemplate de itens salvos para a versão atual de packageLines.json.
@@ -409,13 +420,13 @@ const DEFAULT_PROJECT_DATA: ProjectData = {
   nipple275: 'Nipple F 2,81"', nipple275Depth: '',
   nipplesOutros: 'Nipple R 2,75"', nipplesOutrosDepth: '',
   insertNipple: '', camisaoId: '',
-  cimentTopoAnularA: '', cimentTopoInteriorColuna: '', cimentTopoRevcim: '',
+  cimentTopoAnularA: '', cimentTopoInteriorColuna: '', cimentTopoRevcim247: '', cimentTopoRevcim248: '',
   cimentProfPerfuracao: '', cimentProfBaseCimentacao: '', cimentCrProfundidade: '',
   cimentPlugs: {}, cimentPwc: '',
   testeInfluxo: '',
   hpNavFundo: false, hpSsub: false, hpCsbPrimario: false, hpCsbSecundario: false,
   holdPoints: [],
-  outrosTrtWeightTcap: '', outrosTrtWeightAnm: '', outrosMegConc: '', outrosCoolingFlow: '',
+  outrosMegConc: '', outrosCoolingFlow: '',
   outrosPcabN2Psi: '', outrosDrainB2Psi: '',
   pressaoBoreTest: '', pressaoRiserDpr: '', pressaoN2Trt: '',
 
@@ -424,14 +435,18 @@ const DEFAULT_PROJECT_DATA: ProjectData = {
   pressaoEstStvR: '', pressaoEstPlugR: '', pressaoEstPlugF: '', pressaoEstPlugTH: '',
   pressaoEstTae: '', pressaoEstTmfProd: '', pressaoEstTmfAnul: '',
   bullheadVolume: '', bullheadDepth: '', amortFcbaDensidade: '',
-  cimentAlinhamento: '', cimentPlugVol: '', cimentPlugDens: '', cimentFcbaDens: '',
-  colunaTrabalhoDpDiam: '', volBombeioDescidaFt: '', crDiam: '', packerFtDiam: '',
+  cimentAlinhamento078: '', cimentAlinhamento083: '', cimentAlinhamento084: '',
+  cimentPlugVol078: '', cimentPlugVol079: '', cimentPlugDens078: '', cimentPlugDens079: '',
+  cimentFcbaDens078: '', cimentFcbaDens079: '',
+  colunaTrabalhoDpDiam: '', volBombeioDescidaFt: '', crDiam155: '', crDiam156: '', crDiam158: '',
+  packerFtDiam159: '', packerFtDiam164: '',
   marteleteModelo: '', marteletePonteiraDiam: '',
   bismutoEur: '', bismutoOverpull: '',
   fcbaCorteDens: '', adaptadorMc: '', pressaoCabecaLimite: '', gabaritoNippleDiam: '',
-  tampaoTipo: '', cimentAnularAcimaTampao: '', canhaoModelo: '', plugFtDiam: '', plugFtAplicador: '',
+  tampaoTipo: '', cimentAnularAcimaTampao082: '', cimentAnularAcimaTampao084: '', canhaoModelo: '', plugFtDiam: '', plugFtAplicador: '',
   ferramentaBoDuplaDiam: '', overpullKlbf: '', copCoiTubo: '', revestimentoDiam: '',
-  tampaoAbandonoDens: '', tampaoAbandonoTopo: '', tampaoAbandonoCompr: '', ecsbFluidoDens: '',
+  tampaoAbandonoDens199: '', tampaoAbandonoDens200: '', tampaoAbandonoTopo199: '', tampaoAbandonoTopo200: '',
+  tampaoAbandonoCompr199: '', tampaoAbandonoCompr200: '', ecsbFluidoDens: '',
   condicIntervaloTopo: '', condicIntervaloBase: '',
   ferramentaBhaFt: '', taeTuboDiam: '',
   profRegistroPressao: '', numEstacoesRp: '', corteBrocaDiam: '', corteDcSecoes: '', corteHwdpSecoes: '',
@@ -462,7 +477,7 @@ type Action =
   | { type: 'SET_PROJECT_NAME'; projectName: string | undefined }
   | { type: 'SET_ROLE'; role: 'admin' | 'projetista' }
   | { type: 'SET_PROJECT_ID'; projectId: string | undefined }
-  | { type: 'LOAD_PROJECT'; wellName: string; inputs: WizardInputs; schedule: ScheduleItem[]; projectData?: ProjectData; fineTuningItems?: FineTuningItem[]; projectId?: string; projectName?: string }
+  | { type: 'LOAD_PROJECT'; wellName: string; inputs: WizardInputs; schedule: ScheduleItem[]; projectData?: ProjectData; fineTuningItems?: FineTuningItem[]; projectId?: string; projectName?: string; placeholderDefs?: PlaceholderFieldDef[] }
   | { type: 'TOGGLE_HOURS' }
   | { type: 'RESET' }
   // Fine Tuning — package level
@@ -601,6 +616,9 @@ function reducer(state: AppState, action: Action): AppState {
         projectId: action.projectId, projectName: action.projectName,
         schedule: action.schedule,
         projectData: pd,
+        // Snapshot de placeholders do arquivo (projetos criados após a migração);
+        // ausente em projetos antigos → assistente usa a config live (resolvePlaceholderDefs).
+        placeholderDefs: action.placeholderDefs,
         fineTuningItems: syncDataTemplates(action.fineTuningItems ?? [], pd),
         // Arquivo com detalhamento → abrir direto na etapa 3 para continuar;
         // arquivo legado (só cronograma) → etapa 2.
@@ -626,7 +644,7 @@ function reducer(state: AppState, action: Action): AppState {
       // 'Poço' como placeholder até a integração existir, para o autosave ser válido.
       // Semeia um pacote manual com uma linha em branco para que o usuário tenha
       // algo para começar a editar no cronograma da etapa 3.
-      return { ...state, wellName: state.wellName || 'Poço', fineTuningItems: [manualFtItem('Mobilização')], view: 'fine_tuning', ftAdjustMode: { firme: 'none', cont: 'none' } }
+      return { ...state, wellName: state.wellName || 'Poço', fineTuningItems: [manualFtItem('Mobilização')], view: 'fine_tuning', ftAdjustMode: { firme: 'none', cont: 'none' }, placeholderDefs: state.placeholderDefs ?? snapshotPlaceholderDefs() }
     case 'ENTER_FINE_TUNING': {
       // Regenera fineTuningItems quando o schedule mudou (uids diferentes do que estava salvo).
       // Garante que alterações na etapa 2 sejam refletidas ao retornar à etapa 3.
@@ -639,7 +657,7 @@ function reducer(state: AppState, action: Action): AppState {
       const ftItems = (!scheduleChanged && state.fineTuningItems.length > 0)
         ? state.fineTuningItems
         : makeFineTuningItems(state.schedule, state.projectData)
-      return { ...state, fineTuningItems: ftItems, view: 'fine_tuning' }
+      return { ...state, fineTuningItems: ftItems, view: 'fine_tuning', placeholderDefs: state.placeholderDefs ?? snapshotPlaceholderDefs() }
     }
     case 'FT_REORDER': return { ...state, fineTuningItems: action.items }
     case 'FT_UPDATE_ITEM': return {

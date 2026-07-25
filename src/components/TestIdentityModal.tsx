@@ -58,6 +58,7 @@ export function TestIdentityModal({ onClose }: { onClose: () => void }) {
           fineTuningItems: existing.fineTuningItems,
           projectId: existing.id,
           projectName: existing.projectName,
+          placeholderDefs: existing.placeholderDefs,
         })
       }
     } catch { /* offline/erro → segue como projeto novo, não bloqueia a entrada */ }

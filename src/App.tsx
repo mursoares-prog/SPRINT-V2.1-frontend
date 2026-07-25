@@ -14,10 +14,11 @@ import type { ScopeId, WizardInputs, RigType } from './types'
 import { ArrowRight, AlertTriangle, FilePlus } from 'lucide-react'
 import { LuNetwork } from 'react-icons/lu'
 import { getDefaultInputs } from './utils/defaultInputs'
-import { isApiConfigured, getMergedPackageLines, getBaseOverrides, getBasePackageOverrides, getCustomPackages, getLogicScopes, getLogicScope, getLogicScopeGroups } from './utils/api'
+import { isApiConfigured, getMergedPackageLines, getBaseOverrides, getBasePackageOverrides, getCustomPackages, getLogicScopes, getLogicScope, getLogicScopeGroups, listPlaceholderFieldDefs } from './utils/api'
 import { ensureDefaultSession } from './utils/auth'
 import { LoginModal } from './components/LoginModal'
 import { setPackageLines } from './data/packageLinesStore'
+import { setPlaceholderDefs } from './data/placeholderDefsStore'
 import { applyDetailOverrides, applyPackageOverrides } from './data/lineDetailsStore'
 import { setExtraPackages, metaToPackage } from './data/packages'
 import { setLogicOverrides, setCustomScopesMeta, getCustomScopesMeta, isBlockScope, setScopeLabels, setScopeGroupsData, getTopScopeGroups, getScopeIdsInGroup, getUngroupedScopeIds } from './data/logicOverrideStore'
@@ -413,6 +414,7 @@ export default function App() {
   useEffect(() => {
     if (!isApiConfigured()) return
     getMergedPackageLines().then(setPackageLines).catch(() => {})
+    listPlaceholderFieldDefs().then(setPlaceholderDefs).catch(() => {})
     getBaseOverrides().then(applyDetailOverrides).catch(() => {})
     getBasePackageOverrides().then(applyPackageOverrides).catch(() => {})
     getCustomPackages().then(ms => setExtraPackages(
