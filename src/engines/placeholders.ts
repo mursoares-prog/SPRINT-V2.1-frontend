@@ -34,12 +34,14 @@ export const OGIVA_DIAM_FIELD: Record<string, keyof BhaPlanFields> = {
 export const INTERVALO_INTERESSE_TOPO_FIELD: Record<string, keyof BhaPlanFields> = {
   'ABAN 081': 'intervaloInteresseTopo081', 'ABAN 082': 'intervaloInteresseTopo082',
   'ABAN 083': 'intervaloInteresseTopo083', 'ABAN 084': 'intervaloInteresseTopo084',
-  'ABAN 105': 'intervaloInteresseTopo105', 'ABAN 231': 'intervaloInteresseTopo231',
+  'ABAN 105': 'intervaloInteresseTopo105',
+  'ABAN 106': 'intervaloInteresseTopo106', 'ABAN 107': 'intervaloInteresseTopo107',
 }
 export const INTERVALO_INTERESSE_BASE_FIELD: Record<string, keyof BhaPlanFields> = {
   'ABAN 081': 'intervaloInteresseBase081', 'ABAN 082': 'intervaloInteresseBase082',
   'ABAN 083': 'intervaloInteresseBase083', 'ABAN 084': 'intervaloInteresseBase084',
-  'ABAN 105': 'intervaloInteresseBase105', 'ABAN 231': 'intervaloInteresseBase231',
+  'ABAN 105': 'intervaloInteresseBase105',
+  'ABAN 106': 'intervaloInteresseBase106', 'ABAN 107': 'intervaloInteresseBase107',
 }
 
 // Campos globais de ProjectData (Etapa "Cimentação") também desdobrados por pacote —
@@ -89,7 +91,7 @@ export const TAMPAO_ABANDONO_COMPR_FIELD: Record<string, keyof ProjectData> = {
 // Nenhuma lógica de substituição precisa mudar.
 //
 // Tokens especiais:
-//   _bopBaixa            → "300" quando pressaoBopArameHigh preenchido (teste SL/WL/FT)
+//   _bopBaixa            → "300" quando pressaoTesteAltaEquipSup preenchido (teste SL/WL/FT)
 //   pressaoEst*          → fallback para pressaoProva (teste de estanqueidade pós-instalação)
 //   _hpEst*              → "[HOLD POINT - SMAB] " quando flag de Hold Point ativo; "" caso contrário
 // ─────────────────────────────────────────────────────────────────────────────
@@ -112,6 +114,12 @@ export const SLWLFT_HIGH_PKG_IDS: readonly string[] = (() => {
     ...range(81, 100),                              // perfilagem/CT — posicionar BHA via QTS
     'ABAN 119','ABAN 120','ABAN 121',               // BOP-FT / injetor (flexitubo)
     'ABAN 122','ABAN 123','ABAN 124','ABAN 125',    // acoplar injetor no BOP-FT / teste estanqueidade FT
+    // montagem/teste de equipamento de superfície de FT (300 / prova / 5 min) + lubrificador (ABAN 249)
+    'ABAN 126','ABAN 127','ABAN 128','ABAN 130','ABAN 131','ABAN 132','ABAN 133','ABAN 134',
+    'ABAN 135','ABAN 136','ABAN 137','ABAN 138','ABAN 139','ABAN 140','ABAN 141','ABAN 142',
+    'ABAN 143','ABAN 144','ABAN 145','ABAN 146','ABAN 147','ABAN 149','ABAN 151','ABAN 152',
+    'ABAN 155','ABAN 156','ABAN 157','ABAN 158','ABAN 159','ABAN 162','ABAN 163','ABAN 164',
+    'ABAN 232','ABAN 249',
     'ABAN 237','ABAN 238',                          // TAE / tampão bismuto via QTS
   ]
 })()
@@ -176,7 +184,7 @@ export const PLAN_KEY_ALIASES: Record<string, string> = {
   diamJdc056: 'diamJdc', diamJdc057: 'diamJdc', diamJdc094: 'diamJdc', modeloSlidingSleeve058: 'modeloSlidingSleeve',
   modeloSlidingSleeve059: 'modeloSlidingSleeve', modeloSlidingSleeve144: 'modeloSlidingSleeve', modeloSlidingSleeve145: 'modeloSlidingSleeve', bpDiam108: 'bpDiam',
   bpDiam109: 'bpDiam', bpDiam198: 'bpDiam', bpDiam199: 'bpDiam', aplicadorCamisao037: 'aplicadorCamisao',
-  aplicadorCamisao097: 'aplicadorCamisao', aplicadorCamisao134: 'aplicadorCamisao', modelo034: 'modelo', modelo035: 'modelo', modelo042: 'modelo',
+  aplicadorCamisao097: 'aplicadorCamisao', aplicadorCamisao134: 'aplicadorCamisao', modelo034: 'modelo', modelo042: 'modelo',
   bppAncoragemKlbf108: 'bppAncoragemKlbf', bppAncoragemKlbf109: 'bppAncoragemKlbf', tipoDesviador056: 'tipoDesviador', tipoDesviador057: 'tipoDesviador',
   taeProf237: 'taeProf', camDiamInt037: 'camDiamInt', diamCacamba046: 'diamCacamba',
   taeDiamNom237: 'taeDiamNom',
@@ -220,7 +228,7 @@ const str = (v: unknown): string => (typeof v === 'string' ? v : '')
 
 /** Resolve o valor de um token. '' (vazio) → o chamador usa o glifo de fallback. */
 function resolveField(field: string, ctx: RuleCtx): string {
-  if (field === '_bopBaixa') return ctx.data.pressaoBopArameHigh ? '300' : ''
+  if (field === '_bopBaixa') return ctx.data.pressaoTesteAltaEquipSup ? '300' : ''
   if (field in ALWAYS_HP) return ALWAYS_HP[field]!
   if (field in HP_PREFIX_FLAG) {
     const { flag, prefix } = HP_PREFIX_FLAG[field]!

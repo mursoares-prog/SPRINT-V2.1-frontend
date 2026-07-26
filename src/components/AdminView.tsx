@@ -27,12 +27,14 @@ const ovKey = (pkgId: string, i: number) => `${pkgId}|${i}`
 interface LogEntry {
   id: number
   data: string          // ISO yyyy-mm-dd
+  created_at?: string | null  // ISO datetime (com horário), quando vindo do servidor
   pacote: string
   linha: number | null  // posição (1-based) na lista do pacote; null se N/A
   tipo: string          // 'edição' | 'remoção' | 'inclusão'
   resumo: string
   antes?: string
   depois?: string
+  author?: string | null
   undoable?: boolean
   undone?: boolean
 }
@@ -41,6 +43,23 @@ const LOG = (CHANGE_LOG as unknown as LogEntry[])
 const fmtData = (iso: string) => {
   const [y, m, d] = iso.split('-')
   return d && m && y ? `${d}/${m}/${y}` : iso
+}
+
+// Data + horário a partir do created_at (ISO datetime) do servidor; cai para a
+// data pura (bundle antigo, sem horário).
+const fmtDataHora = (e: LogEntry): string => {
+  if (e.created_at) {
+    const dt = new Date(e.created_at)
+    if (!isNaN(dt.getTime())) {
+      const dd = String(dt.getDate()).padStart(2, '0')
+      const mm = String(dt.getMonth() + 1).padStart(2, '0')
+      const yy = dt.getFullYear()
+      const hh = String(dt.getHours()).padStart(2, '0')
+      const mi = String(dt.getMinutes()).padStart(2, '0')
+      return `${dd}/${mm}/${yy} ${hh}:${mi}`
+    }
+  }
+  return fmtData(e.data)
 }
 
 const TIPO_STYLE: Record<string, { label: string; cls: string; Icon: typeof Pencil }> = {
@@ -258,10 +277,13 @@ function LogPanel({ entries, canUndo, onUndo }: {
                 {e.linha != null && (
                   <span className="text-[11px] text-slate-500 dark:text-slate-400">linha {e.linha}</span>
                 )}
+                {e.author && (
+                  <span className="text-[11px] text-slate-500 dark:text-slate-400">por <span className="font-medium">{e.author}</span></span>
+                )}
                 {e.undone && (
                   <span className="text-[10px] font-semibold text-slate-400 dark:text-slate-500">desfeita</span>
                 )}
-                <span className="ml-auto text-[11px] text-slate-400 dark:text-slate-500 tabular-nums">{fmtData(e.data)}</span>
+                <span className="ml-auto text-[11px] text-slate-400 dark:text-slate-500 tabular-nums">{fmtDataHora(e)}</span>
                 {canUndo && e.undoable && !e.undone && (
                   <button
                     onClick={() => { if (window.confirm('Desfazer esta alteração e restaurar o estado anterior?')) void handleUndo(e.id) }}

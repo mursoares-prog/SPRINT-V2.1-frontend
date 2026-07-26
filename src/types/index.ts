@@ -303,13 +303,15 @@ export interface BhaPlanFields {
   intervaloInteresseTopo083?: string
   intervaloInteresseTopo084?: string
   intervaloInteresseTopo105?: string
-  intervaloInteresseTopo231?: string
+  intervaloInteresseTopo106?: string
+  intervaloInteresseTopo107?: string
   intervaloInteresseBase081?: string
   intervaloInteresseBase082?: string
   intervaloInteresseBase083?: string
   intervaloInteresseBase084?: string
   intervaloInteresseBase105?: string
-  intervaloInteresseBase231?: string
+  intervaloInteresseBase106?: string
+  intervaloInteresseBase107?: string
   // Instalação BPR/BPP com FT
   bpProf?: string
   bpDiam?: string
@@ -390,15 +392,34 @@ export interface ProjectData {
   pressaoBoreTest: string        // ABAN 013,206 — bore 2"/4" e CWO
   pressaoRiserDpr: string        // ABAN 014,015,016,017 — linhas de superfície e manifold (+ linhas de N2)
   pressaoN2Trt: string           // ABAN 024,025 — N2 interface TRT×ANM
-  pressaoTmfProd: string         // ABAN 026 — TMF bore produção N2
   pressaoTmfAnulAnm: string      // ABAN 027,028,029 — blocos ANM
   pressaoBullheadDhsv: string    // ABAN 030 — teste funcional de DHSV
-  pressaoBopArameHigh: string    // ABAN 031A/B,032,033 (wireline), 085,086,087 (electric), 119,120 (CT) — teste alta equipamentos pressão
+  pressaoTesteAltaEquipSup: string    // Teste de alta na montagem de equip. de superfície (SL/WL/FT): trens via QTS, BOP-FT + injetor, lubrificador — ver SLWLFT_HIGH_PKG_IDS
   pressaoBopPerfuracao: string   // ABAN 228,229,254,241 — teste pressão BOP perfuração descido Fase 2
   pressaoVgx: string             // ABAN 184 — teste anel VGX do BOP contra CSB (auto: MAPECAB)
   pressaoKillChoke: string       // ABAN 184 — linhas kill/choke descida BOP (auto: MAPECAB)
   pressaoEquipSupBop: string     // ABAN 184 — equipamentos de superfície (choke/standpipe manifold, TIWs, IBOPs)
   pressaoProva: string           // fallback genérico — "com XXX psi" (estanqueidade pós-instalação)
+  // Testes de pressão por operação (desmembrados do antigo fallback pressaoProva) — 1 campo por pacote
+  pressaoOverbalanceStvR275: string   // ABAN 048 — Overbalance p/ retirada de STV (nipple R 2,75")
+  pressaoOverbalanceStvF281: string   // ABAN 049 — Overbalance p/ retirada de STV (nipple F 2,81")
+  pressaoOverbalancePlugR275: string  // ABAN 050 — Overbalance p/ retirada de plug (nipple R 2,75")
+  pressaoOverbalancePlugF281: string  // ABAN 051 — Overbalance p/ retirada de plug (nipple F 2,81")
+  pressaoEstColunaVgl: string         // ABAN 057 — Estanqueidade da coluna (instalação de VGL)
+  pressaoEstTampaoBd: string          // ABAN 079 — Estanqueidade do tampão mecânico (bombeio direto)
+  pressaoIntegridadeColunaPlt: string // ABAN 099 — Integridade da coluna (perfilagem PLT)
+  pressaoEstBppCabo: string           // ABAN 109 — Estanqueidade do BPP (cabo, modo BOP)
+  pressaoEstPlugFtF281: string        // ABAN 127 — Estanqueidade do plug — FT (nipple F 2,81")
+  pressaoEstPlugFtR275: string        // ABAN 128 — Estanqueidade do plug — FT (nipple R 2,75")
+  pressaoTesteNegPlugTh: string       // ABAN 129 — Teste negativo do plug no TH (FT)
+  pressaoEstStvFtF281: string         // ABAN 130 — Estanqueidade da STV — FT (nipple F 2,81")
+  pressaoEstStvFtR275: string         // ABAN 131 — Estanqueidade da STV — FT (nipple R 2,75")
+  pressaoEstBppColuna: string         // ABAN 198 — Estanqueidade do BPP (coluna de trabalho)
+  pressaoTestePacker: string          // ABAN 201 — Teste de pressão (packer de operação)
+  pressaoLinhasSupCr: string          // ABAN 202 — Teste de linhas de superfície (recimentação c/ CR)
+  pressaoEstPocoFcba: string          // ABAN 226 — Estanqueidade do poço c/ FCBA
+  pressaoEstPlugTmfProd: string       // ABAN 249 — Estanqueidade do plug no TMF (bore de produção)
+  pressaoEstPlugTmfAnul: string       // ABAN 250 — Estanqueidade do plug no TMF (bore de anular)
   pressaoEstStvR: string         // Estanqueidade pós-instalação — STV nipple R 2,75"
   pressaoEstStvRHp?: boolean     // É Hold Point? — STV nipple R 2,75"
   pressaoEstStvF: string         // Estanqueidade pós-instalação — STV nipple F 2,81"

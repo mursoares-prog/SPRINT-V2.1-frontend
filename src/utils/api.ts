@@ -95,6 +95,7 @@ export function saveServerProject(
 export interface ChangeLogEntry {
   id: number
   data: string
+  created_at?: string | null
   pacote: string
   linha: number | null
   tipo: string

@@ -430,8 +430,14 @@ const DEFAULT_PROJECT_DATA: ProjectData = {
   outrosPcabN2Psi: '', outrosDrainB2Psi: '',
   pressaoBoreTest: '', pressaoRiserDpr: '', pressaoN2Trt: '',
 
-  pressaoTmfProd: '', pressaoTmfAnulAnm: '', pressaoBullheadDhsv: '',
-  pressaoBopArameHigh: '', pressaoBopPerfuracao: '', pressaoVgx: '', pressaoKillChoke: '', pressaoEquipSupBop: '', pressaoProva: '',
+  pressaoTmfAnulAnm: '', pressaoBullheadDhsv: '',
+  pressaoTesteAltaEquipSup: '', pressaoBopPerfuracao: '', pressaoVgx: '', pressaoKillChoke: '', pressaoEquipSupBop: '', pressaoProva: '',
+  // Testes de pressão por operação (desmembrados de pressaoProva)
+  pressaoOverbalanceStvR275: '', pressaoOverbalanceStvF281: '', pressaoOverbalancePlugR275: '', pressaoOverbalancePlugF281: '',
+  pressaoEstColunaVgl: '', pressaoEstTampaoBd: '', pressaoIntegridadeColunaPlt: '', pressaoEstBppCabo: '',
+  pressaoEstPlugFtF281: '', pressaoEstPlugFtR275: '', pressaoTesteNegPlugTh: '', pressaoEstStvFtF281: '', pressaoEstStvFtR275: '',
+  pressaoEstBppColuna: '', pressaoTestePacker: '', pressaoLinhasSupCr: '', pressaoEstPocoFcba: '',
+  pressaoEstPlugTmfProd: '', pressaoEstPlugTmfAnul: '',
   pressaoEstStvR: '', pressaoEstPlugR: '', pressaoEstPlugF: '', pressaoEstPlugTH: '',
   pressaoEstTae: '', pressaoEstTmfProd: '', pressaoEstTmfAnul: '',
   bullheadVolume: '', bullheadDepth: '', amortFcbaDensidade: '',

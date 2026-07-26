@@ -10,9 +10,11 @@ import {
   CIMENT_ALINHAMENTO_FIELD, CIMENT_PLUG_VOL_FIELD, CIMENT_PLUG_DENS_FIELD, CIMENT_FCBA_DENS_FIELD,
   CR_DIAM_FIELD, CIMENT_ANULAR_ACIMA_TAMPAO_FIELD, CIMENT_TOPO_REVCIM_FIELD,
   TAMPAO_ABANDONO_DENS_FIELD, TAMPAO_ABANDONO_TOPO_FIELD, TAMPAO_ABANDONO_COMPR_FIELD,
+  PLAN_KEY_ALIASES,
 } from '../engines/placeholders'
 import { tokenBinding, tokenUsedByPackages } from '../engines/assistantFields'
-import { resolvePlaceholderDefs } from '../data/placeholderDefsStore'
+import { getPackageLines } from '../data/packageLinesStore'
+import { resolvePlaceholderDefs, getPlaceholderDefs } from '../data/placeholderDefsStore'
 import type { PlaceholderFieldDef } from '../utils/api'
 import { ComboInput } from './ComboInput'
 import { WirelineToolsPanel } from './WirelineToolsPanel'
@@ -444,7 +446,12 @@ const SECTION_FIELDS: Record<string, (keyof ProjectData)[]> = {
   sonda:      ['pocoOrigem','poco','distanciaEntrePocos','velocidadeMedia'],
   fluidos:    ['amortFcbaDensidade','pressaoCabecaLimite','limitePressaoBombeio','bullheadVolume','fcbaCorteDens'],
   testes_escp: ['mapecab','pressaoKillChoke','pressaoVgx','pressaoEquipSupBop','pressaoBopPerfuracao'],
-  equipamentos_superficie: ['pressaoRiserDpr','pressaoBopArameHigh'],
+  equipamentos_superficie: ['pressaoRiserDpr','pressaoTesteAltaEquipSup'],
+  testes_pressao: ['pressaoOverbalanceStvR275','pressaoOverbalanceStvF281','pressaoOverbalancePlugR275','pressaoOverbalancePlugF281',
+               'pressaoEstColunaVgl','pressaoEstTampaoBd','pressaoIntegridadeColunaPlt','pressaoEstBppCabo',
+               'pressaoEstPlugFtF281','pressaoEstPlugFtR275','pressaoTesteNegPlugTh','pressaoEstStvFtF281',
+               'pressaoEstStvFtR275','pressaoEstBppColuna','pressaoTestePacker','pressaoLinhasSupCr',
+               'pressaoEstPocoFcba','pressaoEstPlugTmfProd','pressaoEstPlugTmfAnul'],
   nipples:    ['nipple381','nipple381Depth','nipple375','nipple375Depth',
                'nipple281','nipple281Depth','nippleTHanular','nippleTHanularDepth',
                'nippleDhsv','nippleDhsvDepth',
@@ -490,9 +497,7 @@ const SECTION_FIELDS: Record<string, (keyof ProjectData)[]> = {
                'pressaoBoreTest','pressaoTmfAnulAnm','outrosDrainB2Psi','pressaoN2Trt',
                // Movido da seção Pressões (LC DHSV)
                'pressaoBullheadDhsv'],
-  outros:     ['outrosMegConc','outrosCoolingFlow',
-               // Movido da seção Pressões (plug do TMF)
-               'pressaoTmfProd'],
+  outros:     ['outrosMegConc','outrosCoolingFlow'],
 }
 
 // Navigation packages whose duration is computed from distance / speed
@@ -548,10 +553,29 @@ const FIELD_IMPACT: Partial<Record<keyof ProjectData, FieldImpact>> = {
   pressaoBoreTest:    { packageIds: ['ABAN 012','ABAN 013','ABAN 206'] },
   pressaoRiserDpr:    { packageIds: ['ABAN 014','ABAN 015','ABAN 016','ABAN 017','ABAN 206','ABAN 244'] },
   pressaoN2Trt:       { packageIds: ['ABAN 024','ABAN 025'] },
-  pressaoTmfProd:     { packageIds: ['ABAN 026'] },
   pressaoTmfAnulAnm:  { packageIds: ['ABAN 027','ABAN 028','ABAN 029'] },
   pressaoBullheadDhsv:{ packageIds: ['ABAN 030'] },
-  pressaoBopArameHigh:{ packageIds: [...SLWLFT_HIGH_PKG_IDS] },
+  pressaoTesteAltaEquipSup:{ packageIds: [...SLWLFT_HIGH_PKG_IDS] },
+  // Testes de pressão por operação (desmembrados de pressaoProva) — 1 pacote por campo
+  pressaoOverbalanceStvR275:   { packageIds: ['ABAN 048'] },
+  pressaoOverbalanceStvF281:   { packageIds: ['ABAN 049'] },
+  pressaoOverbalancePlugR275:  { packageIds: ['ABAN 050'] },
+  pressaoOverbalancePlugF281:  { packageIds: ['ABAN 051'] },
+  pressaoEstColunaVgl:         { packageIds: ['ABAN 057'] },
+  pressaoEstTampaoBd:          { packageIds: ['ABAN 079'] },
+  pressaoIntegridadeColunaPlt: { packageIds: ['ABAN 099'] },
+  pressaoEstBppCabo:           { packageIds: ['ABAN 109'] },
+  pressaoEstPlugFtF281:        { packageIds: ['ABAN 127'] },
+  pressaoEstPlugFtR275:        { packageIds: ['ABAN 128'] },
+  pressaoTesteNegPlugTh:       { packageIds: ['ABAN 129'] },
+  pressaoEstStvFtF281:         { packageIds: ['ABAN 130'] },
+  pressaoEstStvFtR275:         { packageIds: ['ABAN 131'] },
+  pressaoEstBppColuna:         { packageIds: ['ABAN 198'] },
+  pressaoTestePacker:          { packageIds: ['ABAN 201'] },
+  pressaoLinhasSupCr:          { packageIds: ['ABAN 202'] },
+  pressaoEstPocoFcba:          { packageIds: ['ABAN 226'] },
+  pressaoEstPlugTmfProd:       { packageIds: ['ABAN 249'] },
+  pressaoEstPlugTmfAnul:       { packageIds: ['ABAN 250'] },
   pressaoBopPerfuracao:{ packageIds: ['ABAN 228','ABAN 229'] },
   pressaoVgx:         { packageIds: ['ABAN 184'] },
   pressaoKillChoke:   { packageIds: ['ABAN 184'] },
@@ -880,11 +904,39 @@ export function ProjectDataPanel({ onLocate, onClearLocate, locatedTarget, oneBy
   const activeDefs = resolvePlaceholderDefs(state.placeholderDefs)
   const projectPkgIds = new Set(state.fineTuningItems.filter(i => !i.isBlank).map(i => i.packageId))
 
-  // Rótulo do campo: a fonte é a aba Place Holders (admin). Widgets compostos (toggles,
-  // radios) que ainda são hardcoded puxam o rótulo do def do token; o texto hardcoded vira
-  // só fallback (quando o token não tem def cadastrado).
-  const defLabelByToken = new Map(activeDefs.map(dd => [dd.token, dd.label]))
+  // Rótulo do campo: a fonte é a aba Place Holders (admin). Widgets/campos ainda hardcoded
+  // no JSX puxam o rótulo do def do token; o texto hardcoded vira só fallback (token sem def).
+  // Os RÓTULOS vêm da config LIVE do servidor (getPlaceholderDefs) sobreposta ao snapshot do
+  // projeto — assim editar um rótulo na aba propaga na hora, mesmo em projetos já iniciados
+  // (o snapshot segue congelando só a ESTRUTURA/visibilidade, não o texto do rótulo).
+  const defLabelByToken = new Map<string, string>()
+  for (const dd of activeDefs) defLabelByToken.set(dd.token, dd.label)
+  for (const dd of getPlaceholderDefs()) defLabelByToken.set(dd.token, dd.label)
   const defLabel = (token: string, fallback: string): string => defLabelByToken.get(token) ?? fallback
+
+  // Token de def que rotula um campo de BHA ligado à chave `key` no pacote do item: o token
+  // efetivamente referenciado nas linhas do pacote que resolve para `key` (direto OU via
+  // apelido por-pacote em PLAN_KEY_ALIASES). Ex.: key 'modelo' no ABAN 034 → 'modelo034'.
+  // Cai na própria `key` quando nada é encontrado (fallback de rótulo continua o hardcoded).
+  const defTokenCache = useRef(new Map<string, string>())
+  const defTokenForPlanKey = (pkgId: string, key: string): string => {
+    const ck = `${pkgId}::${key}`
+    const cached = defTokenCache.current.get(ck)
+    if (cached !== undefined) return cached
+    let found = key
+    for (const l of (getPackageLines<{ text?: string }>()[pkgId] ?? [])) {
+      const t = l?.text
+      if (typeof t !== 'string') continue
+      let hit = false
+      for (const m of t.matchAll(/\{\{(\w+)=/g)) {
+        const tok = m[1]
+        if (tok === key || PLAN_KEY_ALIASES[tok] === key) { found = tok; hit = true; break }
+      }
+      if (hit) break
+    }
+    defTokenCache.current.set(ck, found)
+    return found
+  }
 
   // Toggle booleano Sim/Não (ex.: flags de Hold Point) — rótulo vindo do admin via defLabel.
   const boolToggle = (token: string, fallbackLabel: string, checked: boolean | undefined, onSet: (v: boolean) => void) => (
@@ -1098,10 +1150,10 @@ export function ProjectDataPanel({ onLocate, onClearLocate, locatedTarget, oneBy
 
         {/* ── Navegação ── */}
         <Section title="Navegação" searchText="poço origem destino distância velocidade média nós nm sonda"          isDirty={dirty['sonda']} onApply={applySection('sonda')} onDiscard={discardSection('sonda')} canApply={sectionAffectsLines('sonda')}>
-          <Field label="Poço origem"            value={d.pocoOrigem}           onChange={v => setSonda({ pocoOrigem: v })} locate={{ kind: 'data', field: 'pocoOrigem' }} />
-          <Field label="Poço destino"           value={d.poco}                 onChange={v => setSonda({ poco: v })} locate={{ kind: 'data', field: 'poco' }} />
-          <Field label="Distância entre poços"  value={d.distanciaEntrePocos}  onChange={v => setSonda({ distanciaEntrePocos: v })} unit="NM" locate={{ kind: 'data', field: 'distanciaEntrePocos' }} />
-          <Field label="Velocidade média"       value={d.velocidadeMedia}      onChange={v => setSonda({ velocidadeMedia: v })} unit="nós" locate={{ kind: 'data', field: 'velocidadeMedia' }} />
+          <Field label={defLabel('pocoOrigem', "Poço origem")}            value={d.pocoOrigem}           onChange={v => setSonda({ pocoOrigem: v })} locate={{ kind: 'data', field: 'pocoOrigem' }} />
+          <Field label={defLabel('poco', "Poço destino")}           value={d.poco}                 onChange={v => setSonda({ poco: v })} locate={{ kind: 'data', field: 'poco' }} />
+          <Field label={defLabel('distanciaEntrePocos', "Distância entre poços")}  value={d.distanciaEntrePocos}  onChange={v => setSonda({ distanciaEntrePocos: v })} unit="NM" locate={{ kind: 'data', field: 'distanciaEntrePocos' }} />
+          <Field label={defLabel('velocidadeMedia', "Velocidade média")}       value={d.velocidadeMedia}      onChange={v => setSonda({ velocidadeMedia: v })} unit="nós" locate={{ kind: 'data', field: 'velocidadeMedia' }} />
         </Section>
 
         {/* ── Equipamentos Submarinos ── (orientado a dados: aba Place Holders) */}
@@ -1118,8 +1170,8 @@ export function ProjectDataPanel({ onLocate, onClearLocate, locatedTarget, oneBy
           const push = (show: boolean, pkgs: string[], node: React.ReactNode) => {
             if (show) entries.push({ ord: pkgOrderOf(...pkgs), node })
           }
-          push(showRiser,      ['ABAN 014','ABAN 015','ABAN 016','ABAN 017','ABAN 206','ABAN 244'], <Field key="riserDpr" label="Teste de linhas de superfície e manifold auxiliar" value={d.pressaoRiserDpr} onChange={v => setEquipSup({ pressaoRiserDpr: v })} unit="psi" locate={{ kind: 'data', field: 'pressaoRiserDpr' }} />)
-          push(showBopAr,      [...SLWLFT_HIGH_PKG_IDS], <Field key="bopArame" label="Teste alta equipamentos de pressão (SL, WL e FT)" value={d.pressaoBopArameHigh} onChange={v => setEquipSup({ pressaoBopArameHigh: v })} unit="psi" locate={{ kind: 'data', field: 'pressaoBopArameHigh' }} />)
+          push(showRiser,      ['ABAN 014','ABAN 015','ABAN 016','ABAN 017','ABAN 206','ABAN 244'], <Field key="riserDpr" label={defLabel('pressaoRiserDpr', "Teste de linhas de superfície e manifold auxiliar")} value={d.pressaoRiserDpr} onChange={v => setEquipSup({ pressaoRiserDpr: v })} unit="psi" locate={{ kind: 'data', field: 'pressaoRiserDpr' }} />)
+          push(showBopAr,      [...SLWLFT_HIGH_PKG_IDS], <Field key="bopArame" label={defLabel('pressaoTesteAltaEquipSup', "Teste alta equipamentos de pressão (SL, WL e FT)")} value={d.pressaoTesteAltaEquipSup} onChange={v => setEquipSup({ pressaoTesteAltaEquipSup: v })} unit="psi" locate={{ kind: 'data', field: 'pressaoTesteAltaEquipSup' }} />)
           entries.sort((a, b) => a.ord - b.ord)
           return (
             <Section title="Equipamentos de Superfície" searchText="pressão riser linhas superfície manifold auxiliar bop arame wireline alta sl wl ft"              isDirty={dirty['equipamentos_superficie']} onApply={applySection('equipamentos_superficie')} onDiscard={discardSection('equipamentos_superficie')} canApply={sectionAffectsLines('equipamentos_superficie')}>
@@ -1128,6 +1180,9 @@ export function ProjectDataPanel({ onLocate, onClearLocate, locatedTarget, oneBy
           )
         })()}
 
+        {/* ── Testes de Pressão (por operação — desmembrados de pressaoProva) ── */}
+        {renderGlobalSection('testes_pressao', 'Testes de Pressão', 'pressão prova estanqueidade overbalance plug stv bpp coluna packer tampão negativo tmf integridade poço fcba')}
+
         {/* ── Testes ESCP ── */}
         {(() => {
             const showBop     = hasPkgFn('ABAN 184')
@@ -1135,15 +1190,15 @@ export function ProjectDataPanel({ onLocate, onClearLocate, locatedTarget, oneBy
             if (!showBop && !showBopPerf) return null
             return (
               <Section title="Testes ESCP" searchText="mapecab pressão kill choke vgx anel bop perfuração equipamentos escp"                isDirty={dirty['testes_escp']} onApply={applySection('testes_escp')} onDiscard={discardSection('testes_escp')} canApply={sectionAffectsLines('testes_escp')}>
-                {(showBop || showBopPerf) && <Field label="MAPECAB" value={d.mapecab} onChange={v => {
+                {(showBop || showBopPerf) && <Field label={defLabel('mapecab', 'MAPECAB')} value={d.mapecab} onChange={v => {
                   const upd: Partial<import('../types').ProjectData> = { mapecab: v }
                   if (!d.pressaoKillChoke    || d.pressaoKillChoke    === d.mapecab) { upd.pressaoKillChoke = v; upd.pressaoEquipSupBop = v }
                   if (!d.pressaoBopPerfuracao || d.pressaoBopPerfuracao === d.mapecab) upd.pressaoBopPerfuracao = v
                   setTestesEscp(upd)
                 }} unit="psi" locate={{ kind: 'data', field: 'mapecab' }} />}
-                {showBop && <Field label="Equipamentos de superfície e linhas de kill e choke" value={d.pressaoKillChoke} onChange={v => setTestesEscp({ pressaoKillChoke: v, pressaoEquipSupBop: v })} unit="psi" locate={{ kind: 'data', field: 'pressaoKillChoke' }} />}
-                {showBop && <Field label="Teste anel VGX do BOP × CSB (menor entre MAPECAB e limite equipamento/poço/CSB)" value={d.pressaoVgx} onChange={v => setTestesEscp({ pressaoVgx: v })} unit="psi" locate={{ kind: 'data', field: 'pressaoVgx' }} />}
-                {showBopPerf && <Field label="Teste do BOP" value={d.pressaoBopPerfuracao} onChange={v => setTestesEscp({ pressaoBopPerfuracao: v })} unit="psi" locate={{ kind: 'data', field: 'pressaoBopPerfuracao' }} />}
+                {showBop && <Field label={defLabel('pressaoKillChoke', "Equipamentos de superfície e linhas de kill e choke")} value={d.pressaoKillChoke} onChange={v => setTestesEscp({ pressaoKillChoke: v, pressaoEquipSupBop: v })} unit="psi" locate={{ kind: 'data', field: 'pressaoKillChoke' }} />}
+                {showBop && <Field label={defLabel('pressaoVgx', "Teste anel VGX do BOP × CSB (menor entre MAPECAB e limite equipamento/poço/CSB)")} value={d.pressaoVgx} onChange={v => setTestesEscp({ pressaoVgx: v })} unit="psi" locate={{ kind: 'data', field: 'pressaoVgx' }} />}
+                {showBopPerf && <Field label={defLabel('pressaoBopPerfuracao', "Teste do BOP")} value={d.pressaoBopPerfuracao} onChange={v => setTestesEscp({ pressaoBopPerfuracao: v })} unit="psi" locate={{ kind: 'data', field: 'pressaoBopPerfuracao' }} />}
               </Section>
             )
         })()}
@@ -1151,7 +1206,7 @@ export function ProjectDataPanel({ onLocate, onClearLocate, locatedTarget, oneBy
         {/* ── Retirada de Coluna ── */}
         {state.fineTuningItems.some(i => !i.isBlank && ['ABAN 188','ABAN 189','ABAN 190'].includes(i.packageId)) && (
           <Section title="Retirada de Coluna" searchText="diâmetro tubo cop coi identificação retirada coluna"            isDirty={dirty['retirada_coluna']} onApply={applySection('retirada_coluna')} onDiscard={discardSection('retirada_coluna')} canApply={sectionAffectsLines('retirada_coluna')}>
-            <Field label="Ø/ident. tubo COP/COI (retirada)" value={d.copCoiTubo} onChange={v => setRetirada({ copCoiTubo: v })} locate={{ kind: 'data', field: 'copCoiTubo' }} />
+            <Field label={defLabel('copCoiTubo', "Ø/ident. tubo COP/COI (retirada)")} value={d.copCoiTubo} onChange={v => setRetirada({ copCoiTubo: v })} locate={{ kind: 'data', field: 'copCoiTubo' }} />
           </Section>
         )}
 
@@ -1161,11 +1216,11 @@ export function ProjectDataPanel({ onLocate, onClearLocate, locatedTarget, oneBy
           const showLimPcab = hasPkgFn('ABAN 061','ABAN 062')
           return (
             <Section title="Fluidos" searchText="pressão bombeio limite fcba meg amortecimento densidade bullheading volume cabeça corte substituição ppg bbl"              isDirty={dirty['fluidos']} onApply={applySection('fluidos')} onDiscard={discardSection('fluidos')} canApply={sectionAffectsLines('fluidos')}>
-              <Field label="Limite P. bombeio" value={d.limitePressaoBombeio} onChange={v => setFluidos({ limitePressaoBombeio: v })} unit="psi" locate={{ kind: 'data', field: 'limitePressaoBombeio' }} />
-              {showFcba && <Field label="Densidade FCBA/MEG amortecimento" value={d.amortFcbaDensidade} onChange={v => setFluidos({ amortFcbaDensidade: v })} unit="ppg" locate={{ kind: 'data', field: 'amortFcbaDensidade' }} />}
-              {showLimPcab && <Field label="Limite pressão de cabeça (bullheading)" value={d.pressaoCabecaLimite} onChange={v => setFluidos({ pressaoCabecaLimite: v })} unit="psi" locate={{ kind: 'data', field: 'pressaoCabecaLimite' }} />}
-              {hasPkgFn('ABAN 030','ABAN 062') && <Field label="Volume diesel/MEG bullheading" value={d.bullheadVolume} onChange={v => setFluidos({ bullheadVolume: v })} unit="bbl" locate={{ kind: 'data', field: 'bullheadVolume' }} />}
-              {hasPkgFn('ABAN 186','ABAN 189','ABAN 190','ABAN 235','ABAN 236') && <Field label="Densidade FCBA (corte/substituição)" value={d.fcbaCorteDens} onChange={v => setFluidos({ fcbaCorteDens: v })} unit="ppg" locate={{ kind: 'data', field: 'fcbaCorteDens' }} />}
+              <Field label={defLabel('limitePressaoBombeio', "Limite P. bombeio")} value={d.limitePressaoBombeio} onChange={v => setFluidos({ limitePressaoBombeio: v })} unit="psi" locate={{ kind: 'data', field: 'limitePressaoBombeio' }} />
+              {showFcba && <Field label={defLabel('amortFcbaDensidade', "Densidade FCBA/MEG amortecimento")} value={d.amortFcbaDensidade} onChange={v => setFluidos({ amortFcbaDensidade: v })} unit="ppg" locate={{ kind: 'data', field: 'amortFcbaDensidade' }} />}
+              {showLimPcab && <Field label={defLabel('pressaoCabecaLimite', "Limite pressão de cabeça (bullheading)")} value={d.pressaoCabecaLimite} onChange={v => setFluidos({ pressaoCabecaLimite: v })} unit="psi" locate={{ kind: 'data', field: 'pressaoCabecaLimite' }} />}
+              {hasPkgFn('ABAN 030','ABAN 062') && <Field label={defLabel('bullheadVolume', "Volume diesel/MEG bullheading")} value={d.bullheadVolume} onChange={v => setFluidos({ bullheadVolume: v })} unit="bbl" locate={{ kind: 'data', field: 'bullheadVolume' }} />}
+              {hasPkgFn('ABAN 186','ABAN 189','ABAN 190','ABAN 235','ABAN 236') && <Field label={defLabel('fcbaCorteDens', "Densidade FCBA (corte/substituição)")} value={d.fcbaCorteDens} onChange={v => setFluidos({ fcbaCorteDens: v })} unit="ppg" locate={{ kind: 'data', field: 'fcbaCorteDens' }} />}
             </Section>
           )
         })()}
@@ -1190,7 +1245,7 @@ export function ProjectDataPanel({ onLocate, onClearLocate, locatedTarget, oneBy
 
           return (
             <Section key={tech} title={BHA_TECH[tech]!} searchText="bha plano profundidade ferramenta perfuração corte gabarito tae jateamento camisão stroker nipple plug stv brv cimentação pwc condicionamento diâmetro nós"              isDirty={dirty[sid]} onApply={applySection(sid)} onDiscard={discardSection(sid)} canApply={sectionAffectsLines(sid)}>
-              {tech === 'workstring' && hasPkgFn('ABAN 013','ABAN 182','ABAN 185','ABAN 189','ABAN 190','ABAN 191','ABAN 192','ABAN 193','ABAN 194','ABAN 195','ABAN 196','ABAN 197','ABAN 198','ABAN 199','ABAN 200','ABAN 202','ABAN 233') && <Field label="Ø coluna de trabalho DP (COT DP)" value={d.colunaTrabalhoDpDiam} onChange={v => setBhasTech({ colunaTrabalhoDpDiam: v })} unit='"' locate={{ kind: 'data', field: 'colunaTrabalhoDpDiam' }} />}
+              {tech === 'workstring' && hasPkgFn('ABAN 013','ABAN 182','ABAN 185','ABAN 189','ABAN 190','ABAN 191','ABAN 192','ABAN 193','ABAN 194','ABAN 195','ABAN 196','ABAN 197','ABAN 198','ABAN 199','ABAN 200','ABAN 202','ABAN 233') && <Field label={defLabel('colunaTrabalhoDpDiam', "Ø coluna de trabalho DP (COT DP)")} value={d.colunaTrabalhoDpDiam} onChange={v => setBhasTech({ colunaTrabalhoDpDiam: v })} unit='"' locate={{ kind: 'data', field: 'colunaTrabalhoDpDiam' }} />}
                         {(() => {
                           // Compute #N and previous uid for duplicate packageIds
                           const totalCounts = new Map<string, number>()
@@ -1282,81 +1337,81 @@ export function ProjectDataPanel({ onLocate, onClearLocate, locatedTarget, oneBy
                                   <div className="ml-3 mt-1 mb-1 pl-2 space-y-0">
                                     {isPerf && (
                                       <>
-                                        <Field label="Diâmetro nominal do canhão" value={plan.canhao ?? ''} onChange={v => updatePlan(item.uid, 'canhao', v)} locate={{ kind: 'plan', uid: item.uid, key: 'canhao' }} unit="pol" />
-                                        <Field label="TFA mínimo" value={plan.tfaMin ?? ''} onChange={v => updatePlan(item.uid, 'tfaMin', v)} locate={{ kind: 'plan', uid: item.uid, key: 'tfaMin' }} unit="pol²" />
+                                        <Field label={defLabel(defTokenForPlanKey(item.packageId, 'canhao'), "Diâmetro nominal do canhão")} value={plan.canhao ?? ''} onChange={v => updatePlan(item.uid, 'canhao', v)} locate={{ kind: 'plan', uid: item.uid, key: 'canhao' }} unit="pol" />
+                                        <Field label={defLabel(defTokenForPlanKey(item.packageId, 'tfaMin'), "TFA mínimo")} value={plan.tfaMin ?? ''} onChange={v => updatePlan(item.uid, 'tfaMin', v)} locate={{ kind: 'plan', uid: item.uid, key: 'tfaMin' }} unit="pol²" />
                                       </>
                                     )}
                                     {(isPerf || isCorte) && (
                                       <>
-                                        <Field label="Profundidade"     value={plan.prof ?? ''} onChange={v => updatePlan(item.uid, 'prof', v)} locate={{ kind: 'plan', uid: item.uid, key: 'prof' }} unit="m" />
-                                        <Field label="Diâmetro do tubo" value={plan.diam ?? ''} onChange={v => updatePlan(item.uid, 'diam', v)} locate={{ kind: 'plan', uid: item.uid, key: 'diam' }} unit="pol" />
-                                        {isCorte && <Field label="TFA" value={plan.tfa ?? ''} onChange={v => updatePlan(item.uid, 'tfa', v)} locate={{ kind: 'plan', uid: item.uid, key: 'tfa' }} unit="pol²" />}
+                                        <Field label={defLabel(defTokenForPlanKey(item.packageId, 'prof'), "Profundidade")}     value={plan.prof ?? ''} onChange={v => updatePlan(item.uid, 'prof', v)} locate={{ kind: 'plan', uid: item.uid, key: 'prof' }} unit="m" />
+                                        <Field label={defLabel(defTokenForPlanKey(item.packageId, 'diam'), "Diâmetro do tubo")} value={plan.diam ?? ''} onChange={v => updatePlan(item.uid, 'diam', v)} locate={{ kind: 'plan', uid: item.uid, key: 'diam' }} unit="pol" />
+                                        {isCorte && <Field label={defLabel(defTokenForPlanKey(item.packageId, 'tfa'), "TFA")} value={plan.tfa ?? ''} onChange={v => updatePlan(item.uid, 'tfa', v)} locate={{ kind: 'plan', uid: item.uid, key: 'tfa' }} unit="pol²" />}
                                       </>
                                     )}
                                     {isCorte && (
-                                      <Field label="Modelo do cortador" value={plan.cortadorModelo ?? ''} onChange={v => updatePlan(item.uid, 'cortadorModelo', v)} locate={{ kind: 'plan', uid: item.uid, key: 'cortadorModelo' }} />
+                                      <Field label={defLabel(defTokenForPlanKey(item.packageId, 'cortadorModelo'), "Modelo do cortador")} value={plan.cortadorModelo ?? ''} onChange={v => updatePlan(item.uid, 'cortadorModelo', v)} locate={{ kind: 'plan', uid: item.uid, key: 'cortadorModelo' }} />
                                     )}
                                     {isArameInstRet && !isCamis && (
                                       <>
-                                        <Field label='Aplicador/Pescador — nome e Ø (ex: "GS 3\"")' value={plan.modelo ?? ''} onChange={v => updatePlan(item.uid, 'modelo', v)} locate={{ kind: 'plan', uid: item.uid, key: 'modelo' }} />
+                                        <Field label={defLabel(defTokenForPlanKey(item.packageId, 'modelo'), 'Aplicador/Pescador — nome e Ø (ex: "GS 3\"")')} value={plan.modelo ?? ''} onChange={v => updatePlan(item.uid, 'modelo', v)} locate={{ kind: 'plan', uid: item.uid, key: 'modelo' }} />
                                         {!isPerf && !isCorte && (
-                                          <Field label="Profundidade" value={derivedProf ?? plan.prof ?? ''} readOnly={derivedProf != null} onChange={v => updatePlan(item.uid, 'prof', v)} locate={{ kind: 'plan', uid: item.uid, key: 'prof' }} unit="m" />
+                                          <Field label={defLabel(defTokenForPlanKey(item.packageId, 'prof'), "Profundidade")} value={derivedProf ?? plan.prof ?? ''} readOnly={derivedProf != null} onChange={v => updatePlan(item.uid, 'prof', v)} locate={{ kind: 'plan', uid: item.uid, key: 'prof' }} unit="m" />
                                         )}
                                         {/tmf/i.test(name) && (
-                                          <Field label="Ø JDC (passo inicial)" value={plan.diamJdc ?? ''} onChange={v => updatePlan(item.uid, 'diamJdc', v)} locate={{ kind: 'plan', uid: item.uid, key: 'diamJdc' }} unit="pol" />
+                                          <Field label={defLabel(defTokenForPlanKey(item.packageId, 'diamJdc'), "Ø JDC (passo inicial)")} value={plan.diamJdc ?? ''} onChange={v => updatePlan(item.uid, 'diamJdc', v)} locate={{ kind: 'plan', uid: item.uid, key: 'diamJdc' }} unit="pol" />
                                         )}
                                       </>
                                     )}
                                     {showEstampador && estKey && (
-                                      <Field label="Ø estampador" value={gab?.diamEstampador ?? plan[estKey] ?? ''} readOnly={gab?.diamEstampador != null} onChange={v => updatePlan(item.uid, estKey, v)} locate={{ kind: 'plan', uid: item.uid, key: estKey }} unit="pol" />
+                                      <Field label={defLabel(estKey, "Ø estampador")} value={gab?.diamEstampador ?? plan[estKey] ?? ''} readOnly={gab?.diamEstampador != null} onChange={v => updatePlan(item.uid, estKey, v)} locate={{ kind: 'plan', uid: item.uid, key: estKey }} unit="pol" />
                                     )}
                                     {isGabarit && !isFt && locKey && (
-                                      <Field label="Ø localizador de nipple" value={gab?.diamLocalizador ?? plan[locKey] ?? ''} readOnly={gab?.diamLocalizador != null} onChange={v => updatePlan(item.uid, locKey, v)} locate={{ kind: 'plan', uid: item.uid, key: locKey }} unit="pol" />
+                                      <Field label={defLabel(locKey, "Ø localizador de nipple")} value={gab?.diamLocalizador ?? plan[locKey] ?? ''} readOnly={gab?.diamLocalizador != null} onChange={v => updatePlan(item.uid, locKey, v)} locate={{ kind: 'plan', uid: item.uid, key: locKey }} unit="pol" />
                                     )}
                                     {isGabarit && item.technology === 'wireline' && (
-                                      <Field label="Profundidade final" value={gab?.profFinal ?? plan.profFinal ?? ''} readOnly={gab?.profFinal != null} onChange={v => updatePlan(item.uid, 'profFinal', v)} locate={{ kind: 'plan', uid: item.uid, key: 'profFinal' }} unit="m" />
+                                      <Field label={defLabel(defTokenForPlanKey(item.packageId, 'profFinal'), "Profundidade final")} value={gab?.profFinal ?? plan.profFinal ?? ''} readOnly={gab?.profFinal != null} onChange={v => updatePlan(item.uid, 'profFinal', v)} locate={{ kind: 'plan', uid: item.uid, key: 'profFinal' }} unit="m" />
                                     )}
                                     {isGabarit && isFt && !isFtGabaritMotorBroca && item.packageId !== 'ABAN 124' && (
-                                      <Field label="Drift Ring" value={plan.driftRing ?? ''} onChange={v => updatePlan(item.uid, 'driftRing', v)} locate={{ kind: 'plan', uid: item.uid, key: 'driftRing' }} unit="pol" />
+                                      <Field label={defLabel(defTokenForPlanKey(item.packageId, 'driftRing'), "Drift Ring")} value={plan.driftRing ?? ''} onChange={v => updatePlan(item.uid, 'driftRing', v)} locate={{ kind: 'plan', uid: item.uid, key: 'driftRing' }} unit="pol" />
                                     )}
                                     {(isFtGabaritMotorBroca || item.packageId === 'ABAN 124') && (
                                       <>
-                                        {motorFundoKey && <Field label="Diâmetro do motor de fundo" value={plan[motorFundoKey] ?? ''} onChange={v => updatePlan(item.uid, motorFundoKey, v)} locate={{ kind: 'plan', uid: item.uid, key: motorFundoKey }} unit="pol" />}
-                                        {brocaKey && <Field label="Diâmetro da broca"          value={plan[brocaKey] ?? ''}      onChange={v => updatePlan(item.uid, brocaKey, v)}       locate={{ kind: 'plan', uid: item.uid, key: brocaKey }}       unit="pol" />}
-                                        {modeloBrocaKey && <Field label="Modelo da broca"            value={plan[modeloBrocaKey] ?? ''} onChange={v => updatePlan(item.uid, modeloBrocaKey, v)} locate={{ kind: 'plan', uid: item.uid, key: modeloBrocaKey }} />}
+                                        {motorFundoKey && <Field label={defLabel(motorFundoKey, "Diâmetro do motor de fundo")} value={plan[motorFundoKey] ?? ''} onChange={v => updatePlan(item.uid, motorFundoKey, v)} locate={{ kind: 'plan', uid: item.uid, key: motorFundoKey }} unit="pol" />}
+                                        {brocaKey && <Field label={defLabel(brocaKey, "Diâmetro da broca")}          value={plan[brocaKey] ?? ''}      onChange={v => updatePlan(item.uid, brocaKey, v)}       locate={{ kind: 'plan', uid: item.uid, key: brocaKey }}       unit="pol" />}
+                                        {modeloBrocaKey && <Field label={defLabel(modeloBrocaKey, "Modelo da broca")}            value={plan[modeloBrocaKey] ?? ''} onChange={v => updatePlan(item.uid, modeloBrocaKey, v)} locate={{ kind: 'plan', uid: item.uid, key: modeloBrocaKey }} />}
                                       </>
                                     )}
                                     {isTae && (
                                       <>
-                                        <Field label="TAE — Profundidade"          value={plan.taeProf ?? ''}    onChange={v => updatePlan(item.uid, 'taeProf', v)}    locate={{ kind: 'plan', uid: item.uid, key: 'taeProf' }} unit="m" />
-                                        <Field label="TAE — Diâmetro nominal"      value={plan.taeDiamNom ?? ''} onChange={v => updatePlan(item.uid, 'taeDiamNom', v)} locate={{ kind: 'plan', uid: item.uid, key: 'taeDiamNom' }} unit="pol" />
-                                        <Field label="Ø nominal do tubo (instalação TAE)" value={d.taeTuboDiam} onChange={v => setBhasTech({ taeTuboDiam: v })} unit='"' locate={{ kind: 'data', field: 'taeTuboDiam' }} />
-                                        <Field label="Estanqueidade — TAE" value={d.pressaoEstTae} onChange={v => setBhasTech({ pressaoEstTae: v })} unit="psi" locate={{ kind: 'data', field: 'pressaoEstTae' }} />
+                                        <Field label={defLabel(defTokenForPlanKey(item.packageId, 'taeProf'), "TAE — Profundidade")}          value={plan.taeProf ?? ''}    onChange={v => updatePlan(item.uid, 'taeProf', v)}    locate={{ kind: 'plan', uid: item.uid, key: 'taeProf' }} unit="m" />
+                                        <Field label={defLabel(defTokenForPlanKey(item.packageId, 'taeDiamNom'), "TAE — Diâmetro nominal")}      value={plan.taeDiamNom ?? ''} onChange={v => updatePlan(item.uid, 'taeDiamNom', v)} locate={{ kind: 'plan', uid: item.uid, key: 'taeDiamNom' }} unit="pol" />
+                                        <Field label={defLabel('taeTuboDiam', "Ø nominal do tubo (instalação TAE)")} value={d.taeTuboDiam} onChange={v => setBhasTech({ taeTuboDiam: v })} unit='"' locate={{ kind: 'data', field: 'taeTuboDiam' }} />
+                                        <Field label={defLabel('pressaoEstTae', "Estanqueidade — TAE")} value={d.pressaoEstTae} onChange={v => setBhasTech({ pressaoEstTae: v })} unit="psi" locate={{ kind: 'data', field: 'pressaoEstTae' }} />
                                         {boolToggle('pressaoEstTaeHp', 'Será um Hold Point?', d.pressaoEstTaeHp, v => setBhasTech({ pressaoEstTaeHp: v }))}
                                       </>
                                     )}
                                     {isJateam && !isFt && (
-                                      <Field label="Diâmetro do jateador" value={plan.jateadorDiam ?? ''} onChange={v => updatePlan(item.uid, 'jateadorDiam', v)} locate={{ kind: 'plan', uid: item.uid, key: 'jateadorDiam' }} unit="pol" />
+                                      <Field label={defLabel(defTokenForPlanKey(item.packageId, 'jateadorDiam'), "Diâmetro do jateador")} value={plan.jateadorDiam ?? ''} onChange={v => updatePlan(item.uid, 'jateadorDiam', v)} locate={{ kind: 'plan', uid: item.uid, key: 'jateadorDiam' }} unit="pol" />
                                     )}
                                     {isJateam && isFt && (
                                       <>
-                                        <Field label="Intervalo de jateamento — Topo" value={plan.jateamTopo ?? ''}     onChange={v => updatePlan(item.uid, 'jateamTopo', v)} locate={{ kind: 'plan', uid: item.uid, key: 'jateamTopo' }} unit="m" />
-                                        <Field label="Intervalo de jateamento — Base" value={plan.jateamBase ?? ''}     onChange={v => updatePlan(item.uid, 'jateamBase', v)} locate={{ kind: 'plan', uid: item.uid, key: 'jateamBase' }} unit="m" />
-                                        <Field label="Quantidade de passadas"         value={plan.jateamPassadas ?? ''} onChange={v => updatePlan(item.uid, 'jateamPassadas', v)} locate={{ kind: 'plan', uid: item.uid, key: 'jateamPassadas' }} />
+                                        <Field label={defLabel(defTokenForPlanKey(item.packageId, 'jateamTopo'), "Intervalo de jateamento — Topo")} value={plan.jateamTopo ?? ''}     onChange={v => updatePlan(item.uid, 'jateamTopo', v)} locate={{ kind: 'plan', uid: item.uid, key: 'jateamTopo' }} unit="m" />
+                                        <Field label={defLabel(defTokenForPlanKey(item.packageId, 'jateamBase'), "Intervalo de jateamento — Base")} value={plan.jateamBase ?? ''}     onChange={v => updatePlan(item.uid, 'jateamBase', v)} locate={{ kind: 'plan', uid: item.uid, key: 'jateamBase' }} unit="m" />
+                                        <Field label={defLabel(defTokenForPlanKey(item.packageId, 'jateamPassadas'), "Quantidade de passadas")}         value={plan.jateamPassadas ?? ''} onChange={v => updatePlan(item.uid, 'jateamPassadas', v)} locate={{ kind: 'plan', uid: item.uid, key: 'jateamPassadas' }} />
                                       </>
                                     )}
                                     {isCamis && item.technology === 'wireline' && (
                                       <>
-                                        {locKey && <Field label="Gabaritagem — Ø localizador (collet)" value={plan[locKey] ?? ''} onChange={v => updatePlan(item.uid, locKey, v)} locate={{ kind: 'plan', uid: item.uid, key: locKey }} unit="pol" />}
-                                        {estKey && <Field label="Gabaritagem — Ø estampador"  value={plan[estKey] ?? ''} onChange={v => updatePlan(item.uid, estKey, v)} locate={{ kind: 'plan', uid: item.uid, key: estKey }} unit="pol" />}
+                                        {locKey && <Field label={defLabel(locKey, "Gabaritagem — Ø localizador (collet)")} value={plan[locKey] ?? ''} onChange={v => updatePlan(item.uid, locKey, v)} locate={{ kind: 'plan', uid: item.uid, key: locKey }} unit="pol" />}
+                                        {estKey && <Field label={defLabel(estKey, "Gabaritagem — Ø estampador")}  value={plan[estKey] ?? ''} onChange={v => updatePlan(item.uid, estKey, v)} locate={{ kind: 'plan', uid: item.uid, key: estKey }} unit="pol" />}
                                       </>
                                     )}
                                     {isCamis && (
                                       <>
-                                        <Field label="Profundidade (DHSV)" value={derivedProf ?? plan.prof ?? ''} readOnly={derivedProf != null} onChange={v => updatePlan(item.uid, 'prof', v)} locate={{ kind: 'plan', uid: item.uid, key: 'prof' }} unit="m" />
-                                        <Field label='Instalação/Pescaria — Aplicador (ex: "GS 4"")' value={camFields ? camFields.aplicadorCamisao : (plan.aplicadorCamisao ?? '')} readOnly={camFields != null} onChange={v => updatePlan(item.uid, 'aplicadorCamisao', v)} locate={{ kind: 'plan', uid: item.uid, key: 'aplicadorCamisao' }} />
-                                        <Field label="Camisão — Ø nominal" value={camFields ? camFields.camDiamNom : (plan.camDiamNom ?? '')} readOnly={camFields != null} onChange={v => updatePlan(item.uid, 'camDiamNom', v)} locate={{ kind: 'plan', uid: item.uid, key: 'camDiamNom' }} unit="pol" />
-                                        <Field label="Camisão — Ø interno" value={plan.camDiamInt ?? ''} onChange={v => updatePlan(item.uid, 'camDiamInt', v)} locate={{ kind: 'plan', uid: item.uid, key: 'camDiamInt' }} unit="pol" />
+                                        <Field label={defLabel(defTokenForPlanKey(item.packageId, 'prof'), "Profundidade (DHSV)")} value={derivedProf ?? plan.prof ?? ''} readOnly={derivedProf != null} onChange={v => updatePlan(item.uid, 'prof', v)} locate={{ kind: 'plan', uid: item.uid, key: 'prof' }} unit="m" />
+                                        <Field label={defLabel(defTokenForPlanKey(item.packageId, 'aplicadorCamisao'), 'Instalação/Pescaria — Aplicador (ex: "GS 4"")')} value={camFields ? camFields.aplicadorCamisao : (plan.aplicadorCamisao ?? '')} readOnly={camFields != null} onChange={v => updatePlan(item.uid, 'aplicadorCamisao', v)} locate={{ kind: 'plan', uid: item.uid, key: 'aplicadorCamisao' }} />
+                                        <Field label={defLabel(defTokenForPlanKey(item.packageId, 'camDiamNom'), "Camisão — Ø nominal")} value={camFields ? camFields.camDiamNom : (plan.camDiamNom ?? '')} readOnly={camFields != null} onChange={v => updatePlan(item.uid, 'camDiamNom', v)} locate={{ kind: 'plan', uid: item.uid, key: 'camDiamNom' }} unit="pol" />
+                                        <Field label={defLabel(defTokenForPlanKey(item.packageId, 'camDiamInt'), "Camisão — Ø interno")} value={plan.camDiamInt ?? ''} onChange={v => updatePlan(item.uid, 'camDiamInt', v)} locate={{ kind: 'plan', uid: item.uid, key: 'camDiamInt' }} unit="pol" />
                                         <div className="flex items-center gap-2 py-0.5">
                                           <span className="text-xs text-slate-700 dark:text-slate-400 shrink-0 flex-1 flex items-center gap-1">
                                             {onLocate && (
@@ -1380,44 +1435,44 @@ export function ProjectDataPanel({ onLocate, onClearLocate, locatedTarget, oneBy
                                       </>
                                     )}
                                     {isTocPolias && (
-                                      <Field label="Ø estampador" value={plan.tocEstampador ?? ''} onChange={v => updatePlan(item.uid, 'tocEstampador', v)} locate={{ kind: 'plan', uid: item.uid, key: 'tocEstampador' }} unit="pol" />
+                                      <Field label={defLabel(defTokenForPlanKey(item.packageId, 'tocEstampador'), "Ø estampador")} value={plan.tocEstampador ?? ''} onChange={v => updatePlan(item.uid, 'tocEstampador', v)} locate={{ kind: 'plan', uid: item.uid, key: 'tocEstampador' }} unit="pol" />
                                     )}
                                     {isStroker && (
                                       <>
-                                        <Field label="Modelo do aplicador/pescador" value={plan.modelo ?? ''} onChange={v => updatePlan(item.uid, 'modelo', v)} locate={{ kind: 'plan', uid: item.uid, key: 'modelo' }} />
-                                        <Field label="Profundidade" value={derivedProf ?? plan.prof ?? ''} readOnly={derivedProf != null} onChange={v => updatePlan(item.uid, 'prof', v)} locate={{ kind: 'plan', uid: item.uid, key: 'prof' }} unit="m" />
-                                        <Field label="Ponto de ancoragem" value={plan.strokerAncoragem ?? ''} onChange={v => updatePlan(item.uid, 'strokerAncoragem', v)} locate={{ kind: 'plan', uid: item.uid, key: 'strokerAncoragem' }} unit="m" />
+                                        <Field label={defLabel(defTokenForPlanKey(item.packageId, 'modelo'), "Modelo do aplicador/pescador")} value={plan.modelo ?? ''} onChange={v => updatePlan(item.uid, 'modelo', v)} locate={{ kind: 'plan', uid: item.uid, key: 'modelo' }} />
+                                        <Field label={defLabel(defTokenForPlanKey(item.packageId, 'prof'), "Profundidade")} value={derivedProf ?? plan.prof ?? ''} readOnly={derivedProf != null} onChange={v => updatePlan(item.uid, 'prof', v)} locate={{ kind: 'plan', uid: item.uid, key: 'prof' }} unit="m" />
+                                        <Field label={defLabel(defTokenForPlanKey(item.packageId, 'strokerAncoragem'), "Ponto de ancoragem")} value={plan.strokerAncoragem ?? ''} onChange={v => updatePlan(item.uid, 'strokerAncoragem', v)} locate={{ kind: 'plan', uid: item.uid, key: 'strokerAncoragem' }} unit="m" />
                                       </>
                                     )}
                                     {isAvalCimentacao && (
                                       <>
-                                        {intervaloTopoKey && <Field label="Intervalo de interesse — Topo" value={plan[intervaloTopoKey] ?? ''} onChange={v => updatePlan(item.uid, intervaloTopoKey, v)} locate={{ kind: 'plan', uid: item.uid, key: intervaloTopoKey }} unit="m" />}
-                                        {intervaloBaseKey && <Field label="Intervalo de interesse — Base" value={plan[intervaloBaseKey] ?? ''} onChange={v => updatePlan(item.uid, intervaloBaseKey, v)} locate={{ kind: 'plan', uid: item.uid, key: intervaloBaseKey }} unit="m" />}
+                                        {intervaloTopoKey && <Field label={defLabel(intervaloTopoKey, "Intervalo de interesse — Topo")} value={plan[intervaloTopoKey] ?? ''} onChange={v => updatePlan(item.uid, intervaloTopoKey, v)} locate={{ kind: 'plan', uid: item.uid, key: intervaloTopoKey }} unit="m" />}
+                                        {intervaloBaseKey && <Field label={defLabel(intervaloBaseKey, "Intervalo de interesse — Base")} value={plan[intervaloBaseKey] ?? ''} onChange={v => updatePlan(item.uid, intervaloBaseKey, v)} locate={{ kind: 'plan', uid: item.uid, key: intervaloBaseKey }} unit="m" />}
                                       </>
                                     )}
                                     {isRetPlugThCt && (
                                       <>
-                                        <Field label='Aplicador/Pescador — nome e Ø (ex: "GS 4\"")' value={plan.modelo ?? ''} onChange={v => updatePlan(item.uid, 'modelo', v)} locate={{ kind: 'plan', uid: item.uid, key: 'modelo' }} />
-                                        <Field label="Profundidade" value={derivedProf ?? plan.prof ?? ''} readOnly={derivedProf != null} onChange={v => updatePlan(item.uid, 'prof', v)} locate={{ kind: 'plan', uid: item.uid, key: 'prof' }} unit="m" />
+                                        <Field label={defLabel(defTokenForPlanKey(item.packageId, 'modelo'), 'Aplicador/Pescador — nome e Ø (ex: "GS 4\"")')} value={plan.modelo ?? ''} onChange={v => updatePlan(item.uid, 'modelo', v)} locate={{ kind: 'plan', uid: item.uid, key: 'modelo' }} />
+                                        <Field label={defLabel(defTokenForPlanKey(item.packageId, 'prof'), "Profundidade")} value={derivedProf ?? plan.prof ?? ''} readOnly={derivedProf != null} onChange={v => updatePlan(item.uid, 'prof', v)} locate={{ kind: 'plan', uid: item.uid, key: 'prof' }} unit="m" />
                                       </>
                                     )}
                                     {isFtPlugProf && (
-                                      <Field label="Profundidade" value={derivedProf ?? plan.prof ?? ''} readOnly={derivedProf != null} onChange={v => updatePlan(item.uid, 'prof', v)} locate={{ kind: 'plan', uid: item.uid, key: 'prof' }} unit="m" />
+                                      <Field label={defLabel(defTokenForPlanKey(item.packageId, 'prof'), "Profundidade")} value={derivedProf ?? plan.prof ?? ''} readOnly={derivedProf != null} onChange={v => updatePlan(item.uid, 'prof', v)} locate={{ kind: 'plan', uid: item.uid, key: 'prof' }} unit="m" />
                                     )}
                                     {(isBpInstFt || isBpInst) && (
                                       <>
-                                        <Field label="Profundidade" value={plan.bpProf ?? ''} onChange={v => updatePlan(item.uid, 'bpProf', v)} locate={{ kind: 'plan', uid: item.uid, key: 'bpProf' }} unit="m" />
-                                        <Field label="Diâmetro do tubo" value={plan.bpDiam ?? ''} onChange={v => updatePlan(item.uid, 'bpDiam', v)} locate={{ kind: 'plan', uid: item.uid, key: 'bpDiam' }} unit="pol" />
+                                        <Field label={defLabel(defTokenForPlanKey(item.packageId, 'bpProf'), "Profundidade")} value={plan.bpProf ?? ''} onChange={v => updatePlan(item.uid, 'bpProf', v)} locate={{ kind: 'plan', uid: item.uid, key: 'bpProf' }} unit="m" />
+                                        <Field label={defLabel(defTokenForPlanKey(item.packageId, 'bpDiam'), "Diâmetro do tubo")} value={plan.bpDiam ?? ''} onChange={v => updatePlan(item.uid, 'bpDiam', v)} locate={{ kind: 'plan', uid: item.uid, key: 'bpDiam' }} unit="pol" />
                                         {item.technology === 'electric' && (
-                                          <Field label="Força de ancoragem BPP" value={plan.bppAncoragemKlbf ?? ''} onChange={v => updatePlan(item.uid, 'bppAncoragemKlbf', v)} locate={{ kind: 'plan', uid: item.uid, key: 'bppAncoragemKlbf' }} unit="klbf" />
+                                          <Field label={defLabel(defTokenForPlanKey(item.packageId, 'bppAncoragemKlbf'), "Força de ancoragem BPP")} value={plan.bppAncoragemKlbf ?? ''} onChange={v => updatePlan(item.uid, 'bppAncoragemKlbf', v)} locate={{ kind: 'plan', uid: item.uid, key: 'bppAncoragemKlbf' }} unit="klbf" />
                                         )}
                                       </>
                                     )}
                                     {isCimentIntCopFt && ogivaDiamKey && (
-                                      <Field label="Diâmetro da ogiva" value={plan[ogivaDiamKey] ?? ''} onChange={v => updatePlan(item.uid, ogivaDiamKey, v)} locate={{ kind: 'plan', uid: item.uid, key: ogivaDiamKey }} unit="pol" />
+                                      <Field label={defLabel(ogivaDiamKey, "Diâmetro da ogiva")} value={plan[ogivaDiamKey] ?? ''} onChange={v => updatePlan(item.uid, ogivaDiamKey, v)} locate={{ kind: 'plan', uid: item.uid, key: ogivaDiamKey }} unit="pol" />
                                     )}
                                     {isCimentCr && (
-                                      <Field label="Profundidade de assentamento do CR" value={plan.crProf ?? ''} onChange={v => updatePlan(item.uid, 'crProf', v)} locate={{ kind: 'plan', uid: item.uid, key: 'crProf' }} unit="m" />
+                                      <Field label={defLabel(defTokenForPlanKey(item.packageId, 'crProf'), "Profundidade de assentamento do CR")} value={plan.crProf ?? ''} onChange={v => updatePlan(item.uid, 'crProf', v)} locate={{ kind: 'plan', uid: item.uid, key: 'crProf' }} unit="m" />
                                     )}
                                     {isVgl && /instala/i.test(name) && (
                                       <div className="flex items-center gap-2 py-0.5">
@@ -1453,9 +1508,9 @@ export function ProjectDataPanel({ onLocate, onClearLocate, locatedTarget, oneBy
                                     })()}
                                     {isPwc && (
                                       <>
-                                        <Field label="Canhoneio — Topo"    value={plan.pwcCanhoneioTopo ?? ''} onChange={v => updatePlan(item.uid, 'pwcCanhoneioTopo', v)} unit="m" locate={{ kind: 'plan', uid: item.uid, key: 'pwcCanhoneioTopo' }} />
-                                        <Field label="Canhoneio — Base"    value={plan.pwcCanhoneioBase ?? ''} onChange={v => updatePlan(item.uid, 'pwcCanhoneioBase', v)} unit="m" locate={{ kind: 'plan', uid: item.uid, key: 'pwcCanhoneioBase' }} />
-                                        <Field label="Assentamento do ICF" value={plan.pwcIcf ?? ''}            onChange={v => updatePlan(item.uid, 'pwcIcf', v)} locate={{ kind: 'plan', uid: item.uid, key: 'pwcIcf' }} unit="m" />
+                                        <Field label={defLabel(defTokenForPlanKey(item.packageId, 'pwcCanhoneioTopo'), "Canhoneio — Topo")}    value={plan.pwcCanhoneioTopo ?? ''} onChange={v => updatePlan(item.uid, 'pwcCanhoneioTopo', v)} unit="m" locate={{ kind: 'plan', uid: item.uid, key: 'pwcCanhoneioTopo' }} />
+                                        <Field label={defLabel(defTokenForPlanKey(item.packageId, 'pwcCanhoneioBase'), "Canhoneio — Base")}    value={plan.pwcCanhoneioBase ?? ''} onChange={v => updatePlan(item.uid, 'pwcCanhoneioBase', v)} unit="m" locate={{ kind: 'plan', uid: item.uid, key: 'pwcCanhoneioBase' }} />
+                                        <Field label={defLabel(defTokenForPlanKey(item.packageId, 'pwcIcf'), "Assentamento do ICF")} value={plan.pwcIcf ?? ''}            onChange={v => updatePlan(item.uid, 'pwcIcf', v)} locate={{ kind: 'plan', uid: item.uid, key: 'pwcIcf' }} unit="m" />
                                         <div className="flex items-center gap-2 py-0.5">
                                           <span className="text-xs text-slate-700 dark:text-slate-400 shrink-0 flex-1">{defLabel('pwcCanhaoRecuperado', 'Canhão será recuperado?')}</span>
                                           {(['sim','nao'] as const).map(opt => (
@@ -1471,64 +1526,64 @@ export function ProjectDataPanel({ onLocate, onClearLocate, locatedTarget, oneBy
                                     )}
                                     {isCondicionamento && (
                                       <>
-                                        <Field label="Topo do intervalo"    value={d.condicIntervaloTopo}     onChange={v => setBhasTech({ condicIntervaloTopo: v })} unit="m"   locate={{ kind: 'data', field: 'condicIntervaloTopo' }} />
-                                        <Field label="Base do intervalo"    value={d.condicIntervaloBase}     onChange={v => setBhasTech({ condicIntervaloBase: v })} unit="m"   locate={{ kind: 'data', field: 'condicIntervaloBase' }} />
-                                        <Field label="Diâmetro da broca"    value={plan.condicBroca ?? ''}    onChange={v => updatePlan(item.uid, 'condicBroca', v)} locate={{ kind: 'plan', uid: item.uid, key: 'condicBroca' }} unit="pol" />
-                                        <Field label="Diâmetro do raspador" value={plan.condicRaspador ?? ''} onChange={v => updatePlan(item.uid, 'condicRaspador', v)} locate={{ kind: 'plan', uid: item.uid, key: 'condicRaspador' }} unit="pol" />
+                                        <Field label={defLabel('condicIntervaloTopo', "Topo do intervalo")}    value={d.condicIntervaloTopo}     onChange={v => setBhasTech({ condicIntervaloTopo: v })} unit="m"   locate={{ kind: 'data', field: 'condicIntervaloTopo' }} />
+                                        <Field label={defLabel('condicIntervaloBase', "Base do intervalo")}    value={d.condicIntervaloBase}     onChange={v => setBhasTech({ condicIntervaloBase: v })} unit="m"   locate={{ kind: 'data', field: 'condicIntervaloBase' }} />
+                                        <Field label={defLabel(defTokenForPlanKey(item.packageId, 'condicBroca'), "Diâmetro da broca")}    value={plan.condicBroca ?? ''}    onChange={v => updatePlan(item.uid, 'condicBroca', v)} locate={{ kind: 'plan', uid: item.uid, key: 'condicBroca' }} unit="pol" />
+                                        <Field label={defLabel(defTokenForPlanKey(item.packageId, 'condicRaspador'), "Diâmetro do raspador")} value={plan.condicRaspador ?? ''} onChange={v => updatePlan(item.uid, 'condicRaspador', v)} locate={{ kind: 'plan', uid: item.uid, key: 'condicRaspador' }} unit="pol" />
                                       </>
                                     )}
                                     {isVgl && item.technology === 'wireline' && (
                                       <>
-                                        <Field label="Desviador — Tipo/Modelo" value={plan.tipoDesviador ?? ''} onChange={v => updatePlan(item.uid, 'tipoDesviador', v)} locate={{ kind: 'plan', uid: item.uid, key: 'tipoDesviador' }} />
-                                        <Field label="Ø JDC"                   value={plan.diamJdc ?? ''}       onChange={v => updatePlan(item.uid, 'diamJdc', v)} locate={{ kind: 'plan', uid: item.uid, key: 'diamJdc' }} unit="pol" />
+                                        <Field label={defLabel(defTokenForPlanKey(item.packageId, 'tipoDesviador'), "Desviador — Tipo/Modelo")} value={plan.tipoDesviador ?? ''} onChange={v => updatePlan(item.uid, 'tipoDesviador', v)} locate={{ kind: 'plan', uid: item.uid, key: 'tipoDesviador' }} />
+                                        <Field label={defLabel(defTokenForPlanKey(item.packageId, 'diamJdc'), "Ø JDC")}                   value={plan.diamJdc ?? ''}       onChange={v => updatePlan(item.uid, 'diamJdc', v)} locate={{ kind: 'plan', uid: item.uid, key: 'diamJdc' }} unit="pol" />
                                       </>
                                     )}
                                     {isCacambeio && (
-                                      <Field label="Ø caçamba" value={plan.diamCacamba ?? ''} onChange={v => updatePlan(item.uid, 'diamCacamba', v)} locate={{ kind: 'plan', uid: item.uid, key: 'diamCacamba' }} unit="pol" />
+                                      <Field label={defLabel(defTokenForPlanKey(item.packageId, 'diamCacamba'), "Ø caçamba")} value={plan.diamCacamba ?? ''} onChange={v => updatePlan(item.uid, 'diamCacamba', v)} locate={{ kind: 'plan', uid: item.uid, key: 'diamCacamba' }} unit="pol" />
                                     )}
                                     {isSlidingSleeve && (
                                       <>
-                                        <Field label="Sliding Sleeve — Modelo" value={plan.modeloSlidingSleeve ?? ''} onChange={v => updatePlan(item.uid, 'modeloSlidingSleeve', v)} locate={{ kind: 'plan', uid: item.uid, key: 'modeloSlidingSleeve' }} />
-                                        {locKey && <Field label="Ø localizador (collet)"   value={plan[locKey] ?? ''}    onChange={v => updatePlan(item.uid, locKey, v)} locate={{ kind: 'plan', uid: item.uid, key: locKey }} unit="pol" />}
-                                        {estKey && <Field label="Ø estampador"             value={plan[estKey] ?? ''}     onChange={v => updatePlan(item.uid, estKey, v)} locate={{ kind: 'plan', uid: item.uid, key: estKey }} unit="pol" />}
-                                        <Field label="Profundidade"             value={plan.prof ?? ''}               onChange={v => updatePlan(item.uid, 'prof', v)} locate={{ kind: 'plan', uid: item.uid, key: 'prof' }} unit="m" />
+                                        <Field label={defLabel(defTokenForPlanKey(item.packageId, 'modeloSlidingSleeve'), "Sliding Sleeve — Modelo")} value={plan.modeloSlidingSleeve ?? ''} onChange={v => updatePlan(item.uid, 'modeloSlidingSleeve', v)} locate={{ kind: 'plan', uid: item.uid, key: 'modeloSlidingSleeve' }} />
+                                        {locKey && <Field label={defLabel(locKey, "Ø localizador (collet)")}   value={plan[locKey] ?? ''}    onChange={v => updatePlan(item.uid, locKey, v)} locate={{ kind: 'plan', uid: item.uid, key: locKey }} unit="pol" />}
+                                        {estKey && <Field label={defLabel(estKey, "Ø estampador")}             value={plan[estKey] ?? ''}     onChange={v => updatePlan(item.uid, estKey, v)} locate={{ kind: 'plan', uid: item.uid, key: estKey }} unit="pol" />}
+                                        <Field label={defLabel(defTokenForPlanKey(item.packageId, 'prof'), "Profundidade")}             value={plan.prof ?? ''}               onChange={v => updatePlan(item.uid, 'prof', v)} locate={{ kind: 'plan', uid: item.uid, key: 'prof' }} unit="m" />
                                       </>
                                     )}
                                     {/* Estanqueidade pós-instalação + HP toggle — STV/Plug (wireline) */}
                                     {item.packageId === 'ABAN 038' && (
                                       <>
-                                        <Field label='Estanqueidade — STV nipple R 2,75"' value={d.pressaoEstStvR} onChange={v => setBhasTech({ pressaoEstStvR: v })} unit="psi" locate={{ kind: 'data', field: 'pressaoEstStvR' }} />
+                                        <Field label={defLabel('pressaoEstStvR', 'Estanqueidade — STV nipple R 2,75"')} value={d.pressaoEstStvR} onChange={v => setBhasTech({ pressaoEstStvR: v })} unit="psi" locate={{ kind: 'data', field: 'pressaoEstStvR' }} />
                                         {boolToggle('pressaoEstStvRHp', 'Será um Hold Point?', d.pressaoEstStvRHp, v => setBhasTech({ pressaoEstStvRHp: v }))}
                                       </>
                                     )}
                                     {item.packageId === 'ABAN 039' && (
                                       <>
-                                        <Field label='Estanqueidade — STV nipple F 2,81"' value={d.pressaoEstStvF} onChange={v => setBhasTech({ pressaoEstStvF: v })} unit="psi" locate={{ kind: 'data', field: 'pressaoEstStvF' }} />
+                                        <Field label={defLabel('pressaoEstStvF', 'Estanqueidade — STV nipple F 2,81"')} value={d.pressaoEstStvF} onChange={v => setBhasTech({ pressaoEstStvF: v })} unit="psi" locate={{ kind: 'data', field: 'pressaoEstStvF' }} />
                                         {boolToggle('pressaoEstStvFHp', 'Será um Hold Point?', d.pressaoEstStvFHp, v => setBhasTech({ pressaoEstStvFHp: v }))}
                                       </>
                                     )}
                                     {item.packageId === 'ABAN 040' && (
                                       <>
-                                        <Field label='Estanqueidade — Plug nipple R 2,75"' value={d.pressaoEstPlugR} onChange={v => setBhasTech({ pressaoEstPlugR: v })} unit="psi" locate={{ kind: 'data', field: 'pressaoEstPlugR' }} />
+                                        <Field label={defLabel('pressaoEstPlugR', 'Estanqueidade — Plug nipple R 2,75"')} value={d.pressaoEstPlugR} onChange={v => setBhasTech({ pressaoEstPlugR: v })} unit="psi" locate={{ kind: 'data', field: 'pressaoEstPlugR' }} />
                                         {boolToggle('pressaoEstPlugRHp', 'Será um Hold Point?', d.pressaoEstPlugRHp, v => setBhasTech({ pressaoEstPlugRHp: v }))}
                                       </>
                                     )}
                                     {item.packageId === 'ABAN 041' && (
                                       <>
-                                        <Field label='Estanqueidade — Plug nipple F 2,81"' value={d.pressaoEstPlugF} onChange={v => setBhasTech({ pressaoEstPlugF: v })} unit="psi" locate={{ kind: 'data', field: 'pressaoEstPlugF' }} />
+                                        <Field label={defLabel('pressaoEstPlugF', 'Estanqueidade — Plug nipple F 2,81"')} value={d.pressaoEstPlugF} onChange={v => setBhasTech({ pressaoEstPlugF: v })} unit="psi" locate={{ kind: 'data', field: 'pressaoEstPlugF' }} />
                                         {boolToggle('pressaoEstPlugFHp', 'Será um Hold Point?', d.pressaoEstPlugFHp, v => setBhasTech({ pressaoEstPlugFHp: v }))}
                                       </>
                                     )}
                                     {item.packageId === 'ABAN 042' && (
                                       <>
-                                        <Field label='Estanqueidade — Plug 3,75" no TH' value={d.pressaoEstPlugTH} onChange={v => setBhasTech({ pressaoEstPlugTH: v })} unit="psi" locate={{ kind: 'data', field: 'pressaoEstPlugTH' }} />
+                                        <Field label={defLabel('pressaoEstPlugTH', 'Estanqueidade — Plug 3,75" no TH')} value={d.pressaoEstPlugTH} onChange={v => setBhasTech({ pressaoEstPlugTH: v })} unit="psi" locate={{ kind: 'data', field: 'pressaoEstPlugTH' }} />
                                         {boolToggle('pressaoEstPlugTHHp', 'Será um Hold Point?', d.pressaoEstPlugTHHp, v => setBhasTech({ pressaoEstPlugTHHp: v }))}
                                       </>
                                     )}
                                     {/* Pcab N₂ — teste de influxo (ABAN 220 / 221) */}
                                     {(item.packageId === 'ABAN 220' || item.packageId === 'ABAN 221') && (
                                       <>
-                                        <Field label="Pcab N₂ — teste de influxo (underbalance)" value={d.outrosPcabN2Psi} onChange={v => setBhasTech({ outrosPcabN2Psi: v })} unit="psi" locate={{ kind: 'data', field: 'outrosPcabN2Psi' }} />
+                                        <Field label={defLabel('outrosPcabN2Psi', "Pcab N₂ — teste de influxo (underbalance)")} value={d.outrosPcabN2Psi} onChange={v => setBhasTech({ outrosPcabN2Psi: v })} unit="psi" locate={{ kind: 'data', field: 'outrosPcabN2Psi' }} />
                                         {boolToggle('outrosPcabN2PsiHp', 'Será um Hold Point?', d.outrosPcabN2PsiHp, v => setBhasTech({ outrosPcabN2PsiHp: v }))}
                                       </>
                                     )}
@@ -1538,32 +1593,32 @@ export function ProjectDataPanel({ onLocate, onClearLocate, locatedTarget, oneBy
                             )
                           })
                         })()}
-              {tech === 'wireline' && hasPkgFn('ABAN 079') && <Field label="Ø nipple (gabaritagem)" value={d.gabaritoNippleDiam} onChange={v => setBhasTech({ gabaritoNippleDiam: v })} unit='"' locate={{ kind: 'data', field: 'gabaritoNippleDiam' }} />}
-              {tech === 'wireline' && hasPkgFn('ABAN 079') && <Field label="Tipo de tampão (plug/TAE/bismuto)" value={d.tampaoTipo} onChange={v => setBhasTech({ tampaoTipo: v })} locate={{ kind: 'data', field: 'tampaoTipo' }} />}
-              {tech === 'wireline' && hasPkgFn('ABAN 047') && <Field label="Profundidade do registro de pressão" value={d.profRegistroPressao} onChange={v => setBhasTech({ profRegistroPressao: v })} unit="m" locate={{ kind: 'data', field: 'profRegistroPressao' }} />}
-              {tech === 'wireline' && hasPkgFn('ABAN 047') && <Field label="Quantidade de estações (RP)" value={d.numEstacoesRp} onChange={v => setBhasTech({ numEstacoesRp: v })} locate={{ kind: 'data', field: 'numEstacoesRp' }} />}
-              {tech === 'electric' && hasPkgFn('ABAN 238') && <Field label="Tampão bismuto — EUR" value={d.bismutoEur} onChange={v => setBhasTech({ bismutoEur: v })} unit="m" locate={{ kind: 'data', field: 'bismutoEur' }} />}
-              {tech === 'electric' && hasPkgFn('ABAN 238') && <Field label="Tampão bismuto — overpull de liberação" value={d.bismutoOverpull} onChange={v => setBhasTech({ bismutoOverpull: v })} unit="lbf" locate={{ kind: 'data', field: 'bismutoOverpull' }} />}
-              {tech === 'electric' && hasPkgFn('ABAN 102') && <Field label="Modelo do canhão" value={d.canhaoModelo} onChange={v => setBhasTech({ canhaoModelo: v })} locate={{ kind: 'data', field: 'canhaoModelo' }} />}
+              {tech === 'wireline' && hasPkgFn('ABAN 079') && <Field label={defLabel('gabaritoNippleDiam', "Ø nipple (gabaritagem)")} value={d.gabaritoNippleDiam} onChange={v => setBhasTech({ gabaritoNippleDiam: v })} unit='"' locate={{ kind: 'data', field: 'gabaritoNippleDiam' }} />}
+              {tech === 'wireline' && hasPkgFn('ABAN 079') && <Field label={defLabel('tampaoTipo', "Tipo de tampão (plug/TAE/bismuto)")} value={d.tampaoTipo} onChange={v => setBhasTech({ tampaoTipo: v })} locate={{ kind: 'data', field: 'tampaoTipo' }} />}
+              {tech === 'wireline' && hasPkgFn('ABAN 047') && <Field label={defLabel('profRegistroPressao', "Profundidade do registro de pressão")} value={d.profRegistroPressao} onChange={v => setBhasTech({ profRegistroPressao: v })} unit="m" locate={{ kind: 'data', field: 'profRegistroPressao' }} />}
+              {tech === 'wireline' && hasPkgFn('ABAN 047') && <Field label={defLabel('numEstacoesRp', "Quantidade de estações (RP)")} value={d.numEstacoesRp} onChange={v => setBhasTech({ numEstacoesRp: v })} locate={{ kind: 'data', field: 'numEstacoesRp' }} />}
+              {tech === 'electric' && hasPkgFn('ABAN 238') && <Field label={defLabel('bismutoEur', "Tampão bismuto — EUR")} value={d.bismutoEur} onChange={v => setBhasTech({ bismutoEur: v })} unit="m" locate={{ kind: 'data', field: 'bismutoEur' }} />}
+              {tech === 'electric' && hasPkgFn('ABAN 238') && <Field label={defLabel('bismutoOverpull', "Tampão bismuto — overpull de liberação")} value={d.bismutoOverpull} onChange={v => setBhasTech({ bismutoOverpull: v })} unit="lbf" locate={{ kind: 'data', field: 'bismutoOverpull' }} />}
+              {tech === 'electric' && hasPkgFn('ABAN 102') && <Field label={defLabel('canhaoModelo', "Modelo do canhão")} value={d.canhaoModelo} onChange={v => setBhasTech({ canhaoModelo: v })} locate={{ kind: 'data', field: 'canhaoModelo' }} />}
               {tech === 'electric' && hasPkgFn('ABAN 081','ABAN 082','ABAN 083','ABAN 084','ABAN 106','ABAN 107','ABAN 149','ABAN 231','ABAN 232','ABAN 234') &&
                 boolToggle('revcimHp', 'Avaliação de cimentação / topo será Hold Point (REVCIM)?', d.revcimHp, v => setBhasTech({ revcimHp: v }))}
               {tech === 'electric' && hasPkgFn('ABAN 105') &&
                 boolToggle('revcimHp105', 'Avaliação de cimentação Through Tubing será Hold Point (REVCIM)?', d.revcimHp105, v => setBhasTech({ revcimHp105: v }))}
-              {tech === 'ct' && hasPkgFn('ABAN 124','ABAN 125','ABAN 127','ABAN 128','ABAN 129','ABAN 130','ABAN 131','ABAN 132','ABAN 133','ABAN 135') && <Field label="Volume bombeio na descida com FT" value={d.volBombeioDescidaFt} onChange={v => setBhasTech({ volBombeioDescidaFt: v })} unit="bbl/500m" locate={{ kind: 'data', field: 'volBombeioDescidaFt' }} />}
-              {tech === 'ct' && hasPkgFn('ABAN 159') && <Field label="Ø Packer inflável" value={d.packerFtDiam159} onChange={v => setBhasTech({ packerFtDiam159: v })} unit='"' locate={{ kind: 'data', field: 'packerFtDiam159' }} />}
-              {tech === 'ct' && hasPkgFn('ABAN 164') && <Field label="Ø Packer Multi-set" value={d.packerFtDiam164} onChange={v => setBhasTech({ packerFtDiam164: v })} unit='"' locate={{ kind: 'data', field: 'packerFtDiam164' }} />}
-              {tech === 'ct' && hasPkgFn('ABAN 129') && <Field label="Ø plug FT (TH)" value={d.plugFtDiam} onChange={v => setBhasTech({ plugFtDiam: v })} unit='"' locate={{ kind: 'data', field: 'plugFtDiam' }} />}
-              {tech === 'ct' && hasPkgFn('ABAN 129') && <Field label="Aplicador do plug FT" value={d.plugFtAplicador} onChange={v => setBhasTech({ plugFtAplicador: v })} locate={{ kind: 'data', field: 'plugFtAplicador' }} />}
-              {tech === 'ct' && hasPkgFn('ABAN 143') && <Field label="Modelo da ponteira (martelete FT)" value={d.marteleteModelo} onChange={v => setBhasTech({ marteleteModelo: v })} locate={{ kind: 'data', field: 'marteleteModelo' }} />}
-              {tech === 'ct' && hasPkgFn('ABAN 143') && <Field label="Ø da ponteira (martelete FT)" value={d.marteletePonteiraDiam} onChange={v => setBhasTech({ marteletePonteiraDiam: v })} unit='"' locate={{ kind: 'data', field: 'marteletePonteiraDiam' }} />}
-              {tech === 'ct' && hasPkgFn('ABAN 144','ABAN 145') && <Field label="Ø ferramenta BO dupla (FT)" value={d.ferramentaBoDuplaDiam} onChange={v => setBhasTech({ ferramentaBoDuplaDiam: v })} unit='"' locate={{ kind: 'data', field: 'ferramentaBoDuplaDiam' }} />}
-              {tech === 'ct' && hasPkgFn('ABAN 147') && <Field label="Ferramentas do BHA (FT)" value={d.ferramentaBhaFt} onChange={v => setBhasTech({ ferramentaBhaFt: v })} locate={{ kind: 'data', field: 'ferramentaBhaFt' }} />}
-              {tech === 'workstring' && hasPkgFn('ABAN 013') && <Field label="Adaptador MC (interface COT)" value={d.adaptadorMc} onChange={v => setBhasTech({ adaptadorMc: v })} locate={{ kind: 'data', field: 'adaptadorMc' }} />}
-              {tech === 'workstring' && hasPkgFn('ABAN 186') && <Field label="Overpull (retirada COP/COI)" value={d.overpullKlbf} onChange={v => setBhasTech({ overpullKlbf: v })} unit="klbf" locate={{ kind: 'data', field: 'overpullKlbf' }} />}
-              {tech === 'workstring' && hasPkgFn('ABAN 196') && <Field label="Ø revestimento (manobra)" value={d.revestimentoDiam} onChange={v => setBhasTech({ revestimentoDiam: v })} unit='"' locate={{ kind: 'data', field: 'revestimentoDiam' }} />}
-{tech === 'workstring' && hasPkgFn('ABAN 235') && <Field label="Ø broca (corte de cimento)" value={d.corteBrocaDiam} onChange={v => setBhasTech({ corteBrocaDiam: v })} unit='"' locate={{ kind: 'data', field: 'corteBrocaDiam' }} />}
-              {tech === 'workstring' && hasPkgFn('ABAN 235') && <Field label='Nº seções DC 6¾" (corte)' value={d.corteDcSecoes} onChange={v => setBhasTech({ corteDcSecoes: v })} locate={{ kind: 'data', field: 'corteDcSecoes' }} />}
-              {tech === 'workstring' && hasPkgFn('ABAN 235') && <Field label='Nº seções HWDP 5" (corte)' value={d.corteHwdpSecoes} onChange={v => setBhasTech({ corteHwdpSecoes: v })} locate={{ kind: 'data', field: 'corteHwdpSecoes' }} />}
+              {tech === 'ct' && hasPkgFn('ABAN 124','ABAN 125','ABAN 127','ABAN 128','ABAN 129','ABAN 130','ABAN 131','ABAN 132','ABAN 133','ABAN 135') && <Field label={defLabel('volBombeioDescidaFt', "Volume bombeio na descida com FT")} value={d.volBombeioDescidaFt} onChange={v => setBhasTech({ volBombeioDescidaFt: v })} unit="bbl/500m" locate={{ kind: 'data', field: 'volBombeioDescidaFt' }} />}
+              {tech === 'ct' && hasPkgFn('ABAN 159') && <Field label={defLabel('packerFtDiam159', "Ø Packer inflável")} value={d.packerFtDiam159} onChange={v => setBhasTech({ packerFtDiam159: v })} unit='"' locate={{ kind: 'data', field: 'packerFtDiam159' }} />}
+              {tech === 'ct' && hasPkgFn('ABAN 164') && <Field label={defLabel('packerFtDiam164', "Ø Packer Multi-set")} value={d.packerFtDiam164} onChange={v => setBhasTech({ packerFtDiam164: v })} unit='"' locate={{ kind: 'data', field: 'packerFtDiam164' }} />}
+              {tech === 'ct' && hasPkgFn('ABAN 129') && <Field label={defLabel('plugFtDiam', "Ø plug FT (TH)")} value={d.plugFtDiam} onChange={v => setBhasTech({ plugFtDiam: v })} unit='"' locate={{ kind: 'data', field: 'plugFtDiam' }} />}
+              {tech === 'ct' && hasPkgFn('ABAN 129') && <Field label={defLabel('plugFtAplicador', "Aplicador do plug FT")} value={d.plugFtAplicador} onChange={v => setBhasTech({ plugFtAplicador: v })} locate={{ kind: 'data', field: 'plugFtAplicador' }} />}
+              {tech === 'ct' && hasPkgFn('ABAN 143') && <Field label={defLabel('marteleteModelo', "Modelo da ponteira (martelete FT)")} value={d.marteleteModelo} onChange={v => setBhasTech({ marteleteModelo: v })} locate={{ kind: 'data', field: 'marteleteModelo' }} />}
+              {tech === 'ct' && hasPkgFn('ABAN 143') && <Field label={defLabel('marteletePonteiraDiam', "Ø da ponteira (martelete FT)")} value={d.marteletePonteiraDiam} onChange={v => setBhasTech({ marteletePonteiraDiam: v })} unit='"' locate={{ kind: 'data', field: 'marteletePonteiraDiam' }} />}
+              {tech === 'ct' && hasPkgFn('ABAN 144','ABAN 145') && <Field label={defLabel('ferramentaBoDuplaDiam', "Ø ferramenta BO dupla (FT)")} value={d.ferramentaBoDuplaDiam} onChange={v => setBhasTech({ ferramentaBoDuplaDiam: v })} unit='"' locate={{ kind: 'data', field: 'ferramentaBoDuplaDiam' }} />}
+              {tech === 'ct' && hasPkgFn('ABAN 147') && <Field label={defLabel('ferramentaBhaFt', "Ferramentas do BHA (FT)")} value={d.ferramentaBhaFt} onChange={v => setBhasTech({ ferramentaBhaFt: v })} locate={{ kind: 'data', field: 'ferramentaBhaFt' }} />}
+              {tech === 'workstring' && hasPkgFn('ABAN 013') && <Field label={defLabel('adaptadorMc', "Adaptador MC (interface COT)")} value={d.adaptadorMc} onChange={v => setBhasTech({ adaptadorMc: v })} locate={{ kind: 'data', field: 'adaptadorMc' }} />}
+              {tech === 'workstring' && hasPkgFn('ABAN 186') && <Field label={defLabel('overpullKlbf', "Overpull (retirada COP/COI)")} value={d.overpullKlbf} onChange={v => setBhasTech({ overpullKlbf: v })} unit="klbf" locate={{ kind: 'data', field: 'overpullKlbf' }} />}
+              {tech === 'workstring' && hasPkgFn('ABAN 196') && <Field label={defLabel('revestimentoDiam', "Ø revestimento (manobra)")} value={d.revestimentoDiam} onChange={v => setBhasTech({ revestimentoDiam: v })} unit='"' locate={{ kind: 'data', field: 'revestimentoDiam' }} />}
+{tech === 'workstring' && hasPkgFn('ABAN 235') && <Field label={defLabel('corteBrocaDiam', "Ø broca (corte de cimento)")} value={d.corteBrocaDiam} onChange={v => setBhasTech({ corteBrocaDiam: v })} unit='"' locate={{ kind: 'data', field: 'corteBrocaDiam' }} />}
+              {tech === 'workstring' && hasPkgFn('ABAN 235') && <Field label={defLabel('corteDcSecoes', 'Nº seções DC 6¾" (corte)')} value={d.corteDcSecoes} onChange={v => setBhasTech({ corteDcSecoes: v })} locate={{ kind: 'data', field: 'corteDcSecoes' }} />}
+              {tech === 'workstring' && hasPkgFn('ABAN 235') && <Field label={defLabel('corteHwdpSecoes', 'Nº seções HWDP 5" (corte)')} value={d.corteHwdpSecoes} onChange={v => setBhasTech({ corteHwdpSecoes: v })} locate={{ kind: 'data', field: 'corteHwdpSecoes' }} />}
             </Section>
           )
         })}
@@ -1645,7 +1700,7 @@ export function ProjectDataPanel({ onLocate, onClearLocate, locatedTarget, oneBy
           return (
             <Section title="Cimentação" searchText="cimento topo anular interior coluna profundidade base perfuração cr plug bpp diâmetro metro"              isDirty={dirty['cimentacao']} onApply={applySection('cimentacao')} onDiscard={discardSection('cimentacao')} canApply={sectionAffectsLines('cimentacao')}>
               {showTopoAnularA && (
-                <Field label="Topo no anular A" value={d.cimentTopoAnularA} onChange={v => setCimentacao({ cimentTopoAnularA: v })} unit="m" locate={{ kind: 'data', field: 'cimentTopoAnularA' }} />
+                <Field label={defLabel('cimentTopoAnularA', "Topo no anular A")} value={d.cimentTopoAnularA} onChange={v => setCimentacao({ cimentTopoAnularA: v })} unit="m" locate={{ kind: 'data', field: 'cimentTopoAnularA' }} />
               )}
               {bppItems.map(item => {
                 const bpProf = d.bhaPlans?.[item.uid]?.bpProf ?? ''
@@ -1659,7 +1714,7 @@ export function ProjectDataPanel({ onLocate, onClearLocate, locatedTarget, oneBy
               })}
               {isThroughTubing ? (
                 <>
-                  <Field label="Topo no interior da coluna" value={d.cimentTopoInteriorColuna} onChange={v => setCimentacao({ cimentTopoInteriorColuna: v })} unit="m" locate={{ kind: 'data', field: 'cimentTopoInteriorColuna' }} />
+                  <Field label={defLabel('cimentTopoInteriorColuna', "Topo no interior da coluna")} value={d.cimentTopoInteriorColuna} onChange={v => setCimentacao({ cimentTopoInteriorColuna: v })} unit="m" locate={{ kind: 'data', field: 'cimentTopoInteriorColuna' }} />
                   <Field
                     label="Profundidade da perfuração da coluna"
                     value={autoPerfProf}
@@ -1751,13 +1806,13 @@ export function ProjectDataPanel({ onLocate, onClearLocate, locatedTarget, oneBy
                 return (
                   <div key={item.uid} className="mt-2 pt-2 border-t border-slate-200 dark:border-slate-800">
                     <div className="text-[10px] font-semibold text-slate-600 dark:text-slate-500 uppercase tracking-widest mb-1 leading-snug">{item.packageName}</div>
-                    <Field label="Canhoneio — Topo" value={plan.pwcCanhoneioTopo ?? ''} onChange={v => updatePwcPlan(item.uid, 'pwcCanhoneioTopo', v)} unit="m" locate={{ kind: 'plan', uid: item.uid, key: 'pwcCanhoneioTopo' }} />
-                    <Field label="Canhoneio — Base" value={plan.pwcCanhoneioBase ?? ''} onChange={v => updatePwcPlan(item.uid, 'pwcCanhoneioBase', v)} unit="m" locate={{ kind: 'plan', uid: item.uid, key: 'pwcCanhoneioBase' }} />
-                    <Field label="Assentamento do ICF" value={plan.pwcIcf ?? ''} onChange={v => updatePwcPlan(item.uid, 'pwcIcf', v)} unit="m" locate={{ kind: 'plan', uid: item.uid, key: 'pwcIcf' }} />
+                    <Field label={defLabel(defTokenForPlanKey(item.packageId, 'pwcCanhoneioTopo'), "Canhoneio — Topo")} value={plan.pwcCanhoneioTopo ?? ''} onChange={v => updatePwcPlan(item.uid, 'pwcCanhoneioTopo', v)} unit="m" locate={{ kind: 'plan', uid: item.uid, key: 'pwcCanhoneioTopo' }} />
+                    <Field label={defLabel(defTokenForPlanKey(item.packageId, 'pwcCanhoneioBase'), "Canhoneio — Base")} value={plan.pwcCanhoneioBase ?? ''} onChange={v => updatePwcPlan(item.uid, 'pwcCanhoneioBase', v)} unit="m" locate={{ kind: 'plan', uid: item.uid, key: 'pwcCanhoneioBase' }} />
+                    <Field label={defLabel(defTokenForPlanKey(item.packageId, 'pwcIcf'), "Assentamento do ICF")} value={plan.pwcIcf ?? ''} onChange={v => updatePwcPlan(item.uid, 'pwcIcf', v)} unit="m" locate={{ kind: 'plan', uid: item.uid, key: 'pwcIcf' }} />
                     {isPwcAval && intervaloTopoKey && (
                       <>
-                        <Field label="Intervalo de interesse — Topo" value={plan[intervaloTopoKey] ?? ''} onChange={v => updatePwcPlan(item.uid, intervaloTopoKey, v)} unit="m" locate={{ kind: 'plan', uid: item.uid, key: intervaloTopoKey }} />
-                        {intervaloBaseKey && <Field label="Intervalo de interesse — Base" value={plan[intervaloBaseKey] ?? ''} onChange={v => updatePwcPlan(item.uid, intervaloBaseKey, v)} unit="m" locate={{ kind: 'plan', uid: item.uid, key: intervaloBaseKey }} />}
+                        <Field label={defLabel(intervaloTopoKey, "Intervalo de interesse — Topo")} value={plan[intervaloTopoKey] ?? ''} onChange={v => updatePwcPlan(item.uid, intervaloTopoKey, v)} unit="m" locate={{ kind: 'plan', uid: item.uid, key: intervaloTopoKey }} />
+                        {intervaloBaseKey && <Field label={defLabel(intervaloBaseKey, "Intervalo de interesse — Base")} value={plan[intervaloBaseKey] ?? ''} onChange={v => updatePwcPlan(item.uid, intervaloBaseKey, v)} unit="m" locate={{ kind: 'plan', uid: item.uid, key: intervaloBaseKey }} />}
                       </>
                     )}
                     <div className="flex items-center gap-2 py-0.5">
@@ -1786,7 +1841,7 @@ export function ProjectDataPanel({ onLocate, onClearLocate, locatedTarget, oneBy
                 <Field key={key} label={`${id} — Tampão abandono — topo previsto`} value={d[key] as string} onChange={v => setCimentacao({ [key]: v })} unit="m" locate={{ kind: 'data', field: key }} />)}
               {Object.entries(TAMPAO_ABANDONO_COMPR_FIELD).filter(([id]) => hasPkgFn(id)).map(([id, key]) =>
                 <Field key={key} label={`${id} — Tampão abandono — comprimento`} value={d[key] as string} onChange={v => setCimentacao({ [key]: v })} unit="m" locate={{ kind: 'data', field: key }} />)}
-              {hasPkgFn('ABAN 200') && <Field label="Fluido eCSB (mar aberto) — densidade" value={d.ecsbFluidoDens} onChange={v => setCimentacao({ ecsbFluidoDens: v })} unit="ppg" locate={{ kind: 'data', field: 'ecsbFluidoDens' }} />}
+              {hasPkgFn('ABAN 200') && <Field label={defLabel('ecsbFluidoDens', "Fluido eCSB (mar aberto) — densidade")} value={d.ecsbFluidoDens} onChange={v => setCimentacao({ ecsbFluidoDens: v })} unit="ppg" locate={{ kind: 'data', field: 'ecsbFluidoDens' }} />}
             </Section>
           )
         })()}

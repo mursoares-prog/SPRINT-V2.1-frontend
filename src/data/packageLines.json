@@ -1647,7 +1647,7 @@
     ],
     "ABAN 026": [
         {
-            "text": "Testar contra Plug no TMF do bore de produção com {{pressaoTmfProd=xxxx}} psi de N2 (superfície) e monitorar ANM com ROV por 10 min (Hold Point EQSB). Teste inicial com pressão reduzida, para evitar o acunhamento / dificuldade ´para retirada.",
+            "text": "Testar contra Plug no TMF do bore de produção com {{pressaoN2Trt=XXX}} psi de N2 (superfície) e monitorar ANM com ROV por 10 min (Hold Point EQSB). Teste inicial com pressão reduzida, para evitar o acunhamento / dificuldade ´para retirada.",
             "duration": 2.88,
             "bop": null,
             "compensando": true,
@@ -1853,7 +1853,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Testar contra a gaveta do BOP de arame via UC > W-SFT > S-SFT com 300 / {{pressaoBopArameHigh=XXXX}} psi por 5 / 10 min. Drenar pressão pela planta de WT, abrir gaveta do BOP e testar contra lubrificador de arame com 300 / {{pressaoBopArameHigh=XXXX}} psi por 5 / 10 min.",
+            "text": "Testar contra a gaveta do BOP de arame via UC > W-SFT > S-SFT com 300 / {{pressaoTesteAltaEquipSup=XXXX}} psi por 5 / 10 min. Drenar pressão pela planta de WT, abrir gaveta do BOP e testar contra lubrificador de arame com 300 / {{pressaoTesteAltaEquipSup=XXXX}} psi por 5 / 10 min.",
             "duration": 2,
             "bop": null,
             "compensando": true,
@@ -1897,7 +1897,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Testar contra a gaveta do BOP de arame via UC > W-SFT > S-SFT com 300 / {{pressaoBopArameHigh=XXXX}} psi por 5 / 10 min. Drenar pressão pela planta de WT, abrir gaveta do BOP e testar contra lubrificador de arame com 300 / {{pressaoBopArameHigh=XXX}} psi por 5 / 10 min.",
+            "text": "Testar contra a gaveta do BOP de arame via UC > W-SFT > S-SFT com 300 / {{pressaoTesteAltaEquipSup=XXXX}} psi por 5 / 10 min. Drenar pressão pela planta de WT, abrir gaveta do BOP e testar contra lubrificador de arame com 300 / {{pressaoTesteAltaEquipSup=XXX}} psi por 5 / 10 min.",
             "duration": 2,
             "bop": null,
             "compensando": null,
@@ -1941,7 +1941,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Testar contra a gaveta do BOP de arame via UC > W1-THead > S1-THead com 300 / {{pressaoBopArameHigh=XXXX}} psi por 5 / 10 min. Drenar pressão pela planta de WT, abrir gaveta do BOP e testar contra lubrificador de arame com 300 / {{pressaoBopArameHigh=XXX}} psi por 5 / 10 min.",
+            "text": "Testar contra a gaveta do BOP de arame via UC > W1-THead > S1-THead com 300 / {{pressaoTesteAltaEquipSup=XXXX}} psi por 5 / 10 min. Drenar pressão pela planta de WT, abrir gaveta do BOP e testar contra lubrificador de arame com 300 / {{pressaoTesteAltaEquipSup=XXX}} psi por 5 / 10 min.",
             "duration": 2,
             "bop": null,
             "compensando": true,
@@ -1985,7 +1985,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Testar contra a gaveta do BOP de arame via UC > W2-THead > S2-THead com 300 / {{pressaoBopArameHigh=XXXX}} psi por 5 / 10 min. Drenar pressão pela planta de WT, abrir gaveta do BOP e testar contra lubrificador de arame com 300 / {{pressaoBopArameHigh=XXXX}} psi por 5 / 10 min.",
+            "text": "Testar contra a gaveta do BOP de arame via UC > W2-THead > S2-THead com 300 / {{pressaoTesteAltaEquipSup=XXXX}} psi por 5 / 10 min. Drenar pressão pela planta de WT, abrir gaveta do BOP e testar contra lubrificador de arame com 300 / {{pressaoTesteAltaEquipSup=XXXX}} psi por 5 / 10 min.",
             "duration": 2,
             "bop": null,
             "compensando": true,
@@ -2143,7 +2143,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Desmobilizar haste + JDC e montar pescador {{modelo035=XXX}} no trem de arame.",
+            "text": "Desmobilizar haste + JDC e montar pescador JDC 2\"+ Destr. B 2.3/8\" no trem de arame.",
             "duration": 3,
             "bop": null,
             "compensando": true,
@@ -2157,7 +2157,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Descer trem de arame com pescador {{modelo035=XXX}} e recuperar plug do TMF, conforme procedimento SMAB.",
+            "text": "Descer trem de arame com pescador JDC 2\"+ Destr. B 2.3/8\" e recuperar plug do TMF, conforme procedimento SMAB.",
             "duration": 2,
             "bop": null,
             "compensando": true,
@@ -2201,7 +2201,7 @@
     ],
     "ABAN 036": [
         {
-            "text": "Montar trem padrão 1 7/8\" + localizador de nipple tipo collet {{diamLocalizador036=x}}” + estampador {{diamEstampador036=x}}” (biselado 5 mm x 45º). Acoplar trem no lubrificador e testar com 300 / {{pressaoBopArameHigh=XXXX}} psi via QTS (se necessário).",
+            "text": "Montar trem padrão 1 7/8\" + localizador de nipple tipo collet {{diamLocalizador036=x}}” + estampador {{diamEstampador036=x}}” (biselado 5 mm x 45º). Acoplar trem no lubrificador e testar com 300 / {{pressaoTesteAltaEquipSup=XXXX}} psi via QTS (se necessário).",
             "duration": 2,
             "bop": null,
             "compensando": true,
@@ -2245,7 +2245,7 @@
     ],
     "ABAN 037": [
         {
-            "text": "Montar trem padrão 1 7/8\" + localizador de nipple tipo collet {{diamLocalizador037=x}}” + \nestampador {{diamEstampador037=x}}”. Acoplar trem no lubrificador e \ntestar com 300 / {{pressaoBopArameHigh=XXXX}} psi via QTS (se necessário).",
+            "text": "Montar trem padrão 1 7/8\" + localizador de nipple tipo collet {{diamLocalizador037=x}}” + \nestampador {{diamEstampador037=x}}”. Acoplar trem no lubrificador e \ntestar com 300 / {{pressaoTesteAltaEquipSup=XXXX}} psi via QTS (se necessário).",
             "duration": 2,
             "bop": null,
             "compensando": true,
@@ -2273,7 +2273,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Montar trem padrão 1 7/8\" + {{aplicadorCamisao037=pescador x”}} + camisão. Acoplar trem no lubrificador e \ntestar com 300 / {{pressaoBopArameHigh=XXXX}} psi via QTS (se necessário).",
+            "text": "Montar trem padrão 1 7/8\" + {{aplicadorCamisao037=pescador x”}} + camisão. Acoplar trem no lubrificador e \ntestar com 300 / {{pressaoTesteAltaEquipSup=XXXX}} psi via QTS (se necessário).",
             "duration": 1,
             "bop": null,
             "compensando": true,
@@ -2345,7 +2345,7 @@
     ],
     "ABAN 038": [
         {
-            "text": "Montar trem padrão 1 7/8\" + JDC 3\" + STV RB-2. Acoplar trem no lubrificador e \ntestar com 300 / {{pressaoBopArameHigh=XXXX}} psi via QTS.",
+            "text": "Montar trem padrão 1 7/8\" + JDC 3\" + STV RB-2. Acoplar trem no lubrificador e \ntestar com 300 / {{pressaoTesteAltaEquipSup=XXXX}} psi via QTS.",
             "duration": 1.5,
             "bop": null,
             "compensando": true,
@@ -2389,7 +2389,7 @@
     ],
     "ABAN 039": [
         {
-            "text": "Montar trem padrão 1 7/8\" + JDC 3\" + STV FB-2. Acoplar trem no lubrificador e \ntestar com 300 / {{pressaoBopArameHigh=XXXX}} psi via QTS.",
+            "text": "Montar trem padrão 1 7/8\" + JDC 3\" + STV FB-2. Acoplar trem no lubrificador e \ntestar com 300 / {{pressaoTesteAltaEquipSup=XXXX}} psi via QTS.",
             "duration": 1.5,
             "bop": null,
             "compensando": true,
@@ -2433,7 +2433,7 @@
     ],
     "ABAN 040": [
         {
-            "text": "Montar trem padrão 1 7/8\" + GS 3\" + Destravador M (ou M-1 2,75\") + corpo do plug RKH 2,75\". Acoplar trem no lubrificador e \ntestar com 300 / {{pressaoBopArameHigh=XXXX}} psi via QTS.",
+            "text": "Montar trem padrão 1 7/8\" + GS 3\" + Destravador M (ou M-1 2,75\") + corpo do plug RKH 2,75\". Acoplar trem no lubrificador e \ntestar com 300 / {{pressaoTesteAltaEquipSup=XXXX}} psi via QTS.",
             "duration": 1,
             "bop": null,
             "compensando": true,
@@ -2505,7 +2505,7 @@
     ],
     "ABAN 041": [
         {
-            "text": "Montar trem padrão 1 7/8\" + GS 3\" + Destravador M (ou M-1 2,81\") + corpo do plug FMH 2,81\". Acoplar trem no lubrificador e \ntestar com 300 / {{pressaoBopArameHigh=XXXX}} psi via QTS.",
+            "text": "Montar trem padrão 1 7/8\" + GS 3\" + Destravador M (ou M-1 2,81\") + corpo do plug FMH 2,81\". Acoplar trem no lubrificador e \ntestar com 300 / {{pressaoTesteAltaEquipSup=XXXX}} psi via QTS.",
             "duration": 1,
             "bop": null,
             "compensando": true,
@@ -2577,7 +2577,7 @@
     ],
     "ABAN 042": [
         {
-            "text": "Montar trem padrão 1 7/8\" +aplicador {{modelo042=Z-6 4\"}} + corpo do plug FDB 3,75\". Acoplar trem no lubrificador e \ntestar com 300 / {{pressaoBopArameHigh=XXXX}} psi via QTS.",
+            "text": "Montar trem padrão 1 7/8\" +aplicador {{modelo042=Z-6 4\"}} + corpo do plug FDB 3,75\". Acoplar trem no lubrificador e \ntestar com 300 / {{pressaoTesteAltaEquipSup=XXXX}} psi via QTS.",
             "duration": 4.5,
             "bop": null,
             "compensando": true,
@@ -2635,7 +2635,7 @@
     ],
     "ABAN 043": [
         {
-            "text": "Montar BHA de arame padrão 1 7/8\"  com aplicador CL + BRV 2,81\". Acoplar trem no lubrificador e \ntestar com 300 / {{pressaoBopArameHigh=XXXX}} psi via QTS. Avaliar necessidade de bullhead prévio de diesel para efetuar o teste da BRV.",
+            "text": "Montar BHA de arame padrão 1 7/8\"  com aplicador CL + BRV 2,81\". Acoplar trem no lubrificador e \ntestar com 300 / {{pressaoTesteAltaEquipSup=XXXX}} psi via QTS. Avaliar necessidade de bullhead prévio de diesel para efetuar o teste da BRV.",
             "duration": 3,
             "bop": null,
             "compensando": true,
@@ -2693,7 +2693,7 @@
     ],
     "ABAN 044": [
         {
-            "text": "Montar BHA de arame padrão 1 7/8\"  com aplicador GS 3\" + Destravador M 2,75\" +  BRV 2,75\". Acoplar trem no lubrificador e \ntestar com 300 / {{pressaoBopArameHigh=XXXX}} psi via QTS. \nAvaliar necessidade de bullhead prévio de diesel para efetuar o teste da\n BRV.",
+            "text": "Montar BHA de arame padrão 1 7/8\"  com aplicador GS 3\" + Destravador M 2,75\" +  BRV 2,75\". Acoplar trem no lubrificador e \ntestar com 300 / {{pressaoTesteAltaEquipSup=XXXX}} psi via QTS. \nAvaliar necessidade de bullhead prévio de diesel para efetuar o teste da\n BRV.",
             "duration": 3,
             "bop": null,
             "compensando": true,
@@ -2751,7 +2751,7 @@
     ],
     "ABAN 045": [
         {
-            "text": "Montar BHA de arame padrão 1 7/8\" + e-Fire. Acoplar trem no lubrificador e \ntestar com 300 / {{pressaoBopArameHigh=XXXX}} psi via QTS.",
+            "text": "Montar BHA de arame padrão 1 7/8\" + e-Fire. Acoplar trem no lubrificador e \ntestar com 300 / {{pressaoTesteAltaEquipSup=XXXX}} psi via QTS.",
             "duration": 3,
             "bop": null,
             "compensando": true,
@@ -2809,7 +2809,7 @@
     ],
     "ABAN 046": [
         {
-            "text": "Montar BHA de arame padrão 1 7/8\" + caçamba {{diamCacamba046=X,XX}}\" (mecânica ou hidrostática). Acoplar trem no lubrificador e \ntestar com 300 / {{pressaoBopArameHigh=XXXX}} psi via QTS.",
+            "text": "Montar BHA de arame padrão 1 7/8\" + caçamba {{diamCacamba046=X,XX}}\" (mecânica ou hidrostática). Acoplar trem no lubrificador e \ntestar com 300 / {{pressaoTesteAltaEquipSup=XXXX}} psi via QTS.",
             "duration": 2,
             "bop": null,
             "compensando": true,
@@ -2839,7 +2839,7 @@
     ],
     "ABAN 047": [
         {
-            "text": "Montar BHA de arame padrão 1 7/8\" + registrador eletrônico de memória. Acoplar trem no lubrificador e \ntestar com 300 / {{pressaoBopArameHigh=XXXX}} psi via QTS.",
+            "text": "Montar BHA de arame padrão 1 7/8\" + registrador eletrônico de memória. Acoplar trem no lubrificador e \ntestar com 300 / {{pressaoTesteAltaEquipSup=XXXX}} psi via QTS.",
             "duration": 2,
             "bop": null,
             "compensando": true,
@@ -2883,7 +2883,7 @@
     ],
     "ABAN 048": [
         {
-            "text": "Montar BHA de arame padrão 1 7/8\" + JDC 3\". Acoplar trem no lubrificador e \ntestar com 300 / {{pressaoBopArameHigh=XXXX}} psi via QTS.",
+            "text": "Montar BHA de arame padrão 1 7/8\" + JDC 3\". Acoplar trem no lubrificador e \ntestar com 300 / {{pressaoTesteAltaEquipSup=XXXX}} psi via QTS.",
             "duration": 2,
             "bop": null,
             "compensando": true,
@@ -2911,7 +2911,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Prover overbalance para retirada da STV / pressurizar COP com {{pressaoProva=XXX}} psi. Trabalhar para recuperar STV 2,75\" do nipple R com JDC 3\" @ {{profRetStvR275=xxx}} m. Observar queda de pressão após desalojamento do nipple.",
+            "text": "Prover overbalance para retirada da STV / pressurizar COP com {{pressaoOverbalanceStvR275=XXX}} psi. Trabalhar para recuperar STV 2,75\" do nipple R com JDC 3\" @ {{profRetStvR275=xxx}} m. Observar queda de pressão após desalojamento do nipple.",
             "duration": 1,
             "bop": null,
             "compensando": true,
@@ -2955,7 +2955,7 @@
     ],
     "ABAN 049": [
         {
-            "text": "Montar BHA de arame padrão 1 7/8\" + JDC 3\". Acoplar trem no lubrificador e \ntestar com 300 / {{pressaoBopArameHigh=XXXX}} psi via QTS.",
+            "text": "Montar BHA de arame padrão 1 7/8\" + JDC 3\". Acoplar trem no lubrificador e \ntestar com 300 / {{pressaoTesteAltaEquipSup=XXXX}} psi via QTS.",
             "duration": 2,
             "bop": null,
             "compensando": true,
@@ -2983,7 +2983,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Prover overbalance para retirada da STV / pressurizar COP com {{pressaoProva=XXX}} psi. \nTrabalhar para recuperar STV 2,81\" do nipple F com JDC 3\" @ {{profRetStvF281=xxx}} m. \nObservar queda de pressão após desalojamento do nipple.",
+            "text": "Prover overbalance para retirada da STV / pressurizar COP com {{pressaoOverbalanceStvF281=XXX}} psi. \nTrabalhar para recuperar STV 2,81\" do nipple F com JDC 3\" @ {{profRetStvF281=xxx}} m. \nObservar queda de pressão após desalojamento do nipple.",
             "duration": 1,
             "bop": null,
             "compensando": true,
@@ -3027,7 +3027,7 @@
     ],
     "ABAN 050": [
         {
-            "text": "Montar BHA de arame padrão 1 7/8\" + JDC 3\". Acoplar trem no lubrificador e \ntestar com 300 / {{pressaoBopArameHigh=XXXX}} psi via QTS.",
+            "text": "Montar BHA de arame padrão 1 7/8\" + JDC 3\". Acoplar trem no lubrificador e \ntestar com 300 / {{pressaoTesteAltaEquipSup=XXXX}} psi via QTS.",
             "duration": 1.5,
             "bop": null,
             "compensando": true,
@@ -3055,7 +3055,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Prover overbalance para retirada da haste / pressurizar COP com {{pressaoProva=XXX}} psi. \nTrabalhar para recuperar haste do plug 2,75\" @ {{profRetPlugR275=xxx}} m. \nObservar queda de pressão após desalojamento da haste do plug.",
+            "text": "Prover overbalance para retirada da haste / pressurizar COP com {{pressaoOverbalancePlugR275=XXX}} psi. \nTrabalhar para recuperar haste do plug 2,75\" @ {{profRetPlugR275=xxx}} m. \nObservar queda de pressão após desalojamento da haste do plug.",
             "duration": 0.5,
             "bop": null,
             "compensando": true,
@@ -3097,7 +3097,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Montar trem de arame com pescador GS 3\" + Destravador (M ou M-1 2,75\"). Acoplar trem no lubrificador e \ntestar com 300 / {{pressaoBopArameHigh=XXXX}} psi via QTS.",
+            "text": "Montar trem de arame com pescador GS 3\" + Destravador (M ou M-1 2,75\"). Acoplar trem no lubrificador e \ntestar com 300 / {{pressaoTesteAltaEquipSup=XXXX}} psi via QTS.",
             "duration": 1,
             "bop": null,
             "compensando": true,
@@ -3169,7 +3169,7 @@
     ],
     "ABAN 051": [
         {
-            "text": "Montar BHA de arame padrão 1 7/8\" + JDC 3\". Acoplar trem no lubrificador e \ntestar com 300 / {{pressaoBopArameHigh=XXXX}} psi via QTS.",
+            "text": "Montar BHA de arame padrão 1 7/8\" + JDC 3\". Acoplar trem no lubrificador e \ntestar com 300 / {{pressaoTesteAltaEquipSup=XXXX}} psi via QTS.",
             "duration": 1.5,
             "bop": null,
             "compensando": true,
@@ -3197,7 +3197,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Prover overbalance para retirada da haste / pressurizar COP com {{pressaoProva=XXX}} psi. \nTrabalhar para recuperar haste do plug 2,81\" @ {{profRetPlugF281=xxx}} m. \nObservar queda de pressão após desalojamento da haste do plug.",
+            "text": "Prover overbalance para retirada da haste / pressurizar COP com {{pressaoOverbalancePlugF281=XXX}} psi. \nTrabalhar para recuperar haste do plug 2,81\" @ {{profRetPlugF281=xxx}} m. \nObservar queda de pressão após desalojamento da haste do plug.",
             "duration": 0.5,
             "bop": null,
             "compensando": true,
@@ -3239,7 +3239,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Montar trem de arame com pescador GS 3\" + Destravador (M ou M-1 2,81\"). Acoplar trem no lubrificador e \ntestar com 300 / {{pressaoBopArameHigh=XXXX}} psi via QTS.",
+            "text": "Montar trem de arame com pescador GS 3\" + Destravador (M ou M-1 2,81\"). Acoplar trem no lubrificador e \ntestar com 300 / {{pressaoTesteAltaEquipSup=XXXX}} psi via QTS.",
             "duration": 1,
             "bop": null,
             "compensando": true,
@@ -3311,7 +3311,7 @@
     ],
     "ABAN 052": [
         {
-            "text": "Montar BHA de arame padrão 1 7/8\" + JDC 3\". Acoplar trem no lubrificador e \ntestar com 300 / {{pressaoBopArameHigh=XXXX}} psi via QTS.",
+            "text": "Montar BHA de arame padrão 1 7/8\" + JDC 3\". Acoplar trem no lubrificador e \ntestar com 300 / {{pressaoTesteAltaEquipSup=XXXX}} psi via QTS.",
             "duration": 3,
             "bop": null,
             "compensando": true,
@@ -3339,7 +3339,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Montar BHA de arame padrão 1 7/8\" + PRS 4\". Acoplar trem no lubrificador e \ntestar com 300 / {{pressaoBopArameHigh=XXXX}} psi via QTS.",
+            "text": "Montar BHA de arame padrão 1 7/8\" + PRS 4\". Acoplar trem no lubrificador e \ntestar com 300 / {{pressaoTesteAltaEquipSup=XXXX}} psi via QTS.",
             "duration": 4,
             "bop": null,
             "compensando": true,
@@ -3369,7 +3369,7 @@
     ],
     "ABAN 053": [
         {
-            "text": "Montar BHA de arame padrão 1 7/8\" + GS 3\" + Destravador M 2,81\". Acoplar trem no lubrificador e \ntestar com 300 / {{pressaoBopArameHigh=XXXX}} psi via QTS.",
+            "text": "Montar BHA de arame padrão 1 7/8\" + GS 3\" + Destravador M 2,81\". Acoplar trem no lubrificador e \ntestar com 300 / {{pressaoTesteAltaEquipSup=XXXX}} psi via QTS.",
             "duration": 2,
             "bop": null,
             "compensando": true,
@@ -3413,7 +3413,7 @@
     ],
     "ABAN 054": [
         {
-            "text": "Montar BHA de arame padrão 1 7/8\" + GS 3\" + Destravador M 2,75\". Acoplar trem no lubrificador e \ntestar com 300 / {{pressaoBopArameHigh=XXXX}} psi via QTS.",
+            "text": "Montar BHA de arame padrão 1 7/8\" + GS 3\" + Destravador M 2,75\". Acoplar trem no lubrificador e \ntestar com 300 / {{pressaoTesteAltaEquipSup=XXXX}} psi via QTS.",
             "duration": 2.5,
             "bop": null,
             "compensando": true,
@@ -3457,7 +3457,7 @@
     ],
     "ABAN 055": [
         {
-            "text": "Montar BHA de arame padrão 1 7/8\" + GS 4\". Acoplar trem no lubrificador e \ntestar com 300 / {{pressaoBopArameHigh=XXXX}} psi via QTS.",
+            "text": "Montar BHA de arame padrão 1 7/8\" + GS 4\". Acoplar trem no lubrificador e \ntestar com 300 / {{pressaoTesteAltaEquipSup=XXXX}} psi via QTS.",
             "duration": 2,
             "bop": null,
             "compensando": true,
@@ -3487,7 +3487,7 @@
     ],
     "ABAN 056": [
         {
-            "text": "Montar BHA de arame padrão 1 7/8\" com desviador {{tipoDesviador056=XX}} e pescador JDC {{diamJdc056=X}}\". Acoplar trem no lubrificador e \ntestar com 300 / {{pressaoBopArameHigh=XXXX}} psi via QTS.",
+            "text": "Montar BHA de arame padrão 1 7/8\" com desviador {{tipoDesviador056=XX}} e pescador JDC {{diamJdc056=X}}\". Acoplar trem no lubrificador e \ntestar com 300 / {{pressaoTesteAltaEquipSup=XXXX}} psi via QTS.",
             "duration": 2,
             "bop": null,
             "compensando": true,
@@ -3517,7 +3517,7 @@
     ],
     "ABAN 057": [
         {
-            "text": "Montar BHA de arame padrão 1 7/8\" com desviador {{tipoDesviador057=XX}} + JDC {{diamJdc057=X}}\" + VGL {{vglTipo=XXX}} (camisão acoplado: {{vglCamisaoAcoplado=XXX}}). Acoplar trem no lubrificador e \ntestar com 300 / {{pressaoBopArameHigh=XXXX}} psi via QTS. Avaliar possibilidade de circulação prévia para limpeza do MGL.",
+            "text": "Montar BHA de arame padrão 1 7/8\" com desviador {{tipoDesviador057=XX}} + JDC {{diamJdc057=X}}\" + VGL {{vglTipo=XXX}} (camisão acoplado: {{vglCamisaoAcoplado=XXX}}). Acoplar trem no lubrificador e \ntestar com 300 / {{pressaoTesteAltaEquipSup=XXXX}} psi via QTS. Avaliar possibilidade de circulação prévia para limpeza do MGL.",
             "duration": 2,
             "bop": null,
             "compensando": true,
@@ -3545,7 +3545,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Se possível, testar estanqueidade da coluna com {{pressaoProva=xxx}} psi para confirmar instalação adequada da (s) VGL (s).",
+            "text": "Se possível, testar estanqueidade da coluna com {{pressaoEstColunaVgl=xxx}} psi para confirmar instalação adequada da (s) VGL (s).",
             "duration": 1,
             "bop": null,
             "compensando": true,
@@ -3561,7 +3561,7 @@
     ],
     "ABAN 058": [
         {
-            "text": "Montar BHA de arame padrão 1 7/8\" com ferramenta deslocadora. Acoplar trem no lubrificador e \ntestar com 300 / {{pressaoBopArameHigh=XXXX}} psi via QTS.",
+            "text": "Montar BHA de arame padrão 1 7/8\" com ferramenta deslocadora. Acoplar trem no lubrificador e \ntestar com 300 / {{pressaoTesteAltaEquipSup=XXXX}} psi via QTS.",
             "duration": 3,
             "bop": null,
             "compensando": true,
@@ -3605,7 +3605,7 @@
     ],
     "ABAN 059": [
         {
-            "text": "Montar BHA de arame padrão 1 7/8\" com ferramenta deslocadora. Acoplar trem no lubrificador e \ntestar com 300 / {{pressaoBopArameHigh=XXXX}} psi via QTS.",
+            "text": "Montar BHA de arame padrão 1 7/8\" com ferramenta deslocadora. Acoplar trem no lubrificador e \ntestar com 300 / {{pressaoTesteAltaEquipSup=XXXX}} psi via QTS.",
             "duration": 3,
             "bop": null,
             "compensando": true,
@@ -3649,7 +3649,7 @@
     ],
     "ABAN 060": [
         {
-            "text": "Montar BHA de arame padrão 1 7/8\" com localizador de nipple + estampador {{diamEstampador060=XXX}}\". Acoplar trem no lubrificador e \ntestar com 300 / {{pressaoBopArameHigh=XXXX}} psi via QTS.",
+            "text": "Montar BHA de arame padrão 1 7/8\" com localizador de nipple + estampador {{diamEstampador060=XXX}}\". Acoplar trem no lubrificador e \ntestar com 300 / {{pressaoTesteAltaEquipSup=XXXX}} psi via QTS.",
             "duration": 2,
             "bop": null,
             "compensando": true,
@@ -5059,7 +5059,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "(Paralela) Montar trem de arame/DSL com estampador {{diamEstampador079=xx}}\" + localizador de nipple {{diamLocalizador079=xx}}\". Acoplar trem no lubrificador e testar com 300 / {{pressaoBopArameHigh=XXXX}} psi via QTS.",
+            "text": "(Paralela) Montar trem de arame/DSL com estampador {{diamEstampador079=xx}}\" + localizador de nipple {{diamLocalizador079=xx}}\". Acoplar trem no lubrificador e testar com 300 / {{pressaoTesteAltaEquipSup=XXXX}} psi via QTS.",
             "duration": 0,
             "bop": null,
             "compensando": true,
@@ -5115,7 +5115,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Pressurizar COP/COI e confirmar estanqueidade do tampão mecânico com {{pressaoProva=XXX}} psi. Avaliar necessidade de efetuar teste de influxo do plug com redução de hidrostática no SCVS.",
+            "text": "Pressurizar COP/COI e confirmar estanqueidade do tampão mecânico com {{pressaoEstTampaoBd=XXX}} psi. Avaliar necessidade de efetuar teste de influxo do plug com redução de hidrostática no SCVS.",
             "duration": 1.5,
             "bop": null,
             "compensando": true,
@@ -5287,7 +5287,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "(Contingência) Montar BHA de Flexitubo com Broca {{broca081=XXX}}\" + Motor de Fundo {{motorFundo081=XX}} e posicionar no interior dos equipamentos de pressão. Testar com 300 / {{pressaoBopArameHigh=XXX}} psi.",
+            "text": "(Contingência) Montar BHA de Flexitubo com Broca {{broca081=XXX}}\" + Motor de Fundo {{motorFundo081=XX}} e posicionar no interior dos equipamentos de pressão. Testar com 300 / {{pressaoTesteAltaEquipSup=XXX}} psi.",
             "duration": 0,
             "bop": null,
             "compensando": true,
@@ -5343,7 +5343,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "(Contingência) Posicionar BHA no interior dos equipamentos de pressão e testar com 300 / {{pressaoBopArameHigh=xxx}} psi via QTS.",
+            "text": "(Contingência) Posicionar BHA no interior dos equipamentos de pressão e testar com 300 / {{pressaoTesteAltaEquipSup=xxx}} psi via QTS.",
             "duration": 0,
             "bop": null,
             "compensando": true,
@@ -5385,7 +5385,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "(Contingência) Montar BHA de Flexitubo com Ogiva e posicionar no interior dos equipamentos de pressão. Testar com 300 / {{pressaoBopArameHigh=XXX}} psi.",
+            "text": "(Contingência) Montar BHA de Flexitubo com Ogiva e posicionar no interior dos equipamentos de pressão. Testar com 300 / {{pressaoTesteAltaEquipSup=XXX}} psi.",
             "duration": 0,
             "bop": null,
             "compensando": true,
@@ -5569,7 +5569,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Posicionar BHA no interior dos equipamentos de pressão e testar com 300 / {{pressaoBopArameHigh=xxx}} psi via QTS.",
+            "text": "Posicionar BHA no interior dos equipamentos de pressão e testar com 300 / {{pressaoTesteAltaEquipSup=xxx}} psi via QTS.",
             "duration": 1,
             "bop": null,
             "compensando": true,
@@ -5625,7 +5625,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "(Contingência) Montar BHA de Flexitubo com Broca {{broca082=XXX}}\" + Motor de Fundo e posicionar no interior dos equipamentos de pressão. Testar com 300 / {{pressaoBopArameHigh=XXX}} psi.",
+            "text": "(Contingência) Montar BHA de Flexitubo com Broca {{broca082=XXX}}\" + Motor de Fundo e posicionar no interior dos equipamentos de pressão. Testar com 300 / {{pressaoTesteAltaEquipSup=XXX}} psi.",
             "duration": 0,
             "bop": null,
             "compensando": true,
@@ -5681,7 +5681,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "(Contingência) Posicionar BHA no interior dos equipamentos de pressão e testar com 300 / {{pressaoBopArameHigh=xxx}} psi via QTS.",
+            "text": "(Contingência) Posicionar BHA no interior dos equipamentos de pressão e testar com 300 / {{pressaoTesteAltaEquipSup=xxx}} psi via QTS.",
             "duration": 0,
             "bop": null,
             "compensando": true,
@@ -5723,7 +5723,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "(Contingência) Montar BHA de Flexitubo com Ogiva e posicionar no interior dos equipamentos de pressão. Testar com 300 / {{pressaoBopArameHigh=XXX}} psi.",
+            "text": "(Contingência) Montar BHA de Flexitubo com Ogiva e posicionar no interior dos equipamentos de pressão. Testar com 300 / {{pressaoTesteAltaEquipSup=XXX}} psi.",
             "duration": 0,
             "bop": null,
             "compensando": true,
@@ -5879,7 +5879,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "(Contingência) Montar BHA de Flexitubo com Broca {{broca083=XXX}}\" + Motor de Fundo e posicionar no interior dos equipamentos de pressão. Testar com 300 / {{pressaoBopArameHigh=XXX}} psi.",
+            "text": "(Contingência) Montar BHA de Flexitubo com Broca {{broca083=XXX}}\" + Motor de Fundo e posicionar no interior dos equipamentos de pressão. Testar com 300 / {{pressaoTesteAltaEquipSup=XXX}} psi.",
             "duration": 0,
             "bop": null,
             "compensando": true,
@@ -5935,7 +5935,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "(Contingência) Posicionar BHA no interior dos equipamentos de pressão e testar com 300 / {{pressaoBopArameHigh=xxx}} psi via QTS.",
+            "text": "(Contingência) Posicionar BHA no interior dos equipamentos de pressão e testar com 300 / {{pressaoTesteAltaEquipSup=xxx}} psi via QTS.",
             "duration": 0,
             "bop": null,
             "compensando": true,
@@ -5977,7 +5977,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "(Contingência) Montar BHA de Flexitubo com Ogiva e posicionar no interior dos equipamentos de pressão. Testar com 300 / {{pressaoBopArameHigh=XXX}} psi.",
+            "text": "(Contingência) Montar BHA de Flexitubo com Ogiva e posicionar no interior dos equipamentos de pressão. Testar com 300 / {{pressaoTesteAltaEquipSup=XXX}} psi.",
             "duration": 0,
             "bop": null,
             "compensando": true,
@@ -6133,7 +6133,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Posicionar BHA no interior dos equipamentos de pressão e testar com 300 / {{pressaoBopArameHigh=xxx}} psi via QTS.",
+            "text": "Posicionar BHA no interior dos equipamentos de pressão e testar com 300 / {{pressaoTesteAltaEquipSup=xxx}} psi via QTS.",
             "duration": 1,
             "bop": null,
             "compensando": null,
@@ -6189,7 +6189,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "(Contingência) Montar BHA de Flexitubo com Broca {{broca084=XXX}}\" + Motor de Fundo e posicionar no interior dos equipamentos de pressão. Testar com 300 / {{pressaoBopArameHigh=XXX}} psi.",
+            "text": "(Contingência) Montar BHA de Flexitubo com Broca {{broca084=XXX}}\" + Motor de Fundo e posicionar no interior dos equipamentos de pressão. Testar com 300 / {{pressaoTesteAltaEquipSup=XXX}} psi.",
             "duration": 0,
             "bop": null,
             "compensando": null,
@@ -6245,7 +6245,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "(Contingência) Posicionar BHA no interior dos equipamentos de pressão e testar com 300 / {{pressaoBopArameHigh=xxx}} psi via QTS.",
+            "text": "(Contingência) Posicionar BHA no interior dos equipamentos de pressão e testar com 300 / {{pressaoTesteAltaEquipSup=xxx}} psi via QTS.",
             "duration": 0,
             "bop": null,
             "compensando": null,
@@ -6287,7 +6287,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "(Contingência) Montar BHA de Flexitubo com Ogiva e posicionar no interior dos equipamentos de pressão. Testar com 300 / {{pressaoBopArameHigh=XXX}} psi.",
+            "text": "(Contingência) Montar BHA de Flexitubo com Ogiva e posicionar no interior dos equipamentos de pressão. Testar com 300 / {{pressaoTesteAltaEquipSup=XXX}} psi.",
             "duration": 0,
             "bop": null,
             "compensando": null,
@@ -6387,7 +6387,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Mobilizar equipamentos de pressão de perfilagem e testar com 300/ {{pressaoBopArameHigh=XXX}} psi por 5/10 min.",
+            "text": "Mobilizar equipamentos de pressão de perfilagem e testar com 300/ {{pressaoTesteAltaEquipSup=XXX}} psi por 5/10 min.",
             "duration": 13.5,
             "bop": null,
             "compensando": true,
@@ -6417,7 +6417,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Mobilizar equipamentos de pressão de perfilagem e testar com 300/ {{pressaoBopArameHigh=XXX}} psi por 5/10 min.",
+            "text": "Mobilizar equipamentos de pressão de perfilagem e testar com 300/ {{pressaoTesteAltaEquipSup=XXX}} psi por 5/10 min.",
             "duration": 13.5,
             "bop": null,
             "compensando": true,
@@ -6447,7 +6447,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Mobilizar equipamentos de pressão de perfilagem e testar com 300/ {{pressaoBopArameHigh=XX}} psi por 5/10 min.",
+            "text": "Mobilizar equipamentos de pressão de perfilagem e testar com 300/ {{pressaoTesteAltaEquipSup=XX}} psi por 5/10 min.",
             "duration": 13.5,
             "bop": null,
             "compensando": true,
@@ -6491,7 +6491,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "(Contingência) Posicionar BHA no interior dos equipamentos de pressão e testar com 300 / {{pressaoBopArameHigh=xxx}} psi via QTS.",
+            "text": "(Contingência) Posicionar BHA no interior dos equipamentos de pressão e testar com 300 / {{pressaoTesteAltaEquipSup=xxx}} psi via QTS.",
             "duration": 2,
             "bop": null,
             "compensando": true,
@@ -6575,7 +6575,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Posicionar BHA no interior dos equipamentos de pressão e testar com 300 / {{pressaoBopArameHigh=xxx}} psi via QTS.",
+            "text": "Posicionar BHA no interior dos equipamentos de pressão e testar com 300 / {{pressaoTesteAltaEquipSup=xxx}} psi via QTS.",
             "duration": 2,
             "bop": null,
             "compensando": true,
@@ -6689,7 +6689,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "(Contingência) Posicionar BHA no interior dos equipamentos de pressão e testar com 300 / {{pressaoBopArameHigh=xxx}} psi via QTS.",
+            "text": "(Contingência) Posicionar BHA no interior dos equipamentos de pressão e testar com 300 / {{pressaoTesteAltaEquipSup=xxx}} psi via QTS.",
             "duration": 2,
             "bop": null,
             "compensando": true,
@@ -6773,7 +6773,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Posicionar BHA no interior dos equipamentos de pressão e testar com 300 / {{pressaoBopArameHigh=xxx}} psi via QTS.",
+            "text": "Posicionar BHA no interior dos equipamentos de pressão e testar com 300 / {{pressaoTesteAltaEquipSup=xxx}} psi via QTS.",
             "duration": 2,
             "bop": null,
             "compensando": true,
@@ -6887,7 +6887,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Posicionar BHA no interior dos equipamentos ede pressão e testar com 300 / {{pressaoBopArameHigh=xxx}} psi via QTS.",
+            "text": "Posicionar BHA no interior dos equipamentos ede pressão e testar com 300 / {{pressaoTesteAltaEquipSup=xxx}} psi via QTS.",
             "duration": 2,
             "bop": null,
             "compensando": true,
@@ -7001,7 +7001,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Posicionar BHA no interior dos equipamentos de pressão e testar com 300 / {{pressaoBopArameHigh=xxx}} psi via QTS.",
+            "text": "Posicionar BHA no interior dos equipamentos de pressão e testar com 300 / {{pressaoTesteAltaEquipSup=xxx}} psi via QTS.",
             "duration": 2,
             "bop": null,
             "compensando": true,
@@ -7115,7 +7115,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "(Contingência) Posicionar BHA no interior dos equipamentos de pressão e testar com 300 / {{pressaoBopArameHigh=xxx}} psi via QTS.",
+            "text": "(Contingência) Posicionar BHA no interior dos equipamentos de pressão e testar com 300 / {{pressaoTesteAltaEquipSup=xxx}} psi via QTS.",
             "duration": 2,
             "bop": null,
             "compensando": true,
@@ -7199,7 +7199,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Posicionar BHA no interior dos equipamentos ede pressão e testar com 300 / {{pressaoBopArameHigh=xxx}} psi via QTS.",
+            "text": "Posicionar BHA no interior dos equipamentos ede pressão e testar com 300 / {{pressaoTesteAltaEquipSup=xxx}} psi via QTS.",
             "duration": 2,
             "bop": null,
             "compensando": true,
@@ -7313,7 +7313,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "(Contingência) Posicionar BHA no interior dos equipamentos de pressão e testar com 300 / {{pressaoBopArameHigh=xxx}} psi via QTS.",
+            "text": "(Contingência) Posicionar BHA no interior dos equipamentos de pressão e testar com 300 / {{pressaoTesteAltaEquipSup=xxx}} psi via QTS.",
             "duration": 2,
             "bop": null,
             "compensando": true,
@@ -7397,7 +7397,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Posicionar BHA no interior dos equipamentos e de pressão e testar com 300 / {{pressaoBopArameHigh=xxx}} psi via QTS.",
+            "text": "Posicionar BHA no interior dos equipamentos e de pressão e testar com 300 / {{pressaoTesteAltaEquipSup=xxx}} psi via QTS.",
             "duration": 2,
             "bop": null,
             "compensando": true,
@@ -7511,7 +7511,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "(Contingência) Posicionar BHA no interior dos equipamentos de pressão e testar com 300 / {{pressaoBopArameHigh=xxx}} psi via QTS.",
+            "text": "(Contingência) Posicionar BHA no interior dos equipamentos de pressão e testar com 300 / {{pressaoTesteAltaEquipSup=xxx}} psi via QTS.",
             "duration": 2,
             "bop": null,
             "compensando": true,
@@ -7595,7 +7595,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Posicionar BHA no interior dos equipamentos de pressão e testar com 300 / {{pressaoBopArameHigh=xxx}} psi via QTS.",
+            "text": "Posicionar BHA no interior dos equipamentos de pressão e testar com 300 / {{pressaoTesteAltaEquipSup=xxx}} psi via QTS.",
             "duration": 2,
             "bop": null,
             "compensando": true,
@@ -7709,7 +7709,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Posicionar BHA no interior dos equipamentos ede pressão e testar com 300 / {{pressaoBopArameHigh=xxx}} psi via QTS.",
+            "text": "Posicionar BHA no interior dos equipamentos ede pressão e testar com 300 / {{pressaoTesteAltaEquipSup=xxx}} psi via QTS.",
             "duration": 1,
             "bop": null,
             "compensando": true,
@@ -7837,7 +7837,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Posicionar BHA no interior dos equipamentos de pressão e testar com 300 / {{pressaoBopArameHigh=xxx}} psi via QTS.",
+            "text": "Posicionar BHA no interior dos equipamentos de pressão e testar com 300 / {{pressaoTesteAltaEquipSup=xxx}} psi via QTS.",
             "duration": 1,
             "bop": null,
             "compensando": true,
@@ -7965,7 +7965,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Posicionar BHA no interior dos equipamentos ede pressão e testar com 300 / {{pressaoBopArameHigh=xxx}} psi via QTS.",
+            "text": "Posicionar BHA no interior dos equipamentos ede pressão e testar com 300 / {{pressaoTesteAltaEquipSup=xxx}} psi via QTS.",
             "duration": 2,
             "bop": null,
             "compensando": true,
@@ -8079,7 +8079,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Posicionar BHA no interior dos equipamentos de pressão e testar com 300 / {{pressaoBopArameHigh=xxx}} psi via QTS.",
+            "text": "Posicionar BHA no interior dos equipamentos de pressão e testar com 300 / {{pressaoTesteAltaEquipSup=xxx}} psi via QTS.",
             "duration": 2,
             "bop": null,
             "compensando": true,
@@ -8179,7 +8179,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Posicionar BHA no interior dos equipamentos de pressão e testar com 300 / {{pressaoBopArameHigh=xxx}} psi via QTS.",
+            "text": "Posicionar BHA no interior dos equipamentos de pressão e testar com 300 / {{pressaoTesteAltaEquipSup=xxx}} psi via QTS.",
             "duration": 2,
             "bop": null,
             "compensando": true,
@@ -8221,7 +8221,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Pressurizar coluna com {{pressaoProva=XXX}} psi e efetuar corridas ascendentes e descentes para verificar integridade da coluna com ferramenta PLT. Manter pressão constante na coluna ou fluxo estabilizado (possibilidade de circulação).",
+            "text": "Pressurizar coluna com {{pressaoIntegridadeColunaPlt=XXX}} psi e efetuar corridas ascendentes e descentes para verificar integridade da coluna com ferramenta PLT. Manter pressão constante na coluna ou fluxo estabilizado (possibilidade de circulação).",
             "duration": 2,
             "bop": null,
             "compensando": true,
@@ -8321,7 +8321,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Posicionar BHA no interior dos equipamentos de pressão e testar com 300 / {{pressaoBopArameHigh=xxx}} psi via QTS.",
+            "text": "Posicionar BHA no interior dos equipamentos de pressão e testar com 300 / {{pressaoTesteAltaEquipSup=xxx}} psi via QTS.",
             "duration": 2,
             "bop": null,
             "compensando": true,
@@ -9047,7 +9047,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Realizar operação de avaliação de cimentação no intervalo de {{intervaloInteresseTopo=XXX}} m a {{intervaloInteresseBase=XXX}} m, conforme procedimento da contratada. {{_hpRevcim=}}Enviar perfil de avaliação para CSD REVCIM para validar dados e prosseguir com operações.",
+            "text": "Realizar operação de avaliação de cimentação no intervalo de {{intervaloInteresseTopo106=XXX}} m a {{intervaloInteresseBase106=XXX}} m, conforme procedimento da contratada. {{_hpRevcim=}}Enviar perfil de avaliação para CSD REVCIM para validar dados e prosseguir com operações.",
             "duration": 5,
             "bop": null,
             "compensando": true,
@@ -9147,7 +9147,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Realizar operação de avaliação de cimentação no intervalo de {{intervaloInteresseTopo=XXX}} m a {{intervaloInteresseBase=XXX}} m, conforme procedimento da contratada. {{_hpRevcim=}}Enviar perfil de avaliação para CSD REVCIM para validar dados e prosseguir com operações.",
+            "text": "Realizar operação de avaliação de cimentação no intervalo de {{intervaloInteresseTopo107=XXX}} m a {{intervaloInteresseBase107=XXX}} m, conforme procedimento da contratada. {{_hpRevcim=}}Enviar perfil de avaliação para CSD REVCIM para validar dados e prosseguir com operações.",
             "duration": 5,
             "bop": null,
             "compensando": null,
@@ -9389,7 +9389,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Realizar teste de estanqueidade do BPP com {{pressaoProva=xxx}} psi/10 min.",
+            "text": "Realizar teste de estanqueidade do BPP com {{pressaoEstBppCabo=xxx}} psi/10 min.",
             "duration": 0.5,
             "bop": null,
             "compensando": true,
@@ -10347,7 +10347,7 @@
     ],
     "ABAN 119": [
         {
-            "text": "Mobilizar e montar BOP-FT sobre a SFT, conforme procedimento da Cia de serviço. Efetuar teste funcional e de estanqueidade do BOP-FT contra válvula Master da SFT com 300 psi / 5 min e {{pressaoBopArameHigh=XXX}} psi / 10 min.",
+            "text": "Mobilizar e montar BOP-FT sobre a SFT, conforme procedimento da Cia de serviço. Efetuar teste funcional e de estanqueidade do BOP-FT contra válvula Master da SFT com 300 psi / 5 min e {{pressaoTesteAltaEquipSup=XXX}} psi / 10 min.",
             "duration": 5,
             "bop": null,
             "compensando": true,
@@ -10377,7 +10377,7 @@
     ],
     "ABAN 120": [
         {
-            "text": "Mobilizar e montar BOP-FT sobre o bore 2\" do Terminal Head (THead), conforme procedimento da Cia de serviço. Efetuar teste funcional e de estanqueidade do BOP-FT contra  M2 do THead com 300 psi / 5 min e {{pressaoBopArameHigh=XXX}} psi / 10 min .",
+            "text": "Mobilizar e montar BOP-FT sobre o bore 2\" do Terminal Head (THead), conforme procedimento da Cia de serviço. Efetuar teste funcional e de estanqueidade do BOP-FT contra  M2 do THead com 300 psi / 5 min e {{pressaoTesteAltaEquipSup=XXX}} psi / 10 min .",
             "duration": 5,
             "bop": null,
             "compensando": true,
@@ -10407,7 +10407,7 @@
     ],
     "ABAN 121": [
         {
-            "text": "Mobilizar e montar BOP-FT sobre o bore 4\" do Terminal Head (THead), conforme procedimento da Cia de serviço. Efetuar teste funcional e de estanqueidade do BOP-FT contra M1 do THead com 300 psi/5 min e {{pressaoBopArameHigh=xxx}} psi/10 min.",
+            "text": "Mobilizar e montar BOP-FT sobre o bore 4\" do Terminal Head (THead), conforme procedimento da Cia de serviço. Efetuar teste funcional e de estanqueidade do BOP-FT contra M1 do THead com 300 psi/5 min e {{pressaoTesteAltaEquipSup=xxx}} psi/10 min.",
             "duration": 5,
             "bop": null,
             "compensando": true,
@@ -10451,7 +10451,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Inserir BHA no BOP-FT e acoplar injetor, testando estanqueidade com diesel/FCBA/MEG por {{pressaoBopArameHigh=xxx}} psi/5 min.",
+            "text": "Inserir BHA no BOP-FT e acoplar injetor, testando estanqueidade com diesel/FCBA/MEG por {{pressaoTesteAltaEquipSup=xxx}} psi/5 min.",
             "duration": 2,
             "bop": null,
             "compensando": true,
@@ -10535,7 +10535,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Inserir BHA no BOP-FT e acoplar injetor, testando estanqueidade com diesel/FCBA/MEG por {{pressaoBopArameHigh=xxx}} psi/5 min.",
+            "text": "Inserir BHA no BOP-FT e acoplar injetor, testando estanqueidade com diesel/FCBA/MEG por {{pressaoTesteAltaEquipSup=xxx}} psi/5 min.",
             "duration": 1,
             "bop": null,
             "compensando": true,
@@ -10621,7 +10621,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Inserir BHA no BOP-FT e acoplar injetor, testando estanqueidade com diesel/FCBA/MEG por {{pressaoBopArameHigh=xxx}} psi/5 min.",
+            "text": "Inserir BHA no BOP-FT e acoplar injetor, testando estanqueidade com diesel/FCBA/MEG por {{pressaoTesteAltaEquipSup=xxx}} psi/5 min.",
             "duration": 2,
             "bop": null,
             "compensando": true,
@@ -10705,7 +10705,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Inserir BHA no BOP-FT e acoplar injetor, testando estanqueidade com diesel/FCBA/MEG por {{pressaoBopArameHigh=xxx}} psi/5 min.",
+            "text": "Inserir BHA no BOP-FT e acoplar injetor, testando estanqueidade com diesel/FCBA/MEG por {{pressaoTesteAltaEquipSup=xxx}} psi/5 min.",
             "duration": 2,
             "bop": null,
             "compensando": true,
@@ -10791,7 +10791,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Inserir BHA no BOP-FT e acoplar injetor, testando estanqueidade com diesel/FCBA/MEG por {{pressaoBopArameHigh=xxx}} psi/5 min.",
+            "text": "Inserir BHA no BOP-FT e acoplar injetor, testando estanqueidade com diesel/FCBA/MEG por {{pressaoTesteAltaEquipSup=xxx}} psi/5 min.",
             "duration": 2,
             "bop": null,
             "compensando": true,
@@ -10877,7 +10877,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Inserir BHA no BOP-FT e acoplar injetor, testando estanqueidade com diesel/FCBA/MEG por {{pressaoBopArameHigh=xxx}} psi/ 5 min.",
+            "text": "Inserir BHA no BOP-FT e acoplar injetor, testando estanqueidade com diesel/FCBA/MEG por {{pressaoTesteAltaEquipSup=xxx}} psi/ 5 min.",
             "duration": 2,
             "bop": null,
             "compensando": true,
@@ -10949,7 +10949,7 @@
     ],
     "ABAN 126": [
         {
-            "text": "Montar BHA de Flexitubo com camisão + aplicador GS (4\" ou 5\", a depender do camisão). Inserir BHA no BOP-FT, acoplar injetor e testar estanqueidade com FCBA inibido/diesel/MEG com 300 psi / {{pressaoProva=XXX}} psi / 5 min.",
+            "text": "Montar BHA de Flexitubo com camisão + aplicador GS (4\" ou 5\", a depender do camisão). Inserir BHA no BOP-FT, acoplar injetor e testar estanqueidade com FCBA inibido/diesel/MEG com 300 psi / {{pressaoTesteAltaEquipSup=XXX}} psi / 5 min.",
             "duration": 3,
             "bop": null,
             "compensando": true,
@@ -11021,7 +11021,7 @@
     ],
     "ABAN 127": [
         {
-            "text": "Montar o BHA de Flexitubo com corpo do plug F 2,81\" + aplicador C-1 3.1/2\".  Inserir BHA no BOP-FT, acoplar injetor e testar estanqueidade com FCBA inibido/diesel/MEG com 300 psi / {{pressaoProva=XXX}} psi / 5 min.",
+            "text": "Montar o BHA de Flexitubo com corpo do plug F 2,81\" + aplicador C-1 3.1/2\".  Inserir BHA no BOP-FT, acoplar injetor e testar estanqueidade com FCBA inibido/diesel/MEG com 300 psi / {{pressaoTesteAltaEquipSup=XXX}} psi / 5 min.",
             "duration": 3,
             "bop": null,
             "compensando": true,
@@ -11063,7 +11063,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Montar o BHA de Flexitubo com haste do plug F 2,81\" + aplicador JDC 3\". Inserir BHA no BOP-FT, acoplar injetor e testar estanqueidade com FCBA inibido/diesel/MEG com 300 psi / {{pressaoProva=XXX}} psi / 5 min.",
+            "text": "Montar o BHA de Flexitubo com haste do plug F 2,81\" + aplicador JDC 3\". Inserir BHA no BOP-FT, acoplar injetor e testar estanqueidade com FCBA inibido/diesel/MEG com 300 psi / {{pressaoTesteAltaEquipSup=XXX}} psi / 5 min.",
             "duration": 3,
             "bop": null,
             "compensando": true,
@@ -11091,7 +11091,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Testar estanqueidade do plug com {{pressaoProva=XXX}} psi.",
+            "text": "Testar estanqueidade do plug com {{pressaoEstPlugFtF281=XXX}} psi.",
             "duration": 1,
             "bop": null,
             "compensando": true,
@@ -11135,7 +11135,7 @@
     ],
     "ABAN 128": [
         {
-            "text": "Montar o BHA de Flexitubo com corpo do plug F 2,75\" + aplicador GS 3\" + Destravador (M ou M-1 2,75\"). Inserir BHA no BOP-FT, acoplar injetor e testar estanqueidade com FCBA inibido/diesel/MEG com 300 psi / {{pressaoProva=XXX}} psi / 5 min.",
+            "text": "Montar o BHA de Flexitubo com corpo do plug F 2,75\" + aplicador GS 3\" + Destravador (M ou M-1 2,75\"). Inserir BHA no BOP-FT, acoplar injetor e testar estanqueidade com FCBA inibido/diesel/MEG com 300 psi / {{pressaoTesteAltaEquipSup=XXX}} psi / 5 min.",
             "duration": 3,
             "bop": null,
             "compensando": true,
@@ -11205,7 +11205,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Testar estanqueidade do plug com {{pressaoProva=XXX}} psi/10 min.",
+            "text": "Testar estanqueidade do plug com {{pressaoEstPlugFtR275=XXX}} psi/10 min.",
             "duration": 1,
             "bop": null,
             "compensando": true,
@@ -11305,7 +11305,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Efetuar teste negativo do plug (sentido anular > MGL (ou furo) > coluna) com {{pressaoProva=XXXX}} psi.",
+            "text": "Efetuar teste negativo do plug (sentido anular > MGL (ou furo) > coluna) com {{pressaoTesteNegPlugTh=XXXX}} psi.",
             "duration": 1,
             "bop": null,
             "compensando": true,
@@ -11349,7 +11349,7 @@
     ],
     "ABAN 130": [
         {
-            "text": "Montar o BHA de Flexitubo com aplicador e STV para nipple F 2,81\".  Inserir BHA no BOP-FT, acoplar injetor e testar estanqueidade com FCBA inibido/diesel/MEG com 300 psi / {{pressaoProva=XXX}} psi / 5 min.",
+            "text": "Montar o BHA de Flexitubo com aplicador e STV para nipple F 2,81\".  Inserir BHA no BOP-FT, acoplar injetor e testar estanqueidade com FCBA inibido/diesel/MEG com 300 psi / {{pressaoTesteAltaEquipSup=XXX}} psi / 5 min.",
             "duration": 3,
             "bop": null,
             "compensando": true,
@@ -11377,7 +11377,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Testar estanqueidade da STV com {{pressaoProva=XXX}} psi/10 min.",
+            "text": "Testar estanqueidade da STV com {{pressaoEstStvFtF281=XXX}} psi/10 min.",
             "duration": 1,
             "bop": null,
             "compensando": true,
@@ -11421,7 +11421,7 @@
     ],
     "ABAN 131": [
         {
-            "text": "Montar o BHA de Flexitubo com aplicador e STV para nipple R 2,75\".  Inserir BHA no BOP-FT, acoplar injetor e testar estanqueidade com FCBA inibido/diesel/MEG com 300 psi / {{pressaoProva=XXX}} psi / 5 min.",
+            "text": "Montar o BHA de Flexitubo com aplicador e STV para nipple R 2,75\".  Inserir BHA no BOP-FT, acoplar injetor e testar estanqueidade com FCBA inibido/diesel/MEG com 300 psi / {{pressaoTesteAltaEquipSup=XXX}} psi / 5 min.",
             "duration": 3,
             "bop": null,
             "compensando": true,
@@ -11449,7 +11449,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Testar estanqueidade da STV com {{pressaoProva=XXX}} psi/10 min.",
+            "text": "Testar estanqueidade da STV com {{pressaoEstStvFtR275=XXX}} psi/10 min.",
             "duration": 1,
             "bop": null,
             "compensando": true,
@@ -11493,7 +11493,7 @@
     ],
     "ABAN 132": [
         {
-            "text": "Mobilizar e montar o BHA de Flexitubo com aplicador e BRV para nipple F 2,81\".  Inserir BHA no BOP-FT, acoplar injetor e testar estanqueidade com FCBA inibido/diesel/MEG com 300 psi / {{pressaoProva=XXX}} psi / 5 min.",
+            "text": "Mobilizar e montar o BHA de Flexitubo com aplicador e BRV para nipple F 2,81\".  Inserir BHA no BOP-FT, acoplar injetor e testar estanqueidade com FCBA inibido/diesel/MEG com 300 psi / {{pressaoTesteAltaEquipSup=XXX}} psi / 5 min.",
             "duration": 3,
             "bop": null,
             "compensando": true,
@@ -11565,7 +11565,7 @@
     ],
     "ABAN 133": [
         {
-            "text": "Montar o BHA de Flexitubo com aplicador hidráulico GS 3\" +  destravador M 2,75\" + BRV 2,75\".  Inserir BHA no BOP-FT, acoplar injetor e testar estanqueidade com FCBA inibido/diesel/MEG com 300 psi / {{pressaoProva=XXX}} psi / 5 min.",
+            "text": "Montar o BHA de Flexitubo com aplicador hidráulico GS 3\" +  destravador M 2,75\" + BRV 2,75\".  Inserir BHA no BOP-FT, acoplar injetor e testar estanqueidade com FCBA inibido/diesel/MEG com 300 psi / {{pressaoTesteAltaEquipSup=XXX}} psi / 5 min.",
             "duration": 3,
             "bop": null,
             "compensando": true,
@@ -11637,7 +11637,7 @@
     ],
     "ABAN 134": [
         {
-            "text": "Montar o BHA de Flexitubo com pescador {{aplicadorCamisao134=GS XX \"}}  para recuperação do camisão da DHSV. Inserir BHA no BOP-FT, acoplar injetor e testar estanqueidade com FCBA inibido/diesel/MEG com 300 psi / {{pressaoProva=XXX}} psi / 5 min.",
+            "text": "Montar o BHA de Flexitubo com pescador {{aplicadorCamisao134=GS XX \"}}  para recuperação do camisão da DHSV. Inserir BHA no BOP-FT, acoplar injetor e testar estanqueidade com FCBA inibido/diesel/MEG com 300 psi / {{pressaoTesteAltaEquipSup=XXX}} psi / 5 min.",
             "duration": 3,
             "bop": null,
             "compensando": true,
@@ -11695,7 +11695,7 @@
     ],
     "ABAN 135": [
         {
-            "text": "Mobilizar e montar BHA com desviador e pescador para retirada de VGL. Inserir BHA no BOP-FT, acoplar injetor e testar estanqueidade com FCBA inibido/diesel/MEG com 300 psi / {{pressaoProva=XXX}} psi / 5 min.",
+            "text": "Mobilizar e montar BHA com desviador e pescador para retirada de VGL. Inserir BHA no BOP-FT, acoplar injetor e testar estanqueidade com FCBA inibido/diesel/MEG com 300 psi / {{pressaoTesteAltaEquipSup=XXX}} psi / 5 min.",
             "duration": 3,
             "bop": null,
             "compensando": true,
@@ -11753,7 +11753,7 @@
     ],
     "ABAN 136": [
         {
-            "text": "Mobilizar e montar BHA de Flexitubo com pescador JDC 2 1/2\" (STV RNQN)/JDC 3\" (STV CL ou RB) de STV 2,75\". Inserir BHA no BOP-FT, acoplar injetor e testar estanqueidade com FCBA inibido/diesel/MEG com 300 psi / {{pressaoProva=XXX}} psi / 5 min.",
+            "text": "Mobilizar e montar BHA de Flexitubo com pescador JDC 2 1/2\" (STV RNQN)/JDC 3\" (STV CL ou RB) de STV 2,75\". Inserir BHA no BOP-FT, acoplar injetor e testar estanqueidade com FCBA inibido/diesel/MEG com 300 psi / {{pressaoTesteAltaEquipSup=XXX}} psi / 5 min.",
             "duration": 6,
             "bop": null,
             "compensando": true,
@@ -11839,7 +11839,7 @@
     ],
     "ABAN 137": [
         {
-            "text": "Mobilizar e montar BHA de FT com pescador hidráulico JDC 3\". Inserir BHA no BOP-FT, acoplar injetor e testar estanqueidade com FCBA inibido/diesel/MEG com 300 psi / {{pressaoProva=XXX}} psi / 5 min.",
+            "text": "Mobilizar e montar BHA de FT com pescador hidráulico JDC 3\". Inserir BHA no BOP-FT, acoplar injetor e testar estanqueidade com FCBA inibido/diesel/MEG com 300 psi / {{pressaoTesteAltaEquipSup=XXX}} psi / 5 min.",
             "duration": 6,
             "bop": null,
             "compensando": true,
@@ -11925,7 +11925,7 @@
     ],
     "ABAN 138": [
         {
-            "text": "Mobilizar e montar BHA de FT com pescador hidráulico JDC 3\".  Inserir BHA no BOP-FT, acoplar injetor e testar estanqueidade com FCBA inibido/diesel/MEG com 300 psi / {{pressaoProva=XXX}} psi / 5 min.",
+            "text": "Mobilizar e montar BHA de FT com pescador hidráulico JDC 3\".  Inserir BHA no BOP-FT, acoplar injetor e testar estanqueidade com FCBA inibido/diesel/MEG com 300 psi / {{pressaoTesteAltaEquipSup=XXX}} psi / 5 min.",
             "duration": 5,
             "bop": null,
             "compensando": true,
@@ -12009,7 +12009,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Mobilizar e montar BHA de FT com pescador hidráulico GS 3\" + Destravador M ou M-1 2,75\". Inserir BHA no BOP-FT, acoplar injetor e testar estanqueidade com FCBA inibido/diesel/MEG com 300 psi / {{pressaoProva=XXX}} psi / 5 min.",
+            "text": "Mobilizar e montar BHA de FT com pescador hidráulico GS 3\" + Destravador M ou M-1 2,75\". Inserir BHA no BOP-FT, acoplar injetor e testar estanqueidade com FCBA inibido/diesel/MEG com 300 psi / {{pressaoTesteAltaEquipSup=XXX}} psi / 5 min.",
             "duration": 3.5,
             "bop": null,
             "compensando": true,
@@ -12095,7 +12095,7 @@
     ],
     "ABAN 139": [
         {
-            "text": "Mobilizar e montar BHA de FT com pescador hidráulico JDC 3\". Inserir BHA no BOP-FT, acoplar injetor e testar estanqueidade com FCBA inibido/diesel/MEG com 300 psi / {{pressaoProva=XXX}} psi / 5 min.",
+            "text": "Mobilizar e montar BHA de FT com pescador hidráulico JDC 3\". Inserir BHA no BOP-FT, acoplar injetor e testar estanqueidade com FCBA inibido/diesel/MEG com 300 psi / {{pressaoTesteAltaEquipSup=XXX}} psi / 5 min.",
             "duration": 5,
             "bop": null,
             "compensando": true,
@@ -12179,7 +12179,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Mobilizar e montar BHA de FT com pescador hidráulico GS 3\" + Destravador M ou M-1 2,81\" (FMH 2,81\") /  Pescador JDC 3\" + Destr. B 3.1/2\" (FSG 2,81\" ou FWG 2,81\"). Inserir BHA no BOP-FT, acoplar injetor e testar estanqueidade com FCBA inibido/diesel/MEG com 300 psi / {{pressaoProva=XXX}} psi / 5 min.",
+            "text": "Mobilizar e montar BHA de FT com pescador hidráulico GS 3\" + Destravador M ou M-1 2,81\" (FMH 2,81\") /  Pescador JDC 3\" + Destr. B 3.1/2\" (FSG 2,81\" ou FWG 2,81\"). Inserir BHA no BOP-FT, acoplar injetor e testar estanqueidade com FCBA inibido/diesel/MEG com 300 psi / {{pressaoTesteAltaEquipSup=XXX}} psi / 5 min.",
             "duration": 3.5,
             "bop": null,
             "compensando": true,
@@ -12265,7 +12265,7 @@
     ],
     "ABAN 140": [
         {
-            "text": "Mobilizar e montar BHA de FT com pescador hidráulico JDC 3\". Inserir BHA no BOP-FT, acoplar injetor e testar estanqueidade com FCBA inibido/diesel/MEG com 300 psi / {{pressaoProva=XXX}} psi / 5 min.",
+            "text": "Mobilizar e montar BHA de FT com pescador hidráulico JDC 3\". Inserir BHA no BOP-FT, acoplar injetor e testar estanqueidade com FCBA inibido/diesel/MEG com 300 psi / {{pressaoTesteAltaEquipSup=XXX}} psi / 5 min.",
             "duration": 6,
             "bop": null,
             "compensando": true,
@@ -12349,7 +12349,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Mobilizar e montar BHA de FT com pescador hidráulico PRS 4\". Inserir BHA no BOP-FT, acoplar injetor e testar estanqueidade com FCBA inibido/diesel/MEG com 300 psi / {{pressaoProva=XXX}} psi / 5 min.",
+            "text": "Mobilizar e montar BHA de FT com pescador hidráulico PRS 4\". Inserir BHA no BOP-FT, acoplar injetor e testar estanqueidade com FCBA inibido/diesel/MEG com 300 psi / {{pressaoTesteAltaEquipSup=XXX}} psi / 5 min.",
             "duration": 6,
             "bop": null,
             "compensando": true,
@@ -12435,7 +12435,7 @@
     ],
     "ABAN 141": [
         {
-            "text": "Mobilizar e montar BHA de FT com pescador hidráulico GS 2 1/2\". Inserir BHA no BOP-FT, acoplar injetor e testar estanqueidade com FCBA inibido/diesel/MEG com 300 psi / {{pressaoProva=XXX}} psi / 5 min.",
+            "text": "Mobilizar e montar BHA de FT com pescador hidráulico GS 2 1/2\". Inserir BHA no BOP-FT, acoplar injetor e testar estanqueidade com FCBA inibido/diesel/MEG com 300 psi / {{pressaoTesteAltaEquipSup=XXX}} psi / 5 min.",
             "duration": 6,
             "bop": null,
             "compensando": true,
@@ -12521,7 +12521,7 @@
     ],
     "ABAN 142": [
         {
-            "text": "Mobilizar e montar BHA de FT com pescador hidráulico GS 2 1/2\". Inserir BHA no BOP-FT, acoplar injetor e testar estanqueidade com FCBA inibido/diesel/MEG com 300 psi / {{pressaoProva=XXX}} psi / 5 min.",
+            "text": "Mobilizar e montar BHA de FT com pescador hidráulico GS 2 1/2\". Inserir BHA no BOP-FT, acoplar injetor e testar estanqueidade com FCBA inibido/diesel/MEG com 300 psi / {{pressaoTesteAltaEquipSup=XXX}} psi / 5 min.",
             "duration": 6,
             "bop": null,
             "compensando": true,
@@ -12621,7 +12621,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Inserir BHA no BOP-FT e acoplar injetor, testando estanqueidade com 300 psi / {{pressaoProva=XXX}} psi / 5 min.",
+            "text": "Inserir BHA no BOP-FT e acoplar injetor, testando estanqueidade com 300 psi / {{pressaoTesteAltaEquipSup=XXX}} psi / 5 min.",
             "duration": 3,
             "bop": null,
             "compensando": true,
@@ -12693,7 +12693,7 @@
     ],
     "ABAN 144": [
         {
-            "text": "Mobilizar e montar BHA de FT com ferramenta BO dupla {{ferramentaBoDuplaDiam=xxx}}\".  Inserir BHA no BOP-FT, acoplar injetor e testar estanqueidade com FCBA inibido/diesel/MEG com 300 psi / {{pressaoProva=XXX}} psi / 5 min.",
+            "text": "Mobilizar e montar BHA de FT com ferramenta BO dupla {{ferramentaBoDuplaDiam=xxx}}\".  Inserir BHA no BOP-FT, acoplar injetor e testar estanqueidade com FCBA inibido/diesel/MEG com 300 psi / {{pressaoTesteAltaEquipSup=XXX}} psi / 5 min.",
             "duration": 5,
             "bop": null,
             "compensando": true,
@@ -12765,7 +12765,7 @@
     ],
     "ABAN 145": [
         {
-            "text": "Mobilizar e montar BHA de FT com ferramenta BO dupla {{ferramentaBoDuplaDiam=xxx}}\". Inserir BHA no BOP-FT, acoplar injetor e testar estanqueidade com FCBA inibido/diesel/MEG com 300 psi / {{pressaoProva=XXX}} psi / 5 min.",
+            "text": "Mobilizar e montar BHA de FT com ferramenta BO dupla {{ferramentaBoDuplaDiam=xxx}}\". Inserir BHA no BOP-FT, acoplar injetor e testar estanqueidade com FCBA inibido/diesel/MEG com 300 psi / {{pressaoTesteAltaEquipSup=XXX}} psi / 5 min.",
             "duration": 3,
             "bop": null,
             "compensando": true,
@@ -12837,7 +12837,7 @@
     ],
     "ABAN 146": [
         {
-            "text": "Mobilizar e montar BHA de FT com estampador {{diamEstampador146=xxx}}\". Inserir BHA no BOP-FT, acoplar injetor e testar estanqueidade com FCBA inibido/diesel/MEG com 300 psi / {{pressaoProva=XXX}} psi / 5 min.",
+            "text": "Mobilizar e montar BHA de FT com estampador {{diamEstampador146=xxx}}\". Inserir BHA no BOP-FT, acoplar injetor e testar estanqueidade com FCBA inibido/diesel/MEG com 300 psi / {{pressaoTesteAltaEquipSup=XXX}} psi / 5 min.",
             "duration": 5,
             "bop": null,
             "compensando": true,
@@ -12909,7 +12909,7 @@
     ],
     "ABAN 147": [
         {
-            "text": "Mobilizar e montar BHA de FT com Registrador de Pressão. Inserir BHA no BOP-FT, acoplar injetor e testar estanqueidade com FCBA inibido/diesel/MEG com 300 psi / {{pressaoProva=XXX}} psi / 5 min.",
+            "text": "Mobilizar e montar BHA de FT com Registrador de Pressão. Inserir BHA no BOP-FT, acoplar injetor e testar estanqueidade com FCBA inibido/diesel/MEG com 300 psi / {{pressaoTesteAltaEquipSup=XXX}} psi / 5 min.",
             "duration": 4,
             "bop": null,
             "compensando": true,
@@ -12997,7 +12997,7 @@
     ],
     "ABAN 149": [
         {
-            "text": "Mobilizar e montar trem de FT+perfilagem com ferramenta de avaliação de cimentação. Inserir BHA no BOP-FT, acoplar injetor e testar estanqueidade com FCBA inibido/diesel/MEG com 300 psi / {{pressaoProva=XXX}} psi / 5 min.",
+            "text": "Mobilizar e montar trem de FT+perfilagem com ferramenta de avaliação de cimentação. Inserir BHA no BOP-FT, acoplar injetor e testar estanqueidade com FCBA inibido/diesel/MEG com 300 psi / {{pressaoTesteAltaEquipSup=XXX}} psi / 5 min.",
             "duration": 3,
             "bop": null,
             "compensando": true,
@@ -13169,7 +13169,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Mobilizar e montar BHA de FT, conectando o mesmo ao BHA de wireline.  Inserir BHA no BOP-FT, acoplar injetor e testar estanqueidade com FCBA inibido/diesel/MEG com 300 psi / {{pressaoProva=XXX}} psi / 5 min.",
+            "text": "Mobilizar e montar BHA de FT, conectando o mesmo ao BHA de wireline.  Inserir BHA no BOP-FT, acoplar injetor e testar estanqueidade com FCBA inibido/diesel/MEG com 300 psi / {{pressaoTesteAltaEquipSup=XXX}} psi / 5 min.",
             "duration": 3,
             "bop": null,
             "compensando": true,
@@ -13269,7 +13269,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Mobilizar e montar BHA de FT, conectando o mesmo ao BHA de wireline.  Inserir BHA no BOP-FT, acoplar injetor e testar estanqueidade com FCBA inibido/diesel/MEG com 300 psi / {{pressaoProva=XXX}} psi / 5 min.",
+            "text": "Mobilizar e montar BHA de FT, conectando o mesmo ao BHA de wireline.  Inserir BHA no BOP-FT, acoplar injetor e testar estanqueidade com FCBA inibido/diesel/MEG com 300 psi / {{pressaoTesteAltaEquipSup=XXX}} psi / 5 min.",
             "duration": 3,
             "bop": null,
             "compensando": true,
@@ -13541,7 +13541,7 @@
     ],
     "ABAN 155": [
         {
-            "text": "Mobilizar e montar BHA de FT com running tool + CR (Cement Retainer) {{crDiam155=xxx}}\".  Inserir BHA no BOP-FT, acoplar injetor e testar estanqueidade com FCBA inibido/diesel/MEG com 300 psi / {{pressaoProva=XXX}} psi / 5 min.",
+            "text": "Mobilizar e montar BHA de FT com running tool + CR (Cement Retainer) {{crDiam155=xxx}}\".  Inserir BHA no BOP-FT, acoplar injetor e testar estanqueidade com FCBA inibido/diesel/MEG com 300 psi / {{pressaoTesteAltaEquipSup=XXX}} psi / 5 min.",
             "duration": 6,
             "bop": null,
             "compensando": true,
@@ -13641,7 +13641,7 @@
     ],
     "ABAN 156": [
         {
-            "text": "Mobilizar e montar BHA de FT com running tool + CR (Cement Retainer) {{crDiam156=xxx}}\". Inserir BHA no BOP-FT, acoplar injetor e testar estanqueidade com FCBA inibido/diesel/MEG com 300 psi / {{pressaoProva=XXX}} psi / 5 min.",
+            "text": "Mobilizar e montar BHA de FT com running tool + CR (Cement Retainer) {{crDiam156=xxx}}\". Inserir BHA no BOP-FT, acoplar injetor e testar estanqueidade com FCBA inibido/diesel/MEG com 300 psi / {{pressaoTesteAltaEquipSup=XXX}} psi / 5 min.",
             "duration": 4,
             "bop": null,
             "compensando": true,
@@ -13741,7 +13741,7 @@
     ],
     "ABAN 157": [
         {
-            "text": "Mobilizar e montar BHA de FT com ogiva. Inserir BHA no BOP-FT, acoplar injetor e testar estanqueidade com FCBA inibido/diesel/MEG com 300 psi / {{pressaoProva=XXX}} psi / 5 min.",
+            "text": "Mobilizar e montar BHA de FT com ogiva. Inserir BHA no BOP-FT, acoplar injetor e testar estanqueidade com FCBA inibido/diesel/MEG com 300 psi / {{pressaoTesteAltaEquipSup=XXX}} psi / 5 min.",
             "duration": 4,
             "bop": null,
             "compensando": true,
@@ -13813,7 +13813,7 @@
     ],
     "ABAN 158": [
         {
-            "text": "Mobilizar e montar BHA de FT com running tool + CR (Cement Retainer) {{crDiam158=xxx}}\".  Inserir BHA no BOP-FT, acoplar injetor e testar estanqueidade com FCBA inibido/diesel/MEG com 300 psi / {{pressaoProva=XXX}} psi / 5 min.",
+            "text": "Mobilizar e montar BHA de FT com running tool + CR (Cement Retainer) {{crDiam158=xxx}}\".  Inserir BHA no BOP-FT, acoplar injetor e testar estanqueidade com FCBA inibido/diesel/MEG com 300 psi / {{pressaoTesteAltaEquipSup=XXX}} psi / 5 min.",
             "duration": 4,
             "bop": null,
             "compensando": true,
@@ -13913,7 +13913,7 @@
     ],
     "ABAN 159": [
         {
-            "text": "Mobilizar e montar BHA de FT com running tool + Packer inflável {{packerFtDiam159=xxx}}\".  Inserir BHA no BOP-FT, acoplar injetor e testar estanqueidade com FCBA inibido/diesel/MEG com 300 psi / {{pressaoProva=XXX}} psi / 5 min.",
+            "text": "Mobilizar e montar BHA de FT com running tool + Packer inflável {{packerFtDiam159=xxx}}\".  Inserir BHA no BOP-FT, acoplar injetor e testar estanqueidade com FCBA inibido/diesel/MEG com 300 psi / {{pressaoTesteAltaEquipSup=XXX}} psi / 5 min.",
             "duration": 7,
             "bop": null,
             "compensando": true,
@@ -14171,7 +14171,7 @@
     ],
     "ABAN 162": [
         {
-            "text": "Mobilizar e montar BHA de FT com running tool + BPR/BPP.  Inserir BHA no BOP-FT, acoplar injetor e testar estanqueidade com FCBA inibido/diesel/MEG com 300 psi / {{pressaoProva=XXX}} psi / 5 min.",
+            "text": "Mobilizar e montar BHA de FT com running tool + BPR/BPP.  Inserir BHA no BOP-FT, acoplar injetor e testar estanqueidade com FCBA inibido/diesel/MEG com 300 psi / {{pressaoTesteAltaEquipSup=XXX}} psi / 5 min.",
             "duration": 6,
             "bop": null,
             "compensando": true,
@@ -14243,7 +14243,7 @@
     ],
     "ABAN 163": [
         {
-            "text": "Mobilizar e montar BHA de FT com ferramenta de recuperação do packer inflável (overshot).  Inserir BHA no BOP-FT, acoplar injetor e testar estanqueidade com FCBA inibido/diesel/MEG com 300 psi / {{pressaoProva=XXX}} psi / 5 min.",
+            "text": "Mobilizar e montar BHA de FT com ferramenta de recuperação do packer inflável (overshot).  Inserir BHA no BOP-FT, acoplar injetor e testar estanqueidade com FCBA inibido/diesel/MEG com 300 psi / {{pressaoTesteAltaEquipSup=XXX}} psi / 5 min.",
             "duration": 8,
             "bop": null,
             "compensando": true,
@@ -14329,7 +14329,7 @@
     ],
     "ABAN 164": [
         {
-            "text": "Mobilizar e montar BHA de FT com running tool + Packer Multi-set {{packerFtDiam164=xxx}}\". Inserir BHA no BOP-FT, acoplar injetor e testar estanqueidade com FCBA inibido/diesel/MEG com 300 psi / {{pressaoProva=XXX}} psi / 5 min.",
+            "text": "Mobilizar e montar BHA de FT com running tool + Packer Multi-set {{packerFtDiam164=xxx}}\". Inserir BHA no BOP-FT, acoplar injetor e testar estanqueidade com FCBA inibido/diesel/MEG com 300 psi / {{pressaoTesteAltaEquipSup=XXX}} psi / 5 min.",
             "duration": 6,
             "bop": null,
             "compensando": true,
@@ -18261,7 +18261,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Desencamisar stinger/MST e posicionar 2 m acima do BPP. Fechar BOP Anular e testar BPP com {{pressaoProva=XXX}} psi. Abrir BOP Anular ao final.",
+            "text": "Desencamisar stinger/MST e posicionar 2 m acima do BPP. Fechar BOP Anular e testar BPP com {{pressaoEstBppColuna=XXX}} psi. Abrir BOP Anular ao final.",
             "duration": 2,
             "bop": null,
             "compensando": true,
@@ -18631,7 +18631,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Realizar teste de pressão do trecho superior/inferior ao ponto de assentamento com {{pressaoProva=xxxx}} psi.",
+            "text": "Realizar teste de pressão do trecho superior/inferior ao ponto de assentamento com {{pressaoTestePacker=xxxx}} psi.",
             "duration": 2,
             "bop": null,
             "compensando": true,
@@ -18731,7 +18731,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Efetuar circulação para avaliar perdas de carga após reconectar stinger. Montar e testar linhas de superfície com {{pressaoProva=xxxx}} psi. Confirmar alinhamento.",
+            "text": "Efetuar circulação para avaliar perdas de carga após reconectar stinger. Montar e testar linhas de superfície com {{pressaoLinhasSupCr=xxxx}} psi. Confirmar alinhamento.",
             "duration": 2,
             "bop": null,
             "compensando": true,
@@ -20277,7 +20277,7 @@
     ],
     "ABAN 226": [
         {
-            "text": "Pressurizar o poço com FCBA com {{pressaoProva=XXX}} psi para verificar estanqueidade de revestimento + packer + coluna + objeto instalado na coluna. Monitorar pressão por 15 min.",
+            "text": "Pressurizar o poço com FCBA com {{pressaoEstPocoFcba=XXX}} psi para verificar estanqueidade de revestimento + packer + coluna + objeto instalado na coluna. Monitorar pressão por 15 min.",
             "duration": 3.5,
             "bop": null,
             "compensando": true,
@@ -20821,7 +20821,7 @@
     ],
     "ABAN 232": [
         {
-            "text": "Mobilizar e montar BHA de FT com Broca + Motor de Fundo.  Inserir BHA no BOP-FT, acoplar injetor e testar estanqueidade com FCBA inibido/diesel/MEG com 300 psi / {{pressaoProva=XXX}} psi / 5 min.",
+            "text": "Mobilizar e montar BHA de FT com Broca + Motor de Fundo.  Inserir BHA no BOP-FT, acoplar injetor e testar estanqueidade com FCBA inibido/diesel/MEG com 300 psi / {{pressaoTesteAltaEquipSup=XXX}} psi / 5 min.",
             "duration": 6,
             "bop": null,
             "compensando": true,
@@ -21083,7 +21083,7 @@
             "genOperacaoDual": "Assentamento de tampão mecânico a cabo elétrico"
         },
         {
-            "text": "Posicionar BHA no interior dos equipamentos de pressão e testar com 300 / {{pressaoBopArameHigh=xxx}} psi, via QTS.",
+            "text": "Posicionar BHA no interior dos equipamentos de pressão e testar com 300 / {{pressaoTesteAltaEquipSup=xxx}} psi, via QTS.",
             "duration": 1,
             "bop": null,
             "compensando": true,
@@ -21225,7 +21225,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Posicionar BHA no interior dos equipamentos de pressão e testar com 300 / {{pressaoBopArameHigh=xxx}} psi, via QTS.",
+            "text": "Posicionar BHA no interior dos equipamentos de pressão e testar com 300 / {{pressaoTesteAltaEquipSup=xxx}} psi, via QTS.",
             "duration": 1,
             "bop": null,
             "compensando": true,
@@ -21561,7 +21561,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Montar e testar linhas de superfície + manifold . Testar com {{pressaoProva=xxx}} psi de AGMAR /10 min contra bloco da SFT.",
+            "text": "Montar e testar linhas de superfície + manifold . Testar com {{pressaoRiserDpr=xxx}} psi de AGMAR /10 min contra bloco da SFT.",
             "duration": 4,
             "bop": null,
             "compensando": null,
@@ -21605,7 +21605,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "[HOLD POINT SANM] Montar e testar linhas de superfície + manifold. Testar com {{pressaoProva=xxx}} psi de AGMAR/10 min contra bloco do terminal head.",
+            "text": "[HOLD POINT SANM] Montar e testar linhas de superfície + manifold. Testar com {{pressaoRiserDpr=xxx}} psi de AGMAR/10 min contra bloco do terminal head.",
             "duration": 4,
             "bop": null,
             "compensando": null,
@@ -21735,7 +21735,7 @@
     ],
     "ABAN 249": [
         {
-            "text": "Montar trem padrão 1 7/8\" +aplicador Z-6 4\" + corpo do plug FDB 3,81\". Acoplar trem no lubrificador e testar com 300 / {{pressaoProva=XXXX}} psi via QTS.",
+            "text": "Montar trem padrão 1 7/8\" +aplicador Z-6 4\" + corpo do plug FDB 3,81\". Acoplar trem no lubrificador e testar com 300 / {{pressaoTesteAltaEquipSup=XXXX}} psi via QTS.",
             "duration": 4.5,
             "bop": null,
             "compensando": true,
@@ -21777,7 +21777,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Testar plug com {{pressaoProva=XXX}} psi, pressurizando via HCR ou B2\">S2>XO>S1>Plug 3,81\", ou via poço, e monitorando DPR ou B4\".",
+            "text": "Testar plug com {{pressaoEstPlugTmfProd=XXX}} psi, pressurizando via HCR ou B2\">S2>XO>S1>Plug 3,81\", ou via poço, e monitorando DPR ou B4\".",
             "duration": 4,
             "bop": null,
             "compensando": true,
@@ -21821,7 +21821,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Testar plug com {{pressaoProva=XXX}} psi,  pressurizando via B4\">S1>XO>S2>Plug FWG 1,875” ou via poço e monitorando bore 4\".",
+            "text": "Testar plug com {{pressaoEstPlugTmfAnul=XXX}} psi,  pressurizando via B4\">S1>XO>S2>Plug FWG 1,875” ou via poço e monitorando bore 4\".",
             "duration": 4,
             "bop": null,
             "compensando": true,
