@@ -2101,7 +2101,7 @@
     ],
     "ABAN 035": [
         {
-            "text": "Descer trem de arame padrão 1 7/8\" com pescador JDC e recuperar haste do plug.",
+            "text": "Descer trem de arame padrão 1 7/8\" com {{hasteModelo=pescador JDC}} e recuperar haste do plug.",
             "duration": 3,
             "bop": null,
             "compensando": true,
@@ -2143,7 +2143,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Desmobilizar haste + JDC e montar pescador JDC 2\"+ Destr. B 2.3/8\" no trem de arame.",
+            "text": "Desmobilizar haste + JDC e montar pescador {{modelo=JDC 2\"+ Destr. B 2.3/8\"}} no trem de arame.",
             "duration": 3,
             "bop": null,
             "compensando": true,
@@ -2157,7 +2157,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Descer trem de arame com pescador JDC 2\"+ Destr. B 2.3/8\" e recuperar plug do TMF, conforme procedimento SMAB.",
+            "text": "Descer trem de arame com pescador {{modelo=JDC 2\"+ Destr. B 2.3/8\"}} e recuperar plug do TMF, conforme procedimento SMAB.",
             "duration": 2,
             "bop": null,
             "compensando": true,
@@ -2345,7 +2345,7 @@
     ],
     "ABAN 038": [
         {
-            "text": "Montar trem padrão 1 7/8\" + JDC 3\" + STV RB-2. Acoplar trem no lubrificador e \ntestar com 300 / {{pressaoTesteAltaEquipSup=XXXX}} psi via QTS.",
+            "text": "Montar trem padrão 1 7/8\" + {{modelo=JDC 3\"}} + STV {{plugModelo=RB-2}}. Acoplar trem no lubrificador e \ntestar com 300 / {{pressaoTesteAltaEquipSup=XXXX}} psi via QTS.",
             "duration": 1.5,
             "bop": null,
             "compensando": true,
@@ -2389,7 +2389,7 @@
     ],
     "ABAN 039": [
         {
-            "text": "Montar trem padrão 1 7/8\" + JDC 3\" + STV FB-2. Acoplar trem no lubrificador e \ntestar com 300 / {{pressaoTesteAltaEquipSup=XXXX}} psi via QTS.",
+            "text": "Montar trem padrão 1 7/8\" + {{modelo=JDC 3\"}} + STV {{plugModelo=FB-2}}. Acoplar trem no lubrificador e \ntestar com 300 / {{pressaoTesteAltaEquipSup=XXXX}} psi via QTS.",
             "duration": 1.5,
             "bop": null,
             "compensando": true,
@@ -2403,7 +2403,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Descer trem de arame com STV FB-2 e assentar no nipple F 2,81\" @ {{profInstStvF281=xxx}} m. Retirar trem de arame. Avaliar possibilidade de descida sem PCL para efetuar pré teste da STV com pescador conectado.",
+            "text": "Descer trem de arame com STV {{plugModelo=FB-2}} e assentar no nipple F 2,81\" @ {{profInstStvF281=xxx}} m. Retirar trem de arame. Avaliar possibilidade de descida sem PCL para efetuar pré teste da STV com pescador conectado.",
             "duration": 4,
             "bop": null,
             "compensando": true,
@@ -2433,7 +2433,7 @@
     ],
     "ABAN 040": [
         {
-            "text": "Montar trem padrão 1 7/8\" + GS 3\" + Destravador M (ou M-1 2,75\") + corpo do plug RKH 2,75\". Acoplar trem no lubrificador e \ntestar com 300 / {{pressaoTesteAltaEquipSup=XXXX}} psi via QTS.",
+            "text": "Montar trem padrão 1 7/8\" + {{modelo=GS 3\" + Destravador M ou M-1 2,75\"}} + corpo do plug {{plugModelo=RKH 2,75\"}}. Acoplar trem no lubrificador e \ntestar com 300 / {{pressaoTesteAltaEquipSup=XXXX}} psi via QTS.",
             "duration": 1,
             "bop": null,
             "compensando": true,
@@ -2447,7 +2447,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Descer trem de arame com corpo do plug RKH 2,75\" e assentar no nipple R-2,75\" @ {{profInstPlugR275=XXX}} m. Retirar trem de arame.",
+            "text": "Descer trem de arame com corpo do plug {{plugModelo=RKH 2,75\"}} e assentar no nipple R-2,75\" @ {{profInstPlugR275=XXX}} m. Retirar trem de arame.",
             "duration": 3,
             "bop": null,
             "compensando": true,
@@ -2461,7 +2461,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Montar trem padrão de arame com aplicador GS 3\" + ponteira, acoplar ao lubrificador e testar via QTS. Descer GS 3\" e efetuar teste de ancoragem do plug RKH 2,75\".  Retirar trem de arame.",
+            "text": "Montar trem padrão de arame com aplicador GS 3\" + ponteira, acoplar ao lubrificador e testar via QTS. Descer GS 3\" e efetuar teste de ancoragem do plug {{plugModelo=RKH 2,75\"}}.  Retirar trem de arame.",
             "duration": 4,
             "bop": null,
             "compensando": true,
@@ -2475,7 +2475,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Montar trem padrão de arame com aplicador JDC 3\" + haste de equalização, acoplar ao lubrificador e testar via QTS. Descer trem de arame e instalar haste de equalização no plug RKH 2,75” @ {{profInstPlugR275=xxx}} m.  Retirar trem de arame.",
+            "text": "Montar trem padrão de arame com {{hasteModelo=JDC 3\"}} + haste de equalização, acoplar ao lubrificador e testar via QTS. Descer trem de arame e instalar haste de equalização no plug {{plugModelo=RKH 2,75\"}} @ {{profInstPlugR275=xxx}} m.  Retirar trem de arame.",
             "duration": 3,
             "bop": null,
             "compensando": true,
@@ -2505,7 +2505,7 @@
     ],
     "ABAN 041": [
         {
-            "text": "Montar trem padrão 1 7/8\" + GS 3\" + Destravador M (ou M-1 2,81\") + corpo do plug FMH 2,81\". Acoplar trem no lubrificador e \ntestar com 300 / {{pressaoTesteAltaEquipSup=XXXX}} psi via QTS.",
+            "text": "Montar trem padrão 1 7/8\" + {{modelo=GS 3\" + Destravador M ou M-1 2,81\"}} + corpo do plug {{plugModelo=FMH 2,81\"}}. Acoplar trem no lubrificador e \ntestar com 300 / {{pressaoTesteAltaEquipSup=XXXX}} psi via QTS.",
             "duration": 1,
             "bop": null,
             "compensando": true,
@@ -2519,7 +2519,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Descer trem de arame com corpo do plug FMH 2,81\" e assentar no nipple F-2,81 @ {{profInstPlugF281=XXX}} m. Retirar trem de arame.",
+            "text": "Descer trem de arame com corpo do plug {{plugModelo=FMH 2,81\"}} e assentar no nipple F-2,81 @ {{profInstPlugF281=XXX}} m. Retirar trem de arame.",
             "duration": 3,
             "bop": null,
             "compensando": true,
@@ -2533,7 +2533,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Montar trem padrão de arame com aplicador GS 3\" + ponteira, acoplar ao \nlubrificador e testar via QTS. Descer GS 3\" e efetuar teste de ancoragem\n do plug FMH 2,81\".  Retirar trem de arame.",
+            "text": "Montar trem padrão de arame com aplicador GS 3\" + ponteira, acoplar ao \nlubrificador e testar via QTS. Descer GS 3\" e efetuar teste de ancoragem\n do plug {{plugModelo=FMH 2,81\"}}.  Retirar trem de arame.",
             "duration": 4,
             "bop": null,
             "compensando": true,
@@ -2547,7 +2547,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Montar trem padrão de arame com aplicador JDC 3\" + haste de equalização,\n acoplar ao lubrificador e testar via QTS. Descer trem de arame e \ninstalar haste de equalização no plug FMH 2,81” @ {{profInstPlugF281=xxx}} m.  Retirar trem \nde arame.",
+            "text": "Montar trem padrão de arame com {{hasteModelo=JDC 3\"}} + haste de equalização,\n acoplar ao lubrificador e testar via QTS. Descer trem de arame e \ninstalar haste de equalização no plug {{plugModelo=FMH 2,81\"}} @ {{profInstPlugF281=xxx}} m.  Retirar trem \nde arame.",
             "duration": 3,
             "bop": null,
             "compensando": true,
@@ -2577,7 +2577,7 @@
     ],
     "ABAN 042": [
         {
-            "text": "Montar trem padrão 1 7/8\" +aplicador {{modelo042=Z-6 4\"}} + corpo do plug FDB 3,75\". Acoplar trem no lubrificador e \ntestar com 300 / {{pressaoTesteAltaEquipSup=XXXX}} psi via QTS.",
+            "text": "Montar trem padrão 1 7/8\" +aplicador {{modelo042=Z-6 4\"}} + corpo do plug {{plugModelo=FDB 3,75\"}}. Acoplar trem no lubrificador e \ntestar com 300 / {{pressaoTesteAltaEquipSup=XXXX}} psi via QTS.",
             "duration": 4.5,
             "bop": null,
             "compensando": true,
@@ -2591,7 +2591,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Descer trem de arame com corpo do plug  FDB 3,75\" e assentar no TH - nipple DB @ {{profInstPlugTh375=XXX}} m. Efetuar teste de ancoragem do plug com 500 lbf  de overpull. Liberar aplicador e retirar trem de arame.",
+            "text": "Descer trem de arame com corpo do plug {{plugModelo=FDB 3,75\"}} e assentar no TH - nipple DB @ {{profInstPlugTh375=XXX}} m. Efetuar teste de ancoragem do plug com 500 lbf  de overpull. Liberar aplicador e retirar trem de arame.",
             "duration": 4,
             "bop": null,
             "compensando": true,
@@ -2605,7 +2605,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Montar trem padrão de arame com aplicador JDC 3\" + haste de equalização,\n acoplar ao lubrificador e testar via QTS. Descer trem de arame e \ninstalar haste de equalização no plug FDB 3,75” @ {{profInstPlugTh375=xxx}} m.  Retirar trem \nde arame.",
+            "text": "Montar trem padrão de arame com {{hasteModelo=JDC 3\"}} + haste de equalização,\n acoplar ao lubrificador e testar via QTS. Descer trem de arame e \ninstalar haste de equalização no plug {{plugModelo=FDB 3,75\"}} @ {{profInstPlugTh375=xxx}} m.  Retirar trem \nde arame.",
             "duration": 4,
             "bop": null,
             "compensando": true,
@@ -2883,7 +2883,7 @@
     ],
     "ABAN 048": [
         {
-            "text": "Montar BHA de arame padrão 1 7/8\" + JDC 3\". Acoplar trem no lubrificador e \ntestar com 300 / {{pressaoTesteAltaEquipSup=XXXX}} psi via QTS.",
+            "text": "Montar BHA de arame padrão 1 7/8\" + {{modelo=JDC 3\"}}. Acoplar trem no lubrificador e \ntestar com 300 / {{pressaoTesteAltaEquipSup=XXXX}} psi via QTS.",
             "duration": 2,
             "bop": null,
             "compensando": true,
@@ -2911,7 +2911,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Prover overbalance para retirada da STV / pressurizar COP com {{pressaoOverbalanceStvR275=XXX}} psi. Trabalhar para recuperar STV 2,75\" do nipple R com JDC 3\" @ {{profRetStvR275=xxx}} m. Observar queda de pressão após desalojamento do nipple.",
+            "text": "Prover overbalance para retirada da STV / pressurizar COP com {{pressaoOverbalanceStvR275=XXX}} psi. Trabalhar para recuperar STV {{plugModelo=2,75\"}} do nipple R com JDC 3\" @ {{profRetStvR275=xxx}} m. Observar queda de pressão após desalojamento do nipple.",
             "duration": 1,
             "bop": null,
             "compensando": true,
@@ -2925,7 +2925,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Retirar trem de arame com JDC 3\" + STV 2,75\" até a superfície",
+            "text": "Retirar trem de arame com JDC 3\" + STV {{plugModelo=2,75\"}} até a superfície",
             "duration": 2,
             "bop": null,
             "compensando": true,
@@ -2939,7 +2939,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Desmontar trem de arame com pescador JDC 3\" + STV 2,75\".",
+            "text": "Desmontar trem de arame com pescador JDC 3\" + STV {{plugModelo=2,75\"}}.",
             "duration": 0.5,
             "bop": null,
             "compensando": true,
@@ -2955,7 +2955,7 @@
     ],
     "ABAN 049": [
         {
-            "text": "Montar BHA de arame padrão 1 7/8\" + JDC 3\". Acoplar trem no lubrificador e \ntestar com 300 / {{pressaoTesteAltaEquipSup=XXXX}} psi via QTS.",
+            "text": "Montar BHA de arame padrão 1 7/8\" + {{modelo=JDC 3\"}}. Acoplar trem no lubrificador e \ntestar com 300 / {{pressaoTesteAltaEquipSup=XXXX}} psi via QTS.",
             "duration": 2,
             "bop": null,
             "compensando": true,
@@ -2983,7 +2983,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Prover overbalance para retirada da STV / pressurizar COP com {{pressaoOverbalanceStvF281=XXX}} psi. \nTrabalhar para recuperar STV 2,81\" do nipple F com JDC 3\" @ {{profRetStvF281=xxx}} m. \nObservar queda de pressão após desalojamento do nipple.",
+            "text": "Prover overbalance para retirada da STV / pressurizar COP com {{pressaoOverbalanceStvF281=XXX}} psi. \nTrabalhar para recuperar STV {{plugModelo=2,81\"}} do nipple F com JDC 3\" @ {{profRetStvF281=xxx}} m. \nObservar queda de pressão após desalojamento do nipple.",
             "duration": 1,
             "bop": null,
             "compensando": true,
@@ -2997,7 +2997,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Retirar trem de arame com pescador + STV 2,81\" até a superfície.",
+            "text": "Retirar trem de arame com pescador + STV {{plugModelo=2,81\"}} até a superfície.",
             "duration": 2,
             "bop": null,
             "compensando": true,
@@ -3011,7 +3011,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Desmontar trem de arame com JDC 3\" + STV 2,81\".",
+            "text": "Desmontar trem de arame com JDC 3\" + STV {{plugModelo=2,81\"}}.",
             "duration": 0.5,
             "bop": null,
             "compensando": true,
@@ -3027,7 +3027,7 @@
     ],
     "ABAN 050": [
         {
-            "text": "Montar BHA de arame padrão 1 7/8\" + JDC 3\". Acoplar trem no lubrificador e \ntestar com 300 / {{pressaoTesteAltaEquipSup=XXXX}} psi via QTS.",
+            "text": "Montar BHA de arame padrão 1 7/8\" + {{hasteModelo=JDC 3\"}}. Acoplar trem no lubrificador e \ntestar com 300 / {{pressaoTesteAltaEquipSup=XXXX}} psi via QTS.",
             "duration": 1.5,
             "bop": null,
             "compensando": true,
@@ -3055,7 +3055,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Prover overbalance para retirada da haste / pressurizar COP com {{pressaoOverbalancePlugR275=XXX}} psi. \nTrabalhar para recuperar haste do plug 2,75\" @ {{profRetPlugR275=xxx}} m. \nObservar queda de pressão após desalojamento da haste do plug.",
+            "text": "Prover overbalance para retirada da haste / pressurizar COP com {{pressaoOverbalancePlugR275=XXX}} psi. \nTrabalhar para recuperar haste do plug {{plugModelo=2,75\"}} @ {{profRetPlugR275=xxx}} m. \nObservar queda de pressão após desalojamento da haste do plug.",
             "duration": 0.5,
             "bop": null,
             "compensando": true,
@@ -3069,7 +3069,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Retirar trem de arame com JDC + haste do plug 2,75\" até a superfície.",
+            "text": "Retirar trem de arame com JDC + haste do plug {{plugModelo=2,75\"}} até a superfície.",
             "duration": 2,
             "bop": null,
             "compensando": true,
@@ -3083,7 +3083,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Desmontar trem de arame com pescador JDC + haste do plug 2,75\"",
+            "text": "Desmontar trem de arame com pescador JDC + haste do plug {{plugModelo=2,75\"}}",
             "duration": 0.5,
             "bop": null,
             "compensando": true,
@@ -3097,7 +3097,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Montar trem de arame com pescador GS 3\" + Destravador (M ou M-1 2,75\"). Acoplar trem no lubrificador e \ntestar com 300 / {{pressaoTesteAltaEquipSup=XXXX}} psi via QTS.",
+            "text": "Montar trem de arame com pescador {{modelo=GS 3\" + Destravador M ou M-1 2,75\"}}. Acoplar trem no lubrificador e \ntestar com 300 / {{pressaoTesteAltaEquipSup=XXXX}} psi via QTS.",
             "duration": 1,
             "bop": null,
             "compensando": true,
@@ -3125,7 +3125,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Trabalhar para recuperar corpo do plug 2,75 \" do nipple R.",
+            "text": "Trabalhar para recuperar corpo do plug {{plugModelo=2,75\"}} do nipple R.",
             "duration": 0.5,
             "bop": null,
             "compensando": true,
@@ -3139,7 +3139,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Retirar trem de arame com pescador GS 3\" + corpo do plug 2,75\" até a superfície",
+            "text": "Retirar trem de arame com pescador GS 3\" + corpo do plug {{plugModelo=2,75\"}} até a superfície",
             "duration": 2,
             "bop": null,
             "compensando": true,
@@ -3153,7 +3153,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Desmontar trem de arame com pescador GS + corpo do plug 2,75\"",
+            "text": "Desmontar trem de arame com pescador GS + corpo do plug {{plugModelo=2,75\"}}",
             "duration": 0.5,
             "bop": null,
             "compensando": true,
@@ -3169,7 +3169,7 @@
     ],
     "ABAN 051": [
         {
-            "text": "Montar BHA de arame padrão 1 7/8\" + JDC 3\". Acoplar trem no lubrificador e \ntestar com 300 / {{pressaoTesteAltaEquipSup=XXXX}} psi via QTS.",
+            "text": "Montar BHA de arame padrão 1 7/8\" + {{hasteModelo=JDC 3\"}}. Acoplar trem no lubrificador e \ntestar com 300 / {{pressaoTesteAltaEquipSup=XXXX}} psi via QTS.",
             "duration": 1.5,
             "bop": null,
             "compensando": true,
@@ -3197,7 +3197,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Prover overbalance para retirada da haste / pressurizar COP com {{pressaoOverbalancePlugF281=XXX}} psi. \nTrabalhar para recuperar haste do plug 2,81\" @ {{profRetPlugF281=xxx}} m. \nObservar queda de pressão após desalojamento da haste do plug.",
+            "text": "Prover overbalance para retirada da haste / pressurizar COP com {{pressaoOverbalancePlugF281=XXX}} psi. \nTrabalhar para recuperar haste do plug {{plugModelo=2,81\"}} @ {{profRetPlugF281=xxx}} m. \nObservar queda de pressão após desalojamento da haste do plug.",
             "duration": 0.5,
             "bop": null,
             "compensando": true,
@@ -3211,7 +3211,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Retirar trem de arame com JDC + haste do plug FMH 2,81\" até a superfície.",
+            "text": "Retirar trem de arame com JDC + haste do plug {{plugModelo=FMH 2,81\"}} até a superfície.",
             "duration": 2,
             "bop": null,
             "compensando": true,
@@ -3225,7 +3225,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Desmontar trem de arame com pescador JDC + haste do plug FMH 2,81\".",
+            "text": "Desmontar trem de arame com pescador JDC + haste do plug {{plugModelo=FMH 2,81\"}}.",
             "duration": 0.5,
             "bop": null,
             "compensando": true,
@@ -3239,7 +3239,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Montar trem de arame com pescador GS 3\" + Destravador (M ou M-1 2,81\"). Acoplar trem no lubrificador e \ntestar com 300 / {{pressaoTesteAltaEquipSup=XXXX}} psi via QTS.",
+            "text": "Montar trem de arame com pescador {{modelo=GS 3\" + Destravador M ou M-1 2,81\"}}. Acoplar trem no lubrificador e \ntestar com 300 / {{pressaoTesteAltaEquipSup=XXXX}} psi via QTS.",
             "duration": 1,
             "bop": null,
             "compensando": true,
@@ -3267,7 +3267,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Trabalhar para recuperar corpo do plug FMH 2,81\" do nipple F com GS 3\" @ {{profRetPlugF281=xxx}} m.",
+            "text": "Trabalhar para recuperar corpo do plug {{plugModelo=FMH 2,81\"}} do nipple F com GS 3\" @ {{profRetPlugF281=xxx}} m.",
             "duration": 0.5,
             "bop": null,
             "compensando": true,
@@ -3281,7 +3281,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Retirar trem de arame com pescador GS 3\" + corpo do plug FMH 2,81\" até a superfície.",
+            "text": "Retirar trem de arame com pescador GS 3\" + corpo do plug {{plugModelo=FMH 2,81\"}} até a superfície.",
             "duration": 2,
             "bop": null,
             "compensando": true,
@@ -3295,7 +3295,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Desmontar trem de arame com pescador GS 3\" + corpo do plug FMH 2,81\"",
+            "text": "Desmontar trem de arame com pescador GS 3\" + corpo do plug {{plugModelo=FMH 2,81\"}}",
             "duration": 0.5,
             "bop": null,
             "compensando": true,
@@ -3311,7 +3311,7 @@
     ],
     "ABAN 052": [
         {
-            "text": "Montar BHA de arame padrão 1 7/8\" + JDC 3\". Acoplar trem no lubrificador e \ntestar com 300 / {{pressaoTesteAltaEquipSup=XXXX}} psi via QTS.",
+            "text": "Montar BHA de arame padrão 1 7/8\" + {{hasteModelo=JDC 3\"}}. Acoplar trem no lubrificador e \ntestar com 300 / {{pressaoTesteAltaEquipSup=XXXX}} psi via QTS.",
             "duration": 3,
             "bop": null,
             "compensando": true,
@@ -3325,7 +3325,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Aplicar overbalance / pressurizar B4\" previamente à recuperação da haste. Descer JDC 3\" e recuperar haste do Plug FDB 3,75\" no TH @ {{profRetPlugTh375=xxx}} m.",
+            "text": "Aplicar overbalance / pressurizar B4\" previamente à recuperação da haste. Descer JDC 3\" e recuperar haste do Plug {{plugModelo=FDB 3,75\"}} no TH @ {{profRetPlugTh375=xxx}} m.",
             "duration": 4,
             "bop": null,
             "compensando": true,
@@ -3339,7 +3339,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Montar BHA de arame padrão 1 7/8\" + PRS 4\". Acoplar trem no lubrificador e \ntestar com 300 / {{pressaoTesteAltaEquipSup=XXXX}} psi via QTS.",
+            "text": "Montar BHA de arame padrão 1 7/8\" + {{modelo=PRS 4\"}}. Acoplar trem no lubrificador e \ntestar com 300 / {{pressaoTesteAltaEquipSup=XXXX}} psi via QTS.",
             "duration": 4,
             "bop": null,
             "compensando": true,
@@ -3353,7 +3353,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Descer PRS 4\" e recuperar corpo do plug FDB 3,75\" no TH @ {{profRetPlugTh375=XXX}} m. Nota: Se necessário, avaliar possibilidade de circulação reversa para remover resíduo do corpo do plug e auxiliar no acoplamento do pescador.",
+            "text": "Descer PRS 4\" e recuperar corpo do plug {{plugModelo=FDB 3,75\"}} no TH @ {{profRetPlugTh375=XXX}} m. Nota: Se necessário, avaliar possibilidade de circulação reversa para remover resíduo do corpo do plug e auxiliar no acoplamento do pescador.",
             "duration": 5,
             "bop": null,
             "compensando": true,
@@ -21735,7 +21735,7 @@
     ],
     "ABAN 249": [
         {
-            "text": "Montar trem padrão 1 7/8\" +aplicador Z-6 4\" + corpo do plug FDB 3,81\". Acoplar trem no lubrificador e testar com 300 / {{pressaoTesteAltaEquipSup=XXXX}} psi via QTS.",
+            "text": "Montar trem padrão 1 7/8\" +{{modelo=Z-6 4\"}} + corpo do plug {{plugModelo=FDB 3,81\"}}. Acoplar trem no lubrificador e testar com 300 / {{pressaoTesteAltaEquipSup=XXXX}} psi via QTS.",
             "duration": 4.5,
             "bop": null,
             "compensando": true,
@@ -21763,7 +21763,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Montar trem padrão de arame com aplicador JDC 3\" + haste de equalização, acoplar ao lubrificador e testar via QTS. Descer trem de arame e instalar haste de equalização no plug FDB 3,81” a {{prof249=xxx}} m.  Retirar trem de arame.",
+            "text": "Montar trem padrão de arame com {{hasteModelo=JDC 3\"}} + haste de equalização, acoplar ao lubrificador e testar via QTS. Descer trem de arame e instalar haste de equalização no plug {{plugModelo=FDB 3,81\"}} a {{prof249=xxx}} m.  Retirar trem de arame.",
             "duration": 4,
             "bop": null,
             "compensando": true,
@@ -21793,7 +21793,7 @@
     ],
     "ABAN 250": [
         {
-            "text": "Montar trem 1 1/2\" com PCC + aplicador C-1 + plug FDB 1,875” (instalação em etapa única).",
+            "text": "Montar trem 1 1/2\" com PCC + {{modelo=aplicador C-1}} + plug {{plugModelo=FDB 1,875\"}} (instalação em etapa única).",
             "duration": 4.5,
             "bop": null,
             "compensando": true,
@@ -21981,7 +21981,7 @@
     ],
     "ABAN 253": [
         {
-            "text": "Montar trem de arame padrão 1 7/8\" com aplicador C-1 2 3/8\" + plug FWG 1,87\" (instalação em etapa única com jogo de polias - CWO+TRT desconectados da ANM).",
+            "text": "Montar trem de arame padrão 1 7/8\" com {{modelo=aplicador C-1 2 3/8\"}} + plug {{plugModelo=FWG 1,87\"}} (instalação em etapa única com jogo de polias - CWO+TRT desconectados da ANM).",
             "duration": 3,
             "bop": null,
             "compensando": null,
@@ -21995,7 +21995,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Descer trem de arame em DPR/riser dual, passar trem pela extremidade da coluna, e instalar plug FWG 1,87\" no tree manifold, com auxilio do ROV a mar aberto. Efetuar teste de ancoragem do plug com 500 lbf  de overpull.",
+            "text": "Descer trem de arame em DPR/riser dual, passar trem pela extremidade da coluna, e instalar plug {{plugModelo=FWG 1,87\"}} no tree manifold, com auxilio do ROV a mar aberto. Efetuar teste de ancoragem do plug com 500 lbf  de overpull.",
             "duration": 2,
             "bop": null,
             "compensando": null,

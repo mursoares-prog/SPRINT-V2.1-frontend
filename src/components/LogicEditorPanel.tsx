@@ -96,21 +96,21 @@ function PackagePicker({ onSelect, onClose }: {
     : pkgs
   return (
     <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/60">
-      <div className="bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl w-full max-w-md flex flex-col max-h-[75vh]">
-        <div className="flex items-center gap-2 px-4 py-3 border-b border-slate-700">
-          <span className="text-sm font-semibold text-slate-100 flex-1">Selecionar pacote</span>
-          <button onClick={onClose}><X size={14} className="text-slate-400" /></button>
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-2xl w-full max-w-md flex flex-col max-h-[75vh]">
+        <div className="flex items-center gap-2 px-4 py-3 border-b border-slate-200 dark:border-slate-700">
+          <span className="text-sm font-semibold text-slate-900 dark:text-slate-100 flex-1">Selecionar pacote</span>
+          <button onClick={onClose}><X size={14} className="text-slate-500 dark:text-slate-400" /></button>
         </div>
-        <div className="px-4 py-2 border-b border-slate-700/60">
+        <div className="px-4 py-2 border-b border-slate-200 dark:border-slate-700/60">
           <input autoFocus value={q} onChange={e => setQ(e.target.value)} placeholder="ID ou nome…"
-            className="w-full text-xs bg-slate-800 rounded-lg px-3 py-1.5 text-slate-200 placeholder:text-slate-500 outline-none" />
+            className="w-full text-xs bg-slate-100 dark:bg-slate-800 rounded-lg px-3 py-1.5 text-slate-800 dark:text-slate-200 placeholder:text-slate-400 dark:placeholder:text-slate-500 outline-none" />
         </div>
         <div className="flex-1 overflow-y-auto scrollbar-custom py-1">
           {filtered.slice(0, 150).map(p => (
             <button key={p.id} onClick={() => { onSelect(p.id, p.name); onClose() }}
-              className="w-full flex items-center gap-3 px-4 py-1.5 hover:bg-slate-800 text-left">
-              <span className="text-[10px] font-mono text-[#008542] shrink-0 w-20">{p.id}</span>
-              <span className="text-xs text-slate-300 truncate">{p.name}</span>
+              className="w-full flex items-center gap-3 px-4 py-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 text-left">
+              <span className="text-[10px] font-mono text-[#008542] dark:text-amber-400 shrink-0 w-20">{p.id}</span>
+              <span className="text-xs text-slate-700 dark:text-slate-300 truncate">{p.name}</span>
             </button>
           ))}
           {!filtered.length && <p className="text-xs text-slate-500 px-4 py-4">Nenhum encontrado.</p>}
@@ -2994,6 +2994,7 @@ export function LogicEditorPanel({ canEdit }: { canEdit: boolean }) {
                   <LogicFlowEditor
                     ref={flowEditorRef}
                     sections={sections}
+                    scopeKey={selectedScope}
                     editCb={canEdit && !previewVersionId ? handleEditAction : undefined}
                     pickMode={!!pendingTransfer}
                     showIndex={showFlowIndex}

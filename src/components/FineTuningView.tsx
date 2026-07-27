@@ -1270,10 +1270,12 @@ function ClassicLineRow({ line, itemUid, itemPhase, subNum, onSelectLine, isChec
             const detailLabels = lineDetailLabels(line)
             const filled = detailLabels.length > 0
             return (
-              <span className={`shrink-0 w-3 flex items-center justify-center leading-none ${
+              <span
+                title={filled ? `Detalhamento preenchido: ${detailLabels.join(', ')}` : 'Sem detalhamento'}
+                className={`shrink-0 w-3 flex items-center justify-center leading-none ${
                 filled ? 'text-[#005889] dark:text-sky-400' : 'text-slate-300 dark:text-slate-700'
               }`}>
-                <FileText size={12} title={filled ? `Detalhamento preenchido: ${detailLabels.join(', ')}` : 'Sem detalhamento'} />
+                <FileText size={12} />
               </span>
             )
           })()}
@@ -2323,11 +2325,9 @@ function ClassicSchedulePanel({
                 const ids = node.leaves.map(({ line }) => line.id)
                 const allChecked = ids.length > 0 && ids.every(id => checkedLines.has(id))
                 setCheckedPkgs(new Set())
-                setCheckedLines(prev => {
-                  const s = new Set(prev)
-                  for (const id of ids) allChecked ? s.delete(id) : s.add(id)
-                  return s
-                })
+                const s = new Set(checkedLines)
+                for (const id of ids) allChecked ? s.delete(id) : s.add(id)
+                setCheckedLines(s)
               }
               const renderOntNode = (node: OntNode, depth: number): React.ReactNode => {
                 const isCollapsed = collapsedSections.has(`ont:${node.key}`)

@@ -239,6 +239,10 @@ export interface BhaPlanFields {
   tfaMin?: string         // TFA mínimo (pol²) — tubing puncher
   // Arame
   modelo?: string         // modelo do aplicador/pescador (instalação/retirada)
+  // Auto-preenchimento de plug/tampão de arame (ver engines/wirelinePlug):
+  plugTool?: string       // modelo de plug escolhido no picklist (equipamento da tabela Ferramentas de arame)
+  plugModelo?: string     // nome curto do plug p/ o texto da linha ({{plugModelo=...}}), derivado do escolhido
+  hasteModelo?: string    // aplicador/pescador da haste de equalização do plug ({{hasteModelo=...}}), derivado do escolhido
   // Flexitubo - gabaritagem com motor/broca — campo dedicado por pacote (ver
   // MOTOR_FUNDO_FIELD/BROCA_FIELD/MODELO_BROCA_FIELD em engines/placeholders.ts)
   motorFundo081?: string

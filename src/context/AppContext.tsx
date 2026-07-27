@@ -438,7 +438,7 @@ const DEFAULT_PROJECT_DATA: ProjectData = {
   pressaoEstPlugFtF281: '', pressaoEstPlugFtR275: '', pressaoTesteNegPlugTh: '', pressaoEstStvFtF281: '', pressaoEstStvFtR275: '',
   pressaoEstBppColuna: '', pressaoTestePacker: '', pressaoLinhasSupCr: '', pressaoEstPocoFcba: '',
   pressaoEstPlugTmfProd: '', pressaoEstPlugTmfAnul: '',
-  pressaoEstStvR: '', pressaoEstPlugR: '', pressaoEstPlugF: '', pressaoEstPlugTH: '',
+  pressaoEstStvR: '', pressaoEstStvF: '', pressaoEstPlugR: '', pressaoEstPlugF: '', pressaoEstPlugTH: '',
   pressaoEstTae: '', pressaoEstTmfProd: '', pressaoEstTmfAnul: '',
   bullheadVolume: '', bullheadDepth: '', amortFcbaDensidade: '',
   cimentAlinhamento078: '', cimentAlinhamento083: '', cimentAlinhamento084: '',

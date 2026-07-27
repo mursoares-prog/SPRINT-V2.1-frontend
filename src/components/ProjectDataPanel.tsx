@@ -15,7 +15,29 @@ import {
 import { tokenBinding, tokenUsedByPackages } from '../engines/assistantFields'
 import { getPackageLines } from '../data/packageLinesStore'
 import { resolvePlaceholderDefs, getPlaceholderDefs } from '../data/placeholderDefsStore'
+import { toolsForPackage, plugDerived, type ToolKind, type NippleSpec } from '../engines/wirelinePlug'
+import { listWirelineTools, type WirelineTool } from '../utils/api'
 import type { PlaceholderFieldDef } from '../utils/api'
+
+// Pacotes de arame com auto-preenchimento de aplicador/pescador (e haste, p/ plug) a partir
+// da tabela Ferramentas de arame. `nipple` fixa o nipple quando o nome não o traz (TH).
+// Expandir aqui conforme as linhas dos pacotes ganharem os placeholders {{modelo}}/{{plugModelo}}/{{hasteModelo}}.
+const TOOL_PKGS: Record<string, { kind: ToolKind; nipple?: NippleSpec; noHaste?: boolean }> = {
+  'ABAN 040': { kind: 'plug' }, 'ABAN 050': { kind: 'plug' },          // plug nipple R 2,75"
+  'ABAN 041': { kind: 'plug' }, 'ABAN 051': { kind: 'plug' },          // plug nipple F 2,81"
+  'ABAN 042': { kind: 'plug', nipple: { type: 'F', diam: '3.75' } },   // plug TH 3,75"
+  'ABAN 052': { kind: 'plug', nipple: { type: 'F', diam: '3.75' } },
+  // TMF bore de produção (plug FDB 3,81"). 034 já usa {{modelo034}} e {{diamJdc034}} p/ a haste (noHaste).
+  'ABAN 249': { kind: 'plug', nipple: { type: 'F', diam: '3.81' } },
+  'ABAN 034': { kind: 'plug', nipple: { type: 'F', diam: '3.81' }, noHaste: true },
+  // TMF bore de anular (plug FWG 1,87" ~ 1,875"; matching ignora 3ª casa decimal). Instalação
+  // é etapa única (sem haste → noHaste); só a retirada 035 tem haste.
+  'ABAN 250': { kind: 'plug', nipple: { type: 'F', diam: '1.87' }, noHaste: true },
+  'ABAN 253': { kind: 'plug', nipple: { type: 'F', diam: '1.87' }, noHaste: true },
+  'ABAN 035': { kind: 'plug', nipple: { type: 'F', diam: '1.87' } },
+  'ABAN 038': { kind: 'stv' }, 'ABAN 048': { kind: 'stv' },            // STV nipple R 2,75"
+  'ABAN 039': { kind: 'stv' }, 'ABAN 049': { kind: 'stv' },            // STV nipple F 2,81"
+}
 import { ComboInput } from './ComboInput'
 import { WirelineToolsPanel } from './WirelineToolsPanel'
 
@@ -904,6 +926,10 @@ export function ProjectDataPanel({ onLocate, onClearLocate, locatedTarget, oneBy
   const activeDefs = resolvePlaceholderDefs(state.placeholderDefs)
   const projectPkgIds = new Set(state.fineTuningItems.filter(i => !i.isBlank).map(i => i.packageId))
 
+  // Ferramentas de arame (para auto-preencher aplicador/pescador de plug) — carregadas do servidor.
+  const [wlTools, setWlTools] = useState<WirelineTool[]>([])
+  useEffect(() => { listWirelineTools().then(setWlTools).catch(() => {}) }, [])
+
   // Rótulo do campo: a fonte é a aba Place Holders (admin). Widgets/campos ainda hardcoded
   // no JSX puxam o rótulo do def do token; o texto hardcoded vira só fallback (token sem def).
   // Os RÓTULOS vêm da config LIVE do servidor (getPlaceholderDefs) sobreposta ao snapshot do
@@ -1233,6 +1259,8 @@ export function ProjectDataPanel({ onLocate, onClearLocate, locatedTarget, oneBy
               && !PACKAGES[i.packageId]?.isDismountOp
               // Coluna: remover operações FETH / THRT / TH, teste de influxo e PWC (vai para Cimentação)
               && !(tech === 'workstring' && (/\b(feth|thrt|th)\b/i.test(i.packageName) || /teste.*influxo/i.test(i.packageName) || /\bpwc\b/i.test(i.packageName)))
+              // Retirada de CCAP com garatéia (ABAN 008): sem entrada de BHA — não exibir no assistente
+              && i.packageId !== 'ABAN 008'
           )
           if (techItems.length === 0) return null
 
@@ -1241,6 +1269,11 @@ export function ProjectDataPanel({ onLocate, onClearLocate, locatedTarget, oneBy
           const updatePlan = (uid: string, key: keyof BhaPlanFields, value: string) => {
             const cur = d.bhaPlans?.[uid] ?? {}
             setBhasTech({ bhaPlans: { ...(d.bhaPlans ?? {}), [uid]: { ...cur, [key]: value } } })
+          }
+          // Atualiza vários campos do plano de um item de uma vez (evita perder writes concorrentes).
+          const updatePlanMany = (uid: string, patch: Partial<BhaPlanFields>) => {
+            const cur = d.bhaPlans?.[uid] ?? {}
+            setBhasTech({ bhaPlans: { ...(d.bhaPlans ?? {}), [uid]: { ...cur, ...patch } } })
           }
 
           return (
@@ -1351,9 +1384,40 @@ export function ProjectDataPanel({ onLocate, onClearLocate, locatedTarget, oneBy
                                     {isCorte && (
                                       <Field label={defLabel(defTokenForPlanKey(item.packageId, 'cortadorModelo'), "Modelo do cortador")} value={plan.cortadorModelo ?? ''} onChange={v => updatePlan(item.uid, 'cortadorModelo', v)} locate={{ kind: 'plan', uid: item.uid, key: 'cortadorModelo' }} />
                                     )}
-                                    {isArameInstRet && !isCamis && (
+                                    {isArameInstRet && !isCamis && (() => {
+                                      const cfg = TOOL_PKGS[item.packageId]
+                                      const isPlug = cfg?.kind === 'plug'
+                                      const opts = cfg ? toolsForPackage(wlTools, name, cfg.kind, cfg.nipple) : []
+                                      const isInstall = /instala/i.test(name)
+                                      const toolSelected = !!plan.plugTool
+                                      const pickTool = (v: string) => {
+                                        const tool = opts.find(t => t.equipamento === v)
+                                        if (tool) {
+                                          const der = plugDerived(wlTools, tool, isInstall)
+                                          const patch: Partial<import('../types').BhaPlanFields> = { plugTool: v, modelo: der.modelo, plugModelo: der.plugModelo }
+                                          if (isPlug) patch.hasteModelo = der.hasteModelo
+                                          updatePlanMany(item.uid, patch)
+                                        } else {
+                                          updatePlan(item.uid, 'plugTool', v)
+                                        }
+                                      }
+                                      return (
                                       <>
-                                        <Field label={defLabel(defTokenForPlanKey(item.packageId, 'modelo'), 'Aplicador/Pescador — nome e Ø (ex: "GS 3\"")')} value={plan.modelo ?? ''} onChange={v => updatePlan(item.uid, 'modelo', v)} locate={{ kind: 'plan', uid: item.uid, key: 'modelo' }} />
+                                        {cfg && opts.length > 0 && (
+                                          <div className="flex items-center justify-between gap-2 py-1 border-b border-slate-200 dark:border-slate-800">
+                                            <span className="text-xs leading-snug text-slate-600 dark:text-slate-500 min-w-0 flex-1">{`Modelo do ${isPlug ? 'tampão' : 'STV'}`}</span>
+                                            <select value={plan.plugTool ?? ''} onChange={e => pickTool(e.target.value)}
+                                              title={`Preenche automaticamente ${isInstall ? 'aplicador' : 'pescador'}${isPlug ? ' do tampão e da haste' : ' da STV'}`}
+                                              className="shrink-0 max-w-[150px] text-xs font-semibold text-slate-700 dark:text-slate-200 bg-transparent outline-none text-right cursor-pointer">
+                                              <option value="">—</option>
+                                              {opts.map(t => <option key={t.equipamento} value={t.equipamento}>{t.equipamento}</option>)}
+                                            </select>
+                                          </div>
+                                        )}
+                                        <Field label={defLabel(defTokenForPlanKey(item.packageId, 'modelo'), `${isInstall ? 'Aplicador' : 'Pescador'} — nome e Ø (ex: "GS 3\"")`)} value={plan.modelo ?? ''} readOnly={toolSelected && !!plan.modelo} onChange={v => updatePlan(item.uid, 'modelo', v)} locate={{ kind: 'plan', uid: item.uid, key: 'modelo' }} />
+                                        {isPlug && !cfg?.noHaste && (
+                                          <Field label={defLabel(defTokenForPlanKey(item.packageId, 'hasteModelo'), `${isInstall ? 'Aplicador' : 'Pescador'} da haste de equalização`)} value={plan.hasteModelo ?? ''} readOnly={toolSelected && !!plan.hasteModelo} onChange={v => updatePlan(item.uid, 'hasteModelo', v)} locate={{ kind: 'plan', uid: item.uid, key: 'hasteModelo' }} />
+                                        )}
                                         {!isPerf && !isCorte && (
                                           <Field label={defLabel(defTokenForPlanKey(item.packageId, 'prof'), "Profundidade")} value={derivedProf ?? plan.prof ?? ''} readOnly={derivedProf != null} onChange={v => updatePlan(item.uid, 'prof', v)} locate={{ kind: 'plan', uid: item.uid, key: 'prof' }} unit="m" />
                                         )}
@@ -1361,7 +1425,8 @@ export function ProjectDataPanel({ onLocate, onClearLocate, locatedTarget, oneBy
                                           <Field label={defLabel(defTokenForPlanKey(item.packageId, 'diamJdc'), "Ø JDC (passo inicial)")} value={plan.diamJdc ?? ''} onChange={v => updatePlan(item.uid, 'diamJdc', v)} locate={{ kind: 'plan', uid: item.uid, key: 'diamJdc' }} unit="pol" />
                                         )}
                                       </>
-                                    )}
+                                      )
+                                    })()}
                                     {showEstampador && estKey && (
                                       <Field label={defLabel(estKey, "Ø estampador")} value={gab?.diamEstampador ?? plan[estKey] ?? ''} readOnly={gab?.diamEstampador != null} onChange={v => updatePlan(item.uid, estKey, v)} locate={{ kind: 'plan', uid: item.uid, key: estKey }} unit="pol" />
                                     )}

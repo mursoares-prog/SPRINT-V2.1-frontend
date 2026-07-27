@@ -20,10 +20,11 @@ import { createContext, forwardRef, useCallback, useContext, useEffect, useImper
 import {
   ReactFlow, Controls, MiniMap, Panel,
   Handle, Position, MarkerType, applyNodeChanges, BaseEdge,
-  type Node, type Edge, type NodeProps, type NodeChange, type EdgeProps, type ReactFlowInstance,
+  type Node, type Edge, type NodeProps, type NodeChange, type EdgeProps, type ReactFlowInstance, type Viewport,
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import { PiStarFill, PiFlagPennantFill, PiXBold, PiPencilSimpleFill } from 'react-icons/pi'
+import { RiMenuAddLine } from 'react-icons/ri'
 import type { LSec, LDec, LAns, LSeqEntry, LPkg } from '../data/logicSecs'
 import { CONDITION_LABELS } from '../data/logicSecs'
 import { resolveScopeSections, getScopeLabel } from '../data/logicOverrideStore'
@@ -463,22 +464,26 @@ function PkgEditRows({ pkgList, p, dark, secPhase, onFlagPkg, onCondition, onPha
       {/* Lista vazia: ocupa NOTE+BPAD (= placeholder + padding inferior) */}
       {pkgList.length === 0 && (
         onAdd ? (
-          <button className="nodrag w-full flex items-center gap-1 px-2"
-            style={{ height: NOTE + BPAD, color: '#3b82f6', fontSize: 9, background: 'transparent', opacity: 0.8 }}
+          <button className="nodrag w-full flex items-center gap-1.5 px-2 rounded hover:bg-blue-500/10 transition-colors"
+            style={{ height: NOTE + BPAD + 8, color: '#3b82f6', fontSize: 9.5, background: 'transparent' }}
+            title="Adicionar pacote"
             onClick={e => { e.stopPropagation(); onAdd() }}>
-            <span style={{ fontSize: 12, lineHeight: 1 }}>+</span>
+            <RiMenuAddLine size={13} className="shrink-0" />
             <span>Adicionar pacote</span>
           </button>
         ) : (
           <div className="px-2 italic" style={{ fontSize: 9.5, color: p.empty, height: NOTE }}>—</div>
         )
       )}
-      {/* Strip de "adicionar" — substitui o paddingBottom quando há pacotes, mantendo a altura total */}
+      {/* Botão "adicionar pacote" — alvo cômodo, separado dos pacotes por um traço,
+          fora da borda inferior (onde antes ficava um "+" fino difícil de clicar). */}
       {pkgList.length > 0 && onAdd && (
-        <button className="nodrag w-full flex items-center justify-center gap-1"
-          style={{ height: BPAD, color: '#3b82f6', fontSize: 8, background: 'transparent', opacity: 0.65 }}
+        <button className="nodrag w-full flex items-center justify-center gap-1.5 rounded hover:bg-blue-500/10 transition-colors"
+          style={{ height: 24, marginTop: 4, color: '#3b82f6', fontSize: 9.5, background: 'transparent', borderTop: `1px dashed ${p.ansB}` }}
+          title="Adicionar pacote"
           onClick={e => { e.stopPropagation(); onAdd() }}>
-          <span style={{ fontSize: 10, lineHeight: 1 }}>+</span>
+          <RiMenuAddLine size={14} className="shrink-0" />
+          <span>Adicionar pacote</span>
         </button>
       )}
     </div>
@@ -884,19 +889,26 @@ function IndexRow({ text, prefix = '', dark, onNav, onCommit, cls, style, warn }
 }
 
 // ─── Componente principal ─────────────────────────────────────────────────────
+// Viewport preservado a nível de módulo — o editor remonta dentro da sessão
+// (troca de escopo, salvar/publicar, etc.) e sem isso a view saltava para o
+// fitView inicial a cada remonta. Guardamos por escopo: mesma chave → restaura a
+// posição/zoom do usuário; chave diferente → fitView (novo fluxograma).
+let _savedViewport: { key: string; vp: Viewport } | null = null
+
 export interface LogicFlowEditorHandle {
   reorganize: () => void
 }
 
 export const LogicFlowEditor = forwardRef<LogicFlowEditorHandle, {
   sections: LSec[]
+  scopeKey?: string | null
   editCb?: (a: EditAction) => void
   pickMode?: boolean
   showIndex?: boolean
   onToggleIndex?: () => void
   showLegend?: boolean
   onToggleLegend?: () => void
-}>(function LogicFlowEditor({ sections, editCb, pickMode, showIndex = false, onToggleIndex, showLegend = false }, fwdRef) {
+}>(function LogicFlowEditor({ sections, scopeKey, editCb, pickMode, showIndex = false, onToggleIndex, showLegend = false }, fwdRef) {
   const dark = useDark()
   const canEdit = !!editCb
   const [search, setSearch] = useState('')
@@ -1901,7 +1913,19 @@ export const LogicFlowEditor = forwardRef<LogicFlowEditorHandle, {
           deleteKeyCode={null}
           minZoom={0.05}
           maxZoom={2.5}
-          onInit={(inst) => { rfRef.current = inst; if (!didFitRef.current) { didFitRef.current = true; inst.fitView({ padding: 0.12, maxZoom: 0.9 }) } }}
+          onInit={(inst) => {
+            rfRef.current = inst
+            const key = scopeKey ?? ''
+            if (_savedViewport && _savedViewport.key === key) {
+              // Remonta no mesmo escopo (ex.: após salvar): preserva pan/zoom do usuário.
+              inst.setViewport(_savedViewport.vp)
+            } else if (!didFitRef.current) {
+              // Primeiro carregamento deste escopo: enquadra o fluxograma.
+              didFitRef.current = true
+              inst.fitView({ padding: 0.12, maxZoom: 0.9 })
+            }
+          }}
+          onMoveEnd={(_, vp) => { _savedViewport = { key: scopeKey ?? '', vp } }}
           proOptions={{ hideAttribution: true }}
         >
           <Controls showInteractive={false}

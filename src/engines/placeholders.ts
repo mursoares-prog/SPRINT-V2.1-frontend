@@ -130,7 +130,7 @@ export const SLWLFT_HIGH_PKG_IDS: readonly string[] = (() => {
 // PLAN_KEYS final inclui a chave base (ainda usada por pacotes não desdobrados,
 // quando aplicável) e todo apelido.
 const BASE_PLAN_KEYS = [
-  'prof','taeProf','bpProf','modelo','bppAncoragemKlbf',
+  'prof','taeProf','bpProf','modelo','plugModelo','hasteModelo','bppAncoragemKlbf',
   'camDiamInt','camDiamNom',
   'aplicadorCamisao','camTipo','diamCacamba','tipoDesviador','diamJdc','modeloSlidingSleeve','profFinal',
   'vglTipo','vglCamisaoAcoplado',
