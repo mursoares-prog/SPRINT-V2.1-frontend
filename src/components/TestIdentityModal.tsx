@@ -1,9 +1,8 @@
 import { useState } from 'react'
-import { FlaskConical, Loader2, MonitorPlay } from 'lucide-react'
+import { FlaskConical, Loader2 } from 'lucide-react'
 import { useApp } from '../context/AppContext'
 import { setSessionRole } from '../utils/auth'
 import { lookupServerProject, isApiConfigured } from '../utils/api'
-import { isDemoMode, setDemoMode, seedDemoData } from '../utils/demoMode'
 
 // ⚠️ ─────────────────────────────────────────────────────────────────────────────
 // TEMPORÁRIO — HARNESS DE TESTE. REMOVER quando os sistemas forem conectados.
@@ -39,16 +38,6 @@ import { isDemoMode, setDemoMode, seedDemoData } from '../utils/demoMode'
 export function TestIdentityModal({ onClose }: { onClose: () => void }) {
   const { state, dispatch } = useApp()
   const [checking, setChecking] = useState(false)
-  // TEMPORÁRIO — modo demonstração (só faz sentido sem backend). Ligar semeia os stores
-  // a partir do bundle para que Etapa 1 + árvores de decisão apareçam como se conectadas.
-  const backendOff = !isApiConfigured()
-  const [demo, setDemo] = useState(isDemoMode)
-  const toggleDemo = () => {
-    const next = !demo
-    setDemo(next)
-    setDemoMode(next)
-    if (next) seedDemoData()   // aplica agora; o wizard lê os stores ao fechar o pop-up
-  }
 
   // Se já existe projeto salvo para este poço+projeto, resgata a última versão e
   // reabre na tela onde parou; senão segue o fluxo normal (novo projeto).
@@ -144,32 +133,6 @@ export function TestIdentityModal({ onClose }: { onClose: () => void }) {
               <option value="admin">Admin</option>
             </select>
           </div>
-
-          {/* Modo demonstração — só quando o backend está desativado (sem VITE_API_URL). */}
-          {backendOff && (
-            <button
-              type="button"
-              onClick={toggleDemo}
-              className={`w-full flex items-center gap-2.5 rounded-lg border px-3 py-2.5 text-left transition-colors ${
-                demo
-                  ? 'border-emerald-400 dark:border-emerald-600 bg-emerald-50 dark:bg-emerald-900/30'
-                  : 'border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700'
-              }`}
-            >
-              <MonitorPlay size={16} className={demo ? 'text-emerald-600 dark:text-emerald-400 shrink-0' : 'text-slate-400 shrink-0'} />
-              <span className="flex-1 min-w-0">
-                <span className="block text-xs font-semibold text-slate-700 dark:text-slate-200">
-                  Modo demonstração
-                </span>
-                <span className="block text-[11px] text-slate-500 dark:text-slate-400 leading-snug">
-                  Exibe a Etapa 1 e as árvores de decisão a partir dos dados empacotados, sem servidor.
-                </span>
-              </span>
-              <span className={`shrink-0 w-9 h-5 rounded-full transition-colors relative ${demo ? 'bg-emerald-500' : 'bg-slate-300 dark:bg-slate-600'}`}>
-                <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-all ${demo ? 'left-4' : 'left-0.5'}`} />
-              </span>
-            </button>
-          )}
 
           <div className="pt-1">
             <button type="button" onClick={handleContinue} disabled={checking}
