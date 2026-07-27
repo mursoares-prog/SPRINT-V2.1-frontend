@@ -16,6 +16,7 @@ import { LuNetwork } from 'react-icons/lu'
 import { getDefaultInputs } from './utils/defaultInputs'
 import { isApiConfigured, getMergedPackageLines, getBaseOverrides, getBasePackageOverrides, getCustomPackages, getLogicScopes, getLogicScope, getLogicScopeGroups, listPlaceholderFieldDefs } from './utils/api'
 import { ensureDefaultSession } from './utils/auth'
+import { isDemoMode, seedDemoData } from './utils/demoMode'
 import { LoginModal } from './components/LoginModal'
 import { setPackageLines } from './data/packageLinesStore'
 import { setPlaceholderDefs } from './data/placeholderDefsStore'
@@ -412,6 +413,10 @@ export default function App() {
   }, [])
 
   useEffect(() => {
+    // TEMPORÁRIO — MODO DEMONSTRAÇÃO (ver src/utils/demoMode.ts): roda a partir dos
+    // dados empacotados (bundle), sem falar com o servidor. Mostra Etapa 1 + árvores
+    // de decisão completas mesmo com o backend desativado.
+    if (isDemoMode()) { seedDemoData(); return }
     if (!isApiConfigured()) return
     getMergedPackageLines().then(setPackageLines).catch(() => {})
     listPlaceholderFieldDefs().then(setPlaceholderDefs).catch(() => {})
