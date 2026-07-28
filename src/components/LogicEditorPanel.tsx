@@ -130,13 +130,13 @@ function TextEditModal({ title, initial, onSave, onClose }: {
   const [val, setVal] = useState(initial)
   return (
     <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/60">
-      <div className="bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl w-full max-w-sm p-5 space-y-3">
-        <p className="text-xs font-semibold text-slate-400">{title}</p>
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-2xl w-full max-w-sm p-5 space-y-3">
+        <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">{title}</p>
         <input autoFocus value={val} onChange={e => setVal(e.target.value)}
           onKeyDown={e => { if (e.key === 'Enter') onSave(val.trim() || initial); if (e.key === 'Escape') onClose() }}
-          className="w-full text-sm bg-slate-800 rounded-lg px-3 py-2 text-slate-100 outline-none border border-slate-700 focus:border-[#008542]/60" />
+          className="w-full text-sm bg-slate-100 dark:bg-slate-800 rounded-lg px-3 py-2 text-slate-900 dark:text-slate-100 outline-none border border-slate-200 dark:border-slate-700 focus:border-[#008542]/60" />
         <div className="flex justify-end gap-2">
-          <button onClick={onClose} className="text-xs text-slate-400 px-3 py-1.5 rounded-lg border border-slate-700">Cancelar</button>
+          <button onClick={onClose} className="text-xs text-slate-600 dark:text-slate-400 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700">Cancelar</button>
           <button onClick={() => onSave(val.trim() || initial)}
             className="text-xs text-white bg-[#008542] hover:bg-[#006a35] px-3 py-1.5 rounded-lg font-semibold">OK</button>
         </div>
@@ -165,18 +165,18 @@ function PhasePickerModal({ current, onPick, onClose }: {
   }
   return (
     <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/60">
-      <div className="bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl w-72 p-4 space-y-3">
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-2xl w-72 p-4 space-y-3">
         <div className="flex items-center justify-between">
-          <p className="text-xs font-semibold text-slate-300">Selecionar fase</p>
-          <button onClick={onClose}><X size={13} className="text-slate-400" /></button>
+          <p className="text-xs font-semibold text-slate-700 dark:text-slate-300">Selecionar fase</p>
+          <button onClick={onClose}><X size={13} className="text-slate-500 dark:text-slate-400" /></button>
         </div>
         <div className="space-y-1">
           {PHASES.map(p => (
             <button key={p.label} onClick={() => onPick(p.label, p.color)}
               className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-left transition-colors
                 ${current === p.label
-                  ? 'bg-slate-700 text-slate-100 ring-1 ring-[#008542]/60'
-                  : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'}`}>
+                  ? 'bg-slate-200 text-slate-900 dark:bg-slate-700 dark:text-slate-100 ring-1 ring-[#008542]/60'
+                  : 'text-slate-500 hover:bg-slate-100 hover:text-slate-800 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-200'}`}>
               <span className={`w-2 h-2 rounded-full shrink-0 ${colorDot[p.color]}`} />
               <span className="text-xs font-medium">{p.label}</span>
               {current === p.label && <span className="ml-auto text-[#008542] text-xs">✓</span>}
@@ -199,18 +199,18 @@ function BlockPickerModal({ overrides, currentScopeId, onPick, onClose }: {
   const blocks = overrides.filter(o => o.scopeId.startsWith('BLK_') && o.scopeId !== currentScopeId)
   return (
     <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/60" onClick={onClose}>
-      <div className="bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl w-80 max-h-[70vh] flex flex-col p-4"
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-2xl w-80 max-h-[70vh] flex flex-col p-4"
            onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-3 shrink-0">
-          <p className="text-xs font-semibold text-slate-300">Inserir bloco de lógica</p>
-          <button onClick={onClose}><X size={13} className="text-slate-400" /></button>
+          <p className="text-xs font-semibold text-slate-700 dark:text-slate-300">Inserir bloco de lógica</p>
+          <button onClick={onClose}><X size={13} className="text-slate-500 dark:text-slate-400" /></button>
         </div>
         <div className="space-y-1 overflow-y-auto">
           {blocks.length === 0 ? (
             <p className="text-[11px] text-slate-500 italic px-1 py-2">Nenhum bloco de lógica disponível.</p>
           ) : blocks.map(b => (
             <button key={b.scopeId} onClick={() => onPick(b.scopeId)}
-              className="w-full text-left px-3 py-2 rounded-xl text-xs font-medium text-slate-400 hover:bg-slate-800 hover:text-slate-200 transition-colors truncate">
+              className="w-full text-left px-3 py-2 rounded-xl text-xs font-medium text-slate-500 hover:bg-slate-100 hover:text-slate-800 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-200 transition-colors truncate">
               {b.label ?? b.scopeId}
             </button>
           ))}
@@ -257,44 +257,44 @@ function DecisionPickerModal({ overrides, currentScopeId, loadScopeSections, onP
 
   return (
     <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/60">
-      <div className="bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl w-full max-w-lg flex flex-col max-h-[85vh]">
-        <div className="flex items-center gap-2 px-4 py-3 border-b border-slate-700">
-          <span className="text-sm font-semibold text-slate-100 flex-1">Adicionar decisão</span>
-          <button onClick={onClose}><X size={14} className="text-slate-400" /></button>
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-2xl w-full max-w-lg flex flex-col max-h-[85vh]">
+        <div className="flex items-center gap-2 px-4 py-3 border-b border-slate-200 dark:border-slate-700">
+          <span className="text-sm font-semibold text-slate-900 dark:text-slate-100 flex-1">Adicionar decisão</span>
+          <button onClick={onClose}><X size={14} className="text-slate-500 dark:text-slate-400" /></button>
         </div>
 
         {/* Tabs */}
         <div className="flex gap-1 px-4 pt-3 pb-2">
           <button onClick={() => setTab('library')}
             className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all
-              ${tab === 'library' ? 'bg-slate-700 text-slate-100' : 'text-slate-500 hover:text-slate-300'}`}>
+              ${tab === 'library' ? 'bg-slate-200 text-slate-900 dark:bg-slate-700 dark:text-slate-100' : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-300'}`}>
             Biblioteca
           </button>
           <button onClick={() => setTab('scope')}
             className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all
-              ${tab === 'scope' ? 'bg-[#008542] text-slate-900' : 'text-slate-500 hover:text-slate-300'}`}>
+              ${tab === 'scope' ? 'bg-[#008542] text-white' : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-300'}`}>
             De outro escopo
           </button>
         </div>
 
         {tab === 'library' ? (
           <>
-            <div className="px-4 pb-2 space-y-2 border-b border-slate-700/60">
+            <div className="px-4 pb-2 space-y-2 border-b border-slate-200 dark:border-slate-700/60">
               <button onClick={() => onPick(emptyDec())}
                 className="w-full text-left text-xs text-[#008542] font-semibold py-2 px-3 rounded-xl border border-dashed border-[#008542]/40 hover:bg-[#008542]/10 transition-colors">
                 ✦ Nova decisão em branco (Sim / Não)
               </button>
               <input autoFocus value={q} onChange={e => setQ(e.target.value)} placeholder="Filtrar decisões pré-existentes…"
-                className="w-full text-xs bg-slate-800 rounded-lg px-3 py-1.5 text-slate-200 placeholder:text-slate-500 outline-none" />
+                className="w-full text-xs bg-slate-100 dark:bg-slate-800 rounded-lg px-3 py-1.5 text-slate-800 dark:text-slate-200 placeholder:text-slate-400 dark:placeholder:text-slate-500 outline-none" />
             </div>
             <div className="flex-1 overflow-y-auto scrollbar-custom py-1">
-              <p className="text-[9px] text-slate-600 uppercase tracking-widest px-4 py-1.5">
+              <p className="text-[9px] text-slate-400 dark:text-slate-600 uppercase tracking-widest px-4 py-1.5">
                 Biblioteca de decisões (pacotes zerados)
               </p>
               {filtered.map((t, i) => (
                 <button key={i} onClick={() => onPick(t)}
-                  className="w-full text-left px-4 py-2.5 hover:bg-slate-800 transition-colors border-b border-slate-800/60 last:border-0">
-                  <p className="text-xs text-slate-200 font-medium">{t.question}</p>
+                  className="w-full text-left px-4 py-2.5 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors border-b border-slate-100 dark:border-slate-800/60 last:border-0">
+                  <p className="text-xs text-slate-800 dark:text-slate-200 font-medium">{t.question}</p>
                   <p className="text-[10px] text-slate-500 mt-0.5">{t.answers.map(a => a.label).join(' · ')}</p>
                 </button>
               ))}
@@ -304,14 +304,14 @@ function DecisionPickerModal({ overrides, currentScopeId, loadScopeSections, onP
         ) : (
           <div className="flex flex-1 min-h-0">
             {/* Scope list */}
-            <div className="w-40 shrink-0 border-r border-slate-700/40 py-1 overflow-y-auto scrollbar-custom">
+            <div className="w-40 shrink-0 border-r border-slate-200 dark:border-slate-700/40 py-1 overflow-y-auto scrollbar-custom">
               {scopeOptions.some(s => !s.isBlock) && (
                 <>
-                  <p className="text-[9px] text-slate-600 uppercase tracking-widest px-3 py-1">Escopos</p>
+                  <p className="text-[9px] text-slate-400 dark:text-slate-600 uppercase tracking-widest px-3 py-1">Escopos</p>
                   {scopeOptions.filter(s => !s.isBlock).map(s => (
                     <button key={s.id} onClick={() => handleSelectSource(s.id)}
                       className={`w-full text-left px-3 py-2 text-[11px] transition-colors
-                        ${sourceId === s.id ? 'bg-slate-700 text-slate-100' : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'}`}>
+                        ${sourceId === s.id ? 'bg-slate-200 text-slate-900 dark:bg-slate-700 dark:text-slate-100' : 'text-slate-500 hover:bg-slate-100 hover:text-slate-800 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-200'}`}>
                       {s.label}
                     </button>
                   ))}
@@ -319,11 +319,11 @@ function DecisionPickerModal({ overrides, currentScopeId, loadScopeSections, onP
               )}
               {scopeOptions.some(s => s.isBlock) && (
                 <>
-                  <p className="text-[9px] text-slate-600 uppercase tracking-widest px-3 pt-2 pb-1">Blocos de lógica</p>
+                  <p className="text-[9px] text-slate-400 dark:text-slate-600 uppercase tracking-widest px-3 pt-2 pb-1">Blocos de lógica</p>
                   {scopeOptions.filter(s => s.isBlock).map(s => (
                     <button key={s.id} onClick={() => handleSelectSource(s.id)}
                       className={`w-full text-left px-3 py-2 text-[11px] transition-colors
-                        ${sourceId === s.id ? 'bg-slate-700 text-slate-100' : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'}`}>
+                        ${sourceId === s.id ? 'bg-slate-200 text-slate-900 dark:bg-slate-700 dark:text-slate-100' : 'text-slate-500 hover:bg-slate-100 hover:text-slate-800 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-200'}`}>
                       {s.label}
                     </button>
                   ))}
@@ -334,7 +334,7 @@ function DecisionPickerModal({ overrides, currentScopeId, loadScopeSections, onP
             {/* Section / decision browser */}
             <div className="flex-1 flex flex-col min-h-0">
               {!sourceId && (
-                <div className="flex-1 flex items-center justify-center text-slate-600 text-xs text-center px-4">
+                <div className="flex-1 flex items-center justify-center text-slate-400 dark:text-slate-600 text-xs text-center px-4">
                   Selecione um escopo para ver suas decisões
                 </div>
               )}
@@ -345,8 +345,8 @@ function DecisionPickerModal({ overrides, currentScopeId, loadScopeSections, onP
                 <div className="flex-1 overflow-y-auto scrollbar-custom py-1">
                   {sourceSecs.map((sec, i) => (
                     <button key={i} onClick={() => setSecIdx(i)}
-                      className="w-full text-left px-3 py-2.5 hover:bg-slate-800 border-b border-slate-800/60 last:border-0 transition-colors">
-                      <p className="text-xs font-medium text-slate-200">{sec.label}</p>
+                      className="w-full text-left px-3 py-2.5 hover:bg-slate-100 dark:hover:bg-slate-800 border-b border-slate-100 dark:border-slate-800/60 last:border-0 transition-colors">
+                      <p className="text-xs font-medium text-slate-800 dark:text-slate-200">{sec.label}</p>
                       <p className="text-[10px] text-slate-500">{sec.phase} · {sec.decisions.length} decisões</p>
                     </button>
                   ))}
@@ -357,18 +357,18 @@ function DecisionPickerModal({ overrides, currentScopeId, loadScopeSections, onP
               )}
               {sourceId && !loadingSrc && selectedSec && (
                 <>
-                  <div className="px-3 py-2 border-b border-slate-700/40 flex items-center gap-1.5">
+                  <div className="px-3 py-2 border-b border-slate-200 dark:border-slate-700/40 flex items-center gap-1.5">
                     <button onClick={() => setSecIdx(null)}
-                      className="text-slate-400 hover:text-slate-200 transition-colors">
+                      className="text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 transition-colors">
                       <ChevronLeft size={14} />
                     </button>
-                    <span className="text-[11px] font-semibold text-slate-300 truncate">{selectedSec.label}</span>
+                    <span className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 truncate">{selectedSec.label}</span>
                   </div>
                   <div className="flex-1 overflow-y-auto scrollbar-custom py-1">
                     {selectedSec.decisions.map((dec, i) => (
                       <button key={i} onClick={() => onPick(deepClone(dec))}
-                        className="w-full text-left px-3 py-2.5 hover:bg-slate-800 border-b border-slate-800/60 last:border-0 transition-colors">
-                        <p className="text-xs font-medium text-slate-200">{dec.question}</p>
+                        className="w-full text-left px-3 py-2.5 hover:bg-slate-100 dark:hover:bg-slate-800 border-b border-slate-100 dark:border-slate-800/60 last:border-0 transition-colors">
+                        <p className="text-xs font-medium text-slate-800 dark:text-slate-200">{dec.question}</p>
                         <p className="text-[10px] text-slate-500 mt-0.5">
                           {dec.answers.map(a => `${a.label}${(a.packages?.length ?? 0) > 0 ? ` (${a.packages!.length} pkgs)` : ''}`).join(' · ')}
                         </p>
