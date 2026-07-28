@@ -390,12 +390,13 @@ function DecisionPickerModal({ overrides, currentScopeId, loadScopeSections, onP
 
 // ─── Modal unificado de importação (base ou seções) ──────────────────────────
 
-function UnifiedImportModal({ overrides, currentScopeId, loadScopeSections, allowBase, onImport, onBase, onClose }: {
+function UnifiedImportModal({ overrides, currentScopeId, loadScopeSections, allowBase, onImport, onImportBlockRef, onBase, onClose }: {
   overrides: LogicScopeMeta[]
   currentScopeId: string | null
   loadScopeSections: (id: string) => Promise<LSec[]>
   allowBase: boolean
   onImport: (sections: LSec[]) => void
+  onImportBlockRef: (scopeId: string) => void
   onBase: (sourceId: string) => void
   onClose: () => void
 }) {
@@ -406,6 +407,7 @@ function UnifiedImportModal({ overrides, currentScopeId, loadScopeSections, allo
 
   const scopeSources = overrides.filter(o => o.scopeId !== currentScopeId && !o.scopeId.startsWith('BLK_'))
   const blockSources = overrides.filter(o => o.scopeId !== currentScopeId && o.scopeId.startsWith('BLK_'))
+  const sourceIsBlock = !!sourceId && sourceId.startsWith('BLK_')
 
   const handleSelectSource = async (id: string) => {
     setSourceId(id); setSelected(new Set()); setLoadingSrc(true)
@@ -467,7 +469,29 @@ function UnifiedImportModal({ overrides, currentScopeId, loadScopeSections, allo
             {sourceId && loadingSrc && (
               <div className="flex-1 flex items-center justify-center text-slate-500 dark:text-slate-500 text-xs">Carregando…</div>
             )}
-            {sourceId && !loadingSrc && (
+            {sourceId && !loadingSrc && sourceIsBlock && (
+              <>
+                <div className="flex-1 flex flex-col items-center justify-center text-center px-8 gap-3">
+                  <Puzzle size={28} className="text-[#008542]/70" />
+                  <p className="text-sm font-medium text-slate-700 dark:text-slate-200">
+                    {overrides.find(o => o.scopeId === sourceId)?.label ?? sourceId}
+                  </p>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed max-w-xs">
+                    Blocos de lógica entram como <strong>referência viva</strong> — um card colapsado no fluxo.
+                    Editar o bloco depois propaga para todos os escopos que o incluem.
+                    <br />({sourceSecs.length} {sourceSecs.length === 1 ? 'seção' : 'seções'})
+                  </p>
+                </div>
+                <div className="px-4 py-3 border-t border-slate-200 dark:border-slate-700/40 flex items-center gap-2 justify-end">
+                  <button onClick={onClose} className="text-xs text-slate-600 dark:text-slate-400 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700">Cancelar</button>
+                  <button onClick={() => onImportBlockRef(sourceId)}
+                    className="flex items-center gap-1.5 text-xs text-white bg-[#008542] hover:bg-[#006a35] px-4 py-1.5 rounded-lg font-semibold">
+                    <Puzzle size={12} /> Incluir bloco
+                  </button>
+                </div>
+              </>
+            )}
+            {sourceId && !loadingSrc && !sourceIsBlock && (
               <>
                 <div className="px-4 py-2 border-b border-slate-200 dark:border-slate-700/40">
                   <p className="text-[10px] text-slate-500 dark:text-slate-400">Selecione as seções a adicionar ao final do fluxo atual</p>
@@ -2574,6 +2598,18 @@ export function LogicEditorPanel({ canEdit }: { canEdit: boolean }) {
     commitSections(secs); setShowImport(false)
   }
 
+  // Importar um bloco de lógica = incluí-lo como `ref` vivo (card colapsado "referência a
+  // bloco"), não copiar suas seções. Editar o bloco depois propaga para todos que o usam.
+  const handleImportBlockRef = (scopeId: string) => {
+    const secs = deepClone(sectionsRef.current) as LSec[]
+    const last = secs[secs.length - 1]
+    secs.push({
+      id: `sec_${uid()}`, label: '', phase: last?.phase ?? 'Fase 1A', color: last?.color ?? 'blue',
+      decisions: [], ref: { scopeId },
+    })
+    commitSections(secs); setShowImport(false)
+  }
+
   const handleCreateScope = async (scopeId: string, label: string) => {
     await createLogicScope({ scopeId, label, sections: [] }, authHeader())
     setNewScopeKind(null); await loadScopes()
@@ -3096,6 +3132,7 @@ export function LogicEditorPanel({ canEdit }: { canEdit: boolean }) {
           loadScopeSections={loadScopeSections}
           allowBase={!!selectedMeta}
           onImport={handleImportSections}
+          onImportBlockRef={handleImportBlockRef}
           onBase={applyBase}
           onClose={() => setShowImport(false)}
         />

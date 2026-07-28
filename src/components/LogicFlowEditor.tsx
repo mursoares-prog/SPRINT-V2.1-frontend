@@ -137,9 +137,10 @@ type FData = {
   sec: LSec; secIdx: number; pc: PC; dark: boolean; hit: boolean
   width: number; height: number; canEdit: boolean
   expanded?: boolean                            // bloco ref expandido inline
-  onClick?: (e: React.MouseEvent) => void       // clique esquerdo (editar rótulo / expandir ref)
+  onClick?: (e: React.MouseEvent) => void       // clique esquerdo (expandir ref)
   onContext?: (e: React.MouseEvent) => void     // clique direito (menu completo)
   onNameClick?: (e: React.MouseEvent) => void   // clique no nome de um bloco ref (ir ao editor do bloco)
+  onRename?: (v: string) => void                // commit da edição inline do rótulo da seção
 }
 type ChipData = {
   label: string; pkgs: LPkg[]; pc: PC; dark: boolean; canEdit: boolean; hit: boolean
@@ -277,6 +278,10 @@ function FrameNode({ data }: NodeProps) {
   const d = data as unknown as FData
   const p = pal(d.dark, d.pc)
   const isRef = !!d.sec.ref
+  // Edição inline do rótulo da seção: clicar no nome (seção normal) troca o texto por um
+  // input, comitando no blur/Enter — em vez de abrir um menu suspenso só para renomear.
+  const [editing, setEditing] = useState(false)
+  const canRename = d.canEdit && !isRef && !!d.onRename
   // Fundo tênue da cor da fase + borda na cor da seção. Delimita o fluxograma sem
   // "caixa dura": preenchimento suave, cantos arredondados, header como topo da moldura.
   const bodyBg = d.dark
@@ -295,15 +300,33 @@ function FrameNode({ data }: NodeProps) {
         }}>
         <div
           className="flex items-center gap-2 px-3 shrink-0"
-          style={{ height: FRAME_HEADER, background: p.hdr, color: p.hdrT, pointerEvents: 'auto', cursor: d.canEdit ? 'pointer' : 'default' }}
-          title={isRef ? (d.expanded ? 'Esquerdo: recolher visualização · Direito: ações da seção · Nome: abrir bloco' : 'Esquerdo: expandir para visualização · Direito: ações da seção · Nome: abrir bloco') : d.canEdit ? 'Esquerdo: editar rótulo · Direito: ações da seção' : undefined}
-          onClick={(e) => d.onClick?.(e)}
+          style={{ height: FRAME_HEADER, background: p.hdr, color: p.hdrT, pointerEvents: 'auto', cursor: isRef && d.canEdit ? 'pointer' : 'default' }}
+          title={isRef ? (d.expanded ? 'Esquerdo: recolher visualização · Direito: ações da seção · Nome: abrir bloco' : 'Esquerdo: expandir para visualização · Direito: ações da seção · Nome: abrir bloco') : d.canEdit ? 'Nome: renomear · Direito: ações da seção' : undefined}
+          onClick={editing ? undefined : (e) => d.onClick?.(e)}
           onContextMenu={(e) => { e.preventDefault(); d.onContext?.(e) }}>
-          <span className="font-bold uppercase tracking-wide truncate" style={{ fontSize: 11, cursor: isRef ? 'pointer' : undefined, textDecoration: isRef ? 'underline' : undefined, textDecorationStyle: isRef ? 'dotted' : undefined, textUnderlineOffset: isRef ? 2 : undefined }}
-            title={isRef ? 'Abrir o editor deste bloco de lógica' : undefined}
-            onClick={isRef ? (e) => { e.stopPropagation(); d.onNameClick?.(e) } : undefined}>
-            {isRef ? (getScopeLabel(d.sec.ref!.scopeId) ?? d.sec.ref!.label ?? d.sec.label) : d.sec.label}
-          </span>
+          {editing ? (
+            <input
+              className="nodrag flex-1 min-w-0 bg-transparent outline-none border-b border-current/40 font-bold uppercase tracking-wide"
+              style={{ fontSize: 11, color: 'inherit', padding: 0 }}
+              defaultValue={d.sec.label}
+              placeholder="Nome da seção…"
+              autoFocus
+              onMouseDown={e => e.stopPropagation()}
+              onClick={e => e.stopPropagation()}
+              onFocus={e => e.currentTarget.select()}
+              onBlur={e => { d.onRename?.(e.target.value); setEditing(false) }}
+              onKeyDown={e => {
+                if (e.key === 'Enter') { e.preventDefault(); d.onRename?.(e.currentTarget.value); setEditing(false) }
+                if (e.key === 'Escape') { e.preventDefault(); setEditing(false) }
+              }}
+            />
+          ) : (
+            <span className="font-bold uppercase tracking-wide truncate" style={{ fontSize: 11, cursor: isRef || canRename ? 'pointer' : undefined, textDecoration: isRef ? 'underline' : undefined, textDecorationStyle: isRef ? 'dotted' : undefined, textUnderlineOffset: isRef ? 2 : undefined }}
+              title={isRef ? 'Abrir o editor deste bloco de lógica' : canRename ? 'Clique para renomear a seção' : undefined}
+              onClick={isRef ? (e) => { e.stopPropagation(); d.onNameClick?.(e) } : canRename ? (e) => { e.stopPropagation(); setEditing(true) } : undefined}>
+              {isRef ? (getScopeLabel(d.sec.ref!.scopeId) ?? d.sec.ref!.label ?? d.sec.label) : d.sec.label}
+            </span>
+          )}
           <span className="shrink-0 rounded px-1.5 py-0.5" style={{ fontSize: 9, border: '1px solid rgba(255,255,255,0.35)' }}>
             {formatPhases(displayPhases(d.sec))}
           </span>
@@ -1191,15 +1214,12 @@ export const LogicFlowEditor = forwardRef<LogicFlowEditorHandle, {
     })
   }, [sections, fire])
 
-  const openSecMenu = useCallback((e: React.MouseEvent, secIdx: number, mode: 'quick' | 'full' = 'full') => {
+  // Menu de ações da seção — clique direito no cabeçalho. O rótulo é editado inline no
+  // próprio cabeçalho (FrameNode), não por este menu.
+  const openSecMenu = useCallback((e: React.MouseEvent, secIdx: number) => {
     e.stopPropagation()
     const sec = sections[secIdx]
     if (!sec) return
-    if (mode === 'quick') {
-      // Edição do rótulo da seção — clique esquerdo no cabeçalho.
-      setMenu({ title: sec.label, items: [], pos: { x: e.clientX, y: e.clientY }, onTitleChange: (v) => fire({ type: 'p_set_section_label', secIdx, value: v }) })
-      return
-    }
     if (sec.ref) {
       const isExpanded = expandedRefs.has(secIdx)
       const toggleExpand = () => {
@@ -1694,8 +1714,9 @@ export const LogicFlowEditor = forwardRef<LogicFlowEditorHandle, {
           width: fw, height: fh, canEdit, expanded: isExpanded,
           onClick: sec.ref
             ? (e: React.MouseEvent) => { e.stopPropagation(); setExpandedRefs(prev => { const n = new Set(prev); n.has(si) ? n.delete(si) : n.add(si); return n }) }
-            : canEdit ? (e: React.MouseEvent) => openSecMenu(e, si, 'quick') : undefined,
-          onContext: canEdit ? (e: React.MouseEvent) => openSecMenu(e, si, 'full') : undefined,
+            : undefined,
+          onRename: canEdit && !sec.ref ? (v: string) => fire({ type: 'p_set_section_label', secIdx: si, value: v }) : undefined,
+          onContext: canEdit ? (e: React.MouseEvent) => openSecMenu(e, si) : undefined,
           onNameClick: sec.ref
             ? () => {
                 if (confirm('Sair do editor deste escopo e ir para o editor do bloco de lógica referenciado?')) {
