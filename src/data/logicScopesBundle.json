@@ -316,6 +316,15 @@
         "PA"
       ],
       "wellClass": "Completação Molhada Nordeste"
+    },
+    {
+      "scopeId": "Extra_Abandono_Limpeza_de_linhas",
+      "isCustom": true,
+      "label": "Extra Abandono - Limpeza de linhas",
+      "fase": null,
+      "opTypes": null,
+      "rigTypes": null,
+      "wellClass": null
     }
   ],
   "overrides": {
@@ -9927,6 +9936,600 @@
           }
         ],
         "decisions": []
+      }
+    ],
+    "Extra_Abandono_Limpeza_de_linhas": [
+      {
+        "id": "sec__9ih5bgf",
+        "label": "MOBILIZAÇÃO / DESCIDA / CONEXÃO (condicionais por sonda)",
+        "phase": "Fase 0",
+        "color": "gray",
+        "always": [],
+        "decisions": [
+          {
+            "question": "Navegação com equipamento subsea no fundo?",
+            "answers": [
+              {
+                "label": "Não",
+                "active": true,
+                "packages": [
+                  {
+                    "id": "ABAN 208",
+                    "name": "DMA",
+                    "condition": "rig_anc"
+                  },
+                  {
+                    "id": "ABAN 003",
+                    "name": "DMM",
+                    "condition": "rig_dp"
+                  },
+                  {
+                    "id": "ABAN 007",
+                    "name": "Lançamento de transponder com ROV e Calibração de sistema DP",
+                    "condition": "rig_dp"
+                  },
+                  {
+                    "id": "ABAN 008",
+                    "name": "Coluna de trabalho - Retirada de CCAP com garatéia",
+                    "isContingency": true,
+                    "condition": "rig_anc"
+                  },
+                  {
+                    "id": "ABAN 008",
+                    "name": "Coluna de trabalho - Retirada de CCAP com garatéia",
+                    "condition": "rig_dp_gen",
+                    "isContingency": true
+                  },
+                  {
+                    "id": "ABAN 009",
+                    "name": "Retirada de CCAP a cabo",
+                    "condition": "rig_lwo",
+                    "isContingency": true
+                  }
+                ],
+                "sub": [
+                  {
+                    "question": "Retirar TCap?",
+                    "answers": [
+                      {
+                        "label": "Sim",
+                        "sub": [
+                          {
+                            "question": "Método de retirada da TCap?",
+                            "answers": [
+                              {
+                                "label": "TRT",
+                                "active": true,
+                                "field": "tcapRemovalMethod",
+                                "value": "workstring",
+                                "packages": [
+                                  {
+                                    "id": "ABAN 211",
+                                    "name": "Preparação do Conjunto de WO + TRT para retirada/fundeio da TCap"
+                                  },
+                                  {
+                                    "id": "ABAN 245",
+                                    "name": "Descida do Conjunto de WO com Riser Dual Bore para retirada/fundeio da TCap",
+                                    "condition": "rig_anc"
+                                  },
+                                  {
+                                    "id": "ABAN 244",
+                                    "name": "Descida do Conjunto de WO com DPR/HCR para retirada/fundeio da TCap",
+                                    "condition": "rig_dp"
+                                  },
+                                  {
+                                    "id": "ABAN 018",
+                                    "name": "Movimentação e conexão na Tcap"
+                                  },
+                                  {
+                                    "id": "ABAN 019",
+                                    "name": "Ventilação de TCap"
+                                  }
+                                ],
+                                "sub": [
+                                  {
+                                    "question": "Destino da TCap?",
+                                    "answers": [
+                                      {
+                                        "label": "Fundeio",
+                                        "active": true,
+                                        "field": "tcapDisposition",
+                                        "value": "bottom",
+                                        "packages": [
+                                          {
+                                            "id": "ABAN 020",
+                                            "name": "Desassentamento de TCap e fundeio no leito marinho"
+                                          }
+                                        ],
+                                        "sub": [
+                                          {
+                                            "question": "Prever contingência para prisão de TCAP?",
+                                            "answers": [
+                                              {
+                                                "label": "Não",
+                                                "active": true
+                                              },
+                                              {
+                                                "label": "Sim",
+                                                "field": "contingencyTcapHydrate",
+                                                "value": "contingency",
+                                                "packages": [
+                                                  {
+                                                    "id": "ABAN 177",
+                                                    "name": "Jateamento de água aquecida no conector TCap",
+                                                    "isContingency": true,
+                                                    "contingencyReason": "Contingência: dissociação de hidrato no conector da TCap — jateamento de água aquecida"
+                                                  }
+                                                ]
+                                              }
+                                            ]
+                                          }
+                                        ]
+                                      },
+                                      {
+                                        "label": "Superfície",
+                                        "field": "tcapDisposition",
+                                        "value": "surface",
+                                        "packages": [
+                                          {
+                                            "id": "ABAN 022",
+                                            "name": "Desassentamento de TCap e retirada até a superfície com Riser Dual Bore",
+                                            "condition": "rig_anc"
+                                          },
+                                          {
+                                            "id": "ABAN 021",
+                                            "name": "Desassentamento de TCap e retirada até a superfície com DPR/HCR",
+                                            "condition": "rig_dp"
+                                          }
+                                        ],
+                                        "sub": [
+                                          {
+                                            "question": "Prever contingência para prisão de TCAP?",
+                                            "answers": [
+                                              {
+                                                "label": "Não",
+                                                "active": true
+                                              },
+                                              {
+                                                "label": "Sim",
+                                                "field": "contingencyTcapHydrate",
+                                                "value": "contingency",
+                                                "packages": [
+                                                  {
+                                                    "id": "ABAN 177",
+                                                    "name": "Jateamento de água aquecida no conector TCap",
+                                                    "isContingency": true,
+                                                    "contingencyReason": "Contingência: dissociação de hidrato no conector da TCap — jateamento de água aquecida"
+                                                  }
+                                                ]
+                                              }
+                                            ],
+                                            "after": [
+                                              {
+                                                "label": "Após convergência",
+                                                "packages": [
+                                                  {
+                                                    "id": "ABAN 011",
+                                                    "name": "Descida do Conjunto de WO com DPR/HCR",
+                                                    "condition": "rig_dp"
+                                                  },
+                                                  {
+                                                    "id": "ABAN 012",
+                                                    "name": "Descida do Conjunto de WO com Riser Dual Bore",
+                                                    "condition": "rig_anc"
+                                                  }
+                                                ]
+                                              }
+                                            ]
+                                          }
+                                        ]
+                                      }
+                                    ]
+                                  }
+                                ]
+                              },
+                              {
+                                "label": "ROV",
+                                "field": "tcapRemovalMethod",
+                                "value": "rov",
+                                "packages": [
+                                  {
+                                    "id": "ABAN 010",
+                                    "name": "Retirar TCap com ROV"
+                                  },
+                                  {
+                                    "id": "ABAN 212",
+                                    "name": "Preparação do Conjunto de WO + TRT (reentrada, sem TCap)",
+                                    "phase": "Fase 1A"
+                                  },
+                                  {
+                                    "id": "ABAN 011",
+                                    "name": "Descida do conjunto de WO (DPR/HCR)",
+                                    "phase": "Fase 1A",
+                                    "condition": "rig_dp"
+                                  },
+                                  {
+                                    "id": "ABAN 012",
+                                    "name": "Descida do Conjunto de WO com Riser Dual Bore",
+                                    "phase": "Fase 1A",
+                                    "condition": "rig_anc"
+                                  }
+                                ]
+                              }
+                            ]
+                          }
+                        ],
+                        "active": true
+                      },
+                      {
+                        "label": "Não / N.A.",
+                        "active": false,
+                        "packages": [
+                          {
+                            "id": "ABAN 212",
+                            "name": "Preparação do Conjunto de WO + TRT (reentrada, sem TCap)",
+                            "phase": "Fase 1A"
+                          },
+                          {
+                            "id": "ABAN 011",
+                            "name": "Descida do conjunto de WO (DPR/HCR)",
+                            "phase": "Fase 1A",
+                            "condition": "rig_dp"
+                          },
+                          {
+                            "id": "ABAN 012",
+                            "name": "Descida do Conjunto de WO com Riser Dual Bore",
+                            "phase": "Fase 1A",
+                            "condition": "rig_anc"
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "label": "Sim",
+                "sub": [
+                  {
+                    "question": "Retirar TCap?",
+                    "answers": [
+                      {
+                        "label": "Sim",
+                        "sub": [
+                          {
+                            "question": "Método de retirada da TCap?",
+                            "answers": [
+                              {
+                                "label": "Coluna (TRT)",
+                                "active": true,
+                                "field": "tcapRemovalMethod",
+                                "value": "workstring",
+                                "packages": [
+                                  {
+                                    "id": "ABAN 018",
+                                    "name": "Movimentação e conexão na Tcap"
+                                  },
+                                  {
+                                    "id": "ABAN 019",
+                                    "name": "Ventilação de TCap"
+                                  }
+                                ],
+                                "sub": [
+                                  {
+                                    "question": "Destino da TCap?",
+                                    "answers": [
+                                      {
+                                        "label": "Fundeio",
+                                        "active": true,
+                                        "field": "tcapDisposition",
+                                        "value": "bottom",
+                                        "packages": [
+                                          {
+                                            "id": "ABAN 020",
+                                            "name": "Desassentamento de TCap e fundeio no leito marinho"
+                                          }
+                                        ],
+                                        "sub": [
+                                          {
+                                            "question": "Prever contingência para prisão de TCAP?",
+                                            "answers": [
+                                              {
+                                                "label": "Não",
+                                                "active": true
+                                              },
+                                              {
+                                                "label": "Sim",
+                                                "field": "contingencyTcapHydrate",
+                                                "value": "contingency",
+                                                "packages": [
+                                                  {
+                                                    "id": "ABAN 177",
+                                                    "name": "Jateamento de água aquecida no conector TCap",
+                                                    "isContingency": true,
+                                                    "contingencyReason": "Contingência: dissociação de hidrato no conector da TCap — jateamento de água aquecida"
+                                                  }
+                                                ]
+                                              }
+                                            ]
+                                          }
+                                        ]
+                                      },
+                                      {
+                                        "label": "Superfície",
+                                        "field": "tcapDisposition",
+                                        "value": "surface",
+                                        "packages": [
+                                          {
+                                            "id": "ABAN 021",
+                                            "name": "Desassentamento de TCap e retirada até a superfície com DPR/HCR",
+                                            "condition": "rig_dp"
+                                          },
+                                          {
+                                            "id": "ABAN 022",
+                                            "name": "Desassentamento de TCap e retirada até a superfície com Riser Dual Bore",
+                                            "condition": "rig_anc"
+                                          }
+                                        ],
+                                        "sub": [
+                                          {
+                                            "question": "Prever contingência para prisão de TCAP?",
+                                            "answers": [
+                                              {
+                                                "label": "Não",
+                                                "active": true
+                                              },
+                                              {
+                                                "label": "Sim",
+                                                "field": "contingencyTcapHydrate",
+                                                "value": "contingency",
+                                                "packages": [
+                                                  {
+                                                    "id": "ABAN 177",
+                                                    "name": "Jateamento de água aquecida no conector TCap",
+                                                    "isContingency": true,
+                                                    "contingencyReason": "Contingência: dissociação de hidrato no conector da TCap — jateamento de água aquecida"
+                                                  }
+                                                ]
+                                              }
+                                            ]
+                                          }
+                                        ],
+                                        "after": [
+                                          {
+                                            "label": "Pacotes (pergunta removida)",
+                                            "packages": [
+                                              {
+                                                "id": "ABAN 011",
+                                                "name": "Descida do conjunto de WO (DPR/HCR)",
+                                                "phase": "Fase 1A",
+                                                "condition": "rig_dp"
+                                              },
+                                              {
+                                                "id": "ABAN 012",
+                                                "name": "Descida do Conjunto de WO com Riser Dual Bore",
+                                                "phase": "Fase 1A",
+                                                "condition": "rig_anc"
+                                              }
+                                            ]
+                                          }
+                                        ]
+                                      }
+                                    ]
+                                  }
+                                ]
+                              },
+                              {
+                                "label": "ROV",
+                                "field": "tcapRemovalMethod",
+                                "value": "rov",
+                                "packages": [
+                                  {
+                                    "id": "ABAN 010",
+                                    "name": "Retirar TCap com ROV"
+                                  }
+                                ]
+                              }
+                            ]
+                          }
+                        ],
+                        "active": true
+                      },
+                      {
+                        "label": "Não / N.A.",
+                        "active": false,
+                        "packages": []
+                      }
+                    ]
+                  }
+                ],
+                "packages": [
+                  {
+                    "id": "ABAN 004",
+                    "name": "DMM - Fase 1 / Stack-up SSUB no fundo"
+                  },
+                  {
+                    "id": "ABAN 007",
+                    "name": "Lançamento de transponder com ROV e Calibração de sistema DP",
+                    "condition": "rig_dp"
+                  },
+                  {
+                    "id": "ABAN 009",
+                    "name": "Retirada de CCAP a cabo",
+                    "condition": "rig_lwo",
+                    "isContingency": true
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "question": "Inibição SCVS pré-conexão?",
+            "answers": [
+              {
+                "label": "N₂",
+                "active": true,
+                "packages": [
+                  {
+                    "id": "ABAN 016",
+                    "name": "Desalagamento DPR/HCR com Nitrogênio",
+                    "phase": "Fase 1A",
+                    "condition": "rig_dp"
+                  },
+                  {
+                    "id": "ABAN 017",
+                    "name": "Desalagamento Riser Dual Bore com Nitrogênio",
+                    "phase": "Fase 1A",
+                    "condition": "rig_anc"
+                  }
+                ]
+              },
+              {
+                "label": "Fluido inibido",
+                "field": "riserFluid",
+                "value": "inhibited",
+                "packages": [
+                  {
+                    "id": "ABAN 215",
+                    "name": "Posicionamento de fluido inibido no DPR/HCR",
+                    "phase": "Fase 1A",
+                    "condition": "rig_dp"
+                  },
+                  {
+                    "id": "ABAN 209",
+                    "name": "Posicionamento de fluido inibido no Riser Dual Bore",
+                    "phase": "Fase 1A",
+                    "condition": "rig_anc"
+                  }
+                ]
+              },
+              {
+                "label": "Não",
+                "packages": []
+              }
+            ],
+            "packages": [
+              {
+                "id": "ABAN 247",
+                "name": "Montagem do Terminal Head (ANC)",
+                "phase": "Fase 1A",
+                "condition": "rig_anc"
+              },
+              {
+                "id": "ABAN 246",
+                "name": "Montagem do SFT (DP Generalista)",
+                "phase": "Fase 1A",
+                "condition": "rig_dp_gen"
+              },
+              {
+                "id": "ABAN 206",
+                "name": "Montagem de ITF (LWO)",
+                "phase": "Fase 1A",
+                "condition": "rig_lwo"
+              },
+              {
+                "id": "ABAN 014",
+                "name": "Flush do DPR/HCR",
+                "phase": "Fase 1A",
+                "condition": "rig_dp"
+              },
+              {
+                "id": "ABAN 015",
+                "name": "Flush Riser Dual Bore com agmar",
+                "phase": "Fase 1A",
+                "condition": "rig_anc"
+              }
+            ]
+          },
+          {
+            "question": "Fluido inibido pós-conexão?",
+            "answers": [
+              {
+                "label": "Não",
+                "active": true
+              },
+              {
+                "label": "Sim",
+                "field": "tcapSurfaceFluid",
+                "value": "inhibited_post",
+                "packages": [
+                  {
+                    "id": "ABAN 217",
+                    "name": "Posicionamento de fluido inibido pós-conexão (ANC)",
+                    "phase": "Fase 1A",
+                    "condition": "rig_anc"
+                  },
+                  {
+                    "id": "ABAN 216",
+                    "name": "Posicionamento de fluido inibido pós-conexão (DP)",
+                    "phase": "Fase 1A",
+                    "condition": "rig_dp"
+                  }
+                ]
+              }
+            ],
+            "packages": [
+              {
+                "id": "ABAN 023",
+                "name": "Movimentação e conexão na ANM",
+                "phase": "Fase 1A"
+              }
+            ]
+          },
+          {
+            "question": "Teste de interface — produção?",
+            "answers": [
+              {
+                "label": "Contra S1",
+                "active": true,
+                "packages": [
+                  {
+                    "id": "ABAN 024",
+                    "name": "Teste funcional — bloco produção",
+                    "phase": "Fase 1A"
+                  }
+                ]
+              },
+              {
+                "label": "Contra plug no TMF",
+                "packages": [
+                  {
+                    "id": "ABAN 026",
+                    "name": "Teste de interface — bore produção (com plug)",
+                    "phase": "Fase 1A"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "question": "Teste de interface — anular?",
+            "answers": [
+              {
+                "label": "Contra S2",
+                "active": true,
+                "packages": [
+                  {
+                    "id": "ABAN 025",
+                    "name": "Teste funcional — bloco anular",
+                    "phase": "Fase 1A"
+                  }
+                ]
+              },
+              {
+                "label": "Contra plug no TMF",
+                "packages": [
+                  {
+                    "id": "ABAN 027",
+                    "name": "Teste de interface — bore anular (com plug)",
+                    "phase": "Fase 1A"
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "alwaysAfterIdx": 1
       }
     ]
   }
