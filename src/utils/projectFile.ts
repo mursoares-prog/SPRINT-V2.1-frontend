@@ -6,6 +6,8 @@ export interface ProjectFile {
   wellName: string
   /** Nome do projeto (do sistema externo) — pode haver vários projetos por poço. */
   projectName?: string
+  /** Chave do usuário (do sistema externo) que criou/salvou este projeto. */
+  userKey?: string
   scopeId: ScopeId
   savedAt: string
   inputs: WizardInputs
@@ -29,11 +31,13 @@ export function buildProjectFile(
   fineTuningItems?: FineTuningItem[],
   projectName?: string,
   placeholderDefs?: PlaceholderFieldDef[],
+  userKey?: string,
 ): ProjectFile {
   return {
     version: '2',
     wellName,
     ...(projectName && { projectName }),
+    ...(userKey && { userKey }),
     scopeId: inputs.scopeId,
     savedAt: new Date().toISOString(),
     inputs,

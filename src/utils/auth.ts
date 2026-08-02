@@ -7,7 +7,13 @@ const API_URL = (import.meta.env.VITE_API_URL ?? '').replace(/\/+$/, '')
 const KEY = 'sprint_session'
 
 export type Role = 'admin' | 'projetista'
-export interface Session { token: string; role: Role; username: string }
+export interface Session {
+  token: string
+  role: Role
+  username: string
+  /** Chave do usuário (identificação usada na empresa — distinta do username de login). */
+  userKey?: string
+}
 
 // Credencial legada (mantém o acesso offline existente quando não há backend).
 const LEGACY = { user: 'teste', pass: 'teste123' }
@@ -68,6 +74,14 @@ function getRole(): Role | null {
 export function setSessionRole(role: Role): void {
   const s = getSession()
   persist({ token: s?.token ?? '', role, username: s?.username ?? 'local' })
+}
+
+// TEMPORÁRIO (harness de teste — remover quando o sistema externo for conectado):
+// define a chave do usuário simulando a entrada do outro sistema. Em produção, a
+// integração fornecerá a chave diretamente. Mantém token/role/username existentes.
+export function setSessionUserKey(userKey: string): void {
+  const s = getSession()
+  persist({ token: s?.token ?? '', role: s?.role ?? 'admin', username: s?.username ?? 'local', userKey })
 }
 
 export function isAdmin(): boolean {

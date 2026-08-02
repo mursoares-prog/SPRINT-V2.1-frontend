@@ -481,9 +481,10 @@ type Action =
   | { type: 'REMOVE_SCHEDULE_ITEM'; uid: string }
   | { type: 'SET_WELL_NAME'; wellName: string }
   | { type: 'SET_PROJECT_NAME'; projectName: string | undefined }
+  | { type: 'SET_USER_KEY'; userKey: string | undefined }
   | { type: 'SET_ROLE'; role: 'admin' | 'projetista' }
   | { type: 'SET_PROJECT_ID'; projectId: string | undefined }
-  | { type: 'LOAD_PROJECT'; wellName: string; inputs: WizardInputs; schedule: ScheduleItem[]; projectData?: ProjectData; fineTuningItems?: FineTuningItem[]; projectId?: string; projectName?: string; placeholderDefs?: PlaceholderFieldDef[] }
+  | { type: 'LOAD_PROJECT'; wellName: string; inputs: WizardInputs; schedule: ScheduleItem[]; projectData?: ProjectData; fineTuningItems?: FineTuningItem[]; projectId?: string; projectName?: string; userKey?: string; placeholderDefs?: PlaceholderFieldDef[] }
   | { type: 'TOGGLE_HOURS' }
   | { type: 'RESET' }
   // Fine Tuning — package level
@@ -541,6 +542,7 @@ const initial: AppState = {
   projectSections: DEFAULT_PROJECT_SECTIONS,
   projectData: DEFAULT_PROJECT_DATA,
   wellName: '',
+  userKey: '',
   role: 'admin',
   showHours: true,
   pendingReview: [],
@@ -612,6 +614,7 @@ function reducer(state: AppState, action: Action): AppState {
     }
     case 'SET_WELL_NAME': return { ...state, wellName: action.wellName }
     case 'SET_PROJECT_NAME': return { ...state, projectName: action.projectName }
+    case 'SET_USER_KEY': return { ...state, userKey: action.userKey }
     case 'SET_ROLE': return { ...state, role: action.role }
     case 'SET_PROJECT_ID': return { ...state, projectId: action.projectId }
     case 'LOAD_PROJECT': {
@@ -620,6 +623,7 @@ function reducer(state: AppState, action: Action): AppState {
       return {
         ...state, wellName: action.wellName, inputs: action.inputs,
         projectId: action.projectId, projectName: action.projectName,
+        userKey: action.userKey,
         schedule: action.schedule,
         projectData: pd,
         // Snapshot de placeholders do arquivo (projetos criados após a migração);

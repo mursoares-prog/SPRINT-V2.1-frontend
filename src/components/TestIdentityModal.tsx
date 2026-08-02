@@ -1,22 +1,24 @@
 import { useState } from 'react'
 import { FlaskConical, Loader2 } from 'lucide-react'
 import { useApp } from '../context/AppContext'
-import { setSessionRole } from '../utils/auth'
+import { setSessionRole, setSessionUserKey } from '../utils/auth'
 import { lookupServerProject, isApiConfigured } from '../utils/api'
 
 // ⚠️ ─────────────────────────────────────────────────────────────────────────────
 // TEMPORÁRIO — HARNESS DE TESTE. REMOVER quando os sistemas forem conectados.
 // ──────────────────────────────────────────────────────────────────────────────
 // Em produção, um SISTEMA EXTERNO fornece: `wellName` (nome do poço), `projectName`
-// (nome do projeto — pode haver vários por poço) e o PAPEL do usuário (`projetista`
-// ou `admin`), que já está logado nesse outro sistema. Esses dados são usados para
-// salvar o cronograma no servidor e para liberar/ocultar recursos de admin. Essa
-// integração ainda não existe neste repositório.
+// (nome do projeto — pode haver vários por poço), `userKey` (chave do usuário —
+// identificação usada na empresa, cada pessoa tem uma) e o PAPEL do usuário
+// (`projetista` ou `admin`), que já está logado nesse outro sistema. Esses dados são
+// usados para salvar o cronograma no servidor (poço + projeto + usuário) e para
+// liberar/ocultar recursos de admin. Essa integração ainda não existe neste
+// repositório.
 //
 // Enquanto ela não existe, este pop-up é exibido ao abrir a página para SIMULAR essa
-// entrada externa: os campos despacham SET_WELL_NAME / SET_PROJECT_NAME / SET_ROLE +
-// `setSessionRole` (que atualiza a sessão lida por `isAdmin()`) — exatamente o que a
-// integração fará.
+// entrada externa: os campos despacham SET_WELL_NAME / SET_PROJECT_NAME / SET_USER_KEY
+// / SET_ROLE + `setSessionUserKey` / `setSessionRole` (que atualizam a sessão lida por
+// `isAdmin()`) — exatamente o que a integração fará.
 //
 // Ao confirmar (Continuar), busca no servidor um projeto já salvo para o par
 // poço+projeto informado (identidade do sistema externo — pode haver vários projetos
@@ -28,10 +30,11 @@ import { lookupServerProject, isApiConfigured } from '../utils/api'
 //
 // AO CONECTAR A INTEGRAÇÃO EXTERNA:
 //   1. Remover este componente e sua montagem em [src/App.tsx] (Main).
-//   2. A integração passa a despachar SET_WELL_NAME / SET_PROJECT_NAME / SET_ROLE +
-//      setSessionRole a partir do usuário já logado no outro sistema, ao carregar —
-//      e deve reproduzir a busca+LOAD_PROJECT abaixo (`checkExistingProject`) para que
-//      reabrir um poço+projeto já iniciado não comece um projeto novo do zero.
+//   2. A integração passa a despachar SET_WELL_NAME / SET_PROJECT_NAME / SET_USER_KEY /
+//      SET_ROLE + setSessionUserKey / setSessionRole a partir do usuário já logado no
+//      outro sistema, ao carregar — e deve reproduzir a busca+LOAD_PROJECT abaixo
+//      (`checkExistingProject`) para que reabrir um poço+projeto já iniciado não comece
+//      um projeto novo do zero.
 // Fora isso, nada mais precisa mudar: o autosave já lê `state.wellName`/`state.projectName`
 // (ver [src/hooks/useProjectAutosave.ts]) e o gate de admin já lê `isAdmin()` da sessão.
 // ──────────────────────────────────────────────────────────────────────────────
@@ -58,6 +61,7 @@ export function TestIdentityModal({ onClose }: { onClose: () => void }) {
           fineTuningItems: existing.fineTuningItems,
           projectId: existing.id,
           projectName: existing.projectName,
+          userKey: existing.userKey,
           placeholderDefs: existing.placeholderDefs,
         })
       }
@@ -85,8 +89,8 @@ export function TestIdentityModal({ onClose }: { onClose: () => void }) {
         {/* Form */}
         <div className="px-5 py-5 space-y-4">
           <p className="text-xs text-slate-500 dark:text-slate-400">
-            Simula os dados que, em produção, virão de um sistema externo (poço, projeto
-            e papel do usuário já logado). Remover quando essa integração existir.
+            Simula os dados que, em produção, virão de um sistema externo (poço, projeto,
+            chave e papel do usuário já logado). Remover quando essa integração existir.
           </p>
 
           <div>
@@ -112,6 +116,23 @@ export function TestIdentityModal({ onClose }: { onClose: () => void }) {
               value={state.projectName ?? ''}
               onChange={e => dispatch({ type: 'SET_PROJECT_NAME', projectName: e.target.value || undefined })}
               placeholder="Nome do projeto"
+              className="w-full border rounded-lg px-3 py-2 text-sm bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 placeholder:text-slate-400 border-slate-200 dark:border-slate-600 focus:outline-none focus:border-amber-400 focus:ring-1 focus:ring-amber-200 dark:focus:ring-amber-900 transition-colors"
+            />
+          </div>
+
+          <div>
+            <label className="text-[11px] font-bold text-slate-500 uppercase tracking-widest block mb-1">
+              Chave do usuário
+            </label>
+            <input
+              type="text"
+              value={state.userKey ?? ''}
+              onChange={e => {
+                const userKey = e.target.value
+                setSessionUserKey(userKey)                          // atualiza a sessão
+                dispatch({ type: 'SET_USER_KEY', userKey: userKey || undefined })
+              }}
+              placeholder="Chave do usuário"
               className="w-full border rounded-lg px-3 py-2 text-sm bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 placeholder:text-slate-400 border-slate-200 dark:border-slate-600 focus:outline-none focus:border-amber-400 focus:ring-1 focus:ring-amber-200 dark:focus:ring-amber-900 transition-colors"
             />
           </div>

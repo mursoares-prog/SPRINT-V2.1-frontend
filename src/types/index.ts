@@ -562,6 +562,9 @@ export interface AppState {
   wellName: string
   /** Nome do projeto (recebido do sistema externo; pode haver vários projetos por poço). */
   projectName?: string
+  /** Chave do usuário logado (identificação usada na empresa — recebida do sistema
+   *  externo; distinta do papel/perfil). */
+  userKey?: string
   /** Papel do usuário (recebido do sistema externo, onde ele já está logado). */
   role: 'admin' | 'projetista'
   /** id do projeto no servidor (presente quando carregado/salvo via API). */
