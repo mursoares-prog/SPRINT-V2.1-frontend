@@ -1,11 +1,11 @@
 // Painel "canivete suíço" da aba Place Holders: tabela de referência de ferramentas
-// de arame — para cada equipamento a instalar/retirar (tampão, camisão, válvula de
-// retenção, insert nipple, plug, haste de equalização...), a ferramenta de aplicação
+// de arame — para cada equipamento a instalar/retirar (tampão/plug, camisão, válvula
+// de retenção, insert nipple, haste de equalização...), a ferramenta de aplicação
 // (running tool), a de pescaria (pulling tool), correlacionadas, nipple e local (Onde).
 //
 // Consulta para todos; edição (criar/editar/remover) para admin — persiste no backend
 // com o mesmo mecanismo de changelog/undo do resto do Admin (ver routers/wireline_tools.py).
-import { useState, useEffect, useCallback, useMemo, type Key } from 'react'
+import { useState, useEffect, useCallback, useMemo, useDeferredValue, type Key } from 'react'
 import {
   X, Search, Loader2, AlertTriangle, Plus, Pencil, Trash2, Check, PocketKnife,
 } from 'lucide-react'
@@ -41,6 +41,7 @@ export function WirelineToolsPanel({ canEdit, onClose }: { canEdit: boolean; onC
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
   const [query, setQuery] = useState('')
+  const deferredQuery = useDeferredValue(query)
   const [cat, setCat] = useState<string>('')       // filtro de categoria ('' = todas)
   const [editId, setEditId] = useState<number | null>(null)   // linha em edição
   const [draft, setDraft] = useState<WirelineToolInput | null>(null)
@@ -74,9 +75,9 @@ export function WirelineToolsPanel({ canEdit, onClose }: { canEdit: boolean; onC
   const filtered = useMemo(() => {
     let list = tools ?? []
     if (cat) list = list.filter(t => (t.categoria ?? '') === cat)
-    if (query.trim()) list = list.filter(t => matches(t, query))
+    if (deferredQuery.trim()) list = list.filter(t => matches(t, deferredQuery))
     return list
-  }, [tools, cat, query])
+  }, [tools, cat, deferredQuery])
 
   const startEdit = (t: WirelineTool) => {
     setCreating(false)

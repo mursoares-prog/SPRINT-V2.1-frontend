@@ -194,8 +194,8 @@ export function Sidebar({ isDark, onToggleDark, onOpenConfig, onOpenPackages, on
           boxShadow: 'inset 0 0 0 1px rgba(0,0,0,0.22)',
         }}>
         <BsBoxes size={26} className="text-white" />
-        <span style={{ fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif" }}
-          className="text-2xl font-bold tracking-[0.15em] text-white uppercase leading-none select-none">
+        {/* Único ponto da UI em Petrobras Sans EXTRA BOLD (font-brand); todo o resto usa o corte regular. */}
+        <span className="font-brand text-2xl font-bold tracking-[0.15em] text-white uppercase leading-none select-none">
           SPRINT
         </span>
       </div>

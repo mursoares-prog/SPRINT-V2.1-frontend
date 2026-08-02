@@ -3,9 +3,10 @@
 // Substitui o antigo modal por edição na própria tela (estilo etapa 3): cada
 // pacote pode ser aberto para editar todas as linhas inline (sem modal, exceto o
 // popover de placeholders), adicionar/excluir/reordenar linhas, copiar/colar linhas
-// entre pacotes, e — para pacotes CUSTOMIZADOS — editar nome/categoria/tecnologia,
-// criar, duplicar e apagar. Salva o array completo por pacote (savePackageLines).
-import { useEffect, useMemo, useRef, useState } from 'react'
+// entre pacotes, e editar o NOME de qualquer pacote (o renome de um pacote do bundle
+// vira um override em package_metas no servidor; tecnologia, criar/duplicar/apagar
+// seguem restritos aos CUSTOMIZADOS). Salva o array completo por pacote (savePackageLines).
+import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
 import { Trash2, Plus, Check, Loader2, AlertTriangle, X, ChevronDown, ChevronRight, Copy, ClipboardPaste, GripVertical, CopyPlus, FilePlus2, Braces, FolderPlus, History, Undo2, Redo2 } from 'lucide-react'
 import {
   savePackageLines, createPackage, updatePackageMeta, deletePackage,
@@ -15,7 +16,7 @@ import {
   type CustomPlaceholder, type PlaceholderFieldDef,
 } from '../utils/api'
 import { authHeader } from '../utils/auth'
-import { PACKAGES } from '../data/packages'
+import { PACKAGES, isBundlePackage, originalPackageName } from '../data/packages'
 import { SCOPE_CATEGORIES, categoryOfPackage } from '../data/scopeCategories'
 import { owFases, owAtividades, owOperacoes, owEtapas } from '../utils/ontologyReview'
 import { EDS_TYPES } from '../data/edsTypes'
@@ -132,6 +133,7 @@ export function AdminVarsEditor({ query, serverBase, pkgOverrides, legacyOverrid
   // refletir edições feitas na aba Place Holders sem exigir refresh da página.
   const [phDefs, setPhDefs] = useState<PlaceholderFieldDef[]>([])
   const [phQuery, setPhQuery] = useState('')
+  const deferredPhQuery = useDeferredValue(phQuery)
   const loadPhDefs = () => {
     listPlaceholderFieldDefs().then(setPhDefs).catch(() => {})
   }
@@ -179,9 +181,19 @@ export function AdminVarsEditor({ query, serverBase, pkgOverrides, legacyOverrid
     if (el) { el.scrollIntoView({ behavior: 'smooth', block: 'start' }); setScrollTarget(null) }
   }, [scrollTarget, open])
 
-  const customIds = useMemo(() => new Set(customMetas.map(m => m.pkgId)), [customMetas])
+  // customMetas traz DUAS coisas: pacotes customizados (id fora do bundle) e renomes de
+  // pacotes do bundle (só o nome é editável neles; categoria/tecnologia seguem travadas).
+  const customIds = useMemo(
+    () => new Set(customMetas.filter(m => !isBundlePackage(m.pkgId)).map(m => m.pkgId)),
+    [customMetas])
   const metaOf = (pkgId: string) => customMetas.find(m => m.pkgId === pkgId)
-  const nameOf = (pkgId: string) => customIds.has(pkgId) ? (metaOf(pkgId)?.name ?? pkgId) : (PACKAGES[pkgId]?.name ?? '')
+  const nameOf = (pkgId: string) => metaOf(pkgId)?.name ?? PACKAGES[pkgId]?.name ?? pkgId
+  const renamed = (pkgId: string) => isBundlePackage(pkgId) && nameOf(pkgId) !== originalPackageName(pkgId)
+  /** Nome/tecnologia atuais do pacote (override do servidor, senão bundle). */
+  const currentMeta = (pkgId: string) => ({
+    name: nameOf(pkgId),
+    technology: metaOf(pkgId)?.technology ?? PACKAGES[pkgId]?.technology ?? 'none',
+  })
 
 
   const pkgIds = useMemo(() => {
@@ -216,10 +228,7 @@ export function AdminVarsEditor({ query, serverBase, pkgOverrides, legacyOverrid
       return n
     })
     if (!drafts[pkgId]) setDrafts(prev => ({ ...prev, [pkgId]: buildLines(pkgId) }))
-    if (customIds.has(pkgId) && !metaDrafts[pkgId]) {
-      const m = metaOf(pkgId)!
-      setMetaDrafts(prev => ({ ...prev, [pkgId]: { name: m.name, technology: m.technology } }))
-    }
+    if (!metaDrafts[pkgId]) setMetaDrafts(prev => ({ ...prev, [pkgId]: currentMeta(pkgId) }))
   }
 
   const markDirty = (pkgId: string) => setDirty(prev => new Set(prev).add(pkgId))
@@ -273,6 +282,9 @@ export function AdminVarsEditor({ query, serverBase, pkgOverrides, legacyOverrid
     const i = ls.findIndex(l => l._id === id)
     return [...ls.slice(0, i + 1), blankLine(), ...ls.slice(i + 1)]
   })
+  // Acrescenta uma linha em branco no fim — único caminho para criar a 1ª linha de um
+  // pacote salvo sem linhas (aí não há nenhuma linha com o botão "+" para inserir depois).
+  const appendLine = (pkgId: string) => setLines(pkgId, ls => [...ls, blankLine()])
   const removeLine = (pkgId: string, id: string) => setLines(pkgId, ls => ls.filter(l => l._id !== id))
   const moveLineTo = (pkgId: string, sourceId: string, targetId: string, pos: 'above' | 'below') => setLines(pkgId, ls => {
     if (sourceId === targetId) return ls
@@ -312,7 +324,7 @@ export function AdminVarsEditor({ query, serverBase, pkgOverrides, legacyOverrid
   // busca. Placeholders customizados que não têm def são anexados em "Personalizados".
   type PickerItem = { token: string; label: string; custom?: boolean }
   const pickerGroups = useMemo(() => {
-    const q = phQuery.trim().toLowerCase()
+    const q = deferredPhQuery.trim().toLowerCase()
     const match = (token: string, label: string) =>
       !q || token.toLowerCase().includes(q) || label.toLowerCase().includes(q)
     const groups: { title: string; items: PickerItem[] }[] = []
@@ -333,7 +345,7 @@ export function AdminVarsEditor({ query, serverBase, pkgOverrides, legacyOverrid
         push('Personalizados', { token: p.token, label: p.label, custom: true })
     }
     return groups
-  }, [phDefs, customPlaceholders, phQuery])
+  }, [phDefs, customPlaceholders, deferredPhQuery])
 
   // Grupos existentes (na ordem de orderIndex) — para o seletor do formulário "Novo".
   const allGroups = useMemo(() => {
@@ -393,10 +405,16 @@ export function AdminVarsEditor({ query, serverBase, pkgOverrides, legacyOverrid
   const savePkg = async (pkgId: string) => {
     setBusy(pkgId); setError('')
     try {
-      if (customIds.has(pkgId) && metaDrafts[pkgId]) {
-        const m = metaOf(pkgId)!; const md = metaDrafts[pkgId]
-        if (md.name !== m.name || md.technology !== m.technology)
-          await updatePackageMeta(pkgId, md, authHeader())
+      const md = metaDrafts[pkgId]
+      if (md) {
+        const cur = currentMeta(pkgId)
+        const name = md.name.trim()
+        // Bundle: só o nome vai ao servidor (categoria/tecnologia são do bundle).
+        if (isBundlePackage(pkgId)) {
+          if (name && name !== cur.name) await updatePackageMeta(pkgId, { name }, authHeader())
+        } else if (name !== cur.name || md.technology !== cur.technology) {
+          await updatePackageMeta(pkgId, { name, technology: md.technology }, authHeader())
+        }
       }
       await savePackageLines(pkgId, (drafts[pkgId] ?? []).map(stripId), authHeader())
       await reload()
@@ -408,7 +426,7 @@ export function AdminVarsEditor({ query, serverBase, pkgOverrides, legacyOverrid
   }
   const revertPkg = (pkgId: string) => {
     setDrafts(prev => ({ ...prev, [pkgId]: buildLines(pkgId) }))
-    if (customIds.has(pkgId)) { const m = metaOf(pkgId)!; setMetaDrafts(prev => ({ ...prev, [pkgId]: { name: m.name, technology: m.technology } })) }
+    setMetaDrafts(prev => ({ ...prev, [pkgId]: currentMeta(pkgId) }))
     setDirty(prev => { const n = new Set(prev); n.delete(pkgId); return n })
     resetHistory(pkgId)
   }
@@ -549,11 +567,22 @@ export function AdminVarsEditor({ query, serverBase, pkgOverrides, legacyOverrid
                 {isOpen ? <ChevronDown size={15} /> : <ChevronRight size={15} />}
               </button>
               <span className="text-xs font-semibold text-slate-700 dark:text-slate-300 whitespace-nowrap">{pkgId}</span>
-              {isOpen && isCustom && md ? (
-                <input value={md.name} onChange={e => { setMetaDrafts(prev => ({ ...prev, [pkgId]: { ...md, name: e.target.value } })); markDirty(pkgId) }}
-                  className="flex-1 min-w-0 rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-2 py-0.5 text-xs text-slate-800 dark:text-slate-100" />
+              {isOpen && canEdit && md ? (
+                <>
+                  <input value={md.name} onChange={e => { setMetaDrafts(prev => ({ ...prev, [pkgId]: { ...md, name: e.target.value } })); markDirty(pkgId) }}
+                    title={isCustom ? 'Nome do pacote' : `Nome do pacote (original: ${originalPackageName(pkgId)})`}
+                    className="flex-1 min-w-0 rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-2 py-0.5 text-xs text-slate-800 dark:text-slate-100" />
+                  {!isCustom && md.name.trim() !== originalPackageName(pkgId) && (
+                    <button onClick={() => { setMetaDrafts(prev => ({ ...prev, [pkgId]: { ...md, name: originalPackageName(pkgId) } })); markDirty(pkgId) }}
+                      title={`Restaurar nome original: ${originalPackageName(pkgId)}`}
+                      className="shrink-0 p-1 rounded text-slate-400 hover:text-sky-600 dark:hover:text-sky-400 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"><Undo2 size={13} /></button>
+                  )}
+                </>
               ) : (
-                <span className="flex-1 min-w-0 text-xs text-slate-700 dark:text-slate-300 truncate">{nameOf(pkgId)}</span>
+                <span className="flex-1 min-w-0 text-xs text-slate-700 dark:text-slate-300 truncate"
+                  title={renamed(pkgId) ? `Nome original: ${originalPackageName(pkgId)}` : undefined}>
+                  {nameOf(pkgId)}
+                </span>
               )}
               {canEdit && (
                 <div className="flex items-center gap-1 shrink-0">
@@ -692,10 +721,19 @@ export function AdminVarsEditor({ query, serverBase, pkgOverrides, legacyOverrid
                       })}
                     </tbody>
                   </table>
+                  {lines.length === 0 && (
+                    <p className="px-2 py-3 text-[11px] text-slate-400 italic">
+                      Este pacote não tem linhas. Use "Nova linha" abaixo para criar a primeira.
+                    </p>
+                  )}
                 </div>
 
                 {/* Rodapé do pacote */}
                 <div className="flex items-center gap-2 pt-1">
+                  <button onClick={() => appendLine(pkgId)} title="Adicionar linha no fim do pacote"
+                    className="flex items-center gap-1 px-2 py-1 rounded text-[11px] font-semibold border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-emerald-400 hover:text-emerald-600 dark:hover:border-amber-500 dark:hover:text-amber-400">
+                    <Plus size={12} /> Nova linha
+                  </button>
                   {clipboard && <button onClick={() => pasteInto(pkgId, null)} className="flex items-center gap-1 px-2 py-1 rounded text-[11px] font-semibold border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-sky-400 hover:text-sky-600"><ClipboardPaste size={12} /> Colar no fim</button>}
                   <div className="flex items-center gap-1">
                     <button onClick={() => undoPkg(pkgId)} disabled={!(histories[pkgId]?.past.length)}

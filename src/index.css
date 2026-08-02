@@ -3,8 +3,38 @@
 
 @variant dark (&:where(.dark, .dark *));
 
+/* ── Petrobras Sans ────────────────────────────────────────────────────────────
+   A UI inteira usa o corte REGULAR. O arquivo Regular é declarado para TODA a
+   faixa de pesos (100–900) de propósito: assim as classes font-medium/semibold/bold
+   espalhadas pelos componentes continuam válidas, mas renderizam em Regular — sem
+   precisar varrer centenas de classes. O corte NEGRITO fica numa família à parte
+   ('Petrobras Sans XBold', exposta como `font-brand`), usada só pelo nome SPRINT
+   na barra de topo. */
+@font-face {
+  font-family: 'Petrobras Sans';
+  src: url('/fonts/PetrobrasSans_Rg.ttf') format('truetype');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Petrobras Sans';
+  src: url('/fonts/PetrobrasSans_It.ttf') format('truetype');
+  font-weight: 100 900;
+  font-style: italic;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Petrobras Sans XBold';
+  src: url('/fonts/PetrobrasSans_XBd.ttf') format('truetype');
+  font-weight: 400 900;
+  font-style: normal;
+  font-display: swap;
+}
+
 @theme {
-  --font-sans: 'Helvetica Neue', Helvetica, Arial, system-ui, sans-serif;
+  --font-sans: 'Petrobras Sans', 'Helvetica Neue', Helvetica, Arial, system-ui, sans-serif;
+  --font-brand: 'Petrobras Sans XBold', 'Petrobras Sans', 'Helvetica Neue', Helvetica, Arial, sans-serif;
   --font-mono: 'JetBrains Mono', monospace;
 
   /* ── Tema CLARO ─────────────────────────────────────────────────────────
@@ -59,6 +89,11 @@ html.dark {
   .dark body {
     background: #020617;
     color: #e2e8f0;
+  }
+  /* Controles de formulário não herdam a fonte do documento por padrão — sem isto,
+     inputs/selects/textareas/botões do app cairiam na fonte do sistema. */
+  input, select, textarea, button, optgroup, option {
+    font-family: inherit;
   }
   #root { width: 100%; min-height: 100vh; }
 }

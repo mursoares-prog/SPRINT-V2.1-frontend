@@ -16,7 +16,8 @@
  * Extras do modo fluxo: arrastar nós (posições persistidas em _pos via set_node_pos),
  * minimapa, re-layout automático (clear_node_pos), Ctrl+C/Ctrl+V (p_paste_*), Delete.
  */
-import { createContext, forwardRef, useCallback, useContext, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react'
+import { createContext, forwardRef, useCallback, useContext, useDeferredValue, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import {
   ReactFlow, Controls, MiniMap, Panel,
   Handle, Position, MarkerType, applyNodeChanges, BaseEdge,
@@ -141,6 +142,7 @@ type FData = {
   onContext?: (e: React.MouseEvent) => void     // clique direito (menu completo)
   onNameClick?: (e: React.MouseEvent) => void   // clique no nome de um bloco ref (ir ao editor do bloco)
   onRename?: (v: string) => void                // commit da edição inline do rótulo da seção
+  onPhase?: (phase: string) => void             // escolha de fase no chip do cabeçalho
 }
 type ChipData = {
   label: string; pkgs: LPkg[]; pc: PC; dark: boolean; canEdit: boolean; hit: boolean
@@ -163,6 +165,13 @@ const PHASE_ABBREV: Record<string, string> = {
 }
 
 const PHASE_ORDER = ['Mobilização', 'Fase 0', 'Fase 1A', 'Fase 1B', 'Fase 2', 'Extra Abandono', 'Desmobilização']
+
+// Cor da moldura por fase — espelha a tabela PHASES do LogicEditorPanel (não é importada
+// de lá para não criar ciclo de imports: aquele módulo já importa este).
+const PHASE_COLOR: Record<string, 'gray' | 'blue' | 'amber'> = {
+  'Fase 0': 'gray', 'Fase 1A': 'blue', 'Fase 1B': 'blue', 'Fase 2': 'amber',
+  'Extra Abandono': 'amber', 'Mobilização': 'gray', 'Desmobilização': 'gray',
+}
 
 function collectSectionPhases(sec: LSec): string[] {
   const phases = new Set<string>()
@@ -281,6 +290,7 @@ function FrameNode({ data }: NodeProps) {
   // Edição inline do rótulo da seção: clicar no nome (seção normal) troca o texto por um
   // input, comitando no blur/Enter — em vez de abrir um menu suspenso só para renomear.
   const [editing, setEditing] = useState(false)
+  const [phaseAnchor, setPhaseAnchor] = useState<DOMRect | null>(null)
   const canRename = d.canEdit && !isRef && !!d.onRename
   // Fundo tênue da cor da fase + borda na cor da seção. Delimita o fluxograma sem
   // "caixa dura": preenchimento suave, cantos arredondados, header como topo da moldura.
@@ -327,9 +337,38 @@ function FrameNode({ data }: NodeProps) {
               {isRef ? (getScopeLabel(d.sec.ref!.scopeId) ?? d.sec.ref!.label ?? d.sec.label) : d.sec.label}
             </span>
           )}
-          <span className="shrink-0 rounded px-1.5 py-0.5" style={{ fontSize: 9, border: '1px solid rgba(255,255,255,0.35)' }}>
-            {formatPhases(displayPhases(d.sec))}
-          </span>
+          {/* Chip de fase — em seção editável abre o menu suspenso de fases (mesma
+              anatomia dos badges de pacote). Em bloco `ref` é só leitura: as fases vêm
+              do escopo referenciado e devem ser mudadas lá. */}
+          {d.onPhase && !isRef ? (
+            <button
+              data-badge-anchor
+              className="nodrag shrink-0 rounded px-1.5 py-0.5 hover:bg-white/15 transition-colors"
+              style={{ fontSize: 9, border: '1px solid rgba(255,255,255,0.35)', cursor: 'pointer', color: 'inherit' }}
+              title={`Fase da seção: ${d.sec.phase} — clique para alterar (aplica a todos os pacotes da seção)`}
+              onMouseDown={e => { e.stopPropagation(); e.preventDefault() }}
+              onClick={e => {
+                e.stopPropagation()
+                const a = e.currentTarget.getBoundingClientRect()
+                setPhaseAnchor(cur => cur ? null : a)
+              }}>
+              {formatPhases(displayPhases(d.sec))}
+            </button>
+          ) : (
+            <span className="shrink-0 rounded px-1.5 py-0.5" style={{ fontSize: 9, border: '1px solid rgba(255,255,255,0.35)' }}>
+              {formatPhases(displayPhases(d.sec))}
+            </span>
+          )}
+          {phaseAnchor && d.onPhase && (
+            <BadgeDropdown
+              anchor={phaseAnchor}
+              width={170}
+              current={d.sec.phase}
+              options={PHASE_ORDER.map(ph => ({ value: ph, label: ph }))}
+              onPick={v => { if (v) d.onPhase!(v) }}
+              onClose={() => setPhaseAnchor(null)}
+            />
+          )}
           {!isRef && (
             <span className="ml-auto shrink-0" style={{ fontSize: 9, opacity: 0.7 }}>
               {`${d.sec.decisions.length} pergunta${d.sec.decisions.length !== 1 ? 's' : ''}`}
@@ -340,6 +379,76 @@ function FrameNode({ data }: NodeProps) {
       </div>
       <Handle type="source" position={Position.Bottom} id="bottom" isConnectable={false} style={{ ...hiddenHandle, left: '50%' }} />
     </div>
+  )
+}
+
+// ─── Menu suspenso dos badges de pacote (condição / fase) ───────────────────
+// Vai para document.body via portal: o corpo do chip tem overflow-hidden e o canvas do
+// ReactFlow aplica transform de zoom/pan — um popup `absolute` seria cortado e escalado.
+// `position: fixed` ancorado no retângulo do badge mantém o menu legível em qualquer zoom.
+function BadgeDropdown({ anchor, options, current, width = 210, onPick, onClose }: {
+  anchor: DOMRect
+  options: { value: string; label: string; icon?: React.ReactNode }[]
+  current?: string
+  width?: number
+  onPick: (value?: string) => void
+  onClose: () => void
+}) {
+  useEffect(() => {
+    const onDown = (e: MouseEvent) => {
+      // O próprio badge não fecha aqui — o clique dele alterna o menu (abre/fecha).
+      const t = e.target as HTMLElement
+      if (!t.closest('[data-badge-dropdown]') && !t.closest('[data-badge-anchor]')) onClose()
+    }
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    // capture: fecha antes que o ReactFlow trate o mousedown como início de pan.
+    document.addEventListener('mousedown', onDown, true)
+    document.addEventListener('keydown', onKey)
+    return () => { document.removeEventListener('mousedown', onDown, true); document.removeEventListener('keydown', onKey) }
+  }, [onClose])
+
+  // Coluna de ícone reservada em TODOS os itens quando o menu tem ícones — assim os
+  // rótulos ficam alinhados, inclusive o "— sem condição —" (que não tem ícone).
+  const hasIcons = options.some(o => o.icon)
+  const MAXH = 260
+  const left = Math.max(8, Math.min(anchor.left, window.innerWidth - width - 8))
+  const openUp = anchor.bottom + MAXH > window.innerHeight && anchor.top > MAXH
+  const style: React.CSSProperties = openUp
+    ? { position: 'fixed', left, bottom: window.innerHeight - anchor.top + 4, width, maxHeight: MAXH }
+    : { position: 'fixed', left, top: anchor.bottom + 4, width, maxHeight: MAXH }
+
+  return createPortal(
+    <div
+      data-badge-dropdown
+      style={style}
+      className="nodrag nowheel z-[400] overflow-y-auto rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-xl py-1"
+      onMouseDown={e => e.stopPropagation()}
+      onClick={e => e.stopPropagation()}
+      onContextMenu={e => e.preventDefault()}>
+      {options.map(opt => {
+        const sel = (current ?? '') === opt.value
+        return (
+          <button
+            key={opt.value}
+            className={`w-full flex items-center gap-2 px-2.5 py-1.5 text-left text-[11px] transition-colors
+              ${sel
+                ? 'bg-slate-100 dark:bg-slate-700 text-slate-900 dark:text-slate-100 font-semibold'
+                : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700'}`}
+            onClick={() => { onPick(opt.value || undefined); onClose() }}>
+            {/* Coluna fixa: alguns ícones de condição são PARES (dois glifos lado a lado) e
+                estouravam uma caixa estreita, colidindo com o rótulo. */}
+            {hasIcons && (
+              <span className="shrink-0 inline-flex items-center justify-center" style={{ minWidth: 24 }}>
+                {opt.icon}
+              </span>
+            )}
+            <span className="truncate">{opt.label}</span>
+            {sel && <span className="ml-auto shrink-0 text-[#008542]">✓</span>}
+          </button>
+        )
+      })}
+    </div>,
+    document.body,
   )
 }
 
@@ -356,10 +465,15 @@ function PkgEditRows({ pkgList, p, dark, secPhase, onFlagPkg, onCondition, onPha
   onRemove: (i: number) => void
   onAdd?: () => void
 }) {
-  const [editCondIdx, setEditCondIdx] = useState<number | null>(null)
-  const [editPhaseIdx, setEditPhaseIdx] = useState<number | null>(null)
+  // Menu suspenso aberto por um badge (condição ou fase), ancorado no retângulo do badge.
+  const [picker, setPicker] = useState<{ idx: number; kind: 'cond' | 'phase'; anchor: DOMRect } | null>(null)
   const [dragIdx, setDragIdx] = useState<number | null>(null)
   const [dragOverIdx, setDragOverIdx] = useState<number | null>(null)
+  // O arrasto só arma no grip: com `draggable` fixo na linha, apertar qualquer botão dela
+  // (bandeira, IF, fase) iniciava um drag HTML5 e parecia que o fluxograma estava sendo
+  // arrastado/navegado.
+  const [grabIdx, setGrabIdx] = useState<number | null>(null)
+  const endDrag = () => { setDragIdx(null); setDragOverIdx(null); setGrabIdx(null) }
   // paddingBottom só quando não há botão "+" (para que o strip de adição use esse espaço)
   return (
     <div style={{ paddingTop: BPAD, paddingBottom: onAdd ? 0 : BPAD }}>
@@ -372,16 +486,18 @@ function PkgEditRows({ pkgList, p, dark, secPhase, onFlagPkg, onCondition, onPha
             opacity: dragIdx === i ? 0.35 : 1,
             boxShadow: dragOverIdx === i && dragIdx !== null && dragIdx !== i ? 'inset 0 2px 0 #3b82f6' : undefined,
           }}
-          draggable={!!onReorder}
+          draggable={!!onReorder && grabIdx === i}
           onDragStart={onReorder ? e => { e.stopPropagation(); e.dataTransfer.effectAllowed = 'move'; setDragIdx(i) } : undefined}
           onDragOver={onReorder ? e => { e.preventDefault(); e.stopPropagation(); setDragOverIdx(i) } : undefined}
-          onDrop={onReorder ? e => { e.preventDefault(); e.stopPropagation(); if (dragIdx !== null && dragIdx !== i) onReorder(dragIdx, i); setDragIdx(null); setDragOverIdx(null) } : undefined}
-          onDragEnd={onReorder ? () => { setDragIdx(null); setDragOverIdx(null) } : undefined}
+          onDrop={onReorder ? e => { e.preventDefault(); e.stopPropagation(); if (dragIdx !== null && dragIdx !== i) onReorder(dragIdx, i); endDrag() } : undefined}
+          onDragEnd={onReorder ? endDrag : undefined}
         >
-          {/* Grip de drag — visível apenas quando onReorder disponível */}
+          {/* Grip de drag — único ponto que arma o arrasto da linha */}
           {onReorder && (
             <span className="nodrag shrink-0 mt-[3px] select-none"
-              style={{ fontSize: 10, color: p.lblT, opacity: 0.35, cursor: 'grab', lineHeight: 1 }}>⠿</span>
+              style={{ fontSize: 10, color: p.lblT, opacity: 0.35, cursor: 'grab', lineHeight: 1 }}
+              onMouseDown={e => { e.stopPropagation(); setGrabIdx(i) }}
+              onMouseUp={() => setGrabIdx(null)}>⠿</span>
           )}
           {/* Bandeira — mesma condição do PkgRow (canEdit→onFlagPkg || isContingency) */}
           {(onFlagPkg || pkg.isContingency) && (
@@ -390,6 +506,7 @@ function PkgEditRows({ pkgList, p, dark, secPhase, onFlagPkg, onCondition, onPha
               title={pkg.isContingency ? 'Remover marcação de contingência' : 'Marcar pacote como contingencial'}
               disabled={!onFlagPkg}
               style={{ cursor: onFlagPkg ? 'pointer' : 'default' }}
+              onMouseDown={e => { e.stopPropagation(); e.preventDefault() }}
               onClick={e => { e.stopPropagation(); onFlagPkg?.(i) }}>
               <PiFlagPennantFill size={11} color={pkg.isContingency ? '#f97316' : p.lblT}
                 style={{ opacity: pkg.isContingency ? 1 : 0.28 }} />
@@ -398,34 +515,6 @@ function PkgEditRows({ pkgList, p, dark, secPhase, onFlagPkg, onCondition, onPha
 
           {/* Conteúdo do pacote: código + badges (condição, fase) + nome */}
           <div className="min-w-0 flex-1 leading-tight">
-            {editCondIdx === i && onCondition ? (
-              <select
-                className="nodrag w-full rounded px-1 outline-none cursor-pointer"
-                style={{ fontSize: 9, height: PKG - 6, border: `1px solid #3b82f6`, background: p.ans, color: p.ansT }}
-                ref={el => { if (el) { el.focus(); try { (el as HTMLSelectElement & { showPicker(): void }).showPicker() } catch {} } }}
-                value={pkg.condition ?? ''}
-                onChange={e => { onCondition(i, e.target.value || undefined); setEditCondIdx(null) }}
-                onBlur={() => setEditCondIdx(null)}>
-                <option value="">— sem condição —</option>
-                {Object.entries(CONDITION_LABELS).map(([k, lbl]) => (
-                  <option key={k} value={k}>{lbl}</option>
-                ))}
-              </select>
-            ) : editPhaseIdx === i && onPhase ? (
-              <select
-                className="nodrag w-full rounded px-1 outline-none cursor-pointer"
-                style={{ fontSize: 9, height: PKG - 6, border: `1px solid #a855f7`, background: p.ans, color: p.ansT }}
-                ref={el => { if (el) { el.focus(); try { (el as HTMLSelectElement & { showPicker(): void }).showPicker() } catch {} } }}
-                value={pkg.phase ?? ''}
-                onChange={e => { onPhase(i, e.target.value || undefined); setEditPhaseIdx(null) }}
-                onBlur={() => setEditPhaseIdx(null)}>
-                <option value="">— sem fase —</option>
-                {Object.keys(PHASE_ABBREV).map(ph => (
-                  <option key={ph} value={ph}>{ph}</option>
-                ))}
-              </select>
-            ) : (
-              <>
                 <div className="flex items-center gap-1">
                   <span className="font-mono font-semibold"
                     style={{ fontSize: 9.5, color: pkg.isContingency ? contingCode(dark) : p.code }}>
@@ -434,11 +523,18 @@ function PkgEditRows({ pkgList, p, dark, secPhase, onFlagPkg, onCondition, onPha
                   {/* Badge condicional: IF (sem condição) ou ConditionIcon */}
                   {(onCondition || pkg.condition) && (
                     <button
+                      data-badge-anchor
                       className="nodrag shrink-0 flex items-center"
                       title={pkg.condition ? `Condicional: ${CONDITION_LABELS[pkg.condition] ?? pkg.condition} — clique para alterar` : 'Definir condição de emissão'}
                       disabled={!onCondition}
                       style={{ cursor: onCondition ? 'pointer' : 'default' }}
-                      onClick={e => { e.stopPropagation(); if (onCondition) setEditCondIdx(i) }}>
+                      onMouseDown={e => { e.stopPropagation(); e.preventDefault() }}
+                      onClick={e => {
+                        e.stopPropagation()
+                        if (!onCondition) return
+                        const anchor = e.currentTarget.getBoundingClientRect()
+                        setPicker(cur => cur?.idx === i && cur.kind === 'cond' ? null : { idx: i, kind: 'cond', anchor })
+                      }}>
                       {pkg.condition
                         ? <ConditionIcon condition={pkg.condition} size={11} className="shrink-0" />
                         : <span style={{
@@ -453,11 +549,18 @@ function PkgEditRows({ pkgList, p, dark, secPhase, onFlagPkg, onCondition, onPha
                   {/* Badge fase OW: sempre visível em modo edição, clicável quando onPhase disponível */}
                   {(onPhase || pkg.phase || secPhase) && (
                     <button
+                      data-badge-anchor
                       className="nodrag shrink-0 flex items-center"
                       title={(pkg.phase ?? secPhase) ? `Fase: ${pkg.phase ?? secPhase} — clique para alterar` : 'Definir fase OW'}
                       disabled={!onPhase}
                       style={{ cursor: onPhase ? 'pointer' : 'default' }}
-                      onClick={e => { e.stopPropagation(); if (onPhase) setEditPhaseIdx(i) }}>
+                      onMouseDown={e => { e.stopPropagation(); e.preventDefault() }}
+                      onClick={e => {
+                        e.stopPropagation()
+                        if (!onPhase) return
+                        const anchor = e.currentTarget.getBoundingClientRect()
+                        setPicker(cur => cur?.idx === i && cur.kind === 'phase' ? null : { idx: i, kind: 'phase', anchor })
+                      }}>
                       {(() => {
                         const ph = pkg.phase ?? secPhase
                         return <span style={{
@@ -473,13 +576,13 @@ function PkgEditRows({ pkgList, p, dark, secPhase, onFlagPkg, onCondition, onPha
                 <div className="truncate" style={{ fontSize: 9, color: p.ansT, opacity: 0.85 }} title={pkgName(pkg)}>
                   {pkgName(pkg)}
                 </div>
-              </>
-            )}
           </div>
 
           {/* Botão remover */}
           <button className="nodrag shrink-0 w-4 h-4 mt-[3px] flex items-center justify-center rounded hover:bg-red-500/20"
-            title="Remover" onClick={e => { e.stopPropagation(); onRemove(i) }}>
+            title="Remover"
+            onMouseDown={e => { e.stopPropagation(); e.preventDefault() }}
+            onClick={e => { e.stopPropagation(); onRemove(i) }}>
             <span style={{ fontSize: 11, color: '#ef4444', lineHeight: 1 }}>×</span>
           </button>
         </div>
@@ -508,6 +611,32 @@ function PkgEditRows({ pkgList, p, dark, secPhase, onFlagPkg, onCondition, onPha
           <RiMenuAddLine size={14} className="shrink-0" />
           <span>Adicionar pacote</span>
         </button>
+      )}
+      {picker && pkgList[picker.idx] && (
+        picker.kind === 'cond'
+          ? <BadgeDropdown
+              anchor={picker.anchor}
+              current={pkgList[picker.idx].condition ?? ''}
+              options={[
+                { value: '', label: '— sem condição —' },
+                ...Object.entries(CONDITION_LABELS).map(([k, lbl]) => ({
+                  value: k, label: lbl, icon: <ConditionIcon condition={k} size={11} />,
+                })),
+              ]}
+              onPick={v => onCondition?.(picker.idx, v)}
+              onClose={() => setPicker(null)}
+            />
+          : <BadgeDropdown
+              anchor={picker.anchor}
+              width={160}
+              current={pkgList[picker.idx].phase ?? ''}
+              options={[
+                { value: '', label: secPhase ? `— herdar da seção (${secPhase}) —` : '— sem fase —' },
+                ...Object.keys(PHASE_ABBREV).map(ph => ({ value: ph, label: ph })),
+              ]}
+              onPick={v => onPhase?.(picker.idx, v)}
+              onClose={() => setPicker(null)}
+            />
       )}
     </div>
   )
@@ -935,6 +1064,9 @@ export const LogicFlowEditor = forwardRef<LogicFlowEditorHandle, {
   const dark = useDark()
   const canEdit = !!editCb
   const [search, setSearch] = useState('')
+  // Ver nota em LogicGraphPanel: o input responde a `search`, o rebuild do fluxograma
+  // consome `deferredSearch` para não competir com a digitação.
+  const deferredSearch = useDeferredValue(search)
   const [indexWidth, setIndexWidth] = useState(240)
   const resizingIndexRef = useRef(false)
   const onIndexResizeStart = useCallback((e: React.MouseEvent) => {
@@ -1068,8 +1200,11 @@ export const LogicFlowEditor = forwardRef<LogicFlowEditorHandle, {
           onMove: (i, dir) => fire({ type: 'move_always', secIdx: m.secIdx, pkgIdx: i, dir }),
           onReorder: (from, to) => fire({ type: 'reorder_always', secIdx: m.secIdx, from, to }),
           onRemove: (i) => fire({ type: 'remove_always', secIdx: m.secIdx, pkgIdx: i }),
+          onCondition: (i, condition) => fire({ type: 'p_set_always_pkg_condition', secIdx: m.secIdx, pkgIdx: i, condition }),
+          onPhase: (i, phase) => fire({ type: 'p_set_always_pkg_phase', secIdx: m.secIdx, pkgIdx: i, phase }),
         },
         pkgsRefresh: () => sectionsRef.current[m.secIdx]?.always ?? [],
+        onFlagPkg: (i) => fire({ type: 'p_toggle_always_pkg_contingency', secIdx: m.secIdx, pkgIdx: i }),
       })
     } else if (m.kind === 'decafter') {
       const dec = resolveRef(sections, m.ref)
@@ -1207,7 +1342,10 @@ export const LogicFlowEditor = forwardRef<LogicFlowEditorHandle, {
         list: sec.always ?? [],
         onAdd: () => fire({ type: 'add_always', secIdx }),
         onMove: (i, dir) => fire({ type: 'move_always', secIdx, pkgIdx: i, dir }),
+        onReorder: (from, to) => fire({ type: 'reorder_always', secIdx, from, to }),
         onRemove: (i) => fire({ type: 'remove_always', secIdx, pkgIdx: i }),
+        onCondition: (i, condition) => fire({ type: 'p_set_always_pkg_condition', secIdx, pkgIdx: i, condition }),
+        onPhase: (i, phase) => fire({ type: 'p_set_always_pkg_phase', secIdx, pkgIdx: i, phase }),
       },
       pkgsRefresh: () => sectionsRef.current[secIdx]?.always ?? [],
       pos: { x: e.clientX, y: e.clientY },
@@ -1258,7 +1396,10 @@ export const LogicFlowEditor = forwardRef<LogicFlowEditorHandle, {
         list: sec.always ?? [],
         onAdd: () => fire({ type: 'add_always', secIdx }),
         onMove: (i, dir) => fire({ type: 'move_always', secIdx, pkgIdx: i, dir }),
+        onReorder: (from, to) => fire({ type: 'reorder_always', secIdx, from, to }),
         onRemove: (i) => fire({ type: 'remove_always', secIdx, pkgIdx: i }),
+        onCondition: (i, condition) => fire({ type: 'p_set_always_pkg_condition', secIdx, pkgIdx: i, condition }),
+        onPhase: (i, phase) => fire({ type: 'p_set_always_pkg_phase', secIdx, pkgIdx: i, phase }),
       },
       pos: { x: e.clientX, y: e.clientY },
       onTitleChange: (v) => fire({ type: 'p_set_section_label', secIdx, value: v }),
@@ -1369,7 +1510,7 @@ export const LogicFlowEditor = forwardRef<LogicFlowEditorHandle, {
     const es: Edge[] = []
     const meta = new Map<string, NodeMeta>()
     const dims = new Map<string, [number, number]>()
-    const s = search.toLowerCase().trim()
+    const s = deferredSearch.toLowerCase().trim()
     const qByText = new Map<string, string>()
     const gotoLinks: { fromId: string; question: string }[] = []
     const arrColor = dark ? '#64748b' : '#64748b'
@@ -1620,8 +1761,11 @@ export const LogicFlowEditor = forwardRef<LogicFlowEditorHandle, {
       // SEMPRE é posicionado por alwaysAfterIdx (omisso/-1 = antes de tudo, topo).
       // O layout intercala decisões e SEMPRE na ordem correta.
       const alwaysPos = sec.always?.length ? (sec.alwaysAfterIdx ?? -1) : -2
-      const entryId = (sec.ref && !isExpanded) ? `frame|${si}`
-        : isExpanded ? (refDecisions.length ? `q|xref${si}.0` : `frame|${si}`)
+      // Bloco `ref` expandido: a entrada real só se conhece ao montar a 1ª decisão (o id
+      // depende de haver chip de PACOTES antes do losango, e decisões sem `ref` editável
+      // usam o prefixo `qf|`, não `q|`) — por isso é ajustada dentro do laço abaixo.
+      let entryId = (sec.ref && !isExpanded) ? `frame|${si}`
+        : isExpanded ? `frame|${si}`
           : (alwaysPos === -1) ? `sem|${si}`          // SEMPRE primeiro
             : sec.decisions.length ? `q|${refKey({ secIdx: si, decIdx: 0, sub: [] })}`
               : sec.always?.length ? `sem|${si}`
@@ -1636,6 +1780,7 @@ export const LogicFlowEditor = forwardRef<LogicFlowEditorHandle, {
         let prevExits: string[] = []
         for (let di = 0; di < refDecisions.length; di++) {
           const res = layoutDec(refDecisions[di], 0, decTop, null, pc, `xref${si}.${di}`, sec.phase)
+          if (di === 0) entryId = res.entryId
           if (prevExits.length) for (const inp of prevExits) edge(inp, res.entryId)
           prevExits = res.exitIds
           decTop = res.bottom + V_DEC
@@ -1716,6 +1861,9 @@ export const LogicFlowEditor = forwardRef<LogicFlowEditorHandle, {
             ? (e: React.MouseEvent) => { e.stopPropagation(); setExpandedRefs(prev => { const n = new Set(prev); n.has(si) ? n.delete(si) : n.add(si); return n }) }
             : undefined,
           onRename: canEdit && !sec.ref ? (v: string) => fire({ type: 'p_set_section_label', secIdx: si, value: v }) : undefined,
+          onPhase: canEdit && !sec.ref
+            ? (phase: string) => fire({ type: 'p_set_section_phase', secIdx: si, phase, color: PHASE_COLOR[phase] ?? 'blue' })
+            : undefined,
           onContext: canEdit ? (e: React.MouseEvent) => openSecMenu(e, si) : undefined,
           onNameClick: sec.ref
             ? () => {
@@ -1751,7 +1899,7 @@ export const LogicFlowEditor = forwardRef<LogicFlowEditorHandle, {
     metaRef.current = meta
     // Molduras primeiro (z-index atrás), conteúdo por cima.
     return { ns: [...frames, ...ns], es }
-  }, [sections, dark, search, canEdit, pickMode, dupQuestions, fire, openSecMenu, expandedRefs])
+  }, [sections, dark, deferredSearch, canEdit, pickMode, dupQuestions, fire, openSecMenu, expandedRefs])
 
   useEffect(() => {
     const { ns, es } = buildGraph()

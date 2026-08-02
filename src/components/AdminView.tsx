@@ -1,5 +1,5 @@
 import { X, Search, ShieldCheck, Table2, Pencil, Trash2, Plus, Workflow, Undo2, AlertTriangle, Loader2, Tags } from 'lucide-react'
-import { useState, useMemo, useEffect, useCallback } from 'react'
+import { useState, useMemo, useEffect, useCallback, useDeferredValue } from 'react'
 import {
   isApiConfigured, listChangelog, getMergedPackageLines, getBaseFields,
   getBaseOverrides, getBasePackageOverrides, getCustomPackages, listPackageGroups,
@@ -8,7 +8,7 @@ import {
   type CustomPlaceholder,
 } from '../utils/api'
 import { isAdmin, authHeader } from '../utils/auth'
-import { setExtraPackages, metaToPackage } from '../data/packages'
+import { applyServerPackageMetas } from '../data/packages'
 import { setPackageLines } from '../data/packageLinesStore'
 import { applyDetailOverrides, applyPackageOverrides } from '../data/lineDetailsStore'
 import { AdminVarsEditor } from './AdminVarsEditor'
@@ -77,6 +77,9 @@ type Tab = 'vars' | 'log' | 'engine' | 'placeholders'
 export function AdminView({ onClose, initialTab = 'vars' }: { onClose: () => void; initialTab?: 'vars' | 'engine' }) {
   const [tab, setTab] = useState<Tab>(initialTab)
   const [query, setQuery] = useState('')
+  // O input de busca usa `query`; a filtragem do log e do editor de pacotes (custosa)
+  // consome `deferredQuery`, para não competir com a digitação.
+  const deferredQuery = useDeferredValue(query)
   // Base mesclada (bundled + overrides) e log: priorizam o servidor; caem no
   // bundle (packageLines/changeLog.json) quando não há backend ou a chamada falha.
   const [serverBase, setServerBase] = useState<PackageLines | null>(null)
@@ -109,7 +112,7 @@ export function AdminView({ onClose, initialTab = 'vars' }: { onClose: () => voi
       setPackageLines(base)
       applyDetailOverrides(ovs)
       applyPackageOverrides(pkgOvs)
-      setExtraPackages(Object.fromEntries(metas.map(m => [m.pkgId, metaToPackage(m)])))
+      applyServerPackageMetas(metas)
     } catch { /* offline/erro → mantém bundle */ }
   }, [])
 
@@ -122,7 +125,7 @@ export function AdminView({ onClose, initialTab = 'vars' }: { onClose: () => voi
 
   const filteredLog = useMemo(() => {
     const sorted = [...log].sort((a, b) => b.id - a.id) // mais recentes primeiro
-    const q = query.trim().toLowerCase()
+    const q = deferredQuery.trim().toLowerCase()
     if (!q) return sorted
     return sorted.filter(e =>
       e.pacote.toLowerCase().includes(q) ||
@@ -132,7 +135,7 @@ export function AdminView({ onClose, initialTab = 'vars' }: { onClose: () => voi
       (e.depois ?? '').toLowerCase().includes(q) ||
       e.data.includes(q),
     )
-  }, [query, log])
+  }, [deferredQuery, log])
 
   return (
     <div className="fixed inset-x-0 bottom-0 top-12 z-50 flex items-center bg-black/40 backdrop-blur-sm p-0">
@@ -192,7 +195,7 @@ export function AdminView({ onClose, initialTab = 'vars' }: { onClose: () => voi
         ) : (
           <>
             <AdminVarsEditor
-              query={query} serverBase={serverBase} pkgOverrides={pkgOverrides}
+              query={deferredQuery} serverBase={serverBase} pkgOverrides={pkgOverrides}
               legacyOverrides={serverOverrides} customMetas={customMetas}
               customGroups={customGroups} customPlaceholders={customPlaceholders}
               fields={fields} canEdit={canEdit} reload={reload}

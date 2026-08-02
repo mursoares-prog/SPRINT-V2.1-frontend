@@ -2,7 +2,7 @@
     {
         "id":  1,
         "data":  "2026-06-02",
-        "pacote":  "ABAN 031A",
+        "pacote":  "ABAN 031",
         "linha":  3,
         "tipo":  "edição",
         "resumo":  "Alterado o primeiro XXX para 300 psi (padrão para teste de baixa pressão).",
@@ -12,7 +12,7 @@
     {
         "id":  2,
         "data":  "2026-06-02",
-        "pacote":  "ABAN 031B",
+        "pacote":  "ABAN 256",
         "linha":  3,
         "tipo":  "edição",
         "resumo":  "Alterados os XXX de baixa pressão para 300 psi (padrão para teste de baixa pressão), igual ao 031A.",
@@ -2277,7 +2277,8 @@
         "resumo":  "Ontologia da L2 igualada à da L4: owOperacao 'Instalação/Recuperação de camisão - cabo/arame' → 'Gabaritagem/Estampagem - cabo/arame'; owEtapa 'Instalando camisão - cabo/arame' → 'Gabaritando - cabo/arame'.",
         "antes":  "owOperacao: Instalação/Recuperação de camisão - cabo/arame | owEtapa: Instalando camisão - cabo/arame",
         "depois":  "owOperacao: Gabaritagem/Estampagem - cabo/arame | owEtapa: Gabaritando - cabo/arame"
-    },
+    }
+,
     {
         "id":  230,
         "data":  "2026-06-07",

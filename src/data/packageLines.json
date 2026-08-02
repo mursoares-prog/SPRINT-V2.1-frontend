@@ -1823,7 +1823,7 @@
             "genOperacaoDual": null
         }
     ],
-    "ABAN 031A": [
+    "ABAN 031": [
         {
             "text": "Conectar BOP de arame na SFT.",
             "duration": 2,
@@ -1867,7 +1867,7 @@
             "genOperacaoDual": null
         }
     ],
-    "ABAN 031B": [
+    "ABAN 256": [
         {
             "text": "Conectar BOP de arame na SFT.",
             "duration": 2,
@@ -2001,7 +2001,7 @@
     ],
     "ABAN 034": [
         {
-            "text": "Descer pescador JDC {{diamJdc034=X}}\" para recuperação da haste do plug no TMF.",
+            "text": "Descer {{hasteModelo=pescador JDC X\"}} para recuperação da haste do plug no TMF.",
             "duration": 1.5,
             "bop": null,
             "compensando": true,
@@ -5173,7 +5173,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Deslocar pasta de cimento para posicionamento do tampão de cimento no interior da  coluna.",
+            "text": "Deslocar pasta de cimento para posicionamento do tampão de cimento no interior da  coluna, previsto entre {{cimentBase080=XXX}} m (base) e {{cimentTopo080=XXX}} m (topo).",
             "duration": 2,
             "bop": null,
             "compensando": null,
@@ -5245,7 +5245,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Prosseguir deslocamento da pasta de cimento para posicionamento e auto-balanceio do cimento em anular A e do tampão de cimento no interior da  coluna.",
+            "text": "Prosseguir deslocamento da pasta de cimento para posicionamento e auto-balanceio do cimento em anular A e do tampão de cimento no interior da  coluna, previsto entre {{cimentBase081=XXX}} m (base) e {{cimentTopo081=XXX}} m (topo).",
             "duration": 1,
             "bop": null,
             "compensando": true,
@@ -5513,7 +5513,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Prosseguir deslocamento da pasta de cimento para posicionamento do “cimento em anular A” e do “tampão de cimento no interior da  coluna”. Previsto topo do cimento em anular {{cimentAnularAcimaTampao082=XX}} m acima do topo do tampão de cimento no interior da coluna.",
+            "text": "Prosseguir deslocamento da pasta de cimento para posicionamento do “cimento em anular A” e do “tampão de cimento no interior da  coluna”. Previsto topo do cimento em anular {{cimentAnularAcimaTampao082=XX}} m acima do topo do tampão de cimento no interior da coluna. Tampão de cimento no interior da coluna previsto entre {{cimentBase082=XXX}} m (base) e {{cimentTopo082=XXX}} m (topo).",
             "duration": 1,
             "bop": null,
             "compensando": true,
@@ -5837,7 +5837,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Efetuar deslocamento da pasta de cimento por bullheading para posicionamento e auto balanceio do “cimento em anular A” e do “tampão de cimento no interior da  coluna”.",
+            "text": "Efetuar deslocamento da pasta de cimento por bullheading para posicionamento e auto balanceio do “cimento em anular A” e do “tampão de cimento no interior da  coluna”, previsto entre {{cimentBase083=XXX}} m (base) e {{cimentTopo083=XXX}} m (topo).",
             "duration": 2,
             "bop": null,
             "compensando": true,
@@ -6077,7 +6077,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Efetuar bombeio / deslocamento da pasta de cimento por bullheading para posicionamento do cimento em anular A e do COP/COI. Previsto topo do cimento em anular {{cimentAnularAcimaTampao084=XX}} m acima do topo do tampão de cimento no interior da COP/COI.",
+            "text": "Efetuar bombeio / deslocamento da pasta de cimento por bullheading para posicionamento do cimento em anular A e do COP/COI. Previsto topo do cimento em anular {{cimentAnularAcimaTampao084=XX}} m acima do topo do tampão de cimento no interior da COP/COI. Tampão de cimento no interior da COP/COI previsto entre {{cimentBase084=XXX}} m (base) e {{cimentTopo084=XXX}} m (topo).",
             "duration": 2,
             "bop": null,
             "compensando": null,
@@ -9489,7 +9489,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Realizar aplicação do cimento conforme procedimento da contratada.",
+            "text": "Realizar aplicação do cimento conforme procedimento da contratada, previsto entre {{cimentBase110=XXX}} m (base) e {{cimentTopo110=XXX}} m (topo).",
             "duration": 2,
             "bop": null,
             "compensando": true,
@@ -13583,7 +13583,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Efetuar cimentação Though Tubing no anular A.",
+            "text": "Efetuar cimentação Though Tubing no anular A, previsto entre {{cimentBase155=XXX}} m (base) e {{cimentTopo155=XXX}} m (topo).",
             "duration": 6,
             "bop": null,
             "compensando": true,
@@ -13683,7 +13683,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Efetuar cimentação Though Tubing no anular A.",
+            "text": "Efetuar cimentação Though Tubing no anular A, previsto entre {{cimentBase156=XXX}} m (base) e {{cimentTopo156=XXX}} m (topo).",
             "duration": 6,
             "bop": null,
             "compensando": true,
@@ -13769,7 +13769,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Efetuar cimentação Though Tubing no interior da coluna (topo previsto a {{cimentTopoInteriorColuna=XXX}} m).",
+            "text": "Efetuar cimentação Though Tubing no interior da coluna (base a {{cimentBase157=XXX}} m, topo previsto a {{cimentTopoInteriorColuna=XXX}} m).",
             "duration": 3.5,
             "bop": null,
             "compensando": true,
@@ -13855,7 +13855,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Efetuar tamponamento do reservatório + cimentação Through Tubing no anular A.",
+            "text": "Efetuar tamponamento do reservatório + cimentação Through Tubing no anular A, previsto entre {{cimentBase158=XXX}} m (base) e {{cimentTopo158=XXX}} m (topo).",
             "duration": 7.5,
             "bop": null,
             "compensando": true,
@@ -13955,7 +13955,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Efetuar cimentação do interior da COP/COI.",
+            "text": "Efetuar cimentação do interior da COP/COI, previsto entre {{cimentBase159=XXX}} m (base) e {{cimentTopo159=XXX}} m (topo).",
             "duration": 6,
             "bop": null,
             "compensando": true,
@@ -14069,7 +14069,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Efetuar cimentação do interior do revestimento.",
+            "text": "Efetuar cimentação do interior do revestimento, com topo previsto a {{cimentTopo160=XXX}} m.",
             "duration": 6,
             "bop": null,
             "compensando": true,
@@ -18759,7 +18759,7 @@
             "genOperacaoDual": null
         },
         {
-            "text": "Realizar operação de recimentação com bombeio de tampão de cimento, conforme programa de cimentação.",
+            "text": "Realizar operação de recimentação com bombeio de tampão de cimento, conforme programa de cimentação, previsto entre {{cimentBase202=XXX}} m (base) e {{cimentTopo202=XXX}} m (topo).",
             "duration": 4,
             "bop": null,
             "compensando": true,

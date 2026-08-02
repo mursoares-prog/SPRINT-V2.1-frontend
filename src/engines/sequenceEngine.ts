@@ -3,8 +3,8 @@ import { getPackage, getDuration } from '../data/packages'
 
 function getMountPackage(tech: Technology, rigType: RigType, opType: 'Generalista' | 'LWO', _mode: OperationMode): string | null {
   if (tech === 'wireline') {
-    if (opType === 'LWO') return 'ABAN 031B'
-    return rigType === 'ANC' ? 'ABAN 032' : 'ABAN 031A'
+    if (opType === 'LWO') return 'ABAN 256'
+    return rigType === 'ANC' ? 'ABAN 032' : 'ABAN 031'
   }
   if (tech === 'ct') return rigType === 'ANC' ? 'ABAN 121' : 'ABAN 119'
   if (tech === 'electric') {
@@ -129,7 +129,7 @@ export function applyTransitions(
 
   const resolveMountPkg = (tech: Technology, useAnnularBore: boolean): string | null => {
     if (tech === 'wireline' && rigType === 'ANC' && useAnnularBore) {
-      return operationType === 'LWO' ? 'ABAN 031B' : 'ABAN 033'
+      return operationType === 'LWO' ? 'ABAN 256' : 'ABAN 033'
     }
     return getMountPackage(tech, rigType, operationType, mode())
   }

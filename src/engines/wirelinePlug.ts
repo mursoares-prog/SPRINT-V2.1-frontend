@@ -8,7 +8,9 @@ import type { WirelineTool } from '../utils/api'
 // Tipo de equipamento tratado e as categorias correspondentes na tabela.
 export type ToolKind = 'plug' | 'stv'
 const CATEGORIES: Record<ToolKind, Set<string>> = {
-  plug: new Set(['Tampão', 'Plug']),        // o usuário chama ambos de "plug/tampão"
+  // Plug = tampão: a categoria "Plug" foi unificada em "Tampão" na tabela; 'Plug'
+  // segue aceito só para bases que ainda não passaram pela migração.
+  plug: new Set(['Tampão', 'Plug']),
   stv: new Set(['Válvula de Retenção']),    // STV = standing valve
 }
 
@@ -48,9 +50,10 @@ export function toolsForPackage(tools: WirelineTool[], packageName: string, kind
 }
 
 /** Nome curto do modelo p/ inserir na linha (remove o prefixo de categoria:
- *  "Tampão "/"Plug "/"Válvula de Retenção "/"STV "). */
+ *  "Tampão "/"Plug "/"Válvula de Retenção "/"STV ", e o "de " que às vezes o segue —
+ *  "Tampão de Teste FMC 4,995"" → "Teste FMC 4,995""). */
 export function plugShortName(equipamento: string): string {
-  return equipamento.replace(/^\s*(Tampão|Plug|Válvula de Retenção|STV)\s+/i, '').trim()
+  return equipamento.replace(/^\s*(Tampão|Plug|Válvula de Retenção|STV)\s+(?:de\s+)?/i, '').trim()
 }
 
 const norm = (s: string | null | undefined) => String(s ?? '').toLowerCase().replace(/[^a-z0-9]/g, '')

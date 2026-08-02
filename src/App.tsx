@@ -20,8 +20,8 @@ import { LoginModal } from './components/LoginModal'
 import { setPackageLines } from './data/packageLinesStore'
 import { setPlaceholderDefs } from './data/placeholderDefsStore'
 import { applyDetailOverrides, applyPackageOverrides } from './data/lineDetailsStore'
-import { setExtraPackages, metaToPackage } from './data/packages'
-import { setLogicOverrides, setCustomScopesMeta, getCustomScopesMeta, isBlockScope, setScopeLabels, setScopeGroupsData, getTopScopeGroups, getScopeIdsInGroup, getUngroupedScopeIds } from './data/logicOverrideStore'
+import { applyServerPackageMetas } from './data/packages'
+import { setLogicOverrides, setCustomScopesMeta, getCustomScopesMeta, isBlockScope, setScopeLabels, setScopeGroupsData, getTopScopeGroups, getChildScopeGroups, getScopeIdsInGroup, getUngroupedScopeIds, getAllRigTags, scopeUsesRigCondition } from './data/logicOverrideStore'
 import type { ScopeGroupNode } from './data/logicOverrideStore'
 
 // Aplica a config de pastas (grupos de escopos) vinda do servidor/localStorage ao store.
@@ -58,13 +58,23 @@ function WizardPanel() {
   // dentro desse conjunto pelos metadados de cada escopo (rigTypes/fase). Não há mais a
   // etapa de "Tipo de poço" (wellClass): a organização por pasta a substitui.
   const UNGROUPED = '__ungrouped__'   // bucket "Outros" (escopos fora de qualquer pasta)
-  const [folderId,    setFolderId]    = useState<string>('')
+  // Caminho de pastas escolhido, do topo até a sub-pasta mais funda selecionada. Só o
+  // último elemento filtra os escopos — os anteriores mantêm os passos anteriores visíveis.
+  const [folderPath,  setFolderPath]  = useState<string[]>([])
   const [rigTag,      setRigTag]      = useState<string>('')
   const [phaseFilter, setPhaseFilter] = useState<string>('')
   const [scopeId,     setScopeId]     = useState<ScopeId | ''>('')
+  const folderId = folderPath[folderPath.length - 1] ?? ''
 
   const handleFolderChange = (v: string) => {
-    setFolderId(v); setRigTag(''); setPhaseFilter(''); setScopeId('')
+    setFolderPath(v ? [v] : []); setRigTag(''); setPhaseFilter(''); setScopeId('')
+  }
+  // Escolha em um nível de sub-pasta: `level` = índice do PAI dentro de folderPath.
+  // id vazio = "Todos" (fica no pai, agregando escopos de todas as sub-pastas).
+  const handleSubfolderChange = (level: number, id: string) => {
+    // Trocar a escolha de um nível descarta os níveis mais fundos (e as respostas seguintes).
+    setFolderPath(prev => [...prev.slice(0, level + 1), id])
+    setRigTag(''); setPhaseFilter(''); setScopeId('')
   }
   const handleRigChange = (tag: string) => {
     setRigTag(tag); setPhaseFilter(''); setScopeId('')
@@ -82,6 +92,18 @@ function WizardPanel() {
   const ungroupedIds = getUngroupedScopeIds()
   const hasUngrouped = getCustomScopesMeta().some(cs => ungroupedIds.has(cs.scopeId))
 
+  // Sub-pastas de uma pasta que contêm algum escopo selecionável (direto ou mais fundo).
+  const childFolders = (gid: string) => getChildScopeGroups(gid)
+    .map(g => ({ id: g.id, name: g.name, ids: getScopeIdsInGroup(g.id) }))
+    .filter(g => getCustomScopesMeta().some(cs => g.ids.has(cs.scopeId)))
+
+  // Um passo por nível da árvore de pastas. A escolha é obrigatória: enquanto a pasta atual
+  // tiver sub-pastas, os passos seguintes (sonda/fase/escopo) ficam ocultos.
+  const subfolderLevels = folderPath
+    .map((gid, level) => ({ level, groups: childFolders(gid) }))
+    .filter(l => l.groups.length > 0)
+  const folderReady = !!folderId && childFolders(folderId).length === 0
+
   // Mapeia uma tag de "Tipo de sonda" para (rigType, opType) do motor. Tags de completação
   // molhada resolvem para ANC/DP + opType (caminho com perguntas de wizard); qualquer outra
   // tag é passada como rigType livre (escopos decisions-free — ver getDefaultInputs).
@@ -93,21 +115,35 @@ function WizardPanel() {
 
   // Escopos da pasta selecionada (ou "Outros"), antes dos filtros de sonda/fase.
   const folderScopes = useMemo(() => {
-    if (!folderId) return []
+    if (!folderId || !folderReady) return []
     const ids = folderId === UNGROUPED ? getUngroupedScopeIds() : getScopeIdsInGroup(folderId)
     return getCustomScopesMeta().filter(cs => ids.has(cs.scopeId))
-  }, [folderId])
+  }, [folderId, folderReady])
 
   // Tags de sonda disponíveis na pasta. Vazio → pasta sem escopos com sonda; pula a etapa.
-  const rigTagsForFolder = useMemo(
-    () => [...new Set(folderScopes.flatMap(cs => cs.rigTypes ?? []))].sort(),
-    [folderScopes],
-  )
+  // Um escopo SEM tags cadastradas mas cujo fluxograma tem condições rig_* também exige a
+  // pergunta: sem sonda escolhida, toda condição de sonda falha e os pacotes correspondentes
+  // não são emitidos (empilhamento incoerente na Etapa 2). Nesse caso as opções vêm dos
+  // escopos irmãos da pasta de topo e, em último caso, de todas as tags cadastradas.
+  const rigTagsForFolder = useMemo(() => {
+    const tagsOf = (list: { rigTypes: string[] | null }[]) =>
+      [...new Set(list.flatMap(cs => cs.rigTypes ?? []))].sort()
+    const own = tagsOf(folderScopes)
+    if (own.length) return own
+    if (!folderScopes.some(cs => scopeUsesRigCondition(cs.scopeId))) return []
+    const topId = folderPath[0]
+    const topIds = topId && topId !== UNGROUPED ? getScopeIdsInGroup(topId) : new Set<string>()
+    const inherited = tagsOf(getCustomScopesMeta().filter(cs => topIds.has(cs.scopeId)))
+    return inherited.length ? inherited : getAllRigTags()
+  }, [folderScopes, folderPath])
   const needsRig = rigTagsForFolder.length > 0
 
-  // Escopos após o filtro de sonda (quando a pasta tem sondas).
+  // Escopos após o filtro de sonda. Escopo sem tags vale para qualquer sonda — filtrá-lo
+  // fora o tornaria inalcançável em pastas onde os demais têm tags.
   const rigScopes = useMemo(
-    () => needsRig ? folderScopes.filter(cs => rigTag && cs.rigTypes?.includes(rigTag)) : folderScopes,
+    () => needsRig
+      ? folderScopes.filter(cs => !!rigTag && (!cs.rigTypes?.length || cs.rigTypes.includes(rigTag)))
+      : folderScopes,
     [folderScopes, needsRig, rigTag],
   )
 
@@ -116,7 +152,10 @@ function WizardPanel() {
     () => [...new Set(rigScopes.map(cs => cs.fase).filter((f): f is string => !!f))],
     [rigScopes],
   )
-  const needsPhase = phasesForFolder.length > 0
+  // Com uma única fase possível não há o que escolher — o passo seria redundante (e vira
+  // eco da sub-pasta quando as pastas são organizadas por fase). O filtro também é
+  // dispensável: escopos sem fase passam por todas, então o conjunto final é o mesmo.
+  const needsPhase = phasesForFolder.length > 1
 
   // Lista final de escopos selecionáveis (aplica o filtro de fase quando aplicável).
   const customScopes = useMemo(() => {
@@ -126,7 +165,7 @@ function WizardPanel() {
     return rigScopes.filter(cs => !cs.fase || cs.fase === phaseFilter)
   }, [rigScopes, needsRig, rigTag, needsPhase, phaseFilter])
 
-  const canGenerate = !!folderId && (!needsRig || !!rigTag) && !!scopeId
+  const canGenerate = folderReady && (!needsRig || !!rigTag) && !!scopeId
 
   const handleGenerate = () => {
     if (!scopeId) return
@@ -191,11 +230,13 @@ function WizardPanel() {
             <WizStep label="Tipo de intervenção">
               {topFolders.length > 0 || hasUngrouped ? (
                 <>
+                  {/* A marcação segue o PRIMEIRO nível do caminho — descer numa sub-pasta
+                      não pode apagar a seleção do tipo de intervenção. */}
                   {topFolders.map(f => (
-                    <WizOption key={f.id} active={folderId === f.id} groupSelected={!!folderId} onClick={() => handleFolderChange(f.id)}>{f.name}</WizOption>
+                    <WizOption key={f.id} active={folderPath[0] === f.id} groupSelected={!!folderPath[0]} onClick={() => handleFolderChange(f.id)}>{f.name}</WizOption>
                   ))}
                   {hasUngrouped && (
-                    <WizOption active={folderId === UNGROUPED} groupSelected={!!folderId} onClick={() => handleFolderChange(UNGROUPED)}>Outros</WizOption>
+                    <WizOption active={folderPath[0] === UNGROUPED} groupSelected={!!folderPath[0]} onClick={() => handleFolderChange(UNGROUPED)}>Outros</WizOption>
                   )}
                 </>
               ) : (
@@ -205,7 +246,18 @@ function WizardPanel() {
               )}
             </WizStep>
 
-            {folderId && needsRig && (
+            {/* Sub-pastas: um passo por nível da árvore de pastas (ex.: Fase única ›
+                Extra Abandono). Escolha obrigatória — o passo seguinte só surge depois. */}
+            {subfolderLevels.map(({ level, groups }) => (
+              <WizStep key={folderPath[level]} label="Fase">
+                {groups.map(g => (
+                  <WizOption key={g.id} active={folderPath[level + 1] === g.id} groupSelected={!!folderPath[level + 1]}
+                    onClick={() => handleSubfolderChange(level, g.id)}>{g.name}</WizOption>
+                ))}
+              </WizStep>
+            ))}
+
+            {folderReady && needsRig && (
               <WizStep label="Tipo de sonda">
                 {rigTagsForFolder.map(tag => (
                   <WizOption key={tag} active={rigTag === tag} groupSelected={!!rigTag} onClick={() => handleRigChange(tag)}>{tag}</WizOption>
@@ -216,7 +268,7 @@ function WizardPanel() {
           </div>
 
           {/* ── Escopo ── */}
-          {folderId && (!needsRig || !!rigTag) && needsPhase && (
+          {folderReady && (!needsRig || !!rigTag) && needsPhase && (
             <WizStep label="Fase da intervenção">
               {(['fase_1', 'fase_2', 'fase_unica'] as const)
                 .filter(f => phasesForFolder.includes(f))
@@ -417,9 +469,7 @@ export default function App() {
     listPlaceholderFieldDefs().then(setPlaceholderDefs).catch(() => {})
     getBaseOverrides().then(applyDetailOverrides).catch(() => {})
     getBasePackageOverrides().then(applyPackageOverrides).catch(() => {})
-    getCustomPackages().then(ms => setExtraPackages(
-      Object.fromEntries(ms.map(m => [m.pkgId, metaToPackage(m)])),
-    )).catch(() => {})
+    getCustomPackages().then(applyServerPackageMetas).catch(() => {})
     // Pastas de escopos (organização do editor de Árvores de Decisão) → botões de "Tipo
     // de intervenção" na Etapa 1. Servidor é a fonte; localStorage do editor é o fallback.
     getLogicScopeGroups()

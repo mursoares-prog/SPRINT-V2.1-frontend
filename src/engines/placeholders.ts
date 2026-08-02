@@ -108,7 +108,7 @@ export const SLWLFT_HIGH_PKG_IDS: readonly string[] = (() => {
   const pad = (n: number) => `ABAN ${String(n).padStart(3, '0')}`
   const range = (a: number, b: number) => Array.from({ length: b - a + 1 }, (_, i) => pad(a + i))
   return [
-    'ABAN 031A','ABAN 031B','ABAN 032','ABAN 033', // teste BOP de arame + lubrificador
+    'ABAN 031','ABAN 256','ABAN 032','ABAN 033', // teste BOP de arame + lubrificador
     ...range(36, 60),                               // montagem/teste de trens via QTS
     'ABAN 079',                                     // estampagem paralela via QTS
     ...range(81, 100),                              // perfilagem/CT — posicionar BHA via QTS
@@ -141,6 +141,8 @@ const BASE_PLAN_KEYS = [
   // Adicionados (associação de placeholders órfãos aos pacotes): campos com <Field>
   // na Etapa 3 mas que faltavam aqui, então nunca resolviam mesmo com token no texto.
   'tocEstampador','crProf','pwcIcf','pwcCanhaoRecuperado','condicBroca','condicRaspador',
+  // Tampão de cimento do pacote (seção Cimentação) — um apelido por pacote logo abaixo.
+  'cimentBase','cimentTopo',
   // diamEstampador/diamLocalizador/motorFundo/broca/modeloBroca/ogivaDiam/intervaloInteresseTopo/
   // intervaloInteresseBase — um campo dedicado por pacote (ver *_FIELD acima), não mais apelidos
   // de uma chave-base compartilhada.
@@ -192,6 +194,22 @@ export const PLAN_KEY_ALIASES: Record<string, string> = {
   tocEstampador234: 'tocEstampador',
   // Perfuração (tubing puncher) — TFA mínimo e Ø do tubo associados ao ABAN 101
   tfaMin101: 'tfaMin', diam101: 'diam',
+  // Base/topo do tampão de cimento, um par por pacote de cimentação (seção Cimentação
+  // do assistente). Cada pacote referencia o seu no texto: "... entre {{cimentBase080=XXX}}
+  // m e {{cimentTopo080=XXX}} m", e o admin dá seção/rótulo próprios a cada um.
+  cimentBase080: 'cimentBase', cimentTopo080: 'cimentTopo',
+  cimentBase081: 'cimentBase', cimentTopo081: 'cimentTopo',
+  cimentBase082: 'cimentBase', cimentTopo082: 'cimentTopo',
+  cimentBase083: 'cimentBase', cimentTopo083: 'cimentTopo',
+  cimentBase084: 'cimentBase', cimentTopo084: 'cimentTopo',
+  cimentBase110: 'cimentBase', cimentTopo110: 'cimentTopo',
+  cimentBase155: 'cimentBase', cimentTopo155: 'cimentTopo',
+  cimentBase156: 'cimentBase', cimentTopo156: 'cimentTopo',
+  cimentBase157: 'cimentBase', cimentTopo157: 'cimentTopo',
+  cimentBase158: 'cimentBase', cimentTopo158: 'cimentTopo',
+  cimentBase159: 'cimentBase', cimentTopo159: 'cimentTopo',
+  cimentBase160: 'cimentBase', cimentTopo160: 'cimentTopo',
+  cimentBase202: 'cimentBase', cimentTopo202: 'cimentTopo',
 }
 
 const PLAN_KEYS = new Set<string>([...BASE_PLAN_KEYS, ...Object.keys(PLAN_KEY_ALIASES)])

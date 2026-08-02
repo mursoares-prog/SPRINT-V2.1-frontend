@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from 'react'
+import { useState, useEffect, useRef, useMemo, useDeferredValue } from 'react'
 import React from 'react'
 import { useApp } from '../context/AppContext'
 import type { ScheduleItem } from '../types'
@@ -723,21 +723,21 @@ function PackageList({ items, showHours, overrideActive, onDurationChange }: {
         <div
           onClick={e => e.stopPropagation()}
           style={{ left: contextMenu.x, top: contextMenu.y }}
-          className="fixed z-50 min-w-[180px] rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-2xl py-1 flex flex-col">
+          className="fixed z-50 w-max rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-2xl py-1 flex flex-col">
           <button
             onClick={() => { setPickerAfterUid(prevUid(contextMenu.uid)); setContextMenu(null) }}
-            className="text-left px-3 py-1.5 text-xs text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">
+            className="text-left whitespace-nowrap px-2.5 py-1.5 text-xs text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">
             ↑ Inserir pacote acima
           </button>
           <button
             onClick={() => { setPickerAfterUid(contextMenu.uid); setContextMenu(null) }}
-            className="text-left px-3 py-1.5 text-xs text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">
+            className="text-left whitespace-nowrap px-2.5 py-1.5 text-xs text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">
             ↓ Inserir pacote abaixo
           </button>
           <div className="my-1 border-t border-slate-200 dark:border-slate-700" />
           <button
             onClick={() => { dispatch({ type: 'REMOVE_SCHEDULE_ITEM', uid: contextMenu.uid }); setContextMenu(null) }}
-            className="text-left px-3 py-1.5 text-xs text-[#7d1935] dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors">
+            className="text-left whitespace-nowrap px-2.5 py-1.5 text-xs text-[#7d1935] dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors">
             ✕ Excluir pacote
           </button>
         </div>
@@ -753,6 +753,7 @@ function PackageList({ items, showHours, overrideActive, onDurationChange }: {
 function SchedulePackagePickerModal({ afterUid, onClose }: { afterUid: string | null; onClose: () => void }) {
   const { dispatch } = useApp()
   const [query, setQuery] = useState('')
+  const deferredQuery = useDeferredValue(query)
   const inputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => { inputRef.current?.focus() }, [])
@@ -765,14 +766,14 @@ function SchedulePackagePickerModal({ afterUid, onClose }: { afterUid: string | 
   const allPackages = useMemo(() => Object.values(getAllPackages()), [])
 
   const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase()
+    const q = deferredQuery.trim().toLowerCase()
     if (!q) return allPackages
     return allPackages.filter(p =>
       p.id.toLowerCase().includes(q) ||
       p.name.toLowerCase().includes(q) ||
       p.category.toLowerCase().includes(q)
     )
-  }, [allPackages, query])
+  }, [allPackages, deferredQuery])
 
   const grouped = useMemo(() => {
     const order: string[] = []
@@ -797,7 +798,7 @@ function SchedulePackagePickerModal({ afterUid, onClose }: { afterUid: string | 
       >
         <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 dark:border-slate-800">
           <div className="flex items-center gap-2">
-            <span className="text-sm font-bold text-slate-700 dark:text-slate-200 uppercase tracking-wide" style={{ fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif", letterSpacing: '0.1em' }}>
+            <span className="text-sm font-bold text-slate-700 dark:text-slate-200 uppercase tracking-wide" style={{ fontFamily: "'Petrobras Sans', 'Helvetica Neue', Helvetica, Arial, sans-serif", letterSpacing: '0.1em' }}>
               Inserir pacote
             </span>
             <span className="text-xs text-slate-600 dark:text-slate-500">{filtered.length} resultado{filtered.length === 1 ? '' : 's'}</span>
@@ -956,7 +957,7 @@ export function GanttChart({ items }: { items: ScheduleItem[] }) {
           return (
             <div key={sectionKey} className="mb-5">
               <div className="flex items-center mb-1.5 cursor-pointer select-none" onClick={() => togglePhase(sectionKey)}>
-                <div style={{ width: labelW, fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif" }}
+                <div style={{ width: labelW, fontFamily: "'Petrobras Sans', 'Helvetica Neue', Helvetica, Arial, sans-serif" }}
                   className="text-xs font-bold px-2 py-1 rounded-l uppercase tracking-widest bg-[#ebebeb] dark:bg-slate-800 text-slate-700 dark:text-slate-300 shrink-0 flex items-center gap-1.5">
                   <span className="font-bold text-sm leading-none">{collapsedPhases.has(sectionKey) ? '+' : '−'}</span>
                   {phase}

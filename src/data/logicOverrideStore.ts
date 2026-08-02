@@ -1,4 +1,4 @@
-import type { LSec } from './logicSecs'
+import type { LSec, LDec, LSeqEntry } from './logicSecs'
 import LOGIC_BUNDLE from './logicScopesBundle.json'
 
 // ── Blocos de lógica reutilizáveis ──────────────────────────────────────────
@@ -134,6 +134,12 @@ export function getTopScopeGroups(): ScopeGroupNode[] {
   return _scopeGroups.filter(g => g.parentId === null)
 }
 
+// Sub-pastas diretas de uma pasta, na ordem cadastrada. A Etapa 1 usa isto para descer
+// na árvore de pastas (Completação Molhada › Fase única › Extra Abandono …).
+export function getChildScopeGroups(parentId: string): ScopeGroupNode[] {
+  return _scopeGroups.filter(g => g.parentId === parentId)
+}
+
 // scopeIds cujo membership cai na subárvore de `groupId` (o próprio grupo ou descendentes).
 export function getScopeIdsInGroup(groupId: string): Set<string> {
   const subtree = new Set<string>([groupId])
@@ -181,4 +187,36 @@ export function expandScopeRefs(sections: LSec[], seen: Set<string> = new Set())
     }
   }
   return out
+}
+
+// Todas as tags de "Tipo de sonda" em uso, de qualquer classe de poço.
+export function getAllRigTags(): string[] {
+  return [...new Set(_customScopes.flatMap(s => s.rigTypes ?? []))].sort()
+}
+
+// O fluxograma do escopo (com refs expandidos) emite pacotes condicionados à sonda?
+// A Etapa 1 usa isto para exigir o "Tipo de sonda" mesmo em escopo sem tags cadastradas:
+// sem sonda escolhida, TODA condição rig_* falha e os pacotes correspondentes somem.
+export function scopeUsesRigCondition(scopeId: string): boolean {
+  const secs = expandScopeRefs(resolveScopeSections(scopeId))
+  let found = false
+  const scanPkgs = (pkgs?: { condition?: string }[]) => {
+    if (found) return
+    if (pkgs?.some(p => p.condition?.startsWith('rig_'))) found = true
+  }
+  const scanSeq = (es?: LSeqEntry[]) => (es ?? []).forEach(e => {
+    scanPkgs(e.packages); (e.sub ?? []).forEach(scanDec); (e.afterSub ?? []).forEach(scanDec)
+  })
+  function scanDec(dec: LDec): void {
+    scanPkgs(dec.packages)
+    scanSeq(dec.after)
+    ;(dec.afterDec ?? []).forEach(scanDec)
+    for (const a of dec.answers) {
+      scanPkgs(a.packages)
+      scanSeq(a.seq); scanSeq(a.after)
+      ;(a.sub ?? []).forEach(scanDec); (a.afterSub ?? []).forEach(scanDec)
+    }
+  }
+  for (const sec of secs) { scanPkgs(sec.always); sec.decisions.forEach(scanDec) }
+  return found
 }

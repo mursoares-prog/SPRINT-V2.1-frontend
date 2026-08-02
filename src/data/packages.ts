@@ -64,8 +64,8 @@ export const PACKAGES: Record<string, Package> = {
   'ABAN 226': { id: 'ABAN 226', name: 'Confirmação da estanqueidade do poço', category: 'Testes ANM', technology: 'none', applicableRig: ALL, applicableOp: ALL_OP },
 
   // ── Arame ────────────────────────────────────────────────────────────────
-  'ABAN 031A': { id: 'ABAN 031A', name: 'Arame - Montagem e teste da unidade sobre SFT (sonda generalista)', category: 'Arame', technology: 'wireline', applicableRig: DP, applicableOp: GEN, isMountOp: true },
-  'ABAN 031B': { id: 'ABAN 031B', name: 'Arame - Montagem e teste da unidade sobre SFT (sonda LWO)', category: 'Arame', technology: 'wireline', applicableRig: DP, applicableOp: LWO, isMountOp: true },
+  'ABAN 031': { id: 'ABAN 031', name: 'Arame - Montagem e teste da unidade sobre SFT (sonda generalista)', category: 'Arame', technology: 'wireline', applicableRig: DP, applicableOp: GEN, isMountOp: true },
+  'ABAN 256': { id: 'ABAN 256', name: 'Arame - Montagem e teste da unidade sobre SFT (sonda LWO)', category: 'Arame', technology: 'wireline', applicableRig: DP, applicableOp: LWO, isMountOp: true },
   'ABAN 032':  { id: 'ABAN 032',  name: 'Arame - Montagem e teste da unidade sobre Terminal Head - Bore de produção', category: 'Arame', technology: 'wireline', applicableRig: ANC, applicableOp: ALL_OP, isMountOp: true },
   'ABAN 033':  { id: 'ABAN 033',  name: 'Arame - Montagem e teste da unidade sobre Terminal Head - Bore de anular', category: 'Arame', technology: 'wireline', applicableRig: ANC, applicableOp: ALL_OP, isMountOp: true },
   'ABAN 034':  { id: 'ABAN 034',  name: 'Arame - Retirada de plug no TMF - Bore de produção', category: 'Arame', technology: 'wireline', applicableRig: ALL, applicableOp: ALL_OP, nRuns: 2 },
@@ -444,8 +444,8 @@ export const PACKAGE_DURATIONS: Record<string, { P50: number; P90: number }> = {
   'ABAN 028': { P50: 0.23, P90: 0.26 },
   'ABAN 029': { P50: 0.15, P90: 0.2  },
   'ABAN 030': { P50: 0.39, P90: 0.41 },
-  'ABAN 031A': { P50: 0.37, P90: 0.39 },
-  'ABAN 031B': { P50: 0.37, P90: 0.39 },
+  'ABAN 031': { P50: 0.37, P90: 0.39 },
+  'ABAN 256': { P50: 0.37, P90: 0.39 },
   'ABAN 032': { P50: 0.37, P90: 0.39 },
   'ABAN 033': { P50: 0.37, P90: 0.39 },
   'ABAN 034': { P50: 0.28, P90: 0.32 },
@@ -704,6 +704,46 @@ let EXTRA_PACKAGES: Record<string, Package> = {}
 export function setExtraPackages(map: Record<string, Package>): void {
   EXTRA_PACKAGES = map && typeof map === 'object' ? map : {}
 }
+
+/** Um id é do bundle (nome/tecnologia vindos deste arquivo) ou customizado? */
+export function isBundlePackage(id: string): boolean {
+  return id in PACKAGES
+}
+
+// Nomes ORIGINAIS (do bundle) dos pacotes renomeados no Admin — o renome é aplicado
+// mutando PACKAGES, para que TODA a UI (etapa 3, cronograma, exportações) enxergue o
+// nome novo sem precisar consultar um segundo mapa.
+const ORIGINAL_NAMES: Record<string, string> = {}
+
+/** Nome de bundle do pacote, ignorando um eventual renome do Admin. */
+export function originalPackageName(id: string): string {
+  return ORIGINAL_NAMES[id] ?? PACKAGES[id]?.name ?? ''
+}
+
+/** Aplica as metas de pacote vindas do servidor (boot/Admin reload): ids do bundle
+ *  são RENOMES (só o nome é editável); os demais são pacotes customizados. */
+export function applyServerPackageMetas(metas: PackageMetaLike[]): void {
+  const renames: Record<string, string> = {}
+  const extras: Record<string, Package> = {}
+  for (const m of metas) {
+    if (isBundlePackage(m.pkgId)) renames[m.pkgId] = m.name
+    else extras[m.pkgId] = metaToPackage(m)
+  }
+  setExtraPackages(extras)
+  // Restaura os que deixaram de ter renome (ex.: revertido no log de alterações).
+  for (const id of Object.keys(ORIGINAL_NAMES)) {
+    if (id in renames) continue
+    PACKAGES[id].name = ORIGINAL_NAMES[id]
+    delete ORIGINAL_NAMES[id]
+  }
+  for (const [id, name] of Object.entries(renames)) {
+    if (!name?.trim()) continue
+    if (!(id in ORIGINAL_NAMES)) ORIGINAL_NAMES[id] = PACKAGES[id].name
+    PACKAGES[id].name = name
+  }
+}
+
+type PackageMetaLike = { pkgId: string; name: string; category: string; technology: string }
 
 /** Todos os pacotes ativos = bundle estático ∪ customizados do servidor. */
 export function getAllPackages(): Record<string, Package> {

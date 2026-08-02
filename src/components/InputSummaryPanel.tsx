@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback, createContext, useContext } from 'react'
+import { useState, useRef, useEffect, useCallback, createContext, useContext, useDeferredValue } from 'react'
 import { createPortal } from 'react-dom'
 import { X, Search, ChevronUp, ChevronDown, Lock } from 'lucide-react'
 import { useApp } from '../context/AppContext'
@@ -110,6 +110,9 @@ export function InputSummaryPanel({ onClose }: { onClose?: () => void }) {
 
   // ── Search ──
   const [search, setSearch] = useState('')
+  // O input usa `search`; a varredura do DOM + realce (custosos) consomem
+  // `deferredSearch`, para não travar a digitação e corromper o campo.
+  const deferredSearch = useDeferredValue(search)
   const [matchIdx, setMatchIdx] = useState(0)
   const [matchCount, setMatchCount] = useState(0)
   const scrollAreaRef = useRef<HTMLDivElement>(null)
@@ -137,18 +140,18 @@ export function InputSummaryPanel({ onClose }: { onClose?: () => void }) {
       activeContainerRef.current.style.outline = ''
       activeContainerRef.current = null
     }
-    if (!search.trim() || !scrollAreaRef.current) { setMatchCount(0); setMatchIdx(0); return }
-    const q = search.toLowerCase()
+    if (!deferredSearch.trim() || !scrollAreaRef.current) { setMatchCount(0); setMatchIdx(0); return }
+    const q = deferredSearch.toLowerCase()
     const matches = Array.from(scrollAreaRef.current.querySelectorAll('[data-isp-label]'))
       .filter(el => el.textContent?.toLowerCase().includes(q))
     setMatchCount(matches.length)
     setMatchIdx(0)
     applyHighlight(0, matches)
-  }, [search, applyHighlight])
+  }, [deferredSearch, applyHighlight])
 
   const navigate = (dir: 1 | -1) => {
     if (matchCount === 0 || !scrollAreaRef.current) return
-    const q = search.toLowerCase()
+    const q = deferredSearch.toLowerCase()
     const matches = Array.from(scrollAreaRef.current.querySelectorAll('[data-isp-label]'))
       .filter(el => el.textContent?.toLowerCase().includes(q))
     const next = ((matchIdx + dir) % matchCount + matchCount) % matchCount
@@ -222,7 +225,7 @@ export function InputSummaryPanel({ onClose }: { onClose?: () => void }) {
         </div>
       )}
 
-      <SearchCtx.Provider value={search}>
+      <SearchCtx.Provider value={deferredSearch}>
       <div ref={scrollAreaRef} className="flex-1 overflow-y-auto p-4 space-y-5 scrollbar-custom">
 
         <div className={overrideActive ? 'opacity-60 pointer-events-none select-none space-y-5' : 'space-y-5'}>

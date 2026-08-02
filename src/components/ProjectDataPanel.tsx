@@ -10,7 +10,7 @@ import {
   CIMENT_ALINHAMENTO_FIELD, CIMENT_PLUG_VOL_FIELD, CIMENT_PLUG_DENS_FIELD, CIMENT_FCBA_DENS_FIELD,
   CR_DIAM_FIELD, CIMENT_ANULAR_ACIMA_TAMPAO_FIELD, CIMENT_TOPO_REVCIM_FIELD,
   TAMPAO_ABANDONO_DENS_FIELD, TAMPAO_ABANDONO_TOPO_FIELD, TAMPAO_ABANDONO_COMPR_FIELD,
-  PLAN_KEY_ALIASES,
+  PLAN_KEY_ALIASES, isPlanKey,
 } from '../engines/placeholders'
 import { tokenBinding, tokenUsedByPackages } from '../engines/assistantFields'
 import { getPackageLines } from '../data/packageLinesStore'
@@ -27,9 +27,10 @@ const TOOL_PKGS: Record<string, { kind: ToolKind; nipple?: NippleSpec; noHaste?:
   'ABAN 041': { kind: 'plug' }, 'ABAN 051': { kind: 'plug' },          // plug nipple F 2,81"
   'ABAN 042': { kind: 'plug', nipple: { type: 'F', diam: '3.75' } },   // plug TH 3,75"
   'ABAN 052': { kind: 'plug', nipple: { type: 'F', diam: '3.75' } },
-  // TMF bore de produção (plug FDB 3,81"). 034 já usa {{modelo034}} e {{diamJdc034}} p/ a haste (noHaste).
+  // TMF bore de produção (plug FDB 3,81"). 034 usa {{modelo034}} p/ o pescador do plug e
+  // {{hasteModelo}} p/ o da haste (como 035/050/051/052).
   'ABAN 249': { kind: 'plug', nipple: { type: 'F', diam: '3.81' } },
-  'ABAN 034': { kind: 'plug', nipple: { type: 'F', diam: '3.81' }, noHaste: true },
+  'ABAN 034': { kind: 'plug', nipple: { type: 'F', diam: '3.81' } },
   // TMF bore de anular (plug FWG 1,87" ~ 1,875"; matching ignora 3ª casa decimal). Instalação
   // é etapa única (sem haste → noHaste); só a retirada 035 tem haste.
   'ABAN 250': { kind: 'plug', nipple: { type: 'F', diam: '1.87' }, noHaste: true },
@@ -68,7 +69,42 @@ const LocateCtx = createContext<{
   // "mortas"). Usa a mesma fonte da verdade do clique (lineIdsForLocate) — ver
   // ProjectDataPanel (canLocate). Ausente ⇒ comporta-se como sempre-localizável.
   canLocate?: (t: LocateTarget) => boolean
+  // O campo altera alguma linha do projeto? Campos hardcoded no JSX cujo token não é
+  // referenciado por nenhum template dos pacotes do cronograma (nem via apelido/derivação)
+  // não têm efeito nenhum — somem do assistente. Ausente ⇒ comporta-se como sempre vivo.
+  isLive?: (t: LocateTarget) => boolean
 } | null>(null)
+
+/** Sobra algo para mostrar numa subárvore de campos? Percorre os elementos como
+ *  extractFieldLabels: um elemento com `locate` é um campo (vale só se estiver vivo);
+ *  qualquer outro conteúdo (texto, toggles, selects) conta como vivo. Usado para não
+ *  oferecer o expansor "+" de um item de BHA cujos campos sumiram todos. */
+function hasLiveContent(node: React.ReactNode, isLive: (t: LocateTarget) => boolean): boolean {
+  let live = false
+  React.Children.forEach(node, child => {
+    if (live) return
+    if (child === null || child === undefined || typeof child === 'boolean') return
+    if (typeof child === 'string' || typeof child === 'number') {
+      if (String(child).trim()) live = true
+      return
+    }
+    if (!React.isValidElement(child)) return
+    const props = child.props as Record<string, unknown>
+    const locate = props.locate as LocateTarget | undefined
+    if (locate) { if (isLive(locate)) live = true; return }
+    if (props.children != null) { if (hasLiveContent(props.children as React.ReactNode, isLive)) live = true; return }
+    live = true  // elemento próprio sem campo dentro (ex.: input/ícone) → conteúdo real
+  })
+  return live
+}
+
+/** Campo hardcoded morto (token sem consumidor nos templates do projeto) ⇒ não renderiza. */
+function isDeadField(
+  ctx: { isLive?: (t: LocateTarget) => boolean } | null,
+  target: LocateTarget | undefined,
+): boolean {
+  return !!(target && ctx?.isLive && !ctx.isLive(target))
+}
 
 /** Mostra a mira? Precisa de onLocate + alvo + (quando há canLocate) que o alvo localize algo. */
 function showLocateFor(
@@ -94,7 +130,25 @@ const BHA_TECH: Partial<Record<string, string>> = {
 }
 const BHA_TECH_ORDER = ['wireline', 'electric', 'ct', 'workstring'] as const
 
+// Campos que continuam visíveis mesmo sem token que os consuma nas linhas: o valor
+// alimenta OUTRA coisa que não a substituição de texto (ver isLive).
+//   • navegação → duração das etapas de navegação e o nome do poço/cronograma;
+//   • mapecab   → semeia os testes de pressão do BOP/kill&choke ao ser digitado.
+const LIVE_WITHOUT_TOKEN = new Set<string>([
+  'poco', 'pocoOrigem', 'distanciaEntrePocos', 'velocidadeMedia', 'mapecab',
+])
+
 // ── Generic field — horizontal layout ─────────────────────────────────────────
+// Campo global de ProjectData desdobrado por pacote (token = a própria chave do campo).
+// `fallback` só é usado quando o token não tem def na aba Place Holders.
+interface PerPkgField {
+  token: string
+  pkgId: string
+  fallback: string
+  unit?: string
+  placeholder?: string
+}
+
 function Field({ label, value, onChange, placeholder, unit, readOnly, locate }: {
   label: string; value: string; onChange: (v: string) => void; placeholder?: string; unit?: string; readOnly?: boolean
   locate?: LocateTarget
@@ -104,6 +158,7 @@ function Field({ label, value, onChange, placeholder, unit, readOnly, locate }: 
   const showLocate = showLocateFor(ctx, locate)
   const active = showLocate && locateEq(ctx!.active, locate!)
   const highlighted = !!(filter && normalizeFilter(label).includes(normalizeFilter(filter)))
+  if (isDeadField(ctx, locate)) return null
   return (
     <div className={`flex items-start justify-between gap-2 py-1 border-b border-slate-200 dark:border-slate-800 last:border-0 rounded ${highlighted ? 'bg-sky-50 dark:bg-sky-900/30' : ''}`}>
       <span className={`text-xs leading-snug flex items-center gap-1 min-w-0 flex-1 ${highlighted ? 'text-sky-800 dark:text-sky-300 font-semibold' : 'text-slate-600 dark:text-slate-500'}`}>
@@ -163,6 +218,7 @@ function PicklistField({ label, value, options, onChange, locate }: {
   const active = showLocate && locateEq(ctx!.active, locate!)
   const highlighted = !!(filter && normalizeFilter(label).includes(normalizeFilter(filter)))
   const listId = `ph-opts-${label.replace(/\W+/g, '-')}`
+  if (isDeadField(ctx, locate)) return null
   return (
     <div className={`flex items-start justify-between gap-2 py-1 border-b border-slate-200 dark:border-slate-800 last:border-0 rounded ${highlighted ? 'bg-sky-50 dark:bg-sky-900/30' : ''}`}>
       <span className={`text-xs leading-snug flex items-center gap-1 min-w-0 flex-1 ${highlighted ? 'text-sky-800 dark:text-sky-300 font-semibold' : 'text-slate-600 dark:text-slate-500'}`}>
@@ -193,6 +249,7 @@ function BooleanField({ label, value, onChange, locate }: {
   const ctx = useContext(LocateCtx)
   const showLocate = showLocateFor(ctx, locate)
   const active = showLocate && locateEq(ctx!.active, locate!)
+  if (isDeadField(ctx, locate)) return null
   return (
     <div className="flex items-center gap-2 py-0.5">
       <span className="text-xs text-slate-700 dark:text-slate-400 shrink-0 flex-1 flex items-center gap-1">
@@ -882,7 +939,8 @@ export function ProjectDataPanel({ onLocate, onClearLocate, locatedTarget, oneBy
         }
       }
     }
-    // Cimentação: topos/pwc/profs afetam todas as linhas de cimentação; cimentPlugs por uid
+    // Cimentação: topos/pwc/profs afetam todas as linhas de cimentação; campos por item
+    // (base/topo do tampão, PWC) afetam as linhas do próprio uid via bhaPlans.
     if (sectionId === 'cimentacao') {
       const topPwcProfChanged = ['cimentTopoAnularA','cimentTopoInteriorColuna','cimentTopoRevcim247','cimentTopoRevcim248','cimentPwc','cimentProfPerfuracao','cimentProfBaseCimentacao','cimentCrProfundidade',
         'cimentAlinhamento078','cimentAlinhamento083','cimentAlinhamento084',
@@ -891,10 +949,10 @@ export function ProjectDataPanel({ onLocate, onClearLocate, locatedTarget, oneBy
       if (topPwcProfChanged) {
         if (state.fineTuningItems.some(i => /cimenta|pwc/i.test(i.packageName) && i.lines.length > 0)) return true
       }
-      const draftPlugs = draft.cimentPlugs ?? {}
-      const statePlugs = state.projectData.cimentPlugs ?? {}
-      for (const uid of new Set([...Object.keys(draftPlugs), ...Object.keys(statePlugs)])) {
-        if (JSON.stringify(draftPlugs[uid]) !== JSON.stringify(statePlugs[uid])) {
+      const draftPlans = draft.bhaPlans ?? {}
+      const statePlans = state.projectData.bhaPlans ?? {}
+      for (const uid of new Set([...Object.keys(draftPlans), ...Object.keys(statePlans)])) {
+        if (JSON.stringify(draftPlans[uid]) !== JSON.stringify(statePlans[uid])) {
           if (state.fineTuningItems.some(i => i.uid === uid && i.lines.length > 0)) return true
         }
       }
@@ -940,14 +998,68 @@ export function ProjectDataPanel({ onLocate, onClearLocate, locatedTarget, oneBy
   for (const dd of getPlaceholderDefs()) defLabelByToken.set(dd.token, dd.label)
   const defLabel = (token: string, fallback: string): string => defLabelByToken.get(token) ?? fallback
 
+  // Subgrupo/ordem do def (mesma precedência do rótulo: live sobre o snapshot). Campos
+  // globais desdobrados por pacote têm rótulo IDÊNTICO entre pacotes (ex.: "Tampão abandono —
+  // densidade pasta" no ABAN 199 e no 200) — na aba Place Holders quem separa é o SUBGRUPO,
+  // então o assistente também agrupa por ele em vez de prefixar o rótulo com o id do pacote.
+  const defSubgroupByToken = new Map<string, string>()
+  const defOrderByToken = new Map<string, number>()
+  const defUnitByToken = new Map<string, string>()
+  for (const dd of [...activeDefs, ...getPlaceholderDefs()]) {
+    defSubgroupByToken.set(dd.token, dd.subgroup?.trim() || '')
+    defOrderByToken.set(dd.token, dd.orderIndex)
+    defUnitByToken.set(dd.token, dd.unit?.trim() || '')
+  }
+  const defSubgroup = (token: string): string => defSubgroupByToken.get(token) ?? ''
+  const defUnit = (token: string): string | undefined => defUnitByToken.get(token) || undefined
+
+  // Campos globais da seção Cimentação desdobrados por pacote, agrupados sob o subgrupo do
+  // def como cabeçalho (grava sempre via setCimentacao).
+  // Sem subgrupo (def antigo/ausente) o rótulo volta a levar o id do pacote como prefixo —
+  // senão dois pacotes exibiriam o mesmo texto sem nada que os distinga.
+  const renderPerPkgCimentFields = (entries: PerPkgField[]): React.ReactNode => {
+    // Campo morto some (mesma regra do <Field>) — aqui antes de agrupar, senão sobraria
+    // o cabeçalho de um subgrupo sem nenhum campo embaixo.
+    const live = entries.filter(e => isLive({ kind: 'data', field: e.token as keyof ProjectData }))
+    if (live.length === 0) return null
+    const sorted = [...live].sort((a, b) =>
+      (defOrderByToken.get(a.token) ?? Number.POSITIVE_INFINITY) - (defOrderByToken.get(b.token) ?? Number.POSITIVE_INFINITY))
+    const groups: { title: string; items: PerPkgField[] }[] = []
+    for (const e of sorted) {
+      const title = defSubgroup(e.token)
+      const last = groups.find(g => g.title === title)
+      if (last) last.items.push(e)
+      else groups.push({ title, items: [e] })
+    }
+    return groups.map(g => (
+      <div key={g.title || '_'} className={g.title ? 'mt-2 pt-2 border-t border-slate-200 dark:border-slate-800' : undefined}>
+        {g.title && (
+          <div className="text-[10px] font-semibold text-slate-600 dark:text-slate-500 uppercase tracking-widest mb-1 leading-snug">{g.title}</div>
+        )}
+        {g.items.map(e => {
+          const label = defLabel(e.token, e.fallback)
+          return (
+            <Field key={e.token} label={g.title ? label : `${e.pkgId} — ${label}`}
+              value={String((d as unknown as Record<string, unknown>)[e.token] ?? '')}
+              onChange={v => setCimentacao({ [e.token]: v })}
+              unit={e.unit} placeholder={e.placeholder}
+              locate={{ kind: 'data', field: e.token as keyof ProjectData }} />
+          )
+        })}
+      </div>
+    ))
+  }
+
   // Token de def que rotula um campo de BHA ligado à chave `key` no pacote do item: o token
   // efetivamente referenciado nas linhas do pacote que resolve para `key` (direto OU via
   // apelido por-pacote em PLAN_KEY_ALIASES). Ex.: key 'modelo' no ABAN 034 → 'modelo034'.
   // Cai na própria `key` quando nada é encontrado (fallback de rótulo continua o hardcoded).
-  const defTokenCache = useRef(new Map<string, string>())
+  // Cache em useMemo (não useRef): é lido/escrito durante o render, e o cache de um
+  // lookup puro sobre os templates não é estado de instância.
+  const defTokenCache = useMemo(() => new Map<string, string>(), [])
   const defTokenForPlanKey = (pkgId: string, key: string): string => {
     const ck = `${pkgId}::${key}`
-    const cached = defTokenCache.current.get(ck)
+    const cached = defTokenCache.get(ck)
     if (cached !== undefined) return cached
     let found = key
     for (const l of (getPackageLines<{ text?: string }>()[pkgId] ?? [])) {
@@ -960,8 +1072,39 @@ export function ProjectDataPanel({ onLocate, onClearLocate, locatedTarget, oneBy
       }
       if (hit) break
     }
-    defTokenCache.current.set(ck, found)
+    defTokenCache.set(ck, found)
     return found
+  }
+
+  // Campos de BHA de um pacote derivados dos TOKENS das suas linhas (não do nome do pacote).
+  // Os blocos do card de BHA são ligados por regex sobre o nome ("instala.*bpp", "perfura",
+  // …); pacote cujo nome não casa com nenhum deles ficava só com o cabeçalho, sem entrada
+  // para os seus placeholders (ex.: ABAN 198/199/200/201, "Coluna de trabalho - BPP + Tampão
+  // de cimento"). Esta lista é o fallback: o que o template realmente pede, na ordem da aba
+  // Place Holders. Retorna [] quando algum bloco por nome já cobre o item.
+  const planFieldsCache = useMemo(() => new Map<string, { token: string; key: keyof BhaPlanFields }[]>(), [])
+  const planFieldsForPackage = (pkgId: string): { token: string; key: keyof BhaPlanFields }[] => {
+    const cached = planFieldsCache.get(pkgId)
+    if (cached) return cached
+    const seen = new Set<string>()
+    const out: { token: string; key: keyof BhaPlanFields }[] = []
+    for (const l of (getPackageLines<{ text?: string }>()[pkgId] ?? [])) {
+      const t = l?.text
+      if (typeof t !== 'string') continue
+      for (const m of t.matchAll(/\{\{(\w+)=/g)) {
+        const token = m[1]
+        if (seen.has(token) || !isPlanKey(token)) continue
+        seen.add(token)
+        const key = PLAN_KEY_ALIASES[token] ?? token
+        // Base/topo do tampão têm lugar próprio na seção Cimentação — não duplicar aqui.
+        if (key === 'cimentBase' || key === 'cimentTopo') continue
+        out.push({ token, key: key as keyof BhaPlanFields })
+      }
+    }
+    out.sort((a, b) =>
+      (defOrderByToken.get(a.token) ?? Number.POSITIVE_INFINITY) - (defOrderByToken.get(b.token) ?? Number.POSITIVE_INFINITY))
+    planFieldsCache.set(pkgId, out)
+    return out
   }
 
   // Toggle booleano Sim/Não (ex.: flags de Hold Point) — rótulo vindo do admin via defLabel.
@@ -997,6 +1140,20 @@ export function ProjectDataPanel({ onLocate, onClearLocate, locatedTarget, oneBy
       return hit
     }
   }, [state.fineTuningItems, state.projectData])
+
+  // ── Campo hardcoded órfão → não aparece ───────────────────────────────────────
+  // As seções orientadas a dados já filtram por uso nos templates (tokenUsedByPackages);
+  // os campos ainda hardcoded no JSX não filtravam nada e sobreviviam mesmo sem nenhum
+  // token que os consumisse (ex.: "Drift Ring" na gabaritagem de FT, as profundidades
+  // read-only de Cimentação). Aqui o critério é o mesmo da mira: se o campo não altera
+  // NENHUMA linha do projeto, ele não tem efeito e some. Usa a sonda (canLocate), não a
+  // busca textual do token — assim cobre apelidos por-pacote e derivações indiretas.
+  const noProjectItems = state.fineTuningItems.filter(i => !i.isBlank).length === 0
+  const isLive = (t: LocateTarget): boolean => {
+    if (noProjectItems) return true                                   // sem cronograma, nada a derivar
+    if (t.kind === 'data' && LIVE_WITHOUT_TOKEN.has(t.field as string)) return true
+    return canLocate(t)
+  }
 
   // Renderiza uma seção de campos GLOBAIS (ProjectData) 100% a partir dos defs do grupo:
   // visibilidade derivada dos templates, rótulo/unidade/tipo/ordem vindos do servidor.
@@ -1043,7 +1200,7 @@ export function ProjectDataPanel({ onLocate, onClearLocate, locatedTarget, oneBy
   const [sectionFilter, setSectionFilter] = useState('')
   const [showTools, setShowTools] = useState(false)
   return (
-    <LocateCtx.Provider value={{ onLocate, onClear: onClearLocate, active: locatedTarget ?? null, canLocate }}>
+    <LocateCtx.Provider value={{ onLocate, onClear: onClearLocate, active: locatedTarget ?? null, canLocate, isLive }}>
     <div className="flex flex-col h-full bg-[#f5f5f5] dark:bg-slate-900 overflow-hidden">
       {/* Subtítulo */}
       <div className="shrink-0 px-4 py-1.5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between gap-2">
@@ -1334,7 +1491,10 @@ export function ProjectDataPanel({ onLocate, onClearLocate, locatedTarget, oneBy
                             const intervaloTopoKey = INTERVALO_INTERESSE_TOPO_FIELD[item.packageId]
                             const intervaloBaseKey = INTERVALO_INTERESSE_BASE_FIELD[item.packageId]
                             const itemCollapsed = collapsedBhaItems.has(item.uid)
-                            const hasSubItems = isPerf || isCorte || isGabarit || isTae || isJateam || isCamis || isTocPolias || isFtGabaritMotorBroca || isArameInstRet || isStroker || isAvalCimentacao || isRetPlugThCt || isFtPlugProf || isBpInstFt || isBpInst || isCimentIntCopFt || isCimentCr || isVgl || isPwc || isCondicionamento || isCacambeio || isSlidingSleeve
+                            const hasNamedBlock = isPerf || isCorte || isGabarit || isTae || isJateam || isCamis || isTocPolias || isFtGabaritMotorBroca || isArameInstRet || isStroker || isAvalCimentacao || isRetPlugThCt || isFtPlugProf || isBpInstFt || isBpInst || isCimentIntCopFt || isCimentCr || isVgl || isPwc || isCondicionamento || isCacambeio || isSlidingSleeve
+                            // Nenhum bloco por nome cobre o pacote ⇒ campos vindos dos tokens das linhas.
+                            const genericPlanFields = hasNamedBlock ? [] : planFieldsForPackage(item.packageId)
+                            const hasSubItems = hasNamedBlock || genericPlanFields.length > 0
                             const copyFromPrevious = () => {
                               if (!previousUid) return
                               const prev = d.bhaPlans?.[previousUid] ?? {}
@@ -1342,32 +1502,12 @@ export function ProjectDataPanel({ onLocate, onClearLocate, locatedTarget, oneBy
                             }
                             return (
                               <div key={item.uid} className="py-1 border-b border-slate-200 dark:border-slate-800 last:border-0">
-                                <div className="flex items-center gap-1.5">
-                                  {hasSubItems ? (
-                                    <button
-                                      type="button"
-                                      onClick={() => toggleBhaItem(item.uid)}
-                                      className="w-3 text-[10px] font-bold text-slate-600 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-500 select-none leading-none shrink-0">
-                                      {itemCollapsed ? '+' : '−'}
-                                    </button>
-                                  ) : (
-                                    <span className="w-3 shrink-0" />
-                                  )}
-                                  <span className="text-xs text-slate-600 dark:text-slate-400 leading-snug break-words flex-1 min-w-0">
-                                    {dupSuffix && <span className="font-mono">{dupSuffix} </span>}{name || <span className="italic text-slate-500">—</span>}
-                                  </span>
-                                  {previousUid && hasSubItems && (
-                                    <button
-                                      type="button"
-                                      onClick={copyFromPrevious}
-                                      title="Copiar respostas da operação anterior"
-                                      className="shrink-0 text-[10px] font-semibold text-slate-600 dark:text-slate-500 hover:text-blue-500 dark:hover:text-blue-400 border border-slate-200 dark:border-slate-700 hover:border-blue-300 dark:hover:border-blue-700 rounded px-1.5 py-0.5 transition-colors">
-                                      ↩ copiar #{(seenCounts.get(item.packageId) ?? 1) - 1}
-                                    </button>
-                                  )}
-                                </div>
-                                {hasSubItems && !itemCollapsed && (
-                                  <div className="ml-3 mt-1 mb-1 pl-2 space-y-0">
+                                {(() => {
+                                  // Os campos são montados ANTES do cabeçalho para saber se sobra
+                                  // algum vivo (ver isLive): item cujos campos são todos órfãos não
+                                  // ganha o expansor "+" (expandiria para o vazio).
+                                  const subFields = (
+                                  <>
                                     {isPerf && (
                                       <>
                                         <Field label={defLabel(defTokenForPlanKey(item.packageId, 'canhao'), "Diâmetro nominal do canhão")} value={plan.canhao ?? ''} onChange={v => updatePlan(item.uid, 'canhao', v)} locate={{ kind: 'plan', uid: item.uid, key: 'canhao' }} unit="pol" />
@@ -1420,9 +1560,6 @@ export function ProjectDataPanel({ onLocate, onClearLocate, locatedTarget, oneBy
                                         )}
                                         {!isPerf && !isCorte && (
                                           <Field label={defLabel(defTokenForPlanKey(item.packageId, 'prof'), "Profundidade")} value={derivedProf ?? plan.prof ?? ''} readOnly={derivedProf != null} onChange={v => updatePlan(item.uid, 'prof', v)} locate={{ kind: 'plan', uid: item.uid, key: 'prof' }} unit="m" />
-                                        )}
-                                        {/tmf/i.test(name) && (
-                                          <Field label={defLabel(defTokenForPlanKey(item.packageId, 'diamJdc'), "Ø JDC (passo inicial)")} value={plan.diamJdc ?? ''} onChange={v => updatePlan(item.uid, 'diamJdc', v)} locate={{ kind: 'plan', uid: item.uid, key: 'diamJdc' }} unit="pol" />
                                         )}
                                       </>
                                       )
@@ -1652,8 +1789,50 @@ export function ProjectDataPanel({ onLocate, onClearLocate, locatedTarget, oneBy
                                         {boolToggle('outrosPcabN2PsiHp', 'Será um Hold Point?', d.outrosPcabN2PsiHp, v => setBhasTech({ outrosPcabN2PsiHp: v }))}
                                       </>
                                     )}
-                                  </div>
-                                )}
+                                    {/* Pacote sem bloco por nome: campos vindos dos tokens das linhas. */}
+                                    {genericPlanFields.map(f => (
+                                      <Field key={f.token}
+                                        label={defLabel(f.token, f.token)}
+                                        value={(plan[f.key] as string | undefined) ?? ''}
+                                        onChange={v => updatePlan(item.uid, f.key, v)}
+                                        unit={defUnit(f.token)}
+                                        locate={{ kind: 'plan', uid: item.uid, key: f.key }} />
+                                    ))}
+                                  </>
+                                  )
+                                  const expandable = hasSubItems && hasLiveContent(subFields, isLive)
+                                  return (
+                                    <>
+                                      <div className="flex items-center gap-1.5">
+                                        {expandable ? (
+                                          <button
+                                            type="button"
+                                            onClick={() => toggleBhaItem(item.uid)}
+                                            className="w-3 text-[10px] font-bold text-slate-600 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-500 select-none leading-none shrink-0">
+                                            {itemCollapsed ? '+' : '−'}
+                                          </button>
+                                        ) : (
+                                          <span className="w-3 shrink-0" />
+                                        )}
+                                        <span className="text-xs text-slate-600 dark:text-slate-400 leading-snug break-words flex-1 min-w-0">
+                                          {dupSuffix && <span className="font-mono">{dupSuffix} </span>}{name || <span className="italic text-slate-500">—</span>}
+                                        </span>
+                                        {previousUid && expandable && (
+                                          <button
+                                            type="button"
+                                            onClick={copyFromPrevious}
+                                            title="Copiar respostas da operação anterior"
+                                            className="shrink-0 text-[10px] font-semibold text-slate-600 dark:text-slate-500 hover:text-blue-500 dark:hover:text-blue-400 border border-slate-200 dark:border-slate-700 hover:border-blue-300 dark:hover:border-blue-700 rounded px-1.5 py-0.5 transition-colors">
+                                            ↩ copiar #{(seenCounts.get(item.packageId) ?? 1) - 1}
+                                          </button>
+                                        )}
+                                      </div>
+                                      {expandable && !itemCollapsed && (
+                                        <div className="ml-3 mt-1 mb-1 pl-2 space-y-0">{subFields}</div>
+                                      )}
+                                    </>
+                                  )
+                                })()}
                               </div>
                             )
                           })
@@ -1699,13 +1878,55 @@ export function ProjectDataPanel({ onLocate, onClearLocate, locatedTarget, oneBy
             && !/\bpwc\b/i.test(i.packageName)
           )
           const bppItems = state.fineTuningItems.filter(i => !i.isBlank && /instala.*\bbpp\b/i.test(i.packageName))
-          if (cimentItems.length === 0 && pwcItems.length === 0 && bppItems.length === 0) return null
+
+          // Campos globais desdobrados por pacote (só os pacotes presentes no cronograma).
+          // Renderizados por renderPerPkgCimentFields, que os agrupa sob o subgrupo do def.
+          const perPkg = (map: Record<string, keyof ProjectData>, fallback: string, unit?: string, placeholder?: string): PerPkgField[] =>
+            Object.entries(map).filter(([id]) => hasPkgFn(id))
+              .map(([pkgId, key]) => ({ token: key as string, pkgId, fallback, unit, placeholder }))
+          const perPkgBombeio: PerPkgField[] = [
+            ...perPkg(CIMENT_ALINHAMENTO_FIELD, 'Alinhamento bombeio ("via xxx > xxx > xxx")', undefined, 'ex: B4 > COP > Formação'),
+            ...perPkg(CIMENT_PLUG_VOL_FIELD,  'Volume tampão de cimento',    'bbl'),
+            ...perPkg(CIMENT_PLUG_DENS_FIELD, 'Densidade tampão de cimento', 'lb/gal'),
+            ...perPkg(CIMENT_FCBA_DENS_FIELD, 'Densidade deslocamento FCBA', 'lb/gal'),
+          ]
+          const perPkgCimentacao: PerPkgField[] = [
+            ...perPkg(CR_DIAM_FIELD, 'Ø CR (Cement Retainer)', '"'),
+            ...perPkg(CIMENT_ANULAR_ACIMA_TAMPAO_FIELD, 'Topo cimento anular acima do tampão', 'm'),
+            ...perPkg(CIMENT_TOPO_REVCIM_FIELD, 'Topo do cimento (REVCIM)', 'm'),
+            ...perPkg(TAMPAO_ABANDONO_DENS_FIELD,  'Tampão abandono — densidade pasta', 'ppg'),
+            ...perPkg(TAMPAO_ABANDONO_TOPO_FIELD,  'Tampão abandono — topo previsto', 'm'),
+            ...perPkg(TAMPAO_ABANDONO_COMPR_FIELD, 'Tampão abandono — comprimento', 'm'),
+          ]
+          // Campos avulsos da seção que não vêm de item nem de mapa por-pacote.
+          const looseTokens: (keyof ProjectData)[] = ['cimentTopoAnularA', 'ecsbFluidoDens']
+
+          // O card aparece quando há QUALQUER conteúdo vivo. Antes o gate olhava só o NOME
+          // do pacote (/cimenta/, /pwc/, instalação de BPP), então escopos cujo cimento vem
+          // de pacote com outro nome — "BPP + Tampão de cimento" (ABAN 199), "Tampão de
+          // cimento com pata de mula" (ABAN 200), bombeio direto (078/079), checagem de TOC
+          // (247/248) — perdiam a seção inteira, com os campos por-pacote junto.
+          const hasPerPkgField = [...perPkgBombeio, ...perPkgCimentacao].some(e =>
+            isLive({ kind: 'data', field: e.token as keyof ProjectData }))
+          const hasLooseField = looseTokens.some(f => isLive({ kind: 'data', field: f }))
+          if (cimentItems.length === 0 && pwcItems.length === 0 && bppItems.length === 0
+              && !hasPerPkgField && !hasLooseField) return null
 
           // TT é detectado pelo scopeId (FSU_TT_FT, FSU_TT_BDC)
           const isThroughTubing = /_TT_/.test(inp.scopeId ?? '')
-          const updatePlug = (uid: string, key: 'base' | 'topo', value: string) => {
-            const cur = d.cimentPlugs?.[uid] ?? {}
-            setCimentacao({ cimentPlugs: { ...(d.cimentPlugs ?? {}), [uid]: { ...cur, [key]: value } } })
+          // Base/topo do tampão: hoje são campos de BHA por item (cimentBase/cimentTopo), então
+          // resolvem por token ({{cimentBaseNNN=}}) como qualquer outro campo do assistente.
+          // Leitura cai no cimentPlugs legado para não perder o que projetos antigos gravaram;
+          // a escrita já vai só para bhaPlans.
+          const plugValue = (uid: string, key: 'cimentBase' | 'cimentTopo'): string => {
+            const plan = d.bhaPlans?.[uid]?.[key]
+            if (plan != null && plan !== '') return plan
+            const legacy = d.cimentPlugs?.[uid]
+            return (key === 'cimentBase' ? legacy?.base : legacy?.topo) ?? ''
+          }
+          const updatePlug = (uid: string, key: 'cimentBase' | 'cimentTopo', value: string) => {
+            const cur = d.bhaPlans?.[uid] ?? {}
+            setCimentacao({ bhaPlans: { ...(d.bhaPlans ?? {}), [uid]: { ...cur, [key]: value } } })
           }
 
           // Auto-fill suggestions for TT
@@ -1762,8 +1983,12 @@ export function ProjectDataPanel({ onLocate, onClearLocate, locatedTarget, oneBy
           )
           const showTopoAnularA = hasCimentAnularAFt || bppItems.length > 0
 
+          // Cabeçalhos de subgrupo entram na busca da seção (não são rótulos de Field).
+          const perPkgSearch = [...perPkgBombeio, ...perPkgCimentacao]
+            .map(e => defSubgroup(e.token)).filter(Boolean).join(' ')
+
           return (
-            <Section title="Cimentação" searchText="cimento topo anular interior coluna profundidade base perfuração cr plug bpp diâmetro metro"              isDirty={dirty['cimentacao']} onApply={applySection('cimentacao')} onDiscard={discardSection('cimentacao')} canApply={sectionAffectsLines('cimentacao')}>
+            <Section title="Cimentação" searchText={"cimento topo anular interior coluna profundidade base perfuração cr plug bpp diâmetro metro " + perPkgSearch}              isDirty={dirty['cimentacao']} onApply={applySection('cimentacao')} onDiscard={discardSection('cimentacao')} canApply={sectionAffectsLines('cimentacao')}>
               {showTopoAnularA && (
                 <Field label={defLabel('cimentTopoAnularA', "Topo no anular A")} value={d.cimentTopoAnularA} onChange={v => setCimentacao({ cimentTopoAnularA: v })} unit="m" locate={{ kind: 'data', field: 'cimentTopoAnularA' }} />
               )}
@@ -1772,8 +1997,8 @@ export function ProjectDataPanel({ onLocate, onClearLocate, locatedTarget, oneBy
                 const bpDiam = d.bhaPlans?.[item.uid]?.bpDiam ?? ''
                 return (
                   <div key={item.uid}>
-                    <Field label={`${item.packageName} — Profundidade`} value={bpProf} onChange={() => {}} placeholder="preencha em BHA" unit="m" readOnly locate={{ kind: 'plan', uid: item.uid, key: 'bpProf' }} />
-                    <Field label={`${item.packageName} — Diâmetro do tubo`} value={bpDiam} onChange={() => {}} placeholder="preencha em BHA" unit="pol" readOnly locate={{ kind: 'plan', uid: item.uid, key: 'bpDiam' }} />
+                    <Field label={defLabel(defTokenForPlanKey(item.packageId, 'bpProf'), `${item.packageName} — Profundidade`)} value={bpProf} onChange={() => {}} placeholder="preencha em BHA" unit="m" readOnly locate={{ kind: 'plan', uid: item.uid, key: 'bpProf' }} />
+                    <Field label={defLabel(defTokenForPlanKey(item.packageId, 'bpDiam'), `${item.packageName} — Diâmetro do tubo`)} value={bpDiam} onChange={() => {}} placeholder="preencha em BHA" unit="pol" readOnly locate={{ kind: 'plan', uid: item.uid, key: 'bpDiam' }} />
                   </div>
                 )
               })}
@@ -1816,52 +2041,25 @@ export function ProjectDataPanel({ onLocate, onClearLocate, locatedTarget, oneBy
                     const seen = (seenCounts.get(item.packageId) ?? 0) + 1
                     seenCounts.set(item.packageId, seen)
                     const dupPrefix = (totalCounts.get(item.packageId) ?? 0) > 1 ? `#${seen} ` : ''
-                    const plug = d.cimentPlugs?.[item.uid] ?? {}
                     return (
                       <div key={item.uid}>
-                        <Field label={`${dupPrefix}${item.packageName} — Base`} value={plug.base ?? ''} onChange={v => updatePlug(item.uid, 'base', v)} unit="m" />
-                        <Field label={`${dupPrefix}${item.packageName} — Topo`} value={plug.topo ?? ''} onChange={v => updatePlug(item.uid, 'topo', v)} unit="m" />
+                        <Field
+                          label={defLabel(defTokenForPlanKey(item.packageId, 'cimentBase'), `${dupPrefix}${item.packageName} — Base`)}
+                          value={plugValue(item.uid, 'cimentBase')}
+                          onChange={v => updatePlug(item.uid, 'cimentBase', v)}
+                          unit="m" locate={{ kind: 'plan', uid: item.uid, key: 'cimentBase' }} />
+                        <Field
+                          label={defLabel(defTokenForPlanKey(item.packageId, 'cimentTopo'), `${dupPrefix}${item.packageName} — Topo`)}
+                          value={plugValue(item.uid, 'cimentTopo')}
+                          onChange={v => updatePlug(item.uid, 'cimentTopo', v)}
+                          unit="m" locate={{ kind: 'plan', uid: item.uid, key: 'cimentTopo' }} />
                       </div>
                     )
                   })}
                 </>
               )}
-              {/* Alinhamento + volumes/densidades de cimentação — campo dedicado por pacote (ABAN 078,079,083,084) */}
-              {(() => {
-                const alignIds = Object.keys(CIMENT_ALINHAMENTO_FIELD).filter(id => hasPkgFn(id))
-                const volIds   = Object.keys(CIMENT_PLUG_VOL_FIELD).filter(id => hasPkgFn(id))
-                if (!alignIds.length && !volIds.length) return null
-                return (
-                  <div className="mt-2 pt-2 border-t border-slate-200 dark:border-slate-800">
-                    <div className="text-[10px] font-semibold text-slate-600 dark:text-slate-500 uppercase tracking-widest mb-1">Bombeio</div>
-                    {alignIds.map(pkgId => {
-                      const key = CIMENT_ALINHAMENTO_FIELD[pkgId]
-                      return (
-                        <Field
-                          key={key}
-                          label={`${pkgId} — Alinhamento bombeio ("via xxx > xxx > xxx")`}
-                          value={d[key] as string}
-                          onChange={v => setCimentacao({ [key]: v })}
-                          placeholder="ex: B4 > COP > Formação"
-                          locate={{ kind: 'data', field: key }}
-                        />
-                      )
-                    })}
-                    {volIds.map(pkgId => {
-                      const volKey = CIMENT_PLUG_VOL_FIELD[pkgId]
-                      const densKey = CIMENT_PLUG_DENS_FIELD[pkgId]
-                      const fcbaKey = CIMENT_FCBA_DENS_FIELD[pkgId]
-                      return (
-                        <div key={volKey}>
-                          <Field label={`${pkgId} — Volume tampão de cimento`}    value={d[volKey] as string}  onChange={v => setCimentacao({ [volKey]: v })}  unit="bbl" locate={{ kind: 'data', field: volKey }} />
-                          <Field label={`${pkgId} — Densidade tampão de cimento`} value={d[densKey] as string} onChange={v => setCimentacao({ [densKey]: v })} unit="lb/gal" locate={{ kind: 'data', field: densKey }} />
-                          <Field label={`${pkgId} — Densidade deslocamento FCBA`} value={d[fcbaKey] as string} onChange={v => setCimentacao({ [fcbaKey]: v })} unit="lb/gal" locate={{ kind: 'data', field: fcbaKey }} />
-                        </div>
-                      )
-                    })}
-                  </div>
-                )
-              })()}
+              {/* Bombeio (alinhamento/volumes/densidades) — campo dedicado por pacote (ABAN 078,079,083,084) */}
+              {renderPerPkgCimentFields(perPkgBombeio)}
               {/* PWC: card editável por item */}
               {pwcItems.map(item => {
                 const plan = d.bhaPlans?.[item.uid] ?? {}
@@ -1894,18 +2092,7 @@ export function ProjectDataPanel({ onLocate, onClearLocate, locatedTarget, oneBy
                   </div>
                 )
               })}
-              {Object.entries(CR_DIAM_FIELD).filter(([id]) => hasPkgFn(id)).map(([id, key]) =>
-                <Field key={key} label={`${id} — Ø CR (Cement Retainer)`} value={d[key] as string} onChange={v => setCimentacao({ [key]: v })} unit='"' locate={{ kind: 'data', field: key }} />)}
-              {Object.entries(CIMENT_ANULAR_ACIMA_TAMPAO_FIELD).filter(([id]) => hasPkgFn(id)).map(([id, key]) =>
-                <Field key={key} label={`${id} — Topo cimento anular acima do tampão`} value={d[key] as string} onChange={v => setCimentacao({ [key]: v })} unit="m" locate={{ kind: 'data', field: key }} />)}
-              {Object.entries(CIMENT_TOPO_REVCIM_FIELD).filter(([id]) => hasPkgFn(id)).map(([id, key]) =>
-                <Field key={key} label={`${id} — Topo do cimento (REVCIM)`} value={d[key] as string} onChange={v => setCimentacao({ [key]: v })} unit="m" locate={{ kind: 'data', field: key }} />)}
-              {Object.entries(TAMPAO_ABANDONO_DENS_FIELD).filter(([id]) => hasPkgFn(id)).map(([id, key]) =>
-                <Field key={key} label={`${id} — Tampão abandono — densidade pasta`} value={d[key] as string} onChange={v => setCimentacao({ [key]: v })} unit="ppg" locate={{ kind: 'data', field: key }} />)}
-              {Object.entries(TAMPAO_ABANDONO_TOPO_FIELD).filter(([id]) => hasPkgFn(id)).map(([id, key]) =>
-                <Field key={key} label={`${id} — Tampão abandono — topo previsto`} value={d[key] as string} onChange={v => setCimentacao({ [key]: v })} unit="m" locate={{ kind: 'data', field: key }} />)}
-              {Object.entries(TAMPAO_ABANDONO_COMPR_FIELD).filter(([id]) => hasPkgFn(id)).map(([id, key]) =>
-                <Field key={key} label={`${id} — Tampão abandono — comprimento`} value={d[key] as string} onChange={v => setCimentacao({ [key]: v })} unit="m" locate={{ kind: 'data', field: key }} />)}
+              {renderPerPkgCimentFields(perPkgCimentacao)}
               {hasPkgFn('ABAN 200') && <Field label={defLabel('ecsbFluidoDens', "Fluido eCSB (mar aberto) — densidade")} value={d.ecsbFluidoDens} onChange={v => setCimentacao({ ecsbFluidoDens: v })} unit="ppg" locate={{ kind: 'data', field: 'ecsbFluidoDens' }} />}
             </Section>
           )

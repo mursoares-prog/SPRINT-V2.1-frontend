@@ -327,6 +327,10 @@ export interface BhaPlanFields {
   ogivaDiam157?: string
   // Cimentação com CR
   crProf?: string
+  // Tampão de cimento do pacote (base/topo previstos) — antes em ProjectData.cimentPlugs,
+  // hoje por item, para resolver via token ({{cimentBaseNNN=}}/{{cimentTopoNNN=}}).
+  cimentBase?: string
+  cimentTopo?: string
   // VGL
   vglCamisaoAcoplado?: 'sim' | 'nao' | ''
   vglTipo?: 'cega' | 'operadora' | ''
@@ -348,6 +352,8 @@ export interface BhaPlanFields {
   modeloSlidingSleeve?: string  // ABAN 058/059: modelo do Sliding Sleeve
 }
 
+/** @deprecated Substituído por bhaPlans[uid].cimentBase/cimentTopo (ver ProjectDataPanel).
+ *  Mantido só para ler projetos salvos antes da migração. */
 export interface CimentPlugFields {
   base?: string
   topo?: string
@@ -380,7 +386,7 @@ export interface ProjectData {
   cimentProfPerfuracao: string      // TT: profundidade da perfuração da coluna
   cimentProfBaseCimentacao: string  // TT: profundidade da base da cimentação
   cimentCrProfundidade: string      // TT com CR: profundidade de assentamento
-  cimentPlugs: Record<string, CimentPlugFields>  // key = item.uid
+  cimentPlugs: Record<string, CimentPlugFields>  // legado (key = item.uid) — ver CimentPlugFields
   cimentPwc: string
   testeInfluxo: string
   hpNavFundo: boolean; hpSsub: boolean

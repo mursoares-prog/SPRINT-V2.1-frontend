@@ -3,7 +3,7 @@
 // (ProjectDataPanel); antes isso era hardcoded no componente — aqui o admin
 // cadastra rótulo, tipo, unidade, opções de picklist e uma relação simples de
 // dependência com outro campo (mostrar/habilitar só quando outro tiver certo valor).
-import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
+import { useState, useEffect, useCallback, useRef, useMemo, useDeferredValue } from 'react'
 import {
   Plus, Trash2, Loader2, AlertTriangle, GripVertical, Undo2, Redo2, History, X, Undo,
   Columns3, Rows3, FolderInput, CircleOff, ArrowDownWideNarrow, Info, Search, PocketKnife,
@@ -89,6 +89,7 @@ export function PlaceholderDefsEditor({ canEdit }: { canEdit: boolean }) {
   const [onlyUnused, setOnlyUnused] = useState(false)
   const [sortByUsage, setSortByUsage] = useState(false)
   const [query, setQuery] = useState('')
+  const deferredQuery = useDeferredValue(query)
   const [showInfo, setShowInfo] = useState(false)
   const [showTools, setShowTools] = useState(false)
   const [editingSubgroup, setEditingSubgroup] = useState<{ group: string; subgroup: string } | null>(null)
@@ -281,7 +282,7 @@ export function PlaceholderDefsEditor({ canEdit }: { canEdit: boolean }) {
   const allGroups = [...new Set(defs.map(d => d.group?.trim()).filter((g): g is string => !!g))].sort()
   const allSubgroups = [...new Set(defs.map(d => d.subgroup?.trim()).filter((g): g is string => !!g))].sort()
   // Busca ativa (filtra os campos por token/rótulo/grupo/subgrupo).
-  const q = query.trim()
+  const q = deferredQuery.trim()
   const noSearchResults = !!q && !defs.some(d => defMatchesQuery(d, q))
   // Contagem de pacotes por token — badge redonda ao lado do rótulo de cada campo.
   const pkgCountByToken = new Map(defs.map(d => [d.token, packagesUsingToken(d.token).length]))

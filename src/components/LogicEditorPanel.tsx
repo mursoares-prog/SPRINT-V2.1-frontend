@@ -3,7 +3,7 @@
  * Usa o mesmo fluxograma SVG interativo: clique para editar perguntas, respostas
  * e pacotes; botões para adicionar/remover decisões e pernas de resposta.
  */
-import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react'
+import React, { useState, useEffect, useCallback, useRef, useMemo, useDeferredValue } from 'react'
 // Ícones padronizados na biblioteca react-icons (Phosphor), com alias para os nomes
 // antes vindos de lucide-react — mantém todos os call sites (<Save/>, <Layers/>…) intactos.
 import {
@@ -90,9 +90,10 @@ function PackagePicker({ onSelect, onClose }: {
   onSelect: (id: string, name: string) => void; onClose: () => void
 }) {
   const [q, setQ] = useState('')
+  const dq = useDeferredValue(q)
   const pkgs = Object.values(PACKAGES)
-  const filtered = q.trim()
-    ? pkgs.filter(p => p.id.toLowerCase().includes(q.toLowerCase()) || p.name.toLowerCase().includes(q.toLowerCase()))
+  const filtered = dq.trim()
+    ? pkgs.filter(p => p.id.toLowerCase().includes(dq.toLowerCase()) || p.name.toLowerCase().includes(dq.toLowerCase()))
     : pkgs
   return (
     <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/60">
@@ -231,10 +232,11 @@ function DecisionPickerModal({ overrides, currentScopeId, loadScopeSections, onP
 }) {
   const [tab, setTab] = useState<'library' | 'scope'>('library')
   const [q, setQ] = useState('')
+  const dq = useDeferredValue(q)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const templates = useMemo(buildDecisionTemplates, [overrides])
-  const filtered = q.trim()
-    ? templates.filter(t => t.question.toLowerCase().includes(q.toLowerCase()))
+  const filtered = dq.trim()
+    ? templates.filter(t => t.question.toLowerCase().includes(dq.toLowerCase()))
     : templates
 
   // State for "De outro escopo" tab
@@ -704,6 +706,31 @@ function setAnswerSubtreeContingency(ans: LAns, val: boolean): void {
   walkAns(ans)
 }
 
+// Percorre TODOS os pacotes de uma seção (sempre, decisões, seq/after e sub-perguntas em
+// qualquer nível). Usado para tratar em bloco as fases próprias dos pacotes da seção.
+function forEachSectionPkg(sec: LSec, fn: (pkg: LPkg) => void): void {
+  const visit = (pkgs?: LPkg[]) => (pkgs ?? []).forEach(fn)
+  const walkSeq = (es?: LSeqEntry[]) => (es ?? []).forEach(e => {
+    visit(e.packages)
+    ;(e.sub ?? []).forEach(walkDec)
+    ;(e.afterSub ?? []).forEach(walkDec)
+  })
+  function walkDec(dec: LDec) {
+    visit(dec.packages)
+    walkSeq(dec.after)
+    ;(dec.afterDec ?? []).forEach(walkDec)
+    dec.answers.forEach(a => {
+      visit(a.packages)
+      walkSeq(a.seq)
+      walkSeq(a.after)
+      ;(a.sub ?? []).forEach(walkDec)
+      ;(a.afterSub ?? []).forEach(walkDec)
+    })
+  }
+  visit(sec.always)
+  sec.decisions.forEach(walkDec)
+}
+
 // ─── Grupos de escopos (organização em pastas, persistido em localStorage) ───
 type ScopeGroup = { id: string; name: string; parentId: string | null }
 // `order` guarda a posição (ordinal) preferida de cada escopo DENTRO do seu grupo/sub-grupo.
@@ -1031,11 +1058,30 @@ export function LogicEditorPanel({ canEdit }: { canEdit: boolean }) {
     currentGroupId: string | null,
     onSelect: (id: string | null) => void,
     excludeIds: Set<string> = new Set(),
+    // Escopo não pode morar direto numa pasta raiz: na Etapa 1 a navegação obriga a
+    // descer nas sub-pastas, então um escopo solto na raiz ficaria inalcançável.
+    disallowRoot = false,
   ): React.ReactNode => {
     const renderNode = (group: ScopeGroup, d: number): React.ReactNode => {
       if (excludeIds.has(group.id)) return null
       const children = scopeGroups.groups.filter(g => g.parentId === group.id)
       const isCurrent = currentGroupId === group.id
+      if (disallowRoot && group.parentId === null) {
+        return (
+          <div key={group.id}>
+            <div
+              title={children.length
+                ? 'Pasta raiz: escolha uma sub-pasta'
+                : 'Pasta raiz sem sub-pastas — crie uma sub-pasta para receber escopos'}
+              className="w-full flex items-center gap-1 py-0.5 text-slate-400 dark:text-slate-500 cursor-default"
+              style={{ paddingLeft: `${6 + d * 10}px` }}>
+              <PiFolderFill size={9} className="opacity-30 shrink-0" />
+              <span className="text-[10px] truncate">{group.name}</span>
+            </div>
+            {children.map(g => renderNode(g, d + 1))}
+          </div>
+        )
+      }
       return (
         <div key={group.id}>
           <button
@@ -1083,6 +1129,10 @@ export function LogicEditorPanel({ canEdit }: { canEdit: boolean }) {
     // Só mostra excluir se não houver outros escopos que dependem deste bloco.
     const usedBy = s.deletable && s.isBlock ? scopeList.filter(o => refUsers(o.scopeId).includes(s.scopeId)) : []
     const canDelete = s.deletable && usedBy.length === 0
+    // Escopo (não-bloco) parado direto numa pasta raiz: a Etapa 1 obriga a descer nas
+    // sub-pastas, então ele não é selecionável no gerador até ser movido.
+    const rootParked = !s.isBlock && currentGroup !== null
+      && scopeGroups.groups.find(g => g.id === currentGroup)?.parentId === null
     return (
       <div key={s.scopeId}>
         <div className={`flex items-center rounded-lg mx-1 group/item transition-colors
@@ -1092,6 +1142,10 @@ export function LogicEditorPanel({ canEdit }: { canEdit: boolean }) {
             className="flex-1 text-left flex items-center gap-2 px-3 py-1.5 text-xs text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 min-w-0">
             <Icon size={10} className={`shrink-0 ${iconCls}`} />
             <span className="flex-1 truncate">{s.label}</span>
+            {rootParked && (
+              <span title="Escopo direto na pasta raiz — mova para uma sub-pasta; assim que a raiz tiver sub-pastas ele deixa de aparecer na Etapa 1."
+                className="shrink-0 text-amber-500">⚠</span>
+            )}
           </button>
           <div className="flex items-center gap-0.5 pr-1.5 opacity-0 group-hover/item:opacity-100 transition-opacity">
             {canReorder && (
@@ -1134,7 +1188,8 @@ export function LogicEditorPanel({ canEdit }: { canEdit: boolean }) {
         </div>
         {movingScopeId === s.scopeId && (
           <div className="mx-2 mb-1" style={{ paddingLeft: `${depth * 10}px` }}>
-            {renderGroupPicker(currentGroup, (id) => groupAssign(s.scopeId, id))}
+            {/* Blocos (BLK_) não aparecem na Etapa 1 e podem ficar em qualquer pasta. */}
+            {renderGroupPicker(currentGroup, (id) => groupAssign(s.scopeId, id), new Set(), !s.isBlock)}
           </div>
         )}
       </div>
@@ -2118,6 +2173,8 @@ export function LogicEditorPanel({ canEdit }: { canEdit: boolean }) {
 
       case 'p_set_section_phase': {
         const sec = secs[action.secIdx]; if (!sec) return
+        // A fase do cabeçalho vale para toda a seção — ver handlePhasePick.
+        forEachSectionPkg(sec, p => { delete p.phase })
         sec.phase = action.phase; sec.color = action.color
         break
       }
@@ -2382,6 +2439,28 @@ export function LogicEditorPanel({ canEdit }: { canEdit: boolean }) {
         break
       }
 
+      // ── Pacotes do campo SEMPRE da seção (sec.always) ──────────────────────
+      case 'p_set_always_pkg_condition': {
+        const pkg = secs[action.secIdx]?.always?.[action.pkgIdx]; if (!pkg) return
+        if (action.condition) pkg.condition = action.condition as LCondition
+        else delete pkg.condition
+        break
+      }
+
+      case 'p_set_always_pkg_phase': {
+        const pkg = secs[action.secIdx]?.always?.[action.pkgIdx]; if (!pkg) return
+        if (action.phase) pkg.phase = action.phase as import('../data/logicSecs').LPkgPhase
+        else delete pkg.phase
+        break
+      }
+
+      case 'p_toggle_always_pkg_contingency': {
+        const pkg = secs[action.secIdx]?.always?.[action.pkgIdx]; if (!pkg) return
+        pkg.isContingency = !pkg.isContingency
+        if (!pkg.isContingency) delete pkg.isContingency
+        break
+      }
+
       // ── Contingência de CAMPO (LSeqEntry) ──────────────────────────────────
       case 'p_toggle_dec_after_conting': {
         const dec = resolveRef(secs, action.ref); if (!dec) return
@@ -2439,6 +2518,10 @@ export function LogicEditorPanel({ canEdit }: { canEdit: boolean }) {
     if (!phasePick) return
     const secs = deepClone(sectionsRef.current) as LSec[]
     const sec = secs[phasePick.secIdx]; if (!sec) return
+    // No cronograma vale `pkg.phase ?? sec.phase`, então a fase do cabeçalho manda em toda a
+    // seção: limpa as fases próprias dos pacotes (ex.: herdadas de bloco copiado de outra
+    // árvore), senão a fase antiga continuaria aparecendo.
+    forEachSectionPkg(sec, p => { delete p.phase })
     sec.phase = phase; sec.color = color
     commitSections(secs); setPhasePick(null)
   }

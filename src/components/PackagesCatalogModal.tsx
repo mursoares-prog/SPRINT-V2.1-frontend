@@ -1,5 +1,5 @@
 import { X, Search, ChevronDown } from 'lucide-react'
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo, useEffect, useDeferredValue } from 'react'
 import { getMergedPackageLines, isApiConfigured } from '../utils/api'
 import BUNDLED_LINES from '../data/packageLines.json'
 import { PACKAGES } from '../data/packages'
@@ -90,6 +90,7 @@ function PackagesPanel({ abanList, tabList, activeLines }: {
 
 export function PackagesCatalogModal({ onClose, anchorRect }: { onClose: () => void; anchorRect?: DOMRect }) {
   const [query, setQuery] = useState('')
+  const deferredQuery = useDeferredValue(query)
   const [activeLines, setActiveLines] = useState<PackageLines>(BUNDLED_LINES as PackageLines)
 
   useEffect(() => {
@@ -103,7 +104,7 @@ export function PackagesCatalogModal({ onClose, anchorRect }: { onClose: () => v
   }, [])
 
   const { abanList, tabList } = useMemo(() => {
-    const q = query.trim().toLowerCase()
+    const q = deferredQuery.trim().toLowerCase()
     const all = Object.values(PACKAGES) as Package[]
     const matches = (p: Package) =>
       !q || p.id.toLowerCase().includes(q) || p.name.toLowerCase().includes(q)
@@ -117,7 +118,7 @@ export function PackagesCatalogModal({ onClose, anchorRect }: { onClose: () => v
       abanList: sorted(all.filter(p => p.id.startsWith('ABAN'))),
       tabList:  sorted(all.filter(p => p.id.startsWith('T-AB'))),
     }
-  }, [query])
+  }, [deferredQuery])
 
   const dropdownLeft = anchorRect
     ? Math.min(anchorRect.left, window.innerWidth - 380)
