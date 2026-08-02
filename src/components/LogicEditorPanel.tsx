@@ -32,7 +32,7 @@ import {
 import {
   PiListDashesFill, PiInfoBold, PiWarningBold as AlertTriangle,
 } from 'react-icons/pi'
-import type { LSec, LDec, LAns, LPkg, LCondition, LSeqEntry } from '../data/logicSecs'
+import type { LSec, LDec, LAns, LPkg, LCondition, LSeqEntry, LPkgPhase } from '../data/logicSecs'
 import {
   getLogicScopes, getLogicScope, saveLogicScope, saveLogicScopeMeta,
   createLogicScope, deleteLogicScope, type LogicScopeMeta,
@@ -2410,7 +2410,7 @@ export function LogicEditorPanel({ canEdit }: { canEdit: boolean }) {
           ? dec.answers[action.ansIdx]?.packages?.[action.pkgIdx]
           : dec.packages?.[action.pkgIdx]
         if (!pkg) return
-        if (action.phase) pkg.phase = action.phase as import('../data/logicSecs').LPkgPhase
+        if (action.phase) pkg.phase = action.phase as LPkgPhase
         else delete pkg.phase
         break
       }
@@ -2418,7 +2418,7 @@ export function LogicEditorPanel({ canEdit }: { canEdit: boolean }) {
       case 'p_set_dec_after_pkg_phase': {
         const dec = resolveRef(secs, action.ref); if (!dec) return
         const pkg = dec.after?.[action.afterIdx]?.packages?.[action.pkgIdx]; if (!pkg) return
-        if (action.phase) pkg.phase = action.phase as import('../data/logicSecs').LPkgPhase
+        if (action.phase) pkg.phase = action.phase as LPkgPhase
         else delete pkg.phase
         break
       }
@@ -2426,7 +2426,7 @@ export function LogicEditorPanel({ canEdit }: { canEdit: boolean }) {
       case 'p_set_seq_pkg_phase': {
         const dec = resolveRef(secs, action.ref); if (!dec) return
         const pkg = dec.answers[action.ansIdx]?.seq?.[action.seqIdx]?.packages?.[action.pkgIdx]; if (!pkg) return
-        if (action.phase) pkg.phase = action.phase as import('../data/logicSecs').LPkgPhase
+        if (action.phase) pkg.phase = action.phase as LPkgPhase
         else delete pkg.phase
         break
       }
@@ -2434,7 +2434,7 @@ export function LogicEditorPanel({ canEdit }: { canEdit: boolean }) {
       case 'p_set_after_pkg_phase': {
         const dec = resolveRef(secs, action.ref); if (!dec) return
         const pkg = dec.answers[action.ansIdx]?.after?.[action.afterIdx]?.packages?.[action.pkgIdx]; if (!pkg) return
-        if (action.phase) pkg.phase = action.phase as import('../data/logicSecs').LPkgPhase
+        if (action.phase) pkg.phase = action.phase as LPkgPhase
         else delete pkg.phase
         break
       }
@@ -2449,7 +2449,7 @@ export function LogicEditorPanel({ canEdit }: { canEdit: boolean }) {
 
       case 'p_set_always_pkg_phase': {
         const pkg = secs[action.secIdx]?.always?.[action.pkgIdx]; if (!pkg) return
-        if (action.phase) pkg.phase = action.phase as import('../data/logicSecs').LPkgPhase
+        if (action.phase) pkg.phase = action.phase as LPkgPhase
         else delete pkg.phase
         break
       }

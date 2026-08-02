@@ -5,14 +5,6 @@ import type { ProjectFile } from './projectFile'
 
 const API_URL = (import.meta.env.VITE_API_URL ?? '').replace(/\/+$/, '')
 
-export interface ProjectSummary {
-  id: string
-  wellName: string
-  scopeId: string
-  savedAt: string
-  updatedAt: string
-}
-
 /** Projeto completo retornado pelo servidor: o ProjectFile salvo + o id. */
 export type StoredProject = ProjectFile & { id: string }
 
@@ -57,23 +49,11 @@ async function req<T>(path: string, init?: ReqInit): Promise<T> {
   return res.json() as Promise<T>
 }
 
-export function listServerProjects(): Promise<ProjectSummary[]> {
-  return req<ProjectSummary[]>('/api/projects')
-}
-
-export function getServerProject(id: string): Promise<StoredProject> {
-  return req<StoredProject>(`/api/projects/${id}`)
-}
-
 /** Busca um projeto existente por poço+projeto exatos (identidade do sistema externo).
  * `null` quando não há projeto salvo para esse par — não é erro. */
 export function lookupServerProject(wellName: string, projectName: string): Promise<StoredProject | null> {
   const qs = new URLSearchParams({ wellName, projectName })
   return req<StoredProject | null>(`/api/projects/lookup?${qs}`)
-}
-
-export function deleteServerProject(id: string): Promise<void> {
-  return req<void>(`/api/projects/${id}`, { method: 'DELETE' })
 }
 
 /** Timeout do autosave: conexão travada cai em erro em vez de ficar presa "Salvando…". */
@@ -107,19 +87,8 @@ export interface ChangeLogEntry {
   undone?: boolean
 }
 
-export type ChangeLogInput = Omit<ChangeLogEntry, 'id' | 'data' | 'author'>
-
 export function listChangelog(): Promise<ChangeLogEntry[]> {
   return req<ChangeLogEntry[]>('/api/changelog')
-}
-
-/** Acrescenta uma entrada (append-only). `authHeaders` deve trazer o Bearer de um admin. */
-export function addChangelog(entry: ChangeLogInput, authHeaders: Record<string, string>): Promise<ChangeLogEntry> {
-  return req<ChangeLogEntry>('/api/changelog', {
-    method: 'POST',
-    headers: authHeaders,
-    body: JSON.stringify(entry),
-  })
 }
 
 /** Desfaz a alteração registrada em `entryId`, restaurando o estado anterior. */
@@ -159,29 +128,9 @@ export interface LineOverride {
   updatedAt?: string | null
 }
 
-/** Patch parcial enviado ao editar uma linha (campos omitidos ficam inalterados). */
-export type LineEditPatch = Partial<Pick<LineOverride,
-  'text' | 'duration' | 'rec' | 'pad' | 'owFase' | 'owAtividade' | 'owOperacao' | 'owEtapa'>>
-
-/** Salva um override parcial de uma linha (texto, duração, rec/pad, ontologia). */
-export function editBaseLine(pkgId: string, lineIndex: number, patch: LineEditPatch, authHeaders: Record<string, string>) {
-  return req<LineOverride & { unchanged?: boolean }>(
-    `/api/base/package-lines/${encodeURIComponent(pkgId)}/${lineIndex}`,
-    { method: 'PUT', headers: authHeaders, body: JSON.stringify(patch) },
-  )
-}
-
 /** Todos os overrides da base (para mesclar rec/pad no front e refletir no Admin). */
 export function getBaseOverrides(): Promise<LineOverride[]> {
   return req<LineOverride[]>('/api/base/overrides')
-}
-
-/** Reverte a linha ao texto original (remove o override). */
-export function resetBaseLine(pkgId: string, lineIndex: number, authHeaders: Record<string, string>) {
-  return req<{ pkgId: string; lineIndex: number; text: string; reverted: boolean }>(
-    `/api/base/package-lines/${encodeURIComponent(pkgId)}/${lineIndex}`,
-    { method: 'DELETE', headers: authHeaders },
-  )
 }
 
 // ── Edição estrutural por pacote + pacotes customizados ────────────────────────
@@ -224,25 +173,6 @@ export function savePackageLines(pkgId: string, lines: BaseLine[], authHeaders: 
   return req<{ pkgId: string; lines: BaseLine[] }>(
     `/api/base/packages/${encodeURIComponent(pkgId)}/lines`,
     { method: 'PUT', headers: authHeaders, body: JSON.stringify({ lines }) },
-  )
-}
-
-/** Reverte as linhas de um pacote do bundle ao original. */
-export function resetPackageLines(pkgId: string, authHeaders: Record<string, string>) {
-  return req<{ pkgId: string; reverted: boolean }>(
-    `/api/base/packages/${encodeURIComponent(pkgId)}/lines`,
-    { method: 'DELETE', headers: authHeaders },
-  )
-}
-
-/** Importa um batch de pacotes do sistema externo (formato ProjectFacts enriquecido). */
-export function importPackages(
-  packages: Array<{ pkgId: string; name: string; category: string; technology: string; lines: BaseLine[] }>,
-  authHeaders: Record<string, string>,
-) {
-  return req<{ imported: number; packages: Array<{ pkgId: string; tipo: string; lines: number }> }>(
-    '/api/base/import',
-    { method: 'POST', headers: authHeaders, body: JSON.stringify({ packages }) },
   )
 }
 
@@ -297,12 +227,6 @@ export interface CustomPlaceholder { token: string; label: string; category: str
 
 export function listCustomPlaceholders(): Promise<CustomPlaceholder[]> {
   return req<CustomPlaceholder[]>('/api/base/placeholders')
-}
-
-export function createCustomPlaceholder(ph: CustomPlaceholder, authHeaders: Record<string, string>): Promise<CustomPlaceholder> {
-  return req<CustomPlaceholder>('/api/base/placeholders', {
-    method: 'POST', headers: authHeaders, body: JSON.stringify(ph),
-  })
 }
 
 export function deleteCustomPlaceholder(token: string, authHeaders: Record<string, string>): Promise<void> {
