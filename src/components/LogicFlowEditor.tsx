@@ -1,11 +1,11 @@
 /**
  * LogicFlowEditor — editor de fluxograma de lógica baseado em ReactFlow (@xyflow/react).
  *
- * Segunda opção de edição (selecionável no LogicEditorPanel), alternativa ao editor
- * clássico em SVG (LogicGraphPanel). Emite as MESMAS EditActions do clássico — toda a
- * mutação/undo/persistência continua centralizada no LogicEditorPanel — e preserva o
- * vocabulário visual: paletas por seção (gray/blue/amber), losango âmbar de pergunta,
- * estrela de resposta padrão, bandeira de contingência, ícones de condição de emissão,
+ * Único editor de árvores do app. Sucedeu um editor "clássico" em SVG, do qual restaram
+ * os tipos e helpers compartilhados em logicGraphShared: as EditActions (toda a
+ * mutação/undo/persistência continua centralizada no LogicEditorPanel) e o vocabulário
+ * visual — paletas por seção (gray/blue/amber), losango âmbar de pergunta, estrela de
+ * resposta padrão, bandeira de contingência, ícones de condição de emissão,
  * ⟲ "já respondida no escopo" e o painel lateral de ações (ClassicSidePanel).
  *
  * Estrutura visual: cada seção é uma MOLDURA (frame) que delimita seu fluxograma, com o
@@ -33,7 +33,7 @@ import {
   PAL, DARK_PAL, type PC, type PEntry,
   ClassicSidePanel, ConditionIcon, qMenuItems, resolveRef, useDark, pkgName,
   type EditAction, type DecRef, type FlowNodeTarget, type MenuItem, type ResolvedPkgList,
-} from './LogicGraphPanel'
+} from './logicGraphShared'
 
 // ─── Context para editor inline de chip (clique esquerdo) ────────────────────
 type ChipEditorCtxValue = {
@@ -1064,8 +1064,9 @@ export const LogicFlowEditor = forwardRef<LogicFlowEditorHandle, {
   const dark = useDark()
   const canEdit = !!editCb
   const [search, setSearch] = useState('')
-  // Ver nota em LogicGraphPanel: o input responde a `search`, o rebuild do fluxograma
-  // consome `deferredSearch` para não competir com a digitação.
+  // O input responde a `search` (atualiza a cada tecla); o rebuild do fluxograma consome
+  // `deferredSearch` para não competir com a digitação — senão o rebuild síncrono atrasa o
+  // input e o React chega a reescrever o campo com um valor defasado.
   const deferredSearch = useDeferredValue(search)
   const [indexWidth, setIndexWidth] = useState(240)
   const resizingIndexRef = useRef(false)
