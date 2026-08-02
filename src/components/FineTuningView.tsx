@@ -1,4 +1,4 @@
-﻿import React, { useState, useRef, useEffect, useLayoutEffect, useMemo } from 'react'
+﻿import React, { useState, useRef, useEffect, useLayoutEffect, useMemo, useDeferredValue } from 'react'
 import {
   Plus, Minus, ChevronDown, ChevronRight, ChevronUp,
   X, Trash2, Check, Undo2, Redo2, FileText, Search,
@@ -16,7 +16,7 @@ import {
   owFases, owAtividades, owOperacoes, owEtapas,
   isOntologyMismatch, expectedOwFase, countMismatches, phaseForOwFase, findOntologyRegressions,
 } from '../utils/ontologyReview'
-import { allLinesParallel, pkgFirme, pkgCont } from '../utils/fineTuningTime'
+import { allLinesParallel, canSetPkgDuration, pkgFirme, pkgCont } from '../utils/fineTuningTime'
 // ── Constants ─────────────────────────────────────────────────────────────────
 // Corretor de ontologia (correção automática via "Revisar ontologia" → FT_REVIEW_ONTOLOGY)
 // desativado temporariamente. O alerta de erro na fase (realce âmbar do campo OW Fase em
@@ -172,7 +172,7 @@ const pkgHighlight = (item: FineTuningItem): HighlightKey | undefined => {
 
 const MOUNT_IDS = new Set(Object.values(PACKAGES).filter(p => p.isMountOp).map(p => p.id))
 const DISMOUNT_IDS = new Set(Object.values(PACKAGES).filter(p => p.isDismountOp).map(p => p.id))
-const MOUNT_TECH_LABELS: Record<string, string> = { wireline: 'Arame', electric: 'Perfil', ct: 'FT' }
+const MOUNT_TECH_LABELS: Record<string, string> = { wireline: 'Arame', electric: 'Cabo', ct: 'FT' }
 const TRACKED_MOUNT_TECHS = ['wireline', 'electric', 'ct'] as const
 
 // Normaliza texto para busca: remove acentos e caixa
@@ -680,6 +680,53 @@ function TimeAdjustRow({ label, currentDays, unit, fmt, kind, disabled }: {
   )
 }
 
+// Linha da lista de Ajuste de Tempos: um pacote do cronograma. Pacotes ainda sem
+// tempo do tipo (inseridos manualmente na etapa 3) aparecem zerados e continuam
+// editáveis quando o tempo mora no nível pacote; quando o tempo do pacote está em
+// linhas paralelas/contingenciais, a célula é só leitura (ajuste é pela tabela).
+function PkgAdjustRow({ item, kind, days, totalLocked, showHours, unit, fmt, onCommit }: {
+  item: FineTuningItem
+  kind: 'firme' | 'cont'
+  days: number
+  totalLocked: boolean
+  showHours: boolean
+  unit: string
+  fmt: (d: number) => string
+  onCommit: (days: number) => void
+}) {
+  const editable = !totalLocked && (days > 0 || canSetPkgDuration(item, kind))
+  const valueClass = kind === 'firme' ? 'text-[#2f5aa8] dark:text-blue-400' : CONTING_TEXT
+  const label = item.packageName.trim() || (item.packageId === 'MANUAL' ? 'Linha manual' : item.packageId)
+  const readOnlyTitle = totalLocked
+    ? 'Restaure o ajuste de tempo total (↺) para editar pacotes individualmente'
+    : 'Tempo deste pacote vem de linhas paralelas/contingenciais — ajuste pela tabela'
+
+  return (
+    <div className="flex items-center gap-1 py-0.5">
+      <span className={`text-[10px] truncate flex-1 min-w-0 ${days > 0 ? 'text-slate-600 dark:text-slate-500' : 'text-slate-500 dark:text-slate-600 italic'}`} title={label}>
+        {label}
+      </span>
+      {editable ? (
+        <InlineEdit
+          value={fmt(days)}
+          type="number"
+          onCommit={v => {
+            const n = parseFloat(v.replace(',', '.'))
+            if (!isNaN(n) && n > 0) onCommit(showHours ? n / 24 : n)
+          }}
+          className={`text-[10px] shrink-0 ${valueClass} ${days > 0 ? '' : 'opacity-60'}`}
+          inputClassName="text-[10px] w-12 text-right"
+        />
+      ) : (
+        <span className={`text-[10px] ${valueClass} shrink-0 opacity-50 cursor-not-allowed`} title={readOnlyTitle}>
+          {fmt(days)}
+        </span>
+      )}
+      <span className="text-[9px] text-slate-500 dark:text-slate-600 shrink-0">{unit}</span>
+    </div>
+  )
+}
+
 function StatsPanel({ onCollapse }: { onCollapse?: () => void }) {
   const { state, dispatch } = useApp()
   const items = state.fineTuningItems.filter(i => !i.isBlank)
@@ -760,6 +807,12 @@ function StatsPanel({ onCollapse }: { onCollapse?: () => void }) {
     g.cont  += pkgCont(item)
   }
 
+  // A lista de ajuste cobre o cronograma INTEIRO, inclusive pacotes ainda sem tempo
+  // (inseridos manualmente na etapa 3) — só assim o usuário consegue conferir/dar
+  // tempo a todos e o total exibido faz sentido. Contingência fica só na lista Cont.
+  const firmeList = items.filter(i => !i.isContingency)
+  const contList = items.filter(i => i.isContingency || pkgCont(i) > 0)
+
   const grandFirme = phaseOrder.reduce((a, p) => a + phaseMap.get(p)!.firme, 0)
   const grandCont  = phaseOrder.reduce((a, p) => a + phaseMap.get(p)!.cont,  0)
   const grandTotal = grandFirme + grandCont
@@ -796,38 +849,15 @@ function StatsPanel({ onCollapse }: { onCollapse?: () => void }) {
                   }`}
                   title={firmExpanded ? 'Recolher pacotes' : 'Expandir pacotes firmes para ajuste individual'}>
                   <span>{firmExpanded ? '▴' : '▾'}</span>
-                  <span>{items.filter(i => !i.isBlank && pkgFirme(i) > 0).length} pacotes</span>
+                  <span>{firmeList.length} pacotes</span>
                 </button>
                 {firmExpanded && (
                   <div className="flex flex-col gap-0.5 pl-2 border-l-2 border-[#2f5aa8]/25 dark:border-blue-800/50 mt-0.5">
-                    {items.filter(i => !i.isBlank && pkgFirme(i) > 0).map(item => {
-                      const firme = pkgFirme(item)
-                      return (
-                        <div key={item.uid} className="flex items-center gap-1 py-0.5">
-                          <span className="text-[10px] text-slate-600 dark:text-slate-500 truncate flex-1 min-w-0" title={item.packageName}>
-                            {item.packageName}
-                          </span>
-                          {firmeTotalLocked ? (
-                            <span className="text-[10px] text-[#2f5aa8] dark:text-blue-400 shrink-0 opacity-50 cursor-not-allowed"
-                              title="Restaure o ajuste de tempo total (↺) para editar pacotes individualmente">
-                              {fmt(firme)}
-                            </span>
-                          ) : (
-                            <InlineEdit
-                              value={fmt(firme)}
-                              type="number"
-                              onCommit={v => {
-                                const n = parseFloat(v.replace(',', '.'))
-                                if (!isNaN(n) && n > 0) editPkgFirme(item, showHours ? n / 24 : n)
-                              }}
-                              className="text-[10px] text-[#2f5aa8] dark:text-blue-400 shrink-0"
-                              inputClassName="text-[10px] w-12 text-right"
-                            />
-                          )}
-                          <span className="text-[9px] text-slate-500 dark:text-slate-600 shrink-0">{unit}</span>
-                        </div>
-                      )
-                    })}
+                    {firmeList.map(item => (
+                      <PkgAdjustRow key={item.uid} item={item} kind="firme" days={pkgFirme(item)}
+                        totalLocked={firmeTotalLocked} showHours={showHours} unit={unit} fmt={fmt}
+                        onCommit={days => editPkgFirme(item, days)} />
+                    ))}
                   </div>
                 )}
               </div>
@@ -845,38 +875,15 @@ function StatsPanel({ onCollapse }: { onCollapse?: () => void }) {
                     }`}
                     title={contExpanded ? 'Recolher pacotes' : 'Expandir pacotes com contingência'}>
                     <span>{contExpanded ? '▴' : '▾'}</span>
-                    <span>{items.filter(i => !i.isBlank && pkgCont(i) > 0).length} pacotes</span>
+                    <span>{contList.length} pacotes</span>
                   </button>
                   {contExpanded && (
                     <div className="flex flex-col gap-0.5 pl-2 border-l-2 border-[#7d1935]/25 dark:border-rose-800/50 mt-0.5">
-                      {items.filter(i => !i.isBlank && pkgCont(i) > 0).map(item => {
-                        const cont = pkgCont(item)
-                        return (
-                          <div key={item.uid} className="flex items-center gap-1 py-0.5">
-                            <span className="text-[10px] text-slate-600 dark:text-slate-500 truncate flex-1 min-w-0" title={item.packageName}>
-                              {item.packageName}
-                            </span>
-                            {contTotalLocked ? (
-                              <span className={`text-[10px] ${CONTING_TEXT} shrink-0 opacity-50 cursor-not-allowed`}
-                                title="Restaure o ajuste de tempo total (↺) para editar pacotes individualmente">
-                                {fmt(cont)}
-                              </span>
-                            ) : (
-                              <InlineEdit
-                                value={fmt(cont)}
-                                type="number"
-                                onCommit={v => {
-                                  const n = parseFloat(v.replace(',', '.'))
-                                  if (!isNaN(n) && n > 0) editPkgCont(item, showHours ? n / 24 : n)
-                                }}
-                                className={`text-[10px] ${CONTING_TEXT} shrink-0`}
-                                inputClassName="text-[10px] w-12 text-right"
-                              />
-                            )}
-                            <span className="text-[9px] text-slate-500 dark:text-slate-600 shrink-0">{unit}</span>
-                          </div>
-                        )
-                      })}
+                      {contList.map(item => (
+                        <PkgAdjustRow key={item.uid} item={item} kind="cont" days={pkgCont(item)}
+                          totalLocked={contTotalLocked} showHours={showHours} unit={unit} fmt={fmt}
+                          onCommit={days => editPkgCont(item, days)} />
+                      ))}
                     </div>
                   )}
                 </div>
@@ -1010,6 +1017,7 @@ function ResizeHandle({ onPointerDown }: { onPointerDown: (e: React.PointerEvent
 function PackagePickerModal({ afterUid, onClose }: { afterUid: string | null; onClose: () => void }) {
   const { dispatch } = useApp()
   const [query, setQuery] = useState('')
+  const deferredQuery = useDeferredValue(query)
   const inputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => { inputRef.current?.focus() }, [])
@@ -1023,14 +1031,14 @@ function PackagePickerModal({ afterUid, onClose }: { afterUid: string | null; on
   const allPackages = useMemo(() => Object.values(getAllPackages()), [])
 
   const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase()
+    const q = deferredQuery.trim().toLowerCase()
     if (!q) return allPackages
     return allPackages.filter(p =>
       p.id.toLowerCase().includes(q) ||
       p.name.toLowerCase().includes(q) ||
       p.category.toLowerCase().includes(q)
     )
-  }, [allPackages, query])
+  }, [allPackages, deferredQuery])
 
   // Group by category preserving order of first appearance
   const grouped = useMemo(() => {
@@ -1057,7 +1065,7 @@ function PackagePickerModal({ afterUid, onClose }: { afterUid: string | null; on
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 dark:border-slate-800">
           <div className="flex items-center gap-2">
-            <span className="text-sm font-bold text-slate-700 dark:text-slate-200 uppercase tracking-wide" style={{ fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif", letterSpacing: '0.1em' }}>
+            <span className="text-sm font-bold text-slate-700 dark:text-slate-200 uppercase tracking-wide" style={{ fontFamily: "'Petrobras Sans', 'Helvetica Neue', Helvetica, Arial, sans-serif", letterSpacing: '0.1em' }}>
               Inserir pacote
             </span>
             <span className="text-xs text-slate-600 dark:text-slate-500">{filtered.length} resultado{filtered.length === 1 ? '' : 's'}</span>
@@ -1750,7 +1758,7 @@ function ClassicSchedulePanel({
     if (count > 1) {
       const ghost = document.createElement('div')
       ghost.textContent = `${count} pacotes`
-      ghost.style.cssText = 'position:fixed;top:-1000px;padding:3px 10px;background:#3b82f6;color:#fff;border-radius:6px;font-size:12px;font-family:sans-serif;white-space:nowrap;'
+      ghost.style.cssText = 'position:fixed;top:-1000px;padding:3px 10px;background:#3b82f6;color:#fff;border-radius:6px;font-size:12px;font-family:"Petrobras Sans",sans-serif;white-space:nowrap;'
       document.body.appendChild(ghost)
       e.dataTransfer.setDragImage(ghost, ghost.offsetWidth / 2, 14)
       setTimeout(() => document.body.removeChild(ghost), 0)
@@ -1806,7 +1814,7 @@ function ClassicSchedulePanel({
     if (count > 1) {
       const ghost = document.createElement('div')
       ghost.textContent = `${count} linhas`
-      ghost.style.cssText = 'position:fixed;top:-1000px;padding:3px 10px;background:#6366f1;color:#fff;border-radius:6px;font-size:12px;font-family:sans-serif;white-space:nowrap;'
+      ghost.style.cssText = 'position:fixed;top:-1000px;padding:3px 10px;background:#6366f1;color:#fff;border-radius:6px;font-size:12px;font-family:"Petrobras Sans",sans-serif;white-space:nowrap;'
       document.body.appendChild(ghost)
       e.dataTransfer.setDragImage(ghost, ghost.offsetWidth / 2, 14)
       setTimeout(() => document.body.removeChild(ghost), 0)
@@ -2655,15 +2663,15 @@ function ClassicSchedulePanel({
           setContextMenu(null)
         }
 
-        const btn = 'w-full text-left px-3 py-1.5 text-xs text-slate-700 dark:text-slate-300 hover:bg-blue-50 dark:hover:bg-blue-950/40 transition-colors'
-        const btnSec = 'w-full text-left px-3 py-1.5 text-xs text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors'
-        const btnMove = 'w-full text-left px-3 py-1.5 text-xs font-medium text-sky-700 dark:text-sky-300 hover:bg-sky-50 dark:hover:bg-sky-950/40 transition-colors'
+        const btn = 'w-full text-left whitespace-nowrap px-2.5 py-1.5 text-xs text-slate-700 dark:text-slate-300 hover:bg-blue-50 dark:hover:bg-blue-950/40 transition-colors'
+        const btnSec = 'w-full text-left whitespace-nowrap px-2.5 py-1.5 text-xs text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors'
+        const btnMove = 'w-full text-left whitespace-nowrap px-2.5 py-1.5 text-xs font-medium text-sky-700 dark:text-sky-300 hover:bg-sky-50 dark:hover:bg-sky-950/40 transition-colors'
         const sep = <div className="border-t border-slate-200 dark:border-slate-700 my-1" />
 
         return (
           <div
             ref={contextMenuRef}
-            className="fixed z-50 bg-[#f5f5f5] dark:bg-slate-900 rounded-lg shadow-xl border border-slate-200 dark:border-slate-700 py-1 min-w-[200px] max-h-[calc(100vh-16px)] overflow-y-auto"
+            className="fixed z-50 flex flex-col items-stretch bg-[#f5f5f5] dark:bg-slate-900 rounded-lg shadow-xl border border-slate-200 dark:border-slate-700 py-1 w-max max-h-[calc(100vh-16px)] overflow-y-auto"
             style={{ left: contextMenu.x, top: contextMenu.y }}
             onClick={e => e.stopPropagation()}>
             {(contextMenu.kind === 'pkg' || contextMenu.lineId) && (
@@ -2736,13 +2744,13 @@ function ClassicSchedulePanel({
             {sep}
             {isTargetSelected && (checkedPkgs.size > 0 || checkedLines.size > 0) ? (
               <button
-                className="w-full text-left px-3 py-1.5 text-xs text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors"
+                className="w-full text-left whitespace-nowrap px-2.5 py-1.5 text-xs text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors"
                 onClick={() => { setDeleteTarget({ kind: 'bulk', pkgCount: checkedPkgs.size, lineCount: checkedLines.size }); setContextMenu(null) }}>
                 <span className="flex items-center gap-1.5"><Trash2 size={11} /> Excluir selecionados ({checkedPkgs.size + checkedLines.size})</span>
               </button>
             ) : contextMenu.kind === 'pkg' ? (
               <button
-                className="w-full text-left px-3 py-1.5 text-xs text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors"
+                className="w-full text-left whitespace-nowrap px-2.5 py-1.5 text-xs text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors"
                 onClick={() => {
                   const item = items.find(i => i.uid === contextMenu.uid)
                   if (item) setDeleteTarget({ kind: 'pkg', uid: contextMenu.uid, name: item.packageName })
@@ -2752,7 +2760,7 @@ function ClassicSchedulePanel({
               </button>
             ) : contextMenu.lineId ? (
               <button
-                className="w-full text-left px-3 py-1.5 text-xs text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors"
+                className="w-full text-left whitespace-nowrap px-2.5 py-1.5 text-xs text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors"
                 onClick={() => {
                   const line = items.find(i => i.uid === contextMenu.uid)?.lines.find(l => l.id === contextMenu.lineId)
                   if (line) setDeleteTarget({ kind: 'line', uid: contextMenu.uid, lineId: contextMenu.lineId!, text: line.text })

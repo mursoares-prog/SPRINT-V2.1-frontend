@@ -15,7 +15,7 @@ import { getPlaceholderDefs } from '../data/placeholderDefsStore'
 import type { PlaceholderFieldDef } from '../utils/api'
 import { getLineDetails, type LineDetail } from '../data/lineDetailsStore'
 import { reviewItems, FASE_TO_OW } from '../utils/ontologyReview'
-import { buildTimeCarriers, pkgFirme as pkgFirmeVal, pkgCont as pkgContVal } from '../utils/fineTuningTime'
+import { buildTimeCarriers, canSetPkgDuration, pkgFirme as pkgFirmeVal, pkgCont as pkgContVal } from '../utils/fineTuningTime'
 import { applyTimeline } from '../engines/sequenceEngine'
 
 type RawLine = {
@@ -978,7 +978,16 @@ function reducer(state: AppState, action: Action): AppState {
       const item = state.fineTuningItems.find(i => i.uid === uid)
       if (!item || targetDays <= 0) return state
       const current = kind === 'firme' ? pkgFirmeVal(item) : pkgContVal(item)
-      if (current <= 0) return state
+      if (current <= 0) {
+        // Pacote listado sem tempo (inserido manualmente, ou linha manual ainda sem
+        // duração): não há o que ratear — grava a duração no nível pacote.
+        if (!canSetPkgDuration(item, kind)) return state
+        return {
+          ...state,
+          fineTuningItems: state.fineTuningItems.map(i => i.uid === uid ? { ...i, duration: targetDays } : i),
+          ftAdjustMode: { ...state.ftAdjustMode, [kind]: 'individual' },
+        }
+      }
       const scale = targetDays / current
 
       let newItems: FineTuningItem[]

@@ -62,6 +62,19 @@ export function pkgCont(item: FineTuningItem): number {
   return itemContCarriers(item).reduce((s, c) => s + c.dur, 0)
 }
 
+// Um pacote sem tempo (pkgFirme/pkgCont == 0) só pode receber uma duração digitada
+// no painel de ajuste quando o tempo mora no NÍVEL PACOTE — isto é, nenhuma linha
+// carrega duração e o pacote não é todo paralelo. Se houver tempo em linhas
+// (paralelas ou de contingência), item.duration é ignorado na exibição e escrever
+// nele não teria efeito nenhum.
+export function canSetPkgDuration(item: FineTuningItem, kind: 'firme' | 'cont'): boolean {
+  if (item.isBlank || item.isParallel) return false
+  if (kind === 'cont' && !item.isContingency) return false
+  if (item.lines.length === 0) return true
+  if (item.lines.some(l => (l.duration ?? 0) > 0)) return false
+  return !allLinesParallel(item)
+}
+
 // Carriers de TODOS os pacotes, para o ajuste de tempo TOTAL — soma exatamente os
 // mesmos itens que compõem o grandFirme/grandCont exibidos (sum de pkgFirme/pkgCont).
 export function buildTimeCarriers(items: FineTuningItem[], kind: 'firme' | 'cont'): TimeCarrier[] {
