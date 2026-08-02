@@ -6,7 +6,7 @@ import LOGIC_BUNDLE from './logicScopesBundle.json'
 // vários escopos: editar o bloco propaga para todos que o usam. É armazenado como um
 // escopo comum (mesma tabela/ferramenta), mas distinguido pelo prefixo do scopeId —
 // assim NÃO aparece como escopo selecionável no gerador e ganha categoria própria na UI.
-export const BLOCK_PREFIX = 'BLK_'
+const BLOCK_PREFIX = 'BLK_'
 export function isBlockScope(scopeId: string): boolean {
   return scopeId.startsWith(BLOCK_PREFIX)
 }

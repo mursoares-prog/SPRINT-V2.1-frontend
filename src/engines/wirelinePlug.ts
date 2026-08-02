@@ -18,7 +18,7 @@ export interface NippleSpec { type: string; diam: string }
 
 /** Tipo+diâmetro do nipple a partir de um texto (nome do pacote ou coluna `nipples`).
  *  Ex.: "…nipple R 2,75\"" → { type: 'R', diam: '2.75' }. */
-export function nippleSpec(text: string | null | undefined): NippleSpec | null {
+function nippleSpec(text: string | null | undefined): NippleSpec | null {
   const s = String(text ?? '')
   const m = s.match(/nipples?\s+([A-Za-z/]+)\s*[-\s]?\s*(\d+[.,]\d+)/i)
           ?? s.match(/\b(XN|QN|DB|R|F|X)\b[^\d]{0,8}(\d+[.,]\d+)/i)
@@ -52,7 +52,7 @@ export function toolsForPackage(tools: WirelineTool[], packageName: string, kind
 /** Nome curto do modelo p/ inserir na linha (remove o prefixo de categoria:
  *  "Tampão "/"Plug "/"Válvula de Retenção "/"STV ", e o "de " que às vezes o segue —
  *  "Tampão de Teste FMC 4,995"" → "Teste FMC 4,995""). */
-export function plugShortName(equipamento: string): string {
+function plugShortName(equipamento: string): string {
   return equipamento.replace(/^\s*(Tampão|Plug|Válvula de Retenção|STV)\s+(?:de\s+)?/i, '').trim()
 }
 
@@ -61,7 +61,7 @@ const norm = (s: string | null | undefined) => String(s ?? '').toLowerCase().rep
 /** Haste de equalização correspondente a um plug. Na tabela, a haste NÃO tem nipple —
  *  o `equipamento` referencia o modelo do plug (ex.: "Haste de equalização p/ RKH 2.75\"").
  *  Casa pelo modelo curto do plug (normalizado, ignorando pontuação/aspas). */
-export function hasteToolForPlug(tools: WirelineTool[], plugEquipamento: string): WirelineTool | null {
+function hasteToolForPlug(tools: WirelineTool[], plugEquipamento: string): WirelineTool | null {
   const key = norm(plugShortName(plugEquipamento))
   if (!key) return null
   return tools.find(t => (t.categoria ?? '').trim() === 'Haste de equalização'

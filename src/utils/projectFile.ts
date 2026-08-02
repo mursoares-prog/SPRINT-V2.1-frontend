@@ -90,7 +90,7 @@ export function loadProjectFromFile(): Promise<ProjectFile> {
   })
 }
 
-export function getRecentProjects(): ProjectFile[] {
+function getRecentProjects(): ProjectFile[] {
   try {
     return JSON.parse(localStorage.getItem(RECENT_KEY) ?? '[]') as ProjectFile[]
   } catch {
@@ -98,7 +98,7 @@ export function getRecentProjects(): ProjectFile[] {
   }
 }
 
-export function pushToRecent(project: ProjectFile): void {
+function pushToRecent(project: ProjectFile): void {
   const recent = getRecentProjects().filter(
     p => !(p.wellName === project.wellName && p.scopeId === project.scopeId)
   )

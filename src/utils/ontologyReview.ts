@@ -13,7 +13,7 @@ import OW_TREE_JSON from '../data/owOntology.json'
 // Ontologia OpenWells (hierárquica) — fonte: "Nova Ontologia de Abandono V6 3.xlsx"
 // Fase → Atividade → Operação → [Etapas]; listas em cascata (dependentes).
 export type OwTree = Record<string, Record<string, Record<string, string[]>>>
-export const OW_TREE = OW_TREE_JSON as OwTree
+const OW_TREE = OW_TREE_JSON as OwTree
 
 export const owFases = () => Object.keys(OW_TREE)
 export const owAtividades = (f: string) => Object.keys(OW_TREE[f] ?? {})
@@ -60,7 +60,7 @@ const STOPWORDS = new Set([
 ])
 
 // Minúsculas, sem acentos — base para tokenização e para o casamento de palavras-chave de calibração.
-export function normalizeText(s: string): string {
+function normalizeText(s: string): string {
   return (s ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
 }
 
@@ -71,7 +71,7 @@ function tokens(s: string): string[] {
 }
 
 // Similaridade tipo cosseno sobre conjuntos de tokens: interseção / sqrt(|a|·|b|), em [0,1].
-export function similarity(a: string, b: string): number {
+function similarity(a: string, b: string): number {
   const ta = new Set(tokens(a))
   const tb = new Set(tokens(b))
   if (ta.size === 0 || tb.size === 0) return 0
@@ -223,21 +223,6 @@ function resolveGroupOperation(
     return { atividade: curA, operacao: curO }
   const sampleText = groupLines.map(l => l.text ?? '').join(' ').slice(0, 400)
   return pickOperation(targetFase, curA, curO, sampleText)
-}
-
-// Conveniência para uma única linha (sem contexto de pacote). Mantida para reuso/testes.
-export function pickOntologyPath(
-  targetFase: string,
-  line: FineTuningLine,
-): { atividade: string; operacao: string; etapa: string } {
-  const curE = line.owEtapa ?? '', text = line.text ?? ''
-  if (owAtividades(targetFase).length === 0)
-    return { atividade: line.owAtividade ?? '', operacao: line.owOperacao ?? '', etapa: curE }
-  const res = resolveGroupOperation(targetFase, [line])
-  const etapa = res.etapa
-    ?? deriveEtapa(targetFase, res.atividade, res.operacao, curE, text)
-    ?? defaultEtapa(targetFase, res.atividade, res.operacao, text)
-  return { atividade: res.atividade, operacao: res.operacao, etapa }
 }
 
 // As fases OW devem sempre avançar ao longo do cronograma (Etapa 3) — nunca retroceder em relação

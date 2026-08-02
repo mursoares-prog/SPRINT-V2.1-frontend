@@ -7,7 +7,6 @@
 // admin (contagem de uso), evitando lógica duplicada.
 import { getPackageLines } from '../data/packageLinesStore'
 import { PLAN_KEY_ALIASES, isPlanKey } from './placeholders'
-import type { PlaceholderFieldDef } from '../utils/api'
 
 // token-base → apelidos por-pacote que resolvem para ele (inverso de PLAN_KEY_ALIASES).
 // Ex.: 'prof' → ['prof037','prof045',...]. Usado para casar o uso de um token-base nos
@@ -23,7 +22,7 @@ const ALIASES_BY_BASE: Record<string, string[]> = (() => {
 const reCache = new Map<string, RegExp>()
 
 /** Regex que casa {{token=...}} OU qualquer apelido por-pacote que resolva para o token. */
-export function tokenOrAliasRe(token: string): RegExp {
+function tokenOrAliasRe(token: string): RegExp {
   let re = reCache.get(token)
   if (!re) {
     const names = [token, ...(ALIASES_BY_BASE[token] ?? [])]
@@ -74,34 +73,4 @@ export function tokenUsedByPackages(token: string, projectPackageIds: Set<string
 /** Onde o valor de um token vive: 'perItem' (bhaPlans[uid][token]) ou 'global' (ProjectData[token]). */
 export function tokenBinding(token: string): 'perItem' | 'global' {
   return isPlanKey(token) ? 'perItem' : 'global'
-}
-
-/** Def agrupado para render: seção (group) → subgrupos → campos, na ordem de orderIndex. */
-export interface AssistantSection {
-  group: string | null
-  subgroups: { subgroup: string | null; fields: PlaceholderFieldDef[] }[]
-}
-
-/** Organiza os defs (já filtrados por visibilidade) em seções/subgrupos ordenados,
- *  preservando a ordem de primeira aparição de cada grupo/subgrupo por orderIndex. */
-export function groupAssistantDefs(defs: PlaceholderFieldDef[]): AssistantSection[] {
-  const sorted = [...defs].sort((a, b) => a.orderIndex - b.orderIndex)
-  const groupOrder: (string | null)[] = []
-  const byGroup = new Map<string | null, PlaceholderFieldDef[]>()
-  for (const d of sorted) {
-    const g = d.group?.trim() || null
-    if (!byGroup.has(g)) { byGroup.set(g, []); groupOrder.push(g) }
-    byGroup.get(g)!.push(d)
-  }
-  return groupOrder.map(group => {
-    const items = byGroup.get(group)!
-    const subOrder: (string | null)[] = []
-    const bySub = new Map<string | null, PlaceholderFieldDef[]>()
-    for (const d of items) {
-      const s = d.subgroup?.trim() || null
-      if (!bySub.has(s)) { bySub.set(s, []); subOrder.push(s) }
-      bySub.get(s)!.push(d)
-    }
-    return { group, subgroups: subOrder.map(subgroup => ({ subgroup, fields: bySub.get(subgroup)! })) }
-  })
 }

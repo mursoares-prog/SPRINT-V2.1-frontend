@@ -2,11 +2,11 @@ import type { PlaceholderFieldDef } from '../utils/api'
 
 // eslint-disable-next-line @typescript-eslint/no-redundant-type-constituents
 export type RigType = 'ANC' | 'DP' | 'PA' | 'SPH' | 'SM' | 'SPM' | 'Rigless' | (string & {})
-export type OperationType = 'Generalista' | 'LWO'
+type OperationType = 'Generalista' | 'LWO'
 export type Technology = 'wireline' | 'ct' | 'electric' | 'workstring' | 'bop' | 'none'
 export type Phase = 'Fase 0' | 'Fase 1A' | 'Fase 1B' | 'Fase 2' | 'Extra Abandono' | 'Mobilização' | 'Desmobilização'
-export type FlowlineLine = 'flpo' | 'flgl'
-export type FlowlineMethod = 'direct_pumping' | 'n2_lift'
+type FlowlineLine = 'flpo' | 'flgl'
+type FlowlineMethod = 'direct_pumping' | 'n2_lift'
 
 export type BundleScopeId =
   | 'FSU_TT_FT'
@@ -24,7 +24,7 @@ export type BundleScopeId =
 // eslint-disable-next-line @typescript-eslint/no-redundant-type-constituents
 export type ScopeId = BundleScopeId | (string & {})
 
-export type SubseaEquipment =
+type SubseaEquipment =
   | 'corrosion_cap'
   | 'tree_cap'
   | 'mini_tree_cap'
@@ -33,36 +33,36 @@ export type SubseaEquipment =
   | 'bap'
   | 'wellhead'
 
-export type CementMethod = 'params' | 'logging' | 'perforation_test'
-export type AnularAPressure = 'zero' | 'nonzero'
-export type AnularFillFluid = 'diesel' | 'inhibited'
-export type TcapDisposition = 'bottom' | 'surface'
-export type CsbPrimary = 'stdv' | 'plug' | 'tae' | 'inflatable_packer'
-export type TtFtCementMode = 'single' | 'successive' | 'distinct'
-export type LoggingMode = 'polias' | 'pressure_equipment'
+type CementMethod = 'params' | 'logging' | 'perforation_test'
+type AnularAPressure = 'zero' | 'nonzero'
+type AnularFillFluid = 'diesel' | 'inhibited'
+type TcapDisposition = 'bottom' | 'surface'
+type CsbPrimary = 'stdv' | 'plug' | 'tae' | 'inflatable_packer'
+type TtFtCementMode = 'single' | 'successive' | 'distinct'
+type LoggingMode = 'polias' | 'pressure_equipment'
 export type Percentile = number
 export type OperationMode = 'through_tubing' | 'through_casing'
-export type TmfPlugBore = 'production' | 'annular'
-export type CamisaoMethod = 'wireline' | 'ct'
-export type GaugeTech = 'wireline' | 'electric' | 'ct' | 'no'
-export type InvestigationLog = 'registro_pressao' | 'fluxo_anular' | 'furo_cop' | 'caliper' | 'imageamento' | 'free_point'
-export type TcapSurfaceFluid = 'n2' | 'inhibited_pre' | 'inhibited_post'
-export type FishingElement = 'camisao' | 'stv_r' | 'stv_f' | 'plug_r' | 'plug_f' | 'brv_f' | 'brv_r'
-export type FishingMethod = 'wireline' | 'stroker' | 'ct'
-export interface FishingItem { element: FishingElement; method: FishingMethod }
-export type VglAction = 'remove' | 'replace'
-export type TubingPerfMethod = 'electric' | 'wireline' | 'ct'
-export type RiserFluid = 'n2' | 'inhibited'
-export type TransponderMode = 'cot' | 'rov'
-export type InitialFillFluid = 'diesel_fcba' | 'inhibited' | 'diesel'
-export type AnularFluid = 'diesel_fcba' | 'inhibited' | 'diesel'
-export type DhsvBrvType = 'tubing_mounted' | 'insertable' | 'none'
-export type Fs1CsbPrimary = 'stdv' | 'plug' | 'tae' | 'cement_plug' | 'ecsb'
-export type Fs1CsbSecondary = 'plug_th' | 'tae'
-export type RcmaCsbPrincipal = 'no_surge' | 'fluid_csb' | 'cement_plug'
-export type RcmaCementPkg = 'ABAN 078' | 'ABAN 079' | 'ABAN 080' | 'ABAN 081' | 'ABAN 082' | 'ABAN 083' | 'ABAN 084' | 'ABAN 159' | 'ABAN 160'
+type TmfPlugBore = 'production' | 'annular'
+type CamisaoMethod = 'wireline' | 'ct'
+type GaugeTech = 'wireline' | 'electric' | 'ct' | 'no'
+type InvestigationLog = 'registro_pressao' | 'fluxo_anular' | 'furo_cop' | 'caliper' | 'imageamento' | 'free_point'
+type TcapSurfaceFluid = 'n2' | 'inhibited_pre' | 'inhibited_post'
+type FishingElement = 'camisao' | 'stv_r' | 'stv_f' | 'plug_r' | 'plug_f' | 'brv_f' | 'brv_r'
+type FishingMethod = 'wireline' | 'stroker' | 'ct'
+interface FishingItem { element: FishingElement; method: FishingMethod }
+type VglAction = 'remove' | 'replace'
+type TubingPerfMethod = 'electric' | 'wireline' | 'ct'
+type RiserFluid = 'n2' | 'inhibited'
+type TransponderMode = 'cot' | 'rov'
+type InitialFillFluid = 'diesel_fcba' | 'inhibited' | 'diesel'
+type AnularFluid = 'diesel_fcba' | 'inhibited' | 'diesel'
+type DhsvBrvType = 'tubing_mounted' | 'insertable' | 'none'
+type Fs1CsbPrimary = 'stdv' | 'plug' | 'tae' | 'cement_plug' | 'ecsb'
+type Fs1CsbSecondary = 'plug_th' | 'tae'
+type RcmaCsbPrincipal = 'no_surge' | 'fluid_csb' | 'cement_plug'
+type RcmaCementPkg = 'ABAN 078' | 'ABAN 079' | 'ABAN 080' | 'ABAN 081' | 'ABAN 082' | 'ABAN 083' | 'ABAN 084' | 'ABAN 159' | 'ABAN 160'
 // Três estados para perguntas operacionais: planejado / contingencial / não previsto
-export type YesContingencyNo = 'yes' | 'contingency' | 'no'
+type YesContingencyNo = 'yes' | 'contingency' | 'no'
 
 export type IsolationPlugType = 'bpp' | 'pata_de_mula'
 export type IsolationCorrMethod = 'convencional' | 'pwc'
@@ -87,10 +87,6 @@ export interface Package {
   noDismountAfter?: boolean
   nRuns?: number        // corridas firmes por item firme (omitir = 1)
   nContSubruns?: number // corridas contingenciais embutidas no item firme (omitir = 0)
-}
-
-export interface Duration {
-  P10: number; P25: number; P50: number; P75: number; P90: number; P95: number
 }
 
 export interface ScheduleItem {
@@ -227,8 +223,7 @@ export interface ProjectSection {
   fields: ProjectField[]
 }
 
-export type CwoOption = 'FIBOP/BOPW/TRT' | 'FIBOP/BOPW/TIT' | 'FDR/FIANM' | 'FDR/FIANM/ADWO/TRT' | 'TIT' | 'TRT' | ''
-export type CamisaoTipo = 'permanente' | 'drop-off' | ''
+type CwoOption = 'FIBOP/BOPW/TRT' | 'FIBOP/BOPW/TIT' | 'FDR/FIANM' | 'FDR/FIANM/ADWO/TRT' | 'TIT' | 'TRT' | ''
 
 export interface BhaPlanFields {
   // Perfuração
@@ -354,7 +349,7 @@ export interface BhaPlanFields {
 
 /** @deprecated Substituído por bhaPlans[uid].cimentBase/cimentTopo (ver ProjectDataPanel).
  *  Mantido só para ler projetos salvos antes da migração. */
-export interface CimentPlugFields {
+interface CimentPlugFields {
   base?: string
   topo?: string
 }

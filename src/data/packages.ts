@@ -419,7 +419,7 @@ export const PACKAGES: Record<string, Package> = {
   'ABAN 247': { id: 'ABAN 247', name: 'Montagem de Terminal Head e arranjo de superfície', category: 'Outros', technology: 'none', applicableRig: ANC, applicableOp: ALL_OP },
 }
 
-export const PACKAGE_DURATIONS: Record<string, { P50: number; P90: number }> = {
+const PACKAGE_DURATIONS: Record<string, { P50: number; P90: number }> = {
   'ABAN 001': { P50: 0.5,  P90: 0.8  },
   'ABAN 003': { P50: 0.80, P90: 1.15 },
   'ABAN 006': { P50: 0.5,  P90: 0.8  },
@@ -701,7 +701,7 @@ export const PACKAGE_DURATIONS: Record<string, { P50: number; P90: number }> = {
 let EXTRA_PACKAGES: Record<string, Package> = {}
 
 /** Substitui o conjunto de pacotes customizados ativos (boot/Admin reload). */
-export function setExtraPackages(map: Record<string, Package>): void {
+function setExtraPackages(map: Record<string, Package>): void {
   EXTRA_PACKAGES = map && typeof map === 'object' ? map : {}
 }
 
@@ -752,7 +752,7 @@ export function getAllPackages(): Record<string, Package> {
 
 /** Converte a meta de um pacote customizado (servidor) em Package.
  *  applicableRig/Op recebem defaults amplos (customizados não entram na geração). */
-export function metaToPackage(m: { pkgId: string; name: string; category: string; technology: string }): Package {
+function metaToPackage(m: { pkgId: string; name: string; category: string; technology: string }): Package {
   return {
     id: m.pkgId, name: m.name, category: m.category,
     technology: (m.technology || 'none') as Package['technology'],
@@ -762,57 +762,6 @@ export function metaToPackage(m: { pkgId: string; name: string; category: string
 
 export function getPackage(id: string): Package | undefined {
   return PACKAGES[id] ?? EXTRA_PACKAGES[id]
-}
-
-export const FLUID_VARIANT: Record<string, { label: string; alts: string[]; heading?: string }> = {
-  'ABAN 061': { label: 'diesel + FCBA', alts: ['ABAN 062'] },
-  'ABAN 062': { label: 'FCBA',         alts: ['ABAN 061'] },
-  'ABAN 064': { label: 'diesel',        alts: ['ABAN 065'] },
-  'ABAN 065': { label: 'MEG/FCBA',     alts: ['ABAN 064'] },
-  // Ferramenta de intervenção BOP: FETH ↔ THRT
-  'ABAN 185': { label: 'FETH', alts: ['ABAN 186'], heading: 'Trocar ferramenta' },
-  'ABAN 186': { label: 'THRT', alts: ['ABAN 185'], heading: 'Trocar ferramenta' },
-  'ABAN 189': { label: 'FETH', alts: ['ABAN 190'], heading: 'Trocar ferramenta' },
-  'ABAN 190': { label: 'THRT', alts: ['ABAN 189'], heading: 'Trocar ferramenta' },
-  // ── Corte de coluna ───────────────────────────────────────────────────────
-  'ABAN 113': { label: 'Corte de coluna (cortador mecânico)', alts: ['ABAN 117', 'ABAN 118', 'ABAN 225', 'ABAN 150'], heading: 'Trocar corte de coluna' },
-  'ABAN 117': { label: 'Corte de coluna (cortador químico)',  alts: ['ABAN 113', 'ABAN 118', 'ABAN 225', 'ABAN 150'], heading: 'Trocar corte de coluna' },
-  'ABAN 118': { label: 'Corte de coluna (cortador a plasma)', alts: ['ABAN 113', 'ABAN 117', 'ABAN 225', 'ABAN 150'], heading: 'Trocar corte de coluna' },
-  'ABAN 225': { label: 'Corte de coluna (explosivo)',         alts: ['ABAN 113', 'ABAN 117', 'ABAN 118', 'ABAN 150'], heading: 'Trocar corte de coluna' },
-  'ABAN 150': { label: 'Corte de coluna',                    alts: ['ABAN 113', 'ABAN 117', 'ABAN 118', 'ABAN 225'], heading: 'Trocar corte de coluna' },
-  // ── CSB — arame, instalação, nipple ───────────────────────────────────────
-  'ABAN 038': { label: 'STV em nipple R 2,75"',  alts: ['ABAN 039', 'ABAN 040', 'ABAN 041', 'ABAN 042', 'ABAN 127', 'ABAN 128', 'ABAN 129', 'ABAN 130', 'ABAN 131', 'ABAN 237'], heading: 'Trocar eCSB mecânico' },
-  'ABAN 039': { label: 'STV em nipple F 2,81"',  alts: ['ABAN 038', 'ABAN 040', 'ABAN 041', 'ABAN 042', 'ABAN 127', 'ABAN 128', 'ABAN 129', 'ABAN 130', 'ABAN 131', 'ABAN 237'], heading: 'Trocar eCSB mecânico' },
-  'ABAN 040': { label: 'plug em nipple R 2,75"', alts: ['ABAN 038', 'ABAN 039', 'ABAN 041', 'ABAN 042', 'ABAN 127', 'ABAN 128', 'ABAN 129', 'ABAN 130', 'ABAN 131', 'ABAN 237'], heading: 'Trocar eCSB mecânico' },
-  'ABAN 041': { label: 'plug em nipple F 2,81"', alts: ['ABAN 038', 'ABAN 039', 'ABAN 040', 'ABAN 042', 'ABAN 127', 'ABAN 128', 'ABAN 129', 'ABAN 130', 'ABAN 131', 'ABAN 237'], heading: 'Trocar eCSB mecânico' },
-  'ABAN 042': { label: 'plug 3,75" no TH',       alts: ['ABAN 038', 'ABAN 039', 'ABAN 040', 'ABAN 041', 'ABAN 127', 'ABAN 128', 'ABAN 129', 'ABAN 130', 'ABAN 131', 'ABAN 237'], heading: 'Trocar eCSB mecânico' },
-  'ABAN 129': { label: 'plug no TH',             alts: ['ABAN 038', 'ABAN 039', 'ABAN 040', 'ABAN 041', 'ABAN 042', 'ABAN 127', 'ABAN 128', 'ABAN 130', 'ABAN 131', 'ABAN 237'], heading: 'Trocar eCSB mecânico' },
-  'ABAN 237': { label: 'TAE',                    alts: ['ABAN 038', 'ABAN 039', 'ABAN 040', 'ABAN 041', 'ABAN 042', 'ABAN 127', 'ABAN 128', 'ABAN 129', 'ABAN 130', 'ABAN 131'], heading: 'Trocar eCSB mecânico' },
-  // ── CSB — arame, retirada, nipple ─────────────────────────────────────────
-  'ABAN 048': { label: 'STV em nipple R 2,75"',  alts: ['ABAN 049', 'ABAN 050', 'ABAN 051'], heading: 'Trocar eCSB mecânico' },
-  'ABAN 049': { label: 'STV em nipple F 2,81"',  alts: ['ABAN 048', 'ABAN 050', 'ABAN 051'], heading: 'Trocar eCSB mecânico' },
-  'ABAN 050': { label: 'plug em nipple R 2,75"', alts: ['ABAN 048', 'ABAN 049', 'ABAN 051'], heading: 'Trocar eCSB mecânico' },
-  'ABAN 051': { label: 'plug em nipple F 2,81"', alts: ['ABAN 048', 'ABAN 049', 'ABAN 050'], heading: 'Trocar eCSB mecânico' },
-  // ── CSB — retirada, TH ───────────────────────────────────────────────────
-  'ABAN 052': { label: 'plug 3,75" no TH',       alts: ['ABAN 140'], heading: 'Trocar eCSB mecânico' },
-  'ABAN 140': { label: 'plug no TH',             alts: ['ABAN 052'], heading: 'Trocar eCSB mecânico' },
-  // ── CSB — CT (flexitubo), instalação, nipple ──────────────────────────────
-  'ABAN 127': { label: 'plug em nipple F 2,81"', alts: ['ABAN 038', 'ABAN 039', 'ABAN 040', 'ABAN 041', 'ABAN 042', 'ABAN 128', 'ABAN 129', 'ABAN 130', 'ABAN 131', 'ABAN 237'], heading: 'Trocar eCSB mecânico' },
-  'ABAN 128': { label: 'plug em nipple R 2,75"', alts: ['ABAN 038', 'ABAN 039', 'ABAN 040', 'ABAN 041', 'ABAN 042', 'ABAN 127', 'ABAN 129', 'ABAN 130', 'ABAN 131', 'ABAN 237'], heading: 'Trocar eCSB mecânico' },
-  'ABAN 130': { label: 'STV em nipple F 2,81"',  alts: ['ABAN 038', 'ABAN 039', 'ABAN 040', 'ABAN 041', 'ABAN 042', 'ABAN 127', 'ABAN 128', 'ABAN 129', 'ABAN 131', 'ABAN 237'], heading: 'Trocar eCSB mecânico' },
-  'ABAN 131': { label: 'STV em nipple R 2,75"',  alts: ['ABAN 038', 'ABAN 039', 'ABAN 040', 'ABAN 041', 'ABAN 042', 'ABAN 127', 'ABAN 128', 'ABAN 129', 'ABAN 130', 'ABAN 237'], heading: 'Trocar eCSB mecânico' },
-  // ── CSB — CT (flexitubo), retirada, nipple ────────────────────────────────
-  'ABAN 136': { label: 'STV em nipple R 2,75"',  alts: ['ABAN 137', 'ABAN 138', 'ABAN 139'], heading: 'Trocar eCSB mecânico' },
-  'ABAN 137': { label: 'STV em nipple F 2,81"',  alts: ['ABAN 136', 'ABAN 138', 'ABAN 139'], heading: 'Trocar eCSB mecânico' },
-  'ABAN 138': { label: 'plug em nipple R 2,75"', alts: ['ABAN 136', 'ABAN 137', 'ABAN 139'], heading: 'Trocar eCSB mecânico' },
-  'ABAN 139': { label: 'plug em nipple F 2,81"', alts: ['ABAN 136', 'ABAN 137', 'ABAN 138'], heading: 'Trocar eCSB mecânico' },
-}
-
-export const PACKAGE_ALTERNATES: Record<string, string[]> = {
-  'ABAN 234': ['ABAN 248'],
-  'ABAN 248': ['ABAN 234'],
-  'ABAN 045': ['ABAN 101'],
-  'ABAN 101': ['ABAN 045'],
 }
 
 export function getDuration(id: string, percentile: number): number {

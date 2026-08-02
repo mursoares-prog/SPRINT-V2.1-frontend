@@ -96,7 +96,7 @@ export const TAMPAO_ABANDONO_COMPR_FIELD: Record<string, keyof ProjectData> = {
 //   _hpEst*              → "[HOLD POINT - SMAB] " quando flag de Hold Point ativo; "" caso contrário
 // ─────────────────────────────────────────────────────────────────────────────
 
-export interface RuleCtx {
+interface RuleCtx {
   data: ProjectData
   plan: BhaPlanFields    // bhaPlans[uid] já resolvido pelo chamador (ou {})
   pkgId: string
@@ -264,26 +264,15 @@ function resolveField(field: string, ctx: RuleCtx): string {
 const TOKEN_RE = /\{\{(\w+)=([^}]*)\}\}/g
 
 /** Substitui todos os tokens; campo vazio → glifo de fallback. */
-export function fillTokens(template: string, ctx: RuleCtx): string {
+export function applyPlaceholders(template: string, ctx: RuleCtx): string {
   return template.replace(TOKEN_RE, (_m, field: string, glyph: string) => resolveField(field, ctx) || glyph)
 }
-// Alias de compatibilidade (mesma assinatura usada pelos wrappers do AppContext).
-export const applyPlaceholders = fillTokens
 
 /** A linha carrega algum token (logo, recebe template e participa da substituição). */
 export function hasTokens(text: string | null | undefined): boolean {
   return typeof text === 'string' && text.includes('{{')
 }
 
-/** Algum token da linha está sem valor resolvido (linha incompleta). */
-export function hasUnfilledTokens(text: string, ctx: RuleCtx): boolean {
-  for (const m of text.matchAll(TOKEN_RE)) {
-    if (m[1] in ALWAYS_HP) continue       // prefixo sempre ativo, não conta como incompleto
-    if (m[1] in HP_PREFIX_FLAG) continue  // ausência de HP é estado válido
-    if (!resolveField(m[1], ctx)) return true
-  }
-  return false
-}
 
 /** Campos de ProjectData que, ao mudar, exigem re-substituição (derivado dos tokens
  *  presentes no packageLines.json). Exclui tokens sintéticos (prefixo _); inclui as

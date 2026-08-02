@@ -50,7 +50,7 @@ const lineDetailAt = (pkgId: string, i: number): { procedures?: string; details?
 
 // ── Navigation packages — duration computed from distance / speed ─────────────
 // 1 knot = 1 NM/h → days = distNM / speedKnots / 24
-export const NAV_PACKAGE_IDS = new Set(['ABAN 003', 'ABAN 208'])
+const NAV_PACKAGE_IDS = new Set(['ABAN 003', 'ABAN 208'])
 // All packages that have lines with navigation placeholders (includes tool-in-hole nav)
 const NAV_ALL_PACKAGE_IDS = new Set(['ABAN 003', 'ABAN 004', 'ABAN 005', 'ABAN 208'])
 // owEtapa values that mark the actual sailing line (receives computed duration)
@@ -592,7 +592,7 @@ function reducer(state: AppState, action: Action): AppState {
     case 'REORDER_SCHEDULE': return { ...state, schedule: applyTimeline(action.items) }
     case 'INSERT_SCHEDULE_PKG': {
       const percentile = state.inputs.percentile ?? 75
-      let phase: Phase = 'Mobilização'
+      let phase: Phase
       if (action.afterUid === null) {
         phase = state.schedule[0]?.phase ?? 'Mobilização'
       } else {
@@ -688,7 +688,7 @@ function reducer(state: AppState, action: Action): AppState {
     }
     case 'FT_INSERT_ITEM': {
       // Determine phase from neighboring item so manual items stay in same section
-      let phase: Phase = 'Mobilização'
+      let phase: Phase
       if (action.afterUid === null) {
         phase = state.fineTuningItems.find(i => !i.isBlank)?.phase ?? 'Mobilização'
       } else {
@@ -712,7 +712,7 @@ function reducer(state: AppState, action: Action): AppState {
     case 'FT_INSERT_PKG': {
       const percentile = state.inputs.percentile ?? 75
       // Determine phase from neighboring item (after, or fallback to before, or first item, or 'Mobilização')
-      let phase: Phase = 'Mobilização'
+      let phase: Phase
       if (action.afterUid === null) {
         phase = state.fineTuningItems.find(i => !i.isBlank)?.phase ?? 'Mobilização'
       } else {

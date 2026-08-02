@@ -31,7 +31,7 @@ export function conditionMatches(
 }
 
 export type LPkgPhase = 'Fase 0' | 'Fase 1A' | 'Fase 1B' | 'Fase 2' | 'Extra Abandono' | 'Mobilização' | 'Desmobilização'
-export type LTech = 'wireline' | 'ct' | 'electric' | 'workstring' | 'bop' | 'none'
+type LTech = 'wireline' | 'ct' | 'electric' | 'workstring' | 'bop' | 'none'
 
 export type LPkg = {
   id: string
@@ -49,7 +49,7 @@ export type LSeqEntry = { label: string; note?: string; packages?: LPkg[]; sub?:
 
 // Posição manual de um nó no editor de fluxo (ReactFlow). Persistida junto com o
 // escopo; ausente = posição calculada pelo layout automático.
-export type LPos = { x: number; y: number }
+type LPos = { x: number; y: number }
 
 export interface LAns {
   label: string

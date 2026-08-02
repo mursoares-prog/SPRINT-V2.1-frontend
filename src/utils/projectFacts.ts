@@ -5,7 +5,7 @@ import { pkgFirme } from './fineTuningTime'
 // A single datom: [entity, attribute, value] — the unit exported to JSON at the
 // end of Etapa 3. Kept as a shared builder so the export and the Admin view
 // always render exactly the same variables.
-export type Fact = [string, string, unknown]
+type Fact = [string, string, unknown]
 
 export interface ProjectFacts {
   project_eid: string

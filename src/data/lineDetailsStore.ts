@@ -1,8 +1,9 @@
 // Store mutável dos detalhes por linha (Recomendações → rec, Padrões → pad).
 //
 // Por padrão usa o packageLineDetails.json empacotado (funciona offline). No boot,
-// o app pode sobrepor os overrides do servidor (rec/pad editados no Admin) sobre o
-// bundle, via setLineDetails — assim as edições refletem nos cronogramas NOVOS.
+// o app sobrepõe os overrides do servidor (rec/pad editados no Admin) sobre o
+// bundle, via applyDetailOverrides/applyPackageOverrides — assim as edições
+// refletem nos cronogramas NOVOS.
 // Leitura síncrona (getLineDetails) preserva o uso atual no AppContext.
 //
 // IMPORTANTE: como o packageLinesStore, este store só é consumido ao CONSTRUIR
@@ -18,10 +19,6 @@ export function getLineDetails<T = LineDetail>(): Record<string, T[]> {
   return active as Record<string, T[]>
 }
 
-/** Substitui os detalhes ativos (chamado no boot com o bundle + overrides). */
-export function setLineDetails(details: unknown): void {
-  if (details && typeof details === 'object') active = details
-}
 
 /** Override de rec/pad de uma linha (subconjunto de api.LineOverride). */
 type DetailOverride = { pkgId: string; lineIndex: number; rec: string | null; pad: string | null }

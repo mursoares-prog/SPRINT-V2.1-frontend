@@ -45,7 +45,7 @@ function persist(s: Session): Session {
   return s
 }
 
-export function getSession(): Session | null {
+function getSession(): Session | null {
   try {
     return JSON.parse(sessionStorage.getItem(KEY) ?? 'null') as Session | null
   } catch {
@@ -61,7 +61,7 @@ export function ensureDefaultSession(): void {
   if (!getSession()) persist({ token: '', role: 'admin', username: 'local' })
 }
 
-export function getRole(): Role | null {
+function getRole(): Role | null {
   return getSession()?.role ?? null
 }
 

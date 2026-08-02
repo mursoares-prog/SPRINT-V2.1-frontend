@@ -14,32 +14,6 @@ function checkCondition(condition: LCondition | undefined, inputs: WizardInputs)
   return conditionMatches(condition, inputs.rigType, inputs.operationType)
 }
 
-// Campos de WizardInputs utilizáveis em LAns.field (resolução automática de resposta).
-// Exclui campos de controle que não representam decisões (scopeId, startDate, percentile,
-// logicAnswers). Usado pelo editor de fluxo para sugerir campos ao admin.
-export const WIZARD_LOGIC_FIELDS: string[] = [
-  'amortAnularFluid', 'anmForceMethod', 'anmForceOpen', 'anmHydrate', 'anmHydrateBlocks',
-  'anmValveContingency', 'anmValveHydrateBlocks', 'anularAMinPressure', 'anularFillFluid',
-  'anularFluid', 'bopCorrectionMethod', 'bopPwcPreLog', 'bopPwcValidation', 'bopTestMethod',
-  'camisaoMethod', 'ccapRemovalMethod', 'cementMethod', 'cleanFlowlines', 'cleanWithUep',
-  'contingencyCcapWorkstring', 'contingencyFejat', 'contingencyGabaritFT',
-  'contingencyTcapHydrate', 'contingencyTtFt', 'corrosionCapBeforeIntervention', 'csbPrimary',
-  'dhsvBrvType', 'dmmWithEquipment', 'flowlineHydrate', 'flowlineMethod',
-  'fs1CsbAlreadyInstalled', 'fs1CsbPrimary', 'fs1CsbSecondary', 'fs1CsbSecondaryMode',
-  'fs1PerfProfunda', 'fs1PerfRasa', 'fs2CopCutContingency', 'fs2CopCutMethod',
-  'fs2PackerFishing', 'fs2ThPlugRemoval', 'gaugeCamisaoAcoplado', 'gaugeContingency',
-  'gaugeTech', 'hasPDI', 'hasStuckStringRisk', 'hasThPlug', 'hasTmfPlug', 'includeCcapBackup',
-  'initialFillFluid', 'installCamisao', 'installTmfPlugEndAnul', 'installTmfPlugEndProd',
-  'investigationLogContingency', 'investigationLogMethods', 'investigationLogs',
-  'jatearCopCoi', 'killWellFase1A', 'loggingMode', 'operationType',
-  'perforationTestContingency', 'rcmaCsbPrincipal', 'removeANM', 'rigType', 'riserFluid',
-  'stdvDispositionAfterTest', 'subseaEquipments', 'supIntermTailFishing', 'supIntermTailMethod',
-  'tcapDisposition', 'tcapRemovalMethod', 'tcapSurfaceFluid', 'testColumnWithStdv', 'woAtBottom',
-  'thPlugContingency', 'tmfPlugBores', 'tmfPlugContingencyAnul', 'tmfPlugContingencyProd',
-  'transponderMode', 'treeCapBeforeIntervention', 'ttFtCementMode', 'tubingPerfMethod',
-  'vglAction', 'vglContingency', 'vglFishingMethod', 'vglInstallStv', 'vglRemoveStv',
-]
-
 // Amortecimento COP/COI (LIMPEZA_INJECT): camisão contingencial força diesel+FCBA;
 // kill 'no' suprime; 'contingency' escolhe a variante contingencial do mesmo fluido.
 function _amortCopResolver(inp: WizardInputs): string | null {

@@ -10,7 +10,7 @@ import { DIAM_ESTAMPADOR_FIELD, DIAM_LOCALIZADOR_FIELD } from './placeholders'
 // Compartilhado entre ProjectDataPanel (preenche o campo Profundidade do BHA) e
 // AppContext.lineIdsForLocate (localizador da seção Nipples: realça as linhas cujo
 // {{prof}} deriva do nipple).
-export function nippleDepthForBha(name: string, d: ProjectData): string | null {
+function nippleDepthForBha(name: string, d: ProjectData): string | null {
   const n = name.toLowerCase()
   const usable = (type: string, depth: string): string | null =>
     type && type.trim().toLowerCase() !== 'não aplicável' && depth.trim() ? depth.trim() : null

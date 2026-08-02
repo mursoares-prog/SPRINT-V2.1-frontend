@@ -8,7 +8,7 @@ import { LogicQuestionsPanel } from './LogicQuestionsPanel'
 import { ProjectNameField } from './ProjectNameField'
 import type { WizardInputs, ScopeId, IsolationPlugType, IsolationCorrMethod } from '../types'
 
-export const SearchCtx = createContext('')
+const SearchCtx = createContext('')
 
 const SCOPE_SHORT: Record<ScopeId, string> = {
   FSU_TT_FT:    'TT-FT',
