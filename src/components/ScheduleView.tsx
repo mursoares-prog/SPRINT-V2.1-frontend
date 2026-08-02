@@ -502,7 +502,7 @@ function PackageList({ items, showHours, overrideActive, onDurationChange }: {
         return next
       })
 
-      // Scroll para o primeiro incluído no topo da tela
+      // Scroll para o primeiro incluído, centralizado na tela
       setTimeout(() => {
         if (containerRef.current) {
           const row = Array.from(containerRef.current.querySelectorAll('tr')).find(tr => {
@@ -510,7 +510,7 @@ function PackageList({ items, showHours, overrideActive, onDurationChange }: {
             return uid && included.has(uid)
           })
           if (row) {
-            row.scrollIntoView({ behavior: 'smooth', block: 'start' })
+            row.scrollIntoView({ behavior: 'smooth', block: 'center' })
           }
         }
       }, 0)
