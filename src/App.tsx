@@ -11,7 +11,7 @@ import { ProjectNameField } from './components/ProjectNameField'
 import { TestIdentityModal } from './components/TestIdentityModal'
 import { generateSchedule } from './engines/scheduleRouter'
 import type { ScopeId, WizardInputs, RigType } from './types'
-import { ArrowRight, AlertTriangle, FilePlus } from 'lucide-react'
+import { ArrowRight, AlertTriangle, FilePlus, UploadCloud } from 'lucide-react'
 import { LuNetwork } from 'react-icons/lu'
 import { getDefaultInputs } from './utils/defaultInputs'
 import { isApiConfigured, getMergedPackageLines, getBaseOverrides, getBasePackageOverrides, getCustomPackages, getLogicScopes, getLogicScope, getLogicScopeGroups, listPlaceholderFieldDefs } from './utils/api'
@@ -52,6 +52,7 @@ const PHASE_LABELS: Record<string, string> = {
 function WizardPanel() {
   const { state, dispatch } = useApp()
   const [wizardMode,  setWizardMode]  = useState<'auto' | null>(null)
+  const [showSaviaModal, setShowSaviaModal] = useState(false)
   // Etapa 1 dirigida pelas PASTAS do editor de Árvores de Decisão: cada pasta de topo é um
   // "Tipo de intervenção". Selecionar uma pasta restringe o conjunto de escopos aos que
   // estão arquivados nela (membership). Os passos seguintes (sonda → fase → escopo) filtram
@@ -215,6 +216,38 @@ function WizardPanel() {
             <FilePlus size={18} className="mb-0.5" />
             <span className="text-sm">Cronograma em branco</span>
           </button>
+          <button
+            onClick={() => setShowSaviaModal(true)}
+            className="w-full flex flex-col items-center justify-center gap-1 py-5 rounded-xl border border-slate-200 dark:border-slate-600 bg-[#fafafa] dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100 hover:border-slate-300 dark:hover:bg-slate-600 dark:hover:border-slate-500 transition-colors">
+            <UploadCloud size={18} className="mb-0.5" />
+            <span className="text-sm">Cronograma por SAVIA</span>
+          </button>
+        </div>
+      )}
+
+      {/* Placeholder — importação de cronograma publicado no SAVIA (ainda não implementado) */}
+      {showSaviaModal && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4"
+          onClick={() => setShowSaviaModal(false)}>
+          <div
+            className="w-full max-w-sm bg-[#f5f5f5] dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-700 overflow-hidden"
+            onClick={e => e.stopPropagation()}>
+            <div className="flex items-center gap-2.5 px-5 py-4 border-b border-slate-200 dark:border-slate-700">
+              <UploadCloud size={16} className="text-slate-400 shrink-0" />
+              <span className="flex-1 text-sm font-semibold text-slate-800 dark:text-slate-100">
+                Cronograma por SAVIA
+              </span>
+            </div>
+            <div className="px-5 py-6 space-y-4">
+              <p className="text-sm text-slate-500 dark:text-slate-400 text-center">
+                Em implementação
+              </p>
+              <button type="button" onClick={() => setShowSaviaModal(false)}
+                className="w-full py-2 flex items-center justify-center gap-2 bg-[#0c2340] dark:bg-sky-800 text-white rounded-xl text-sm font-semibold hover:bg-[#0e3a60] dark:hover:bg-sky-700 transition-colors">
+                Fechar
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
