@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { AppProvider, useApp } from './context/AppContext'
 import { AutosaveProvider } from './context/AutosaveContext'
 import { Sidebar } from './components/Sidebar'
@@ -11,11 +12,12 @@ import { ProjectNameField } from './components/ProjectNameField'
 import { TestIdentityModal } from './components/TestIdentityModal'
 import { generateSchedule } from './engines/scheduleRouter'
 import type { ScopeId, WizardInputs, RigType } from './types'
-import { ArrowRight, AlertTriangle, FilePlus, UploadCloud } from 'lucide-react'
+import { ArrowRight, AlertTriangle, FilePlus, Loader2, UploadCloud } from 'lucide-react'
 import { LuNetwork } from 'react-icons/lu'
 import { getDefaultInputs } from './utils/defaultInputs'
-import { isApiConfigured, getMergedPackageLines, getBaseOverrides, getBasePackageOverrides, getCustomPackages, getLogicScopes, getLogicScope, getLogicScopeGroups, listPlaceholderFieldDefs } from './utils/api'
+import { isApiConfigured, getServerProject, getMergedPackageLines, getBaseOverrides, getBasePackageOverrides, getCustomPackages, getLogicScopes, getLogicScope, getLogicScopeGroups, listPlaceholderFieldDefs } from './utils/api'
 import { ensureDefaultSession } from './utils/auth'
+import { ROUTE_HOME, projectPath, projectIdFromPath } from './utils/routes'
 import { LoginModal } from './components/LoginModal'
 import { setPackageLines } from './data/packageLinesStore'
 import { setPlaceholderDefs } from './data/placeholderDefsStore'
@@ -378,6 +380,8 @@ function WizOption({ active, groupSelected, onClick, children }: { active: boole
 
 function Main() {
   const { state, dispatch } = useApp()
+  const navigate = useNavigate()
+  const location = useLocation()
   const [isDark, setIsDark] = useState(() => localStorage.getItem('sprint_theme') === 'dark')
   const [adminTab, setAdminTab] = useState<'vars' | 'engine'>('vars')
   const [showAdmin, setShowAdmin] = useState(false)
@@ -386,10 +390,58 @@ function Main() {
   const [navWarnTarget, setNavWarnTarget] = useState<'home' | 'wizard' | 'schedule' | 'fine_tuning' | null>(null)
   const [navWarnFrom, setNavWarnFrom] = useState<'schedule' | 'fine_tuning' | null>(null)
   const [showStats, setShowStats] = useState(() => typeof window !== 'undefined' && window.innerWidth >= 1400)
+  const [loadingProjectId, setLoadingProjectId] = useState<string | null>(null)
+  const [loadProjectError, setLoadProjectError] = useState<string | null>(null)
   // TEMPORÁRIO (harness de teste — ver TestIdentityModal): exibido uma vez ao abrir a
-  // página, simulando a entrada do sistema externo (poço, projeto, papel).
-  const [showIdentityModal, setShowIdentityModal] = useState(true)
+  // página, simulando a entrada do sistema externo (poço, projeto, papel). Não exibir
+  // quando a URL já aponta para um projeto salvo (/projects/:id) — nesse caso a
+  // identidade (poço/projeto/usuário) vem junto com o projeto carregado.
+  const [showIdentityModal, setShowIdentityModal] = useState(() => !projectIdFromPath(location.pathname))
   const toggleDark = () => setIsDark(d => !d)
+
+  // ── URL /projects/:id → carrega o projeto salvo (id é o identificador único do
+  // servidor — independe de nome de poço/projeto, que podem se repetir entre poços).
+  useEffect(() => {
+    const id = projectIdFromPath(location.pathname)
+    if (!id) return
+    if (!isApiConfigured()) { navigate(ROUTE_HOME, { replace: true }); return }
+    let cancelled = false
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- kickoff síncrono do spinner de carregamento
+    setLoadingProjectId(id)
+    setLoadProjectError(null)
+    getServerProject(id)
+      .then(project => {
+        if (cancelled) return
+        dispatch({
+          type: 'LOAD_PROJECT',
+          wellName: project.wellName,
+          inputs: project.inputs,
+          schedule: project.schedule,
+          projectData: project.projectData,
+          fineTuningItems: project.fineTuningItems,
+          projectId: project.id,
+          projectName: project.projectName,
+          userKey: project.userKey,
+          placeholderDefs: project.placeholderDefs,
+        })
+      })
+      .catch(() => { if (!cancelled) setLoadProjectError('Projeto não encontrado ou indisponível.') })
+      .finally(() => { if (!cancelled) setLoadingProjectId(null) })
+    return () => { cancelled = true }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.pathname])
+
+  // ── state.projectId → URL: todo projeto salvo tem uma única URL (/projects/:id).
+  // Quando o autosave grava pela primeira vez (SET_PROJECT_ID), a URL passa a apontar
+  // para esse projeto. Ignorado enquanto a URL aponta para um id de projeto ainda em
+  // carregamento/diferente (evita brigar com o efeito acima antes do fetch terminar).
+  useEffect(() => {
+    const pathId = projectIdFromPath(location.pathname)
+    if (pathId && pathId !== state.projectId) return
+    const target = state.projectId ? projectPath(state.projectId) : ROUTE_HOME
+    if (location.pathname !== target) navigate(target, { replace: true })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.projectId])
 
   const handleBeforeStepNav = (targetView: string): boolean => {
     if (state.view === 'fine_tuning' && (targetView === 'schedule' || targetView === 'wizard')) {
@@ -412,6 +464,29 @@ function Main() {
 
   return (
     <div className="flex flex-col h-[100dvh] overflow-y-hidden overflow-x-auto bg-[#fafafa] dark:bg-slate-950">
+
+      {/* URL /projects/:id em carregamento ou com erro (projeto inexistente/servidor fora) */}
+      {(loadingProjectId || loadProjectError) && (
+        <div className="fixed inset-0 z-[250] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+          <div className="w-full max-w-sm bg-[#f5f5f5] dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-700 p-6 flex flex-col items-center gap-3 text-center">
+            {loadingProjectId ? (
+              <>
+                <Loader2 size={20} className="animate-spin text-slate-500" />
+                <p className="text-sm text-slate-700 dark:text-slate-300">Carregando projeto…</p>
+              </>
+            ) : (
+              <>
+                <AlertTriangle size={20} className="text-amber-500" />
+                <p className="text-sm text-slate-700 dark:text-slate-300">{loadProjectError}</p>
+                <button type="button" onClick={() => { setLoadProjectError(null); navigate(ROUTE_HOME, { replace: true }) }}
+                  className="mt-1 px-4 py-1.5 rounded-lg text-sm font-semibold bg-[#0c2340] dark:bg-sky-800 text-white hover:opacity-90 transition-colors">
+                  Voltar ao início
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+      )}
 
       <Sidebar
         isDark={isDark}

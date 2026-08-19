@@ -56,6 +56,11 @@ export function lookupServerProject(wellName: string, projectName: string): Prom
   return req<StoredProject | null>(`/api/projects/lookup?${qs}`)
 }
 
+/** Busca um projeto salvo pelo id do servidor (ex.: abrir a URL /projects/:id direto). */
+export function getServerProject(id: string): Promise<StoredProject> {
+  return req<StoredProject>(`/api/projects/${id}`)
+}
+
 /** Timeout do autosave: conexão travada cai em erro em vez de ficar presa "Salvando…". */
 const SAVE_TIMEOUT_MS = 15000
 
