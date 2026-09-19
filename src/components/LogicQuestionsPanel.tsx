@@ -39,9 +39,13 @@ interface Props {
   showSectionLabels?: boolean
   rigType?: string
   operationType?: string
+  // Rótulo real da "Fase 0" já resolvido pela engine (ex.: "Fase 1A" quando a TCap
+  // não é retirada) — mantém o agrupamento em sincronia com o Cronograma, que é
+  // quem de fato decide essa promoção (normalizeScopePhases).
+  fase0DisplayPhase?: string
 }
 
-export function LogicQuestionsPanel({ sections, answers, onAnswer, rigType, operationType }: Props) {
+export function LogicQuestionsPanel({ sections, answers, onAnswer, rigType, operationType, fase0DisplayPhase }: Props) {
   if (!sections.length) return null
 
   const [openKey, setOpenKey] = useState<string | null>(null)
@@ -66,8 +70,9 @@ export function LogicQuestionsPanel({ sections, answers, onAnswer, rigType, oper
   const phaseOrder: string[] = []
   const byPhase: Record<string, LSec[]> = {}
   for (const sec of sections) {
-    if (!byPhase[sec.phase]) { byPhase[sec.phase] = []; phaseOrder.push(sec.phase) }
-    byPhase[sec.phase].push(sec)
+    const phase = sec.phase === 'Fase 0' && fase0DisplayPhase ? fase0DisplayPhase : sec.phase
+    if (!byPhase[phase]) { byPhase[phase] = []; phaseOrder.push(phase) }
+    byPhase[phase].push(sec)
   }
 
   // Recebe array de chaves (raiz + sub-perguntas visíveis).
