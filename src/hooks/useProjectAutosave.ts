@@ -108,7 +108,12 @@ export function useProjectAutosave() {
 
     latestRef.current = { file, key }
     if (timerRef.current) clearTimeout(timerRef.current)
-    timerRef.current = setTimeout(() => { void flushRef.current() }, DEBOUNCE_MS)
+    // 1ª gravação (projeto ainda sem id do servidor): salva imediatamente, sem o debounce.
+    // É o momento em que a URL vira /projects/:id (ver App.tsx) — esperar o debounce
+    // deixaria a Etapa 2 abrir com a URL antiga por até DEBOUNCE_MS sem motivo.
+    // Edições seguintes (projeto já com id) continuam com o debounce normal.
+    if (!idRef.current) void flushRef.current()
+    else timerRef.current = setTimeout(() => { void flushRef.current() }, DEBOUNCE_MS)
   }, [
     state.wellName,
     state.projectName,

@@ -1,5 +1,6 @@
 import type { ScheduleItem, Phase, Technology, OperationMode, Percentile, RigType } from '../types'
 import { getPackage, getDuration } from '../data/packages'
+import { categoryOfPackage } from '../data/scopeCategories'
 
 function getMountPackage(tech: Technology, rigType: RigType, opType: 'Generalista' | 'LWO', _mode: OperationMode): string | null {
   if (tech === 'wireline') {
@@ -38,7 +39,19 @@ export function applyTimeline(items: ScheduleItem[]): ScheduleItem[] {
 // (211 por coluna / 010 por ROV): retirada por coluna termina em 020 (fundeio) ou 021/022
 // (desassentamento/superfície); retirada por ROV é o próprio 010 (Fase 0, pós-mobilização).
 // Tudo até a âncora (inclusive) é Fase 0; sem âncora, Fase 0 é promovida à fase inicial do escopo.
+export function startPhaseForScope(scopeId: string): Phase {
+  return scopeId.startsWith('FS2') ? 'Fase 2' : 'Fase 1A'
+}
+
 export function normalizeScopePhases(items: ScheduleItem[], scopeId: string): ScheduleItem[] {
+  // Âncora de TCap é um conceito exclusivo de completação molhada (retirada da árvore
+  // molhada/BOP). Árvores de abandono de completação seca (pacotes T-AB) não têm TCap
+  // para retirar — aplicar essa regra a elas promoveria a Fase 0 declarada no
+  // fluxograma para "Fase 1A" indevidamente. Nesse caso, mantém a fase tal como
+  // declarada na árvore de lógica.
+  const isDryCompletion = items.length > 0 && items.every(i => categoryOfPackage(i.packageId) === 'aban_seca')
+  if (isDryCompletion) return items
+
   const tcapUnseatingIds = new Set(['ABAN 010', 'ABAN 020', 'ABAN 021', 'ABAN 022', 'ABAN 177'])
   const lastTcapIdx = items.reduce((acc, item, i) =>
     tcapUnseatingIds.has(item.packageId) ? i : acc, -1)
@@ -49,7 +62,7 @@ export function normalizeScopePhases(items: ScheduleItem[], scopeId: string): Sc
     )
   }
 
-  const startPhase: Phase = scopeId.startsWith('FS2') ? 'Fase 2' : 'Fase 1A'
+  const startPhase = startPhaseForScope(scopeId)
   return items.map(item =>
     item.phase === 'Fase 0' ? { ...item, phase: startPhase } : item
   )

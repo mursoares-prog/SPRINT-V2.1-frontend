@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import { X, Search, ChevronUp, ChevronDown, Lock } from 'lucide-react'
 import { useApp } from '../context/AppContext'
 import { generateSchedule } from '../engines/scheduleRouter'
+import { startPhaseForScope } from '../engines/sequenceEngine'
 import { resolveScopeSections, expandScopeRefs, getCustomScopesMeta } from '../data/logicOverrideStore'
 import { LogicQuestionsPanel } from './LogicQuestionsPanel'
 import { ProjectNameField } from './ProjectNameField'
@@ -336,6 +337,14 @@ export function InputSummaryPanel({ onClose }: { onClose?: () => void }) {
             return sec.decisions.length > 0
           })
           if (!secs.length) return null
+          // A "Fase 0" das seções é um rótulo estático do fluxograma. A engine só
+          // sabe se ela deve ser promovida (ex.: TCap não retirada → Fase 1A/2)
+          // depois de gerar o cronograma (normalizeScopePhases), então refletimos
+          // aqui o resultado já calculado em state.schedule, em vez de reavaliar
+          // a âncora da TCap de novo — mesma fonte de verdade do Cronograma.
+          const fase0DisplayPhase = state.schedule.some(i => i.phase === 'Fase 0')
+            ? undefined
+            : startPhaseForScope(inputs.scopeId)
           return (
             <Section label="Definições" defaultExpanded>
               <LogicQuestionsPanel
@@ -344,6 +353,7 @@ export function InputSummaryPanel({ onClose }: { onClose?: () => void }) {
                 rigType={inputs.rigType}
                 operationType={inputs.operationType}
                 answers={inputs.logicAnswers ?? {}}
+                fase0DisplayPhase={fase0DisplayPhase}
                 onAnswer={(key, label) => {
                   apply({ logicAnswers: { ...(inputs.logicAnswers ?? {}), [key]: label } }, false)
                 }}
